@@ -552,13 +552,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'tasks':
-        return <TaskList onCreditsUpdate={setCredits} credits={credits} />;
+        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
-        return <CreditFunding credits={credits} onCreditsUpdate={setCredits} />;
+        return isEnabled('credit_funding') ? <CreditFunding credits={credits} onCreditsUpdate={setCredits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'transfer':
-        return <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
+        return isEnabled('credit_transfer') ? <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'premium':
         return <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} />;
