@@ -561,25 +561,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('credit_transfer') ? <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'premium':
-        return <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} />;
+        return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'marketplace':
-        return <MarketingAppsMarketplace />;
+        return isEnabled('marketing_apps') ? <MarketingAppsMarketplace /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'promo':
-        return <PromotionalContent />;
+        return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'about':
         return <AboutPage />;
 
       case 'business-tasks':
-        return <BusinessTaskCreator />;
+        return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'syndicate':
-        return <SyndicateDashboard />;
+        return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'syndicate-wallet':
-        return <SyndicateWallet />;
+        return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'task-wallet':
         return <TaskWalletFunding />;
