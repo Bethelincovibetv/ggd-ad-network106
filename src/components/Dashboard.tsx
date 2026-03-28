@@ -331,10 +331,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'ads':
         return (
           <div className="space-y-4">
-            <SlideCarousel />
+            {isEnabled('slides') && <SlideCarousel />}
             
             {/* Ad Display Preview */}
-            <AdDisplayPreview />
+            {isEnabled('ads') && <AdDisplayPreview />}
 
             <div className="grid grid-cols-3 gap-3">
               <Card className="border-0 shadow-sm">
