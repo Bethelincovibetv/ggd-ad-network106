@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import AdminPanel from "@/components/AdminPanel";
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -78,6 +79,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [activeTab, setActiveTab] = useState('ads');
+  const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
 
@@ -329,10 +331,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'ads':
         return (
           <div className="space-y-4">
-            <SlideCarousel />
+            {isEnabled('slides') && <SlideCarousel />}
             
             {/* Ad Display Preview */}
-            <AdDisplayPreview />
+            {isEnabled('ads') && <AdDisplayPreview />}
 
             <div className="grid grid-cols-3 gap-3">
               <Card className="border-0 shadow-sm">
@@ -550,34 +552,34 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'tasks':
-        return <TaskList onCreditsUpdate={setCredits} credits={credits} />;
+        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
-        return <CreditFunding credits={credits} onCreditsUpdate={setCredits} />;
+        return isEnabled('credit_funding') ? <CreditFunding credits={credits} onCreditsUpdate={setCredits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'transfer':
-        return <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
+        return isEnabled('credit_transfer') ? <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'premium':
-        return <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} />;
+        return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'marketplace':
-        return <MarketingAppsMarketplace />;
+        return isEnabled('marketing_apps') ? <MarketingAppsMarketplace /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'promo':
-        return <PromotionalContent />;
+        return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'about':
         return <AboutPage />;
 
       case 'business-tasks':
-        return <BusinessTaskCreator />;
+        return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'syndicate':
-        return <SyndicateDashboard />;
+        return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'syndicate-wallet':
-        return <SyndicateWallet />;
+        return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'task-wallet':
         return <TaskWalletFunding />;

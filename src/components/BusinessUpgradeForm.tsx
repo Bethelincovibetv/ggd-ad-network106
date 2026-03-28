@@ -37,7 +37,7 @@ const BusinessUpgradeForm = ({ onUpgraded }: BusinessUpgradeFormProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSubmitting(false); return; }
 
-    const { error: profileError } = await supabase.from('business_profiles').insert({
+    const { error: profileError } = await (supabase.from('business_profiles' as any) as any).insert({
       user_id: user.id,
       business_name: form.business_name,
       description: form.description || null,
