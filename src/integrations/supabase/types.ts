@@ -145,6 +145,39 @@ export type Database = {
         }
         Relationships: []
       }
+      business_profiles: {
+        Row: {
+          business_name: string
+          created_at: string
+          description: string | null
+          id: string
+          logo_url: string | null
+          user_id: string
+          website_link: string | null
+          whatsapp_link: string | null
+        }
+        Insert: {
+          business_name: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          user_id: string
+          website_link?: string | null
+          whatsapp_link?: string | null
+        }
+        Update: {
+          business_name?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          user_id?: string
+          website_link?: string | null
+          whatsapp_link?: string | null
+        }
+        Relationships: []
+      }
       credit_transfers: {
         Row: {
           amount: number
@@ -417,6 +450,9 @@ export type Database = {
       }
       syndicate_profiles: {
         Row: {
+          account_name: string | null
+          account_number: string | null
+          bank_name: string | null
           created_at: string
           id: string
           ranking_score: number | null
@@ -425,6 +461,9 @@ export type Database = {
           verified_platforms: string[] | null
         }
         Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
@@ -433,6 +472,9 @@ export type Database = {
           verified_platforms?: string[] | null
         }
         Update: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
