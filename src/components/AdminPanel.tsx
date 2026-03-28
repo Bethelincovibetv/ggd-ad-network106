@@ -1,10 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2 } from "lucide-react";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
@@ -13,15 +9,17 @@ import AdminSettings from "@/components/AdminSettings";
 import AdminUserManager from "@/components/AdminUserManager";
 import AdminApiManager from "@/components/AdminApiManager";
 import AdminMarketingApps from "@/components/AdminMarketingApps";
+import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 
 const AdminPanel = () => {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="analytics" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-5">
           <TabsTrigger value="analytics" className="text-[10px]"><TrendingUp className="h-3 w-3" /></TabsTrigger>
           <TabsTrigger value="users" className="text-[10px]"><Users className="h-3 w-3" /></TabsTrigger>
           <TabsTrigger value="settings" className="text-[10px]"><Settings className="h-3 w-3" /></TabsTrigger>
+          <TabsTrigger value="features" className="text-[10px]"><Settings2 className="h-3 w-3" /></TabsTrigger>
           <TabsTrigger value="more" className="text-[10px]"><Megaphone className="h-3 w-3" /></TabsTrigger>
         </TabsList>
 
@@ -35,6 +33,10 @@ const AdminPanel = () => {
 
         <TabsContent value="settings">
           <AdminSettings />
+        </TabsContent>
+
+        <TabsContent value="features">
+          <AdminFeatureToggles />
         </TabsContent>
 
         <TabsContent value="more">
