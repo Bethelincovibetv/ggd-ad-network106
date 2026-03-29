@@ -142,6 +142,19 @@ const AdminSettings = () => {
               </Button>
             </div>
           </div>
+          <div className="col-span-2 border-t pt-3 mt-2">
+            <h4 className="text-xs font-bold text-foreground mb-2">💳 Paystack Integration</h4>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <Label className="text-xs">Paystack Public Key</Label>
+                <Input value={settings.paystack_public_key || ''} onChange={e => setSettings(p => ({ ...p, paystack_public_key: e.target.value }))} placeholder="pk_live_..." className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Paystack Secret Key</Label>
+                <Input type="password" value={settings.paystack_secret_key || ''} onChange={e => setSettings(p => ({ ...p, paystack_secret_key: e.target.value }))} placeholder="sk_live_..." className="mt-1" />
+              </div>
+            </div>
+          </div>
           <Button onClick={saveAllSettings} className="w-full"><Save className="h-4 w-4 mr-1" />Save All Settings</Button>
         </CardContent>
       </Card>
