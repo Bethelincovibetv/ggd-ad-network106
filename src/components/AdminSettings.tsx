@@ -42,7 +42,8 @@ const AdminSettings = () => {
 
   const saveAllSettings = async () => {
     const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits', 
-      'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio'];
+      'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
+      'paystack_public_key', 'paystack_secret_key'];
     for (const key of keys) {
       if (settings[key] !== undefined) await saveSetting(key, settings[key]);
     }
