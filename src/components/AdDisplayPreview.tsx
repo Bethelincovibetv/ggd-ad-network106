@@ -7,8 +7,12 @@ const AdDisplayPreview = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    supabase.from('ads').select('*').eq('is_active', true).limit(5)
-      .then(({ data }) => setAds(data || []));
+    const fetchAds = async () => {
+      const now = new Date().toISOString();
+      const { data } = await supabase.from('ads').select('*').eq('is_active', true).or(`expires_at.is.null,expires_at.gt.${now}`).limit(10);
+      setAds(data || []);
+    };
+    fetchAds();
   }, []);
 
   useEffect(() => {
