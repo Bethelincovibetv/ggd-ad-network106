@@ -582,6 +582,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'business-tasks':
         return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
+      case 'my-business':
+        return <BusinessStorefront />;
+
+      case 'directory':
+        return <BusinessDirectory isBusiness={isBusiness} />;
+
       case 'syndicate':
         return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
