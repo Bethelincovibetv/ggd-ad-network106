@@ -32,6 +32,8 @@ import PromotionalContent from "@/components/PromotionalContent";
 import AdminChatWidget from "@/components/AdminChatWidget";
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
+import BusinessStorefront from "@/components/BusinessStorefront";
+import BusinessDirectory from "@/components/BusinessDirectory";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface Ad {
