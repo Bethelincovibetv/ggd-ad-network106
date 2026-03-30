@@ -569,6 +569,11 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'promo':
         return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
+      case 'guide':
+        return (
+          <SetupWizard onComplete={() => setActiveTab('ads')} onNavigate={(tab) => { setActiveTab(tab); }} />
+        );
+
       case 'about':
         return <AboutPage />;
 
