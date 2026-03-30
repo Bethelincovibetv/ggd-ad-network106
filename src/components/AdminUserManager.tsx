@@ -12,6 +12,8 @@ const AdminUserManager = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [creditAmounts, setCreditAmounts] = useState<Record<string, string>>({});
+  const [walletAmounts, setWalletAmounts] = useState<Record<string, string>>({});
+  const [wallets, setWallets] = useState<Record<string, any>>({});
 
   useEffect(() => { fetchUsers(); }, []);
 
