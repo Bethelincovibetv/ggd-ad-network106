@@ -55,10 +55,32 @@ const AdminUserManager = () => {
     if (!amount) return;
     const user = users.find(u => u.id === profileId);
     if (!user) return;
-    await supabase.from('profiles').update({ credits: user.credits + amount }).eq('id', profileId);
-    toast.success(`Added ${amount} credits`);
+    const newCredits = user.credits + amount;
+    if (newCredits < 0) { toast.error("Cannot go below 0 credits"); return; }
+    await supabase.from('profiles').update({ credits: newCredits }).eq('id', profileId);
+    toast.success(amount > 0 ? `Added ${amount} credits` : `Debited ${Math.abs(amount)} credits`);
     setCreditAmounts(prev => ({ ...prev, [profileId]: '' }));
     fetchUsers();
+  };
+
+  const fundWallet = async (userId: string, add: boolean) => {
+    const amount = parseFloat(walletAmounts[userId] || '0');
+    if (!amount || amount <= 0) return;
+    const wallet = wallets[userId];
+    if (!wallet) {
+      await supabase.from('task_wallets').insert({ user_id: userId, balance: add ? amount : 0 });
+      toast.success(add ? `Funded ₦${amount}` : 'No wallet to debit');
+      fetchWallets();
+      return;
+    }
+    const newBalance = add ? (wallet.balance || 0) + amount : (wallet.balance || 0) - amount;
+    if (newBalance < 0) { toast.error("Cannot go below ₦0"); return; }
+    const updates: any = { balance: newBalance };
+    if (add) updates.total_funded = (wallet.total_funded || 0) + amount;
+    await supabase.from('task_wallets').update(updates).eq('id', wallet.id);
+    toast.success(add ? `Funded ₦${amount}` : `Debited ₦${amount}`);
+    setWalletAmounts(prev => ({ ...prev, [userId]: '' }));
+    fetchWallets();
   };
 
   const filtered = users.filter(u => {
