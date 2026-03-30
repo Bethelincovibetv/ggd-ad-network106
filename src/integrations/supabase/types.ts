@@ -150,8 +150,15 @@ export type Database = {
           business_name: string
           created_at: string
           description: string | null
+          directory_subscription_expires_at: string | null
+          facebook_url: string | null
           id: string
+          instagram_url: string | null
+          is_directory_listed: boolean | null
           logo_url: string | null
+          telegram_url: string | null
+          tiktok_url: string | null
+          twitter_url: string | null
           user_id: string
           website_link: string | null
           whatsapp_link: string | null
@@ -160,8 +167,15 @@ export type Database = {
           business_name: string
           created_at?: string
           description?: string | null
+          directory_subscription_expires_at?: string | null
+          facebook_url?: string | null
           id?: string
+          instagram_url?: string | null
+          is_directory_listed?: boolean | null
           logo_url?: string | null
+          telegram_url?: string | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
           user_id: string
           website_link?: string | null
           whatsapp_link?: string | null
@@ -170,8 +184,15 @@ export type Database = {
           business_name?: string
           created_at?: string
           description?: string | null
+          directory_subscription_expires_at?: string | null
+          facebook_url?: string | null
           id?: string
+          instagram_url?: string | null
+          is_directory_listed?: boolean | null
           logo_url?: string | null
+          telegram_url?: string | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
           user_id?: string
           website_link?: string | null
           whatsapp_link?: string | null
