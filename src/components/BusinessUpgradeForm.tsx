@@ -54,8 +54,13 @@ const BusinessUpgradeForm = ({ onUpgraded }: BusinessUpgradeFormProps) => {
     }
 
     await supabase.from('user_roles').insert({ user_id: user.id, role: 'business' });
-    await supabase.from('task_wallets').insert({ user_id: user.id });
-    toast.success("🎉 Business account created! You can now create tasks.");
+    
+    // Get vendor wallet bonus from settings
+    const { data: bonusSetting } = await supabase.from('app_settings').select('value').eq('key', 'vendor_wallet_bonus').maybeSingle();
+    const bonusAmount = parseFloat(bonusSetting?.value || '0');
+    
+    await supabase.from('task_wallets').insert({ user_id: user.id, balance: bonusAmount, total_funded: bonusAmount });
+    toast.success(`🎉 Business account created!${bonusAmount > 0 ? ` ₦${bonusAmount} bonus added to your wallet!` : ' You can now create tasks.'}`);
     onUpgraded();
     setSubmitting(false);
   };

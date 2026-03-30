@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Search, Plus, Crown, Briefcase, Ban, CheckCircle } from "lucide-react";
+import { Users, Search, Plus, Crown, Briefcase, Ban, CheckCircle, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,8 +12,10 @@ const AdminUserManager = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [creditAmounts, setCreditAmounts] = useState<Record<string, string>>({});
+  const [walletAmounts, setWalletAmounts] = useState<Record<string, string>>({});
+  const [wallets, setWallets] = useState<Record<string, any>>({});
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); fetchWallets(); }, []);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -23,6 +25,13 @@ const AdminUserManager = () => {
     }));
     setUsers(enriched);
     setLoading(false);
+  };
+
+  const fetchWallets = async () => {
+    const { data } = await supabase.from('task_wallets').select('*');
+    const map: Record<string, any> = {};
+    (data || []).forEach(w => { map[w.user_id] = w; });
+    setWallets(map);
   };
 
   const toggleBan = async (userId: string, isBanned: boolean) => {
@@ -46,10 +55,32 @@ const AdminUserManager = () => {
     if (!amount) return;
     const user = users.find(u => u.id === profileId);
     if (!user) return;
-    await supabase.from('profiles').update({ credits: user.credits + amount }).eq('id', profileId);
-    toast.success(`Added ${amount} credits`);
+    const newCredits = user.credits + amount;
+    if (newCredits < 0) { toast.error("Cannot go below 0 credits"); return; }
+    await supabase.from('profiles').update({ credits: newCredits }).eq('id', profileId);
+    toast.success(amount > 0 ? `Added ${amount} credits` : `Debited ${Math.abs(amount)} credits`);
     setCreditAmounts(prev => ({ ...prev, [profileId]: '' }));
     fetchUsers();
+  };
+
+  const fundWallet = async (userId: string, add: boolean) => {
+    const amount = parseFloat(walletAmounts[userId] || '0');
+    if (!amount || amount <= 0) return;
+    const wallet = wallets[userId];
+    if (!wallet) {
+      await supabase.from('task_wallets').insert({ user_id: userId, balance: add ? amount : 0 });
+      toast.success(add ? `Funded ₦${amount}` : 'No wallet to debit');
+      fetchWallets();
+      return;
+    }
+    const newBalance = add ? (wallet.balance || 0) + amount : (wallet.balance || 0) - amount;
+    if (newBalance < 0) { toast.error("Cannot go below ₦0"); return; }
+    const updates: any = { balance: newBalance };
+    if (add) updates.total_funded = (wallet.total_funded || 0) + amount;
+    await supabase.from('task_wallets').update(updates).eq('id', wallet.id);
+    toast.success(add ? `Funded ₦${amount}` : `Debited ₦${amount}`);
+    setWalletAmounts(prev => ({ ...prev, [userId]: '' }));
+    fetchWallets();
   };
 
   const filtered = users.filter(u => {
@@ -85,12 +116,34 @@ const AdminUserManager = () => {
               </div>
             </div>
             <div className="flex gap-2 items-center">
-              <Input type="number" placeholder="Credits" value={creditAmounts[user.id] || ''}
+              <Input type="number" placeholder="Credits (+/-)" value={creditAmounts[user.id] || ''}
                 onChange={e => setCreditAmounts(prev => ({ ...prev, [user.id]: e.target.value }))} className="h-8 text-sm flex-1" />
-              <Button size="sm" variant="outline" className="h-8" onClick={() => addCredits(user.user_id, user.id)}>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => addCredits(user.user_id, user.id)}>
                 <Plus className="h-3 w-3 mr-1" />Add
               </Button>
+              <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => {
+                setCreditAmounts(prev => ({ ...prev, [user.id]: '-' + Math.abs(parseInt(prev[user.id] || '0')).toString() }));
+                setTimeout(() => addCredits(user.user_id, user.id), 100);
+              }}>
+                <Minus className="h-3 w-3 mr-1" />Debit
+              </Button>
             </div>
+            {/* Task Wallet Controls */}
+            {user.roles.includes('business') && (
+              <div className="border-t pt-2 mt-1">
+                <p className="text-[10px] text-muted-foreground mb-1">Task Wallet: ₦{wallets[user.user_id]?.balance || 0}</p>
+                <div className="flex gap-2 items-center">
+                  <Input type="number" placeholder="₦ Amount" value={walletAmounts[user.user_id] || ''}
+                    onChange={e => setWalletAmounts(prev => ({ ...prev, [user.user_id]: e.target.value }))} className="h-8 text-sm flex-1" />
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => fundWallet(user.user_id, true)}>
+                    <Plus className="h-3 w-3 mr-1" />Fund
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => fundWallet(user.user_id, false)}>
+                    <Minus className="h-3 w-3 mr-1" />Debit
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-1 flex-wrap">
               {['premium', 'business', 'syndicate'].map(role => (
                 <Button key={role} size="sm" variant={user.roles.includes(role) ? "outline" : "default"}

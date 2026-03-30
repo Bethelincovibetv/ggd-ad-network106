@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Shield, CreditCard, Send, Megaphone, Store, Key, Info, Share2, BookOpen } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Shield, CreditCard, Send, Megaphone, Store, Key, Info, Share2, BookOpen, Building2 } from "lucide-react";
 
 interface TopNavMenuProps {
   activeTab: string;
@@ -19,8 +19,9 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     { id: 'transfer', icon: Send, label: 'Transfer' },
     { id: 'premium', icon: Crown, label: 'Premium' },
     { id: 'marketplace', icon: Store, label: 'Apps' },
+    { id: 'directory', icon: Building2, label: 'Directory' },
     { id: 'promo', icon: Share2, label: 'Promote' },
-    ...(isBusiness ? [{ id: 'business-tasks', icon: Briefcase, label: 'Tasks' }] : []),
+    ...(isBusiness ? [{ id: 'business-tasks', icon: Briefcase, label: 'Tasks' }, { id: 'my-business', icon: Store, label: 'My Biz' }] : []),
     ...(isSyndicate ? [{ id: 'syndicate', icon: Users, label: 'Jobs' }] : []),
     ...(!isBusiness && !isSyndicate ? [{ id: 'upgrade', icon: Megaphone, label: 'Upgrade' }] : []),
     ...(isSyndicate ? [{ id: 'syndicate-wallet', icon: Wallet, label: 'Earnings' }] : []),

@@ -32,6 +32,8 @@ import PromotionalContent from "@/components/PromotionalContent";
 import AdminChatWidget from "@/components/AdminChatWidget";
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
+import BusinessStorefront from "@/components/BusinessStorefront";
+import BusinessDirectory from "@/components/BusinessDirectory";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface Ad {
@@ -579,6 +581,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'business-tasks':
         return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
+      case 'my-business':
+        return <BusinessStorefront />;
+
+      case 'directory':
+        return <BusinessDirectory isBusiness={isBusiness} />;
 
       case 'syndicate':
         return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;

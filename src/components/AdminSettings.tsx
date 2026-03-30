@@ -43,7 +43,7 @@ const AdminSettings = () => {
   const saveAllSettings = async () => {
     const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits', 
       'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
-      'paystack_public_key', 'paystack_secret_key'];
+      'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost'];
     for (const key of keys) {
       if (settings[key] !== undefined) await saveSetting(key, settings[key]);
     }
@@ -118,6 +118,14 @@ const AdminSettings = () => {
             <div>
               <Label className="text-xs">Vendor Cost (Credits)</Label>
               <Input type="number" value={settings.vendor_upgrade_credits || '100'} onChange={e => setSettings(p => ({ ...p, vendor_upgrade_credits: e.target.value }))} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Vendor Wallet Bonus (₦)</Label>
+              <Input type="number" value={settings.vendor_wallet_bonus || '0'} onChange={e => setSettings(p => ({ ...p, vendor_wallet_bonus: e.target.value }))} className="mt-1" placeholder="Amount added to wallet on upgrade" />
+            </div>
+            <div>
+              <Label className="text-xs">Directory Cost (Credits)</Label>
+              <Input type="number" value={settings.directory_listing_cost || '0'} onChange={e => setSettings(p => ({ ...p, directory_listing_cost: e.target.value }))} className="mt-1" placeholder="0 = free" />
             </div>
             <div>
               <Label className="text-xs">Admin WhatsApp</Label>
