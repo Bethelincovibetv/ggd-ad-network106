@@ -15,7 +15,7 @@ const AdminUserManager = () => {
   const [walletAmounts, setWalletAmounts] = useState<Record<string, string>>({});
   const [wallets, setWallets] = useState<Record<string, any>>({});
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); fetchWallets(); }, []);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -25,6 +25,13 @@ const AdminUserManager = () => {
     }));
     setUsers(enriched);
     setLoading(false);
+  };
+
+  const fetchWallets = async () => {
+    const { data } = await supabase.from('task_wallets').select('*');
+    const map: Record<string, any> = {};
+    (data || []).forEach(w => { map[w.user_id] = w; });
+    setWallets(map);
   };
 
   const toggleBan = async (userId: string, isBanned: boolean) => {
