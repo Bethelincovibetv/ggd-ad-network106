@@ -116,12 +116,34 @@ const AdminUserManager = () => {
               </div>
             </div>
             <div className="flex gap-2 items-center">
-              <Input type="number" placeholder="Credits" value={creditAmounts[user.id] || ''}
+              <Input type="number" placeholder="Credits (+/-)" value={creditAmounts[user.id] || ''}
                 onChange={e => setCreditAmounts(prev => ({ ...prev, [user.id]: e.target.value }))} className="h-8 text-sm flex-1" />
-              <Button size="sm" variant="outline" className="h-8" onClick={() => addCredits(user.user_id, user.id)}>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => addCredits(user.user_id, user.id)}>
                 <Plus className="h-3 w-3 mr-1" />Add
               </Button>
+              <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => {
+                setCreditAmounts(prev => ({ ...prev, [user.id]: '-' + Math.abs(parseInt(prev[user.id] || '0')).toString() }));
+                setTimeout(() => addCredits(user.user_id, user.id), 100);
+              }}>
+                <Minus className="h-3 w-3 mr-1" />Debit
+              </Button>
             </div>
+            {/* Task Wallet Controls */}
+            {user.roles.includes('business') && (
+              <div className="border-t pt-2 mt-1">
+                <p className="text-[10px] text-muted-foreground mb-1">Task Wallet: ₦{wallets[user.user_id]?.balance || 0}</p>
+                <div className="flex gap-2 items-center">
+                  <Input type="number" placeholder="₦ Amount" value={walletAmounts[user.user_id] || ''}
+                    onChange={e => setWalletAmounts(prev => ({ ...prev, [user.user_id]: e.target.value }))} className="h-8 text-sm flex-1" />
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => fundWallet(user.user_id, true)}>
+                    <Plus className="h-3 w-3 mr-1" />Fund
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={() => fundWallet(user.user_id, false)}>
+                    <Minus className="h-3 w-3 mr-1" />Debit
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-1 flex-wrap">
               {['premium', 'business', 'syndicate'].map(role => (
                 <Button key={role} size="sm" variant={user.roles.includes(role) ? "outline" : "default"}
