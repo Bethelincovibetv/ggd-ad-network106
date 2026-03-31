@@ -290,12 +290,12 @@ const BusinessTaskCreator = () => {
               <h3 className="font-semibold text-sm text-foreground">{task.title}</h3>
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
               <div className="flex flex-wrap gap-1 mt-2">
-                {(task.target_placements || []).map((p: string) => (
+                {(task.placements || []).map((p: string) => (
                   <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
                 ))}
               </div>
               <div className="flex justify-between items-center mt-2">
-                <span className="text-[10px] text-muted-foreground">{task.assigned_count}/{task.max_syndicates} syndicates</span>
+                <span className="text-[10px] text-muted-foreground">0/{task.max_syndicates} syndicates</span>
                 <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => viewSubmissions(task.id)}>
                   <Eye className="h-3 w-3 mr-1" />View Proofs
                 </Button>
