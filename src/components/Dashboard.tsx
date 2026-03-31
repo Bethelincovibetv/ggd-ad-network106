@@ -34,6 +34,9 @@ import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
 import BusinessStorefront from "@/components/BusinessStorefront";
 import BusinessDirectory from "@/components/BusinessDirectory";
+import UserGuide from "@/components/UserGuide";
+import BusinessGuide from "@/components/BusinessGuide";
+import SyndicateGuide from "@/components/SyndicateGuide";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface Ad {
@@ -572,9 +575,21 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'guide':
-        return (
-          <SetupWizard onComplete={() => setActiveTab('ads')} onNavigate={(tab) => { setActiveTab(tab); }} />
-        );
+        if (isBusiness) return <BusinessGuide />;
+        if (isSyndicate) return <SyndicateGuide />;
+        return <UserGuide />;
+
+      case 'user-guide':
+        return <UserGuide />;
+
+      case 'business-guide':
+        return <BusinessGuide />;
+
+      case 'syndicate-guide':
+        return <SyndicateGuide />;
+
+      case 'wizard':
+        return <SetupWizard onComplete={() => setActiveTab('ads')} onNavigate={(tab) => { setActiveTab(tab); }} />;
 
       case 'about':
         return <AboutPage />;

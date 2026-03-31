@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen } from "lucide-react";
+import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen, Video } from "lucide-react";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
@@ -11,6 +11,7 @@ import AdminApiManager from "@/components/AdminApiManager";
 import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
+import AdminVideoManager from "@/components/AdminVideoManager";
 
 const AdminPanel = () => {
   return (
@@ -47,18 +48,20 @@ const AdminPanel = () => {
 
         <TabsContent value="more">
           <Tabs defaultValue="syndicate" className="space-y-4">
-            <TabsList className="w-full grid grid-cols-5">
+            <TabsList className="w-full grid grid-cols-6">
               <TabsTrigger value="syndicate" className="text-[10px]"><Briefcase className="h-3 w-3" /></TabsTrigger>
               <TabsTrigger value="slides" className="text-[10px]"><Image className="h-3 w-3" /></TabsTrigger>
               <TabsTrigger value="tasks" className="text-[10px]"><ClipboardList className="h-3 w-3" /></TabsTrigger>
               <TabsTrigger value="api" className="text-[10px]"><Key className="h-3 w-3" /></TabsTrigger>
               <TabsTrigger value="apps" className="text-[10px]"><Megaphone className="h-3 w-3" /></TabsTrigger>
+              <TabsTrigger value="videos" className="text-[10px]"><Video className="h-3 w-3" /></TabsTrigger>
             </TabsList>
             <TabsContent value="syndicate"><AdminSyndicateManager /></TabsContent>
             <TabsContent value="slides"><SlideManager /></TabsContent>
             <TabsContent value="tasks"><TaskManager /></TabsContent>
             <TabsContent value="api"><AdminApiManager /></TabsContent>
             <TabsContent value="apps"><AdminMarketingApps /></TabsContent>
+            <TabsContent value="videos"><AdminVideoManager /></TabsContent>
           </Tabs>
         </TabsContent>
       </Tabs>

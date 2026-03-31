@@ -376,6 +376,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_active: boolean | null
           target_audience: string | null
           title: string
           type: string | null
@@ -385,6 +386,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           target_audience?: string | null
           title: string
           type?: string | null
@@ -394,9 +396,43 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           target_audience?: string | null
           title?: string
           type?: string | null
+        }
+        Relationships: []
+      }
+      promotional_videos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          section: string
+          sort_order: number | null
+          title: string
+          youtube_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          section?: string
+          sort_order?: number | null
+          title: string
+          youtube_url: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          section?: string
+          sort_order?: number | null
+          title?: string
+          youtube_url?: string
         }
         Relationships: []
       }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, Users, Zap, Shield, Heart, Target } from "lucide-react";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 const AboutPage = () => {
   return (
@@ -13,6 +14,9 @@ const AboutPage = () => {
           Africa's fastest-growing decentralized advertising and social media monetization platform.
         </p>
       </div>
+
+      {/* About Video */}
+      <YouTubeEmbed section="about" />
 
       <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
         <CardContent className="p-5 space-y-3">

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 const SyndicateDashboard = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -64,7 +65,7 @@ const SyndicateDashboard = () => {
 
     const { data: { publicUrl } } = supabase.storage.from('syndicate-proofs').getPublicUrl(fileName);
     await supabase.from('syndicate_task_assignments').update({
-      proof_screenshot_url: publicUrl,
+      proof_url: publicUrl,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
     }).eq('id', assignmentId);
@@ -86,6 +87,9 @@ const SyndicateDashboard = () => {
 
   return (
     <div className="space-y-4">
+      {/* Syndicate Video */}
+      <YouTubeEmbed section="syndicate" />
+
       {/* Syndicate Stats */}
       <div className="grid grid-cols-3 gap-2">
         <Card className="border-0 shadow-sm">
@@ -98,7 +102,7 @@ const SyndicateDashboard = () => {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3 text-center">
             <CheckCircle className="h-4 w-4 mx-auto mb-1 text-green-600" />
-            <div className="text-lg font-bold text-foreground">{profile?.total_tasks_completed || 0}</div>
+            <div className="text-lg font-bold text-foreground">{profile?.tasks_completed || 0}</div>
             <div className="text-[10px] text-muted-foreground">Completed</div>
           </CardContent>
         </Card>
@@ -149,7 +153,7 @@ const SyndicateDashboard = () => {
                     <p className="text-[10px] text-muted-foreground">{task.description}</p>
                     
                     <div className="flex flex-wrap gap-1">
-                      {(task.target_placements || []).map((p: string) => (
+                      {(task.placements || []).map((p: string) => (
                         <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
                       ))}
                     </div>
@@ -196,8 +200,8 @@ const SyndicateDashboard = () => {
                       )}
                     </div>
 
-                    {assignment.proof_screenshot_url && (
-                      <img src={assignment.proof_screenshot_url} alt="Proof" className="w-full rounded-lg border" />
+                    {assignment.proof_url && (
+                      <img src={assignment.proof_url} alt="Proof" className="w-full rounded-lg border" />
                     )}
                   </CardContent>
                 </Card>
@@ -217,7 +221,7 @@ const SyndicateDashboard = () => {
               <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
               <p className="text-[10px] text-muted-foreground line-clamp-2">{task.description}</p>
               <div className="flex flex-wrap gap-1">
-                {(task.target_placements || []).map((p: string) => (
+                {(task.placements || []).map((p: string) => (
                   <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
                 ))}
               </div>
