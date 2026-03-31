@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Globe, Zap, BarChart3, Code, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight } from "lucide-react";
+import { Globe, Zap, BarChart3, Code, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, Briefcase, TrendingUp, DollarSign, Target } from "lucide-react";
 import InstallPrompt from "@/components/InstallPrompt";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -10,9 +11,42 @@ interface LandingPageProps {
   onGetStarted: () => void;
 }
 
+// Animated counter hook
+const useCountUp = (end: number, duration: number = 2000, suffix: string = '') => {
+  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started) setStarted(true);
+    }, { threshold: 0.3 });
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [started]);
+
+  useEffect(() => {
+    if (!started) return;
+    let startTime: number;
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [started, end, duration]);
+
+  return { count, ref };
+};
+
 const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const impressions = useCountUp(10000, 2500);
+  const campaigns = useCountUp(500, 2000);
+  const sites = useCountUp(100, 1800);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
@@ -43,7 +77,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
   return (
     <div className="min-h-screen bg-[#1a1a1a]">
-      {/* Navigation - Orange top bar */}
+      {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -56,13 +90,13 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </nav>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu */}
       {menuOpen && (
-        <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333]">
+        <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333] animate-fade-in">
           <div className="flex flex-col p-6 space-y-6">
             {navItems.map(item => (
               <button key={item.id} onClick={() => scrollTo(item.id)}
-                className="text-left text-lg text-gray-300 hover:text-white font-medium">
+                className="text-left text-lg text-gray-300 hover:text-white font-medium transition-colors">
                 {item.label}
               </button>
             ))}
@@ -77,34 +111,40 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       {/* Hero Section */}
       <div id="home" className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[#e67e22]/20 via-[#1a1a1a] to-[#1a1a1a]" />
+        {/* Animated background particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-[#e67e22]/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-10 w-40 h-40 bg-[#e74c3c]/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-[#e67e22]/5 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
         <div className="container mx-auto px-4 pt-10 pb-16 relative z-10">
           <div className="text-center space-y-6">
-            {/* Large centered logo */}
-            <div className="flex justify-center">
+            {/* Logo with glow animation */}
+            <div className="flex justify-center animate-scale-in">
               <div className="relative">
-                <div className="absolute inset-0 bg-[#e67e22]/30 blur-3xl rounded-full scale-150" />
-                <img src={ggdLogo} alt="GGD Ad Network" className="h-28 w-28 rounded-2xl relative z-10 shadow-2xl shadow-[#e67e22]/30" />
+                <div className="absolute inset-0 bg-[#e67e22]/30 blur-3xl rounded-full scale-150 animate-pulse" />
+                <img src={ggdLogo} alt="GGD Ad Network" className="h-28 w-28 rounded-2xl relative z-10 shadow-2xl shadow-[#e67e22]/30 hover:scale-110 transition-transform duration-300" />
               </div>
             </div>
 
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-5 py-2">
+            <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-5 py-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Zap className="h-4 w-4 text-[#e67e22]" />
               <span className="text-sm font-semibold text-gray-200">#1 Social Media Ad Network</span>
             </div>
 
             {/* Main heading */}
-            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight">
-              Grow Your <span className="text-[#e67e22]">Business</span>
+            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in" style={{ animationDelay: '0.4s' }}>
+              Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] to-[#e74c3c]">Business</span>
             </h1>
 
-            <p className="text-base md:text-lg text-gray-400 max-w-lg mx-auto leading-relaxed">
+            <p className="text-base md:text-lg text-gray-400 max-w-lg mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
               Create ad campaigns and reach thousands through our network of social media operators. WhatsApp, Facebook, Instagram, TikTok & more.
             </p>
 
-            <div className="flex flex-col gap-3 pt-4 max-w-sm mx-auto">
+            <div className="flex flex-col gap-3 pt-4 max-w-sm mx-auto animate-fade-in" style={{ animationDelay: '0.8s' }}>
               <Button onClick={onGetStarted} size="lg"
-                className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl">
+                className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-transform">
                 Start Free <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button variant="outline" size="lg" onClick={() => scrollTo('how-it-works')}
@@ -116,23 +156,83 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats with animated counters */}
       <div className="border-y border-[#333] bg-[#111]">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8" ref={impressions.ref}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { value: "10K+", label: "Impressions Served" },
-              { value: "500+", label: "Active Campaigns" },
-              { value: "100+", label: "Connected Sites" },
-              { value: "Free", label: "To Get Started" },
+              { value: impressions.count, suffix: "+", label: "Impressions Served" },
+              { value: campaigns.count, suffix: "+", label: "Active Campaigns" },
+              { value: sites.count, suffix: "+", label: "Connected Sites" },
+              { value: null, display: "Free", label: "To Get Started" },
             ].map((s, i) => (
               <div key={i} className="text-center">
-                <div className="text-2xl md:text-3xl font-black text-[#e67e22]">{s.value}</div>
+                <div className="text-2xl md:text-3xl font-black text-[#e67e22]">
+                  {s.value !== null ? `${s.value.toLocaleString()}${s.suffix}` : s.display}
+                </div>
                 <div className="text-xs text-gray-500 mt-1">{s.label}</div>
               </div>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* For Business Section */}
+      <div id="business" className="container mx-auto px-4 py-16">
+        <Card className="bg-gradient-to-br from-[#0a1628] to-[#1a2744] border-[#2a3f5f] max-w-3xl mx-auto overflow-hidden">
+          <CardContent className="p-8 text-center space-y-6 relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
+            <Briefcase className="h-12 w-12 text-blue-400 mx-auto" />
+            <h2 className="text-2xl md:text-3xl font-bold text-white">For Small Business Owners</h2>
+            <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
+              Don't have a big marketing budget? No problem. Create ad campaigns, post tasks for our syndicate network, and watch your business grow. Pay only for results.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { icon: <Target className="h-6 w-6 text-red-400" />, label: "Create Ads" },
+                { icon: <Users className="h-6 w-6 text-orange-400" />, label: "Target Audience" },
+                { icon: <TrendingUp className="h-6 w-6 text-green-400" />, label: "Track Results" },
+              ].map((item, i) => (
+                <div key={i} className="bg-[#1a2744]/80 border border-[#2a3f5f] rounded-xl p-4 hover:border-blue-500/50 transition-colors">
+                  <div className="flex justify-center mb-2">{item.icon}</div>
+                  <p className="text-xs text-gray-300 font-medium">{item.label}</p>
+                </div>
+              ))}
+            </div>
+            <Button onClick={onGetStarted} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
+              Create Your First Ad <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Earn Section - Syndicate */}
+      <div id="earn" className="container mx-auto px-4 py-16">
+        <Card className="bg-gradient-to-br from-[#1a1a2e] to-[#2d1b3d] border-[#3d2b4f] max-w-3xl mx-auto overflow-hidden">
+          <CardContent className="p-8 text-center space-y-6 relative">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl" />
+            <Star className="h-12 w-12 text-yellow-400 mx-auto animate-pulse" />
+            <h2 className="text-2xl md:text-3xl font-bold text-white">Earn Money as a Syndicate</h2>
+            <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
+              Turn your social media into income. Share ads across WhatsApp, Facebook, Instagram, TikTok & X. Get paid for every task you complete.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { icon: <DollarSign className="h-6 w-6 text-yellow-400" />, label: "Earn Daily" },
+                { icon: <Smartphone className="h-6 w-6 text-purple-400" />, label: "Work Mobile" },
+                { icon: <Globe className="h-6 w-6 text-green-400" />, label: "Anywhere" },
+              ].map((item, i) => (
+                <div key={i} className="bg-[#2d1b3d]/80 border border-[#3d2b4f] rounded-xl p-4 hover:border-yellow-500/50 transition-colors">
+                  <div className="flex justify-center mb-2">{item.icon}</div>
+                  <p className="text-xs text-gray-300 font-medium">{item.label}</p>
+                </div>
+              ))}
+            </div>
+            <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
+              Become a Syndicate <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Features */}
@@ -143,7 +243,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
-            <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/30 transition-all duration-300 group">
+            <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/30 transition-all duration-300 group hover:scale-105 hover:-translate-y-1">
               <CardContent className="p-6 space-y-3">
                 <div className="p-3 bg-[#e67e22]/10 rounded-xl w-fit group-hover:bg-[#e67e22]/20 transition-colors">
                   <f.icon className="h-6 w-6 text-[#e67e22]" />
@@ -169,8 +269,8 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             { step: "03", title: "Earn Credits", desc: "Complete tasks, refer friends, buy credits" },
             { step: "04", title: "Grow Business", desc: "Upgrade to Premium or Business for more" },
           ].map((s, i) => (
-            <div key={i} className="text-center space-y-3">
-              <div className="text-5xl font-black text-[#e67e22]/20">{s.step}</div>
+            <div key={i} className="text-center space-y-3 group hover:scale-105 transition-transform">
+              <div className="text-5xl font-black text-[#e67e22]/20 group-hover:text-[#e67e22]/40 transition-colors">{s.step}</div>
               <h3 className="text-lg font-bold text-white">{s.title}</h3>
               <p className="text-gray-400 text-sm">{s.desc}</p>
             </div>
@@ -178,41 +278,23 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </div>
 
-      {/* Operator Section */}
-      <div id="earn" className="container mx-auto px-4 py-16">
-        <div className="bg-[#222] border border-[#333] rounded-2xl p-6 md:p-10 max-w-3xl mx-auto text-center space-y-6">
-          <Star className="h-10 w-10 text-yellow-400 mx-auto" />
-          <h2 className="text-2xl md:text-3xl font-bold text-white">Become a Syndicate Operator</h2>
-          <p className="text-gray-400 max-w-xl mx-auto">
-            Turn your social media influence into income. Share ads and earn real money for every task completed.
-          </p>
-          <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-8 py-5 text-base font-bold rounded-xl">
-            Join the Network <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* About */}
-      <div id="business" className="container mx-auto px-4 py-16">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <h2 className="text-3xl md:text-4xl font-bold text-white">About Us</h2>
-          <p className="text-gray-400 leading-relaxed">
-            GGD Ad Network is Africa's fastest-growing decentralized advertising platform. We connect businesses 
-            with social media operators to distribute ads across WhatsApp, Facebook, Instagram, TikTok, and more. 
-            Our mission is to make advertising accessible and profitable for everyone.
-          </p>
+      {/* Homepage Video */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold text-white text-center mb-6">See How It Works</h2>
+          <YouTubeEmbed section="homepage" />
         </div>
       </div>
 
       {/* Contact CTA */}
       <div id="contact" className="container mx-auto px-4 py-16">
-        <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] rounded-2xl p-8 md:p-14 text-center">
+        <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] rounded-2xl p-8 md:p-14 text-center hover:shadow-2xl hover:shadow-[#e67e22]/20 transition-shadow">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Grow Your Business?</h2>
           <p className="text-orange-100 text-lg mb-8 max-w-xl mx-auto">
             Join thousands of businesses and operators on GGD Ad Network.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button onClick={onGetStarted} size="lg" className="bg-white text-[#e67e22] hover:bg-gray-100 px-8 py-6 text-lg font-bold rounded-xl shadow-xl">
+            <Button onClick={onGetStarted} size="lg" className="bg-white text-[#e67e22] hover:bg-gray-100 px-8 py-6 text-lg font-bold rounded-xl shadow-xl hover:scale-105 transition-transform">
               Start Now — It's Free <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             {waGroupLink && (

@@ -11,7 +11,7 @@ const PromotionalContent = () => {
   const [referralCode, setReferralCode] = useState('');
 
   useEffect(() => {
-    supabase.from('promotional_materials' as any).select('*').eq('is_active', true)
+    supabase.from('promotional_materials').select('*').eq('is_active', true)
       .order('created_at', { ascending: false }).then(({ data }) => setFlyers(data || []));
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
