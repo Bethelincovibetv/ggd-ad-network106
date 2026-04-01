@@ -53,22 +53,48 @@ const SyndicateDashboard = () => {
     fetchData();
   };
 
+  const downloadFlyer = async (flyerUrl: string, taskTitle: string) => {
+    try {
+      const response = await fetch(flyerUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${taskTitle.replace(/\s+/g, '_')}_flyer.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Flyer downloaded!");
+    } catch {
+      toast.error("Download failed, opening in new tab");
+      window.open(flyerUrl, '_blank');
+    }
+  };
+
   const uploadProof = async (assignmentId: string, file: File) => {
     setUploading(assignmentId);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setUploading(null); return; }
 
+    // Get user profile for name
+    const { data: userProfile } = await supabase.from('profiles').select('display_name, email').eq('user_id', user.id).maybeSingle();
+    const userName = userProfile?.display_name || userProfile?.email?.split('@')[0] || 'unknown';
+    const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '_');
+
     const ext = file.name.split('.').pop();
-    const fileName = `${user.id}/${assignmentId}.${ext}`;
+    const fileName = `${user.id}/${sanitizedName}_${assignmentId}.${ext}`;
     const { error: uploadError } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { upsert: true });
-    if (uploadError) { toast.error("Upload failed"); setUploading(null); return; }
+    if (uploadError) { toast.error("Upload failed: " + uploadError.message); setUploading(null); return; }
 
     const { data: { publicUrl } } = supabase.storage.from('syndicate-proofs').getPublicUrl(fileName);
-    await supabase.from('syndicate_task_assignments').update({
+    const { error: updateError } = await supabase.from('syndicate_task_assignments').update({
       proof_url: publicUrl,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
     }).eq('id', assignmentId);
+
+    if (updateError) { toast.error("Failed to submit proof"); setUploading(null); return; }
 
     toast.success("Proof submitted! Waiting for review.");
     setUploading(null);
@@ -170,8 +196,8 @@ const SyndicateDashboard = () => {
                         </Button>
                       )}
                       {task.flyer_url && (
-                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => window.open(task.flyer_url, '_blank')}>
-                          <Download className="h-3 w-3 mr-1" />Flyer
+                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
+                          <Download className="h-3 w-3 mr-1" />Download Flyer
                         </Button>
                       )}
                     </div>
@@ -185,7 +211,7 @@ const SyndicateDashboard = () => {
                         {assignment.status}
                       </Badge>
 
-                      {assignment.status === 'assigned' && (
+                      {(assignment.status === 'accepted' || assignment.status === 'assigned') && (
                         <>
                           <input 
                             type="file" id={`proof-${assignment.id}`} accept="image/*" className="hidden"
