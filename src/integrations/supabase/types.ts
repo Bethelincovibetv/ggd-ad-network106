@@ -468,6 +468,7 @@ export type Database = {
       }
       syndicate_applications: {
         Row: {
+          admin_notes: string | null
           created_at: string
           facebook_influence: string | null
           id: string
@@ -476,10 +477,12 @@ export type Database = {
           status: string | null
           telegram_influence: string | null
           tiktok_influence: string | null
+          twitter_influence: string | null
           user_id: string
           whatsapp_influence: string | null
         }
         Insert: {
+          admin_notes?: string | null
           created_at?: string
           facebook_influence?: string | null
           id?: string
@@ -488,10 +491,12 @@ export type Database = {
           status?: string | null
           telegram_influence?: string | null
           tiktok_influence?: string | null
+          twitter_influence?: string | null
           user_id: string
           whatsapp_influence?: string | null
         }
         Update: {
+          admin_notes?: string | null
           created_at?: string
           facebook_influence?: string | null
           id?: string
@@ -500,6 +505,7 @@ export type Database = {
           status?: string | null
           telegram_influence?: string | null
           tiktok_influence?: string | null
+          twitter_influence?: string | null
           user_id?: string
           whatsapp_influence?: string | null
         }
