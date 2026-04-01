@@ -196,8 +196,8 @@ const SyndicateDashboard = () => {
                         </Button>
                       )}
                       {task.flyer_url && (
-                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => window.open(task.flyer_url, '_blank')}>
-                          <Download className="h-3 w-3 mr-1" />Flyer
+                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
+                          <Download className="h-3 w-3 mr-1" />Download Flyer
                         </Button>
                       )}
                     </div>
