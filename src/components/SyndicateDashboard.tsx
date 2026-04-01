@@ -185,7 +185,7 @@ const SyndicateDashboard = () => {
                         {assignment.status}
                       </Badge>
 
-                      {assignment.status === 'assigned' && (
+                      {(assignment.status === 'accepted' || assignment.status === 'assigned') && (
                         <>
                           <input 
                             type="file" id={`proof-${assignment.id}`} accept="image/*" className="hidden"
