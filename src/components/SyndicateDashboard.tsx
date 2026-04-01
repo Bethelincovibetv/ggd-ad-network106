@@ -53,22 +53,48 @@ const SyndicateDashboard = () => {
     fetchData();
   };
 
+  const downloadFlyer = async (flyerUrl: string, taskTitle: string) => {
+    try {
+      const response = await fetch(flyerUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${taskTitle.replace(/\s+/g, '_')}_flyer.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Flyer downloaded!");
+    } catch {
+      toast.error("Download failed, opening in new tab");
+      window.open(flyerUrl, '_blank');
+    }
+  };
+
   const uploadProof = async (assignmentId: string, file: File) => {
     setUploading(assignmentId);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setUploading(null); return; }
 
+    // Get user profile for name
+    const { data: userProfile } = await supabase.from('profiles').select('display_name, email').eq('user_id', user.id).maybeSingle();
+    const userName = userProfile?.display_name || userProfile?.email?.split('@')[0] || 'unknown';
+    const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '_');
+
     const ext = file.name.split('.').pop();
-    const fileName = `${user.id}/${assignmentId}.${ext}`;
+    const fileName = `${user.id}/${sanitizedName}_${assignmentId}.${ext}`;
     const { error: uploadError } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { upsert: true });
-    if (uploadError) { toast.error("Upload failed"); setUploading(null); return; }
+    if (uploadError) { toast.error("Upload failed: " + uploadError.message); setUploading(null); return; }
 
     const { data: { publicUrl } } = supabase.storage.from('syndicate-proofs').getPublicUrl(fileName);
-    await supabase.from('syndicate_task_assignments').update({
+    const { error: updateError } = await supabase.from('syndicate_task_assignments').update({
       proof_url: publicUrl,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
     }).eq('id', assignmentId);
+
+    if (updateError) { toast.error("Failed to submit proof"); setUploading(null); return; }
 
     toast.success("Proof submitted! Waiting for review.");
     setUploading(null);
