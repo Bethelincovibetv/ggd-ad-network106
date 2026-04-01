@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Users, Search, CheckCircle, XCircle, Clock, Wallet, ArrowDownCircle, Settings } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Clock, Wallet, Settings, DollarSign, MapPin, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
 
@@ -16,117 +17,113 @@ const AdminSyndicateManager = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [syndicates, setSyndicates] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
+  const [taskAssignments, setTaskAssignments] = useState<any[]>([]);
+  const [platformPricing, setPlatformPricing] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [taskCost, setTaskCost] = useState('50');
-  const [payoutMode, setPayoutMode] = useState('manual');
-  const [paystackPublicKey, setPaystackPublicKey] = useState('');
-  const [paystackSecretKey, setPaystackSecretKey] = useState('');
+  const [viewingTaskSubs, setViewingTaskSubs] = useState<string | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, settingsRes] = await Promise.all([
+    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes] = await Promise.all([
       supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
       supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('app_settings').select('*'),
+      supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
+      supabase.from('platform_pricing').select('*').order('platform_name'),
     ]);
 
     setApplications(appsRes.data || []);
     setSyndicates(syndicatesRes.data || []);
     setWithdrawals(withdrawalsRes.data || []);
-
-    const settings = settingsRes.data || [];
-    setTaskCost(settings.find((s: any) => s.key === 'task_cost_per_syndicate')?.value || '50');
-    setPayoutMode(settings.find((s: any) => s.key === 'payout_mode')?.value || 'manual');
-    setPaystackPublicKey(settings.find((s: any) => s.key === 'paystack_public_key')?.value || '');
-    setPaystackSecretKey(settings.find((s: any) => s.key === 'paystack_secret_key')?.value || '');
+    setAllTasks(tasksRes.data || []);
+    setPlatformPricing(pricingRes.data || []);
     setLoading(false);
   };
 
   const approveApplication = async (app: any, platforms: string[]) => {
-    // Update application
-    await supabase.from('syndicate_applications').update({
-      status: 'approved', reviewed_at: new Date().toISOString(),
-    }).eq('id', app.id);
-
-    // Create syndicate profile
-    await supabase.from('syndicate_profiles').insert({
-      user_id: app.user_id, verified_platforms: platforms,
-    });
-
-    // Add syndicate role
+    await supabase.from('syndicate_applications').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', app.id);
+    await supabase.from('syndicate_profiles').insert({ user_id: app.user_id, verified_platforms: platforms, state: app.state || null });
     await supabase.from('user_roles').insert({ user_id: app.user_id, role: 'syndicate' });
-
-    // Create wallet
     await supabase.from('task_wallets').insert({ user_id: app.user_id });
-
-    // Notify user
     await supabase.from('notifications').insert({
-      user_id: app.user_id,
-      title: '🎉 Syndicate Approved!',
-      message: `Your syndicate application has been approved! You're now verified for: ${platforms.join(', ')}`,
-      type: 'success',
+      user_id: app.user_id, title: '🎉 Syndicate Approved!',
+      message: `Approved for: ${platforms.join(', ')}. Start earning now!`, type: 'success',
     });
-
     toast.success("Application approved!");
     fetchData();
   };
 
   const rejectApplication = async (app: any) => {
-    await supabase.from('syndicate_applications').update({
-      status: 'rejected', reviewed_at: new Date().toISOString(),
-    }).eq('id', app.id);
-
+    await supabase.from('syndicate_applications').update({ status: 'rejected', reviewed_at: new Date().toISOString() }).eq('id', app.id);
     await supabase.from('notifications').insert({
-      user_id: app.user_id,
-      title: '❌ Application Rejected',
-      message: 'Your syndicate application was not approved at this time.',
-      type: 'warning',
+      user_id: app.user_id, title: '❌ Application Rejected',
+      message: 'Your syndicate application was not approved at this time.', type: 'warning',
     });
-
     toast.success("Application rejected");
     fetchData();
   };
 
   const processWithdrawal = async (id: string, approve: boolean) => {
-    const status = approve ? 'completed' : 'rejected';
     const withdrawal = withdrawals.find(w => w.id === id);
-
-    await supabase.from('withdrawal_requests').update({
-      status, processed_at: new Date().toISOString(),
-    }).eq('id', id);
-
+    await supabase.from('withdrawal_requests').update({ status: approve ? 'completed' : 'rejected', processed_at: new Date().toISOString() }).eq('id', id);
     if (!approve && withdrawal) {
-      // Refund to wallet
       const { data: wallet } = await supabase.from('task_wallets').select('*').eq('user_id', withdrawal.user_id).maybeSingle();
-      if (wallet) {
-        await supabase.from('task_wallets').update({ balance: wallet.balance + withdrawal.amount }).eq('user_id', withdrawal.user_id);
-      }
+      if (wallet) await supabase.from('task_wallets').update({ balance: wallet.balance + withdrawal.amount }).eq('user_id', withdrawal.user_id);
     }
-
     if (withdrawal) {
       await supabase.from('notifications').insert({
         user_id: withdrawal.user_id,
         title: approve ? '💰 Withdrawal Processed' : '❌ Withdrawal Rejected',
-        message: approve ? `₦${withdrawal.amount} has been sent to your bank.` : `₦${withdrawal.amount} refunded to wallet.`,
+        message: approve ? `₦${withdrawal.amount} sent to your bank.` : `₦${withdrawal.amount} refunded to wallet.`,
         type: approve ? 'credit' : 'warning',
       });
     }
-
     toast.success(approve ? "Withdrawal processed" : "Withdrawal rejected & refunded");
     fetchData();
   };
 
-  const saveSettings = async () => {
-    await Promise.all([
-      supabase.from('app_settings').update({ value: taskCost }).eq('key', 'task_cost_per_syndicate'),
-      supabase.from('app_settings').update({ value: payoutMode }).eq('key', 'payout_mode'),
-      supabase.from('app_settings').update({ value: paystackPublicKey }).eq('key', 'paystack_public_key'),
-      supabase.from('app_settings').update({ value: paystackSecretKey }).eq('key', 'paystack_secret_key'),
-    ]);
-    toast.success("Settings saved!");
+  const updatePlatformPrice = async (id: string, newPrice: number) => {
+    await supabase.from('platform_pricing').update({ price_per_task: newPrice }).eq('id', id);
+    toast.success("Price updated!");
+    fetchData();
+  };
+
+  const viewTaskSubmissions = async (taskId: string) => {
+    setViewingTaskSubs(taskId);
+    const { data } = await supabase.from('syndicate_task_assignments').select('*').eq('task_id', taskId);
+    setTaskAssignments(data || []);
+  };
+
+  const adminReviewAssignment = async (assignmentId: string, approve: boolean) => {
+    const assignment = taskAssignments.find(a => a.id === assignmentId);
+    const status = approve ? 'approved' : 'rejected';
+    await supabase.from('syndicate_task_assignments').update({ status, reviewed_at: new Date().toISOString() }).eq('id', assignmentId);
+
+    if (approve && assignment) {
+      const task = allTasks.find(t => t.id === assignment.task_id);
+      const payout = task?.cost_per_syndicate || 50;
+      const { data: wallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+      if (wallet) {
+        await supabase.from('task_wallets').update({
+          balance: (wallet.balance || 0) + payout, total_earned: (wallet.total_earned || 0) + payout,
+        }).eq('user_id', assignment.syndicate_user_id);
+      }
+      const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+      if (synProfile) {
+        await supabase.from('syndicate_profiles').update({
+          tasks_completed: (synProfile.tasks_completed || 0) + 1, ranking_score: (synProfile.ranking_score || 0) + 10,
+        }).eq('user_id', assignment.syndicate_user_id);
+      }
+      await supabase.from('notifications').insert({
+        user_id: assignment.syndicate_user_id, title: '💰 Task Approved by Admin!',
+        message: `₦${payout} credited to your wallet.`, type: 'credit',
+      });
+    }
+    toast.success(approve ? "Approved & paid!" : "Rejected");
+    viewTaskSubmissions(viewingTaskSubs!);
   };
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -136,17 +133,19 @@ const AdminSyndicateManager = () => {
 
   return (
     <Tabs defaultValue="applications" className="space-y-4">
-      <TabsList className="w-full grid grid-cols-4">
-        <TabsTrigger value="applications" className="text-[10px]">
-          Apps {pendingApps.length > 0 && <Badge className="ml-1 h-4 px-1 text-[8px] bg-red-500">{pendingApps.length}</Badge>}
+      <TabsList className="w-full grid grid-cols-5">
+        <TabsTrigger value="applications" className="text-[9px]">
+          Apps {pendingApps.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-red-500">{pendingApps.length}</Badge>}
         </TabsTrigger>
-        <TabsTrigger value="syndicates" className="text-[10px]">Syndicates</TabsTrigger>
-        <TabsTrigger value="withdrawals" className="text-[10px]">
-          Payouts {pendingWithdrawals.length > 0 && <Badge className="ml-1 h-4 px-1 text-[8px] bg-red-500">{pendingWithdrawals.length}</Badge>}
+        <TabsTrigger value="syndicates" className="text-[9px]">Syndicates</TabsTrigger>
+        <TabsTrigger value="tasks" className="text-[9px]">Tasks</TabsTrigger>
+        <TabsTrigger value="withdrawals" className="text-[9px]">
+          Payouts {pendingWithdrawals.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-red-500">{pendingWithdrawals.length}</Badge>}
         </TabsTrigger>
-        <TabsTrigger value="settings" className="text-[10px]">Settings</TabsTrigger>
+        <TabsTrigger value="pricing" className="text-[9px]">Pricing</TabsTrigger>
       </TabsList>
 
+      {/* Applications */}
       <TabsContent value="applications" className="space-y-3">
         {pendingApps.length === 0 && <p className="text-center py-8 text-muted-foreground text-sm">No pending applications</p>}
         {pendingApps.map(app => (
@@ -154,6 +153,7 @@ const AdminSyndicateManager = () => {
         ))}
       </TabsContent>
 
+      {/* Syndicates */}
       <TabsContent value="syndicates" className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -165,11 +165,10 @@ const AdminSyndicateManager = () => {
               <div className="flex justify-between items-center">
                 <div>
                   <div className="flex gap-1 flex-wrap">
-                    {(s.verified_platforms || []).map((p: string) => (
-                      <Badge key={p} className="text-[9px] bg-purple-100 text-purple-700">{p} ✓</Badge>
-                    ))}
+                    {(s.verified_platforms || []).map((p: string) => <Badge key={p} className="text-[9px] bg-purple-100 text-purple-700">{p} ✓</Badge>)}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Tasks: {s.total_tasks_completed} | Score: {s.ranking_score}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Tasks: {s.tasks_completed || 0} | Score: {s.ranking_score || 0}</p>
+                  {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{s.state}</p>}
                 </div>
                 {s.is_verified && <CheckCircle className="h-4 w-4 text-green-500" />}
               </div>
@@ -178,6 +177,61 @@ const AdminSyndicateManager = () => {
         ))}
       </TabsContent>
 
+      {/* All Tasks (Admin can review) */}
+      <TabsContent value="tasks" className="space-y-3">
+        {viewingTaskSubs ? (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h4 className="font-semibold text-sm text-foreground">Task Submissions</h4>
+              <Button size="sm" variant="ghost" onClick={() => setViewingTaskSubs(null)} className="text-xs">Back</Button>
+            </div>
+            {taskAssignments.length === 0 ? <p className="text-center py-4 text-xs text-muted-foreground">No submissions</p> :
+              taskAssignments.map(a => (
+                <Card key={a.id} className="border">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Badge className={a.status === 'approved' ? 'bg-green-500' : a.status === 'rejected' ? 'bg-red-500' : a.status === 'submitted' ? 'bg-yellow-500' : 'bg-blue-500'}>{a.status}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : 'Not submitted'}</span>
+                    </div>
+                    {a.proof_url && <img src={a.proof_url} alt="Proof" className="w-full rounded-lg border cursor-pointer" onClick={() => window.open(a.proof_url, '_blank')} />}
+                    {a.status === 'submitted' && (
+                      <div className="flex gap-2">
+                        <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" onClick={() => adminReviewAssignment(a.id, true)}>
+                          <CheckCircle className="h-3 w-3 mr-1" />Approve
+                        </Button>
+                        <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => adminReviewAssignment(a.id, false)}>
+                          <XCircle className="h-3 w-3 mr-1" />Reject
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        ) : (
+          allTasks.map(task => (
+            <Card key={task.id}>
+              <CardContent className="p-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {(task.placements || []).map((p: string) => <Badge key={p} variant="secondary" className="text-[8px]">{p.replace(/_/g,' ')}</Badge>)}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">₦{task.total_cost} | {task.max_syndicates} syndicates | {task.deadline_hours || 24}h</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => viewTaskSubmissions(task.id)}>
+                    <Eye className="h-3 w-3 mr-1" />View
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </TabsContent>
+
+      {/* Withdrawals */}
       <TabsContent value="withdrawals" className="space-y-3">
         {pendingWithdrawals.map(w => (
           <Card key={w.id}>
@@ -201,31 +255,22 @@ const AdminSyndicateManager = () => {
         {pendingWithdrawals.length === 0 && <p className="text-center py-8 text-muted-foreground text-sm">No pending withdrawals</p>}
       </TabsContent>
 
-      <TabsContent value="settings" className="space-y-3">
+      {/* Platform Pricing */}
+      <TabsContent value="pricing" className="space-y-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Syndicate Settings</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><DollarSign className="h-4 w-4" />Platform Pricing</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs">Cost per Syndicate (₦)</Label>
-              <Input type="number" value={taskCost} onChange={e => setTaskCost(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Payout Mode</Label>
-              <select className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={payoutMode} onChange={e => setPayoutMode(e.target.value)}>
-                <option value="manual">Manual</option>
-                <option value="automatic">Automatic (Paystack)</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs">Paystack Public Key</Label>
-              <Input value={paystackPublicKey} onChange={e => setPaystackPublicKey(e.target.value)} className="mt-1" placeholder="pk_..." />
-            </div>
-            <div>
-              <Label className="text-xs">Paystack Secret Key</Label>
-              <Input type="password" value={paystackSecretKey} onChange={e => setPaystackSecretKey(e.target.value)} className="mt-1" placeholder="sk_..." />
-            </div>
-            <Button onClick={saveSettings} className="w-full text-xs">Save Settings</Button>
+            <p className="text-[10px] text-muted-foreground">Set price per task for each social media platform</p>
+            {platformPricing.map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <span className="text-xs flex-1">{p.platform_name}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">₦</span>
+                  <Input type="number" defaultValue={p.price_per_task} className="h-8 w-20 text-sm"
+                    onBlur={e => { const v = parseFloat(e.target.value); if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p.id, v); }} />
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </TabsContent>
@@ -247,11 +292,15 @@ const ApplicationCard = ({ app, onApprove, onReject }: { app: any; onApprove: (a
   return (
     <Card className="border-yellow-200">
       <CardContent className="p-3 space-y-2">
-        <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
+        <div className="flex justify-between items-center">
+          <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
+          {app.state && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{app.state}</span>}
+        </div>
+        <p className="text-[10px] font-medium text-foreground">Select platforms to approve:</p>
         {influenceFields.map(f => app[f.key] && (
           <div key={f.key} className="flex items-center gap-2">
             <Checkbox checked={selectedPlatforms.includes(f.platform)}
-              onCheckedChange={() => setSelectedPlatforms(prev => 
+              onCheckedChange={() => setSelectedPlatforms(prev =>
                 prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
               )} />
             <div>

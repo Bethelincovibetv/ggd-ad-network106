@@ -319,6 +319,33 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_pricing: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          platform_key: string
+          platform_name: string
+          price_per_task: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform_key: string
+          platform_name: string
+          price_per_task?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          platform_key?: string
+          platform_name?: string
+          price_per_task?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -474,6 +501,7 @@ export type Database = {
           id: string
           other_platforms: string | null
           reviewed_at: string | null
+          state: string | null
           status: string | null
           telegram_influence: string | null
           tiktok_influence: string | null
@@ -488,6 +516,7 @@ export type Database = {
           id?: string
           other_platforms?: string | null
           reviewed_at?: string | null
+          state?: string | null
           status?: string | null
           telegram_influence?: string | null
           tiktok_influence?: string | null
@@ -502,6 +531,7 @@ export type Database = {
           id?: string
           other_platforms?: string | null
           reviewed_at?: string | null
+          state?: string | null
           status?: string | null
           telegram_influence?: string | null
           tiktok_influence?: string | null
@@ -515,10 +545,12 @@ export type Database = {
         Row: {
           account_name: string | null
           account_number: string | null
+          avatar_url: string | null
           bank_name: string | null
           created_at: string
           id: string
           ranking_score: number | null
+          state: string | null
           tasks_completed: number | null
           user_id: string
           verified_platforms: string[] | null
@@ -526,10 +558,12 @@ export type Database = {
         Insert: {
           account_name?: string | null
           account_number?: string | null
+          avatar_url?: string | null
           bank_name?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
+          state?: string | null
           tasks_completed?: number | null
           user_id: string
           verified_platforms?: string[] | null
@@ -537,10 +571,12 @@ export type Database = {
         Update: {
           account_name?: string | null
           account_number?: string | null
+          avatar_url?: string | null
           bank_name?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
+          state?: string | null
           tasks_completed?: number | null
           user_id?: string
           verified_platforms?: string[] | null
@@ -593,6 +629,7 @@ export type Database = {
           business_user_id: string
           cost_per_syndicate: number | null
           created_at: string
+          deadline_hours: number | null
           description: string | null
           flyer_url: string | null
           id: string
@@ -601,6 +638,7 @@ export type Database = {
           placements: string[] | null
           share_link: string | null
           status: string | null
+          target_state: string | null
           title: string
           total_cost: number | null
         }
@@ -608,6 +646,7 @@ export type Database = {
           business_user_id: string
           cost_per_syndicate?: number | null
           created_at?: string
+          deadline_hours?: number | null
           description?: string | null
           flyer_url?: string | null
           id?: string
@@ -616,6 +655,7 @@ export type Database = {
           placements?: string[] | null
           share_link?: string | null
           status?: string | null
+          target_state?: string | null
           title: string
           total_cost?: number | null
         }
@@ -623,6 +663,7 @@ export type Database = {
           business_user_id?: string
           cost_per_syndicate?: number | null
           created_at?: string
+          deadline_hours?: number | null
           description?: string | null
           flyer_url?: string | null
           id?: string
@@ -631,6 +672,7 @@ export type Database = {
           placements?: string[] | null
           share_link?: string | null
           status?: string | null
+          target_state?: string | null
           title?: string
           total_cost?: number | null
         }

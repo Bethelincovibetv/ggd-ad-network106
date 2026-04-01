@@ -6,21 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image, User, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-const SOCIAL_PLACEMENTS = [
-  { id: 'whatsapp_status', label: 'Share to WhatsApp Status' },
-  { id: 'whatsapp_broadcast', label: 'Share to WhatsApp Broadcast/Chats (up to 50)' },
-  { id: 'whatsapp_group', label: 'Share to WhatsApp Group' },
-  { id: 'facebook_group', label: 'Share to Facebook Group' },
-  { id: 'telegram_group', label: 'Share to Telegram Group' },
-  { id: 'telegram_channel', label: 'Share to Telegram Channel' },
-  { id: 'tiktok_group', label: 'Share to TikTok Group' },
-  { id: 'tiktok_video', label: 'Post TikTok Video' },
-  { id: 'ggd_banner', label: 'Post on GGD Ad Network Banner' },
-];
+import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const BusinessTaskCreator = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -28,14 +18,15 @@ const BusinessTaskCreator = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [costPerSyndicate, setCostPerSyndicate] = useState(50);
+  const [platformPricing, setPlatformPricing] = useState<any[]>([]);
   const [form, setForm] = useState({
     title: '', description: '', share_link: '', max_syndicates: '10',
-    placements: [] as string[], locations: '',
+    placements: [] as string[], target_state: '', deadline_hours: '24',
   });
   const [flyerUrl, setFlyerUrl] = useState('');
-  const [viewingSubmissions, setViewingSubmissions] = useState<string | null>(null);
+  const [viewingTask, setViewingTask] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [submissionProfiles, setSubmissionProfiles] = useState<Record<string, any>>({});
 
   useEffect(() => { fetchData(); }, []);
 
@@ -43,15 +34,15 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, walletRes, settingsRes] = await Promise.all([
+    const [tasksRes, walletRes, pricingRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
-      supabase.from('app_settings').select('*').eq('key', 'task_cost_per_syndicate').maybeSingle(),
+      supabase.from('platform_pricing').select('*').order('platform_name'),
     ]);
 
     setTasks(tasksRes.data || []);
     setWallet(walletRes.data);
-    if (settingsRes.data) setCostPerSyndicate(parseInt(settingsRes.data.value) || 50);
+    setPlatformPricing(pricingRes.data || []);
     setLoading(false);
   };
 
@@ -68,13 +59,21 @@ const BusinessTaskCreator = () => {
     setUploading(false);
   };
 
+  const calculateTotalCost = () => {
+    const maxSyndicates = parseInt(form.max_syndicates) || 1;
+    let perSyndicateCost = 0;
+    form.placements.forEach(pKey => {
+      const pricing = platformPricing.find(p => p.platform_key === pKey);
+      perSyndicateCost += pricing ? Number(pricing.price_per_task) : 50;
+    });
+    return maxSyndicates * perSyndicateCost;
+  };
+
   const createTask = async () => {
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     if (form.placements.length === 0) { toast.error("Select at least one placement"); return; }
 
-    const maxSyndicates = parseInt(form.max_syndicates) || 10;
-    const totalCost = maxSyndicates * costPerSyndicate;
-
+    const totalCost = calculateTotalCost();
     if (!wallet || wallet.balance < totalCost) {
       toast.error(`Insufficient wallet balance. Need ₦${totalCost}, have ₦${wallet?.balance || 0}`);
       return;
@@ -83,29 +82,26 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const maxSyndicates = parseInt(form.max_syndicates) || 10;
+    const costPerSyndicate = totalCost / maxSyndicates;
+
     const { error } = await supabase.from('syndicate_tasks').insert({
-      business_user_id: user.id,
-      title: form.title,
-      description: form.description,
-      flyer_url: flyerUrl || null,
-      share_link: form.share_link || null,
-      placements: form.placements,
-      locations: form.locations || null,
-      max_syndicates: maxSyndicates,
-      cost_per_syndicate: costPerSyndicate,
-      total_cost: totalCost,
+      business_user_id: user.id, title: form.title, description: form.description,
+      flyer_url: flyerUrl || null, share_link: form.share_link || null,
+      placements: form.placements, target_state: form.target_state || null,
+      max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
+      total_cost: totalCost, deadline_hours: parseInt(form.deadline_hours) || 24,
     });
 
     if (error) { toast.error("Failed to create task"); return; }
 
-    // Deduct from wallet
     await supabase.from('task_wallets').update({
       balance: wallet.balance - totalCost,
       total_spent: (wallet.total_spent || 0) + totalCost,
     }).eq('user_id', user.id);
 
     toast.success("Task created! Syndicates will be notified.");
-    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], locations: '' });
+    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', deadline_hours: '24' });
     setFlyerUrl('');
     setIsCreating(false);
     fetchData();
@@ -114,16 +110,29 @@ const BusinessTaskCreator = () => {
   const togglePlacement = (id: string) => {
     setForm(prev => ({
       ...prev,
-      placements: prev.placements.includes(id)
-        ? prev.placements.filter(p => p !== id)
-        : [...prev.placements, id],
+      placements: prev.placements.includes(id) ? prev.placements.filter(p => p !== id) : [...prev.placements, id],
     }));
   };
 
   const viewSubmissions = async (taskId: string) => {
-    setViewingSubmissions(taskId);
+    setViewingTask(taskId);
     const { data } = await supabase.from('syndicate_task_assignments').select('*').eq('task_id', taskId);
-    setSubmissions(data || []);
+    const subs = data || [];
+    setSubmissions(subs);
+
+    // Fetch profiles for each syndicate user
+    const userIds = [...new Set(subs.map(s => s.syndicate_user_id))];
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('*').in('user_id', userIds);
+      const { data: synProfiles } = await supabase.from('syndicate_profiles').select('*').in('user_id', userIds);
+      const map: Record<string, any> = {};
+      userIds.forEach(uid => {
+        const profile = (profiles || []).find(p => p.user_id === uid);
+        const synProfile = (synProfiles || []).find(p => p.user_id === uid);
+        map[uid] = { ...(profile || {}), ...(synProfile || {}) };
+      });
+      setSubmissionProfiles(map);
+    }
   };
 
   const reviewSubmission = async (assignmentId: string, approve: boolean) => {
@@ -135,31 +144,52 @@ const BusinessTaskCreator = () => {
     if (approve) {
       const assignment = submissions.find(s => s.id === assignmentId);
       if (assignment) {
-        // Credit syndicate wallet
+        const task = tasks.find(t => t.id === assignment.task_id);
+        const payout = task?.cost_per_syndicate || 50;
         const { data: syndicateWallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
         if (syndicateWallet) {
           await supabase.from('task_wallets').update({
-            balance: syndicateWallet.balance + costPerSyndicate,
+            balance: (syndicateWallet.balance || 0) + payout,
+            total_earned: (syndicateWallet.total_earned || 0) + payout,
+          }).eq('user_id', assignment.syndicate_user_id);
+        }
+        // Update syndicate profile stats
+        const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+        if (synProfile) {
+          await supabase.from('syndicate_profiles').update({
+            tasks_completed: (synProfile.tasks_completed || 0) + 1,
+            ranking_score: (synProfile.ranking_score || 0) + 10,
           }).eq('user_id', assignment.syndicate_user_id);
         }
 
-        // Notify syndicate
         await supabase.from('notifications').insert({
           user_id: assignment.syndicate_user_id,
           title: '💰 Task Approved!',
-          message: `Your task submission was approved! ₦${costPerSyndicate} credited to your wallet.`,
+          message: `Your task submission was approved! ₦${payout} credited to your wallet.`,
           type: 'credit',
+        });
+      }
+    } else {
+      const assignment = submissions.find(s => s.id === assignmentId);
+      if (assignment) {
+        await supabase.from('notifications').insert({
+          user_id: assignment.syndicate_user_id,
+          title: '❌ Task Rejected',
+          message: `Your task submission was rejected. Please review the requirements.`,
+          type: 'warning',
         });
       }
     }
 
     toast.success(approve ? "Submission approved & paid!" : "Submission rejected");
-    viewSubmissions(viewingSubmissions!);
+    viewSubmissions(viewingTask!);
   };
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
 
-  const totalCostPreview = (parseInt(form.max_syndicates) || 0) * costPerSyndicate;
+  const totalCostPreview = calculateTotalCost();
+  const activeTaskCount = tasks.filter(t => t.status === 'active').length;
+  const completedTaskCount = tasks.filter(t => t.status !== 'active').length;
 
   return (
     <div className="space-y-4">
@@ -170,9 +200,10 @@ const BusinessTaskCreator = () => {
             <p className="text-xs text-muted-foreground">Task Wallet Balance</p>
             <p className="text-2xl font-bold text-green-700">₦{wallet?.balance || 0}</p>
           </div>
-          <Badge variant="outline" className="text-green-700 border-green-300">
-            ₦{costPerSyndicate}/syndicate
-          </Badge>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">{activeTaskCount} active tasks</p>
+            <p className="text-xs text-muted-foreground">{completedTaskCount} completed</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -202,33 +233,44 @@ const BusinessTaskCreator = () => {
               {flyerUrl && <img src={flyerUrl} alt="Flyer" className="w-full rounded-lg mt-2" />}
             </div>
 
-            {/* Social Placements */}
+            {/* Social Placements with Prices */}
             <div>
-              <Label className="text-xs font-medium mb-2 block">Target Placements *</Label>
+              <Label className="text-xs font-medium mb-2 block">Target Placements * (each has its own price)</Label>
               <div className="space-y-2">
-                {SOCIAL_PLACEMENTS.map(p => (
-                  <div key={p.id} className="flex items-center gap-2">
-                    <Checkbox checked={form.placements.includes(p.id)} onCheckedChange={() => togglePlacement(p.id)} />
-                    <span className="text-xs">{p.label}</span>
+                {platformPricing.filter(p => p.is_active).map(p => (
+                  <div key={p.platform_key} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={form.placements.includes(p.platform_key)} onCheckedChange={() => togglePlacement(p.platform_key)} />
+                      <span className="text-xs">{p.platform_name}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] text-green-700 border-green-300">₦{p.price_per_task}</Badge>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <Label className="text-xs">Max Syndicates</Label>
                 <Input type="number" value={form.max_syndicates} onChange={e => setForm({...form, max_syndicates: e.target.value})} className="mt-1" />
               </div>
               <div>
-                <Label className="text-xs">Target Locations</Label>
-                <Input value={form.locations} onChange={e => setForm({...form, locations: e.target.value})} className="mt-1" placeholder="Lagos, Abuja..." />
+                <Label className="text-xs">Target State</Label>
+                <select className="w-full mt-1 h-9 rounded-md border border-input bg-background px-2 text-xs"
+                  value={form.target_state} onChange={e => setForm({...form, target_state: e.target.value})}>
+                  <option value="">All States</option>
+                  {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs">Deadline (hrs)</Label>
+                <Input type="number" value={form.deadline_hours} onChange={e => setForm({...form, deadline_hours: e.target.value})} className="mt-1" />
               </div>
             </div>
 
             <Card className="bg-orange-50 border-orange-200">
               <CardContent className="p-3">
-                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} syndicates × ₦{costPerSyndicate})</p>
+                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} syndicates × selected placements)</p>
               </CardContent>
             </Card>
 
@@ -240,43 +282,96 @@ const BusinessTaskCreator = () => {
         </Card>
       )}
 
-      {/* Submissions View */}
-      {viewingSubmissions && (
+      {/* Submission Detail View */}
+      {viewingTask && (
         <Card className="border-blue-200">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-sm">Submissions</CardTitle>
-              <Button size="sm" variant="ghost" onClick={() => setViewingSubmissions(null)} className="text-xs">Close</Button>
+              <CardTitle className="text-sm">Task Submissions</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => setViewingTask(null)} className="text-xs">Close</Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {submissions.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">No submissions yet</p>
-            ) : submissions.map(sub => (
-              <Card key={sub.id} className="border">
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Badge className={sub.status === 'approved' ? 'bg-green-500' : sub.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}>
-                      {sub.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">{new Date(sub.created_at).toLocaleDateString()}</span>
-                  </div>
-                  {sub.proof_screenshot_url && (
-                    <img src={sub.proof_screenshot_url} alt="Proof" className="w-full rounded-lg" />
-                  )}
-                  {sub.status === 'submitted' && (
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" onClick={() => reviewSubmission(sub.id, true)}>
-                        <CheckCircle className="h-3 w-3 mr-1" />Approve
-                      </Button>
-                      <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => reviewSubmission(sub.id, false)}>
-                        <XCircle className="h-3 w-3 mr-1" />Reject
-                      </Button>
+            ) : submissions.map(sub => {
+              const profile = submissionProfiles[sub.syndicate_user_id] || {};
+              return (
+                <Card key={sub.id} className={`border ${sub.status === 'approved' ? 'border-green-200 bg-green-50/50' : sub.status === 'rejected' ? 'border-red-200 bg-red-50/50' : 'border-yellow-200'}`}>
+                  <CardContent className="p-3 space-y-2">
+                    {/* Syndicate Profile Info */}
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden">
+                        {profile.avatar_url ? (
+                          <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-4 w-4 text-purple-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-foreground">{profile.display_name || 'Syndicate'}</p>
+                        <p className="text-[10px] text-muted-foreground">{profile.email}</p>
+                      </div>
+                      <Badge className={
+                        sub.status === 'approved' ? 'bg-green-500' :
+                        sub.status === 'rejected' ? 'bg-red-500' :
+                        sub.status === 'submitted' ? 'bg-yellow-500' : 'bg-blue-500'
+                      }>
+                        {sub.status}
+                      </Badge>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Syndicate Details */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      {profile.state && (
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3 w-3" />{profile.state}
+                        </div>
+                      )}
+                      {profile.verified_platforms?.length > 0 && (
+                        <div className="flex gap-1 flex-wrap">
+                          {profile.verified_platforms.map((p: string) => (
+                            <Badge key={p} className="text-[8px] bg-purple-100 text-purple-700 h-4">{p}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : 'Pending'}
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <CheckCircle className="h-3 w-3" />
+                        Tasks done: {profile.tasks_completed || 0}
+                      </div>
+                    </div>
+
+                    {/* Proof Screenshot */}
+                    {sub.proof_url && (
+                      <div>
+                        <p className="text-[10px] font-medium text-foreground mb-1">Screenshot Proof:</p>
+                        <img src={sub.proof_url} alt="Proof screenshot" className="w-full rounded-lg border cursor-pointer" onClick={() => window.open(sub.proof_url, '_blank')} />
+                      </div>
+                    )}
+
+                    {/* Approve/Reject only for submitted status */}
+                    {sub.status === 'submitted' && (
+                      <div className="flex gap-2">
+                        <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" onClick={() => reviewSubmission(sub.id, true)}>
+                          <CheckCircle className="h-3 w-3 mr-1" />Approve & Pay
+                        </Button>
+                        <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => reviewSubmission(sub.id, false)}>
+                          <XCircle className="h-3 w-3 mr-1" />Reject
+                        </Button>
+                      </div>
+                    )}
+
+                    {sub.reviewed_at && (
+                      <p className="text-[9px] text-muted-foreground">Reviewed: {new Date(sub.reviewed_at).toLocaleString()}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -294,10 +389,14 @@ const BusinessTaskCreator = () => {
                   <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
                 ))}
               </div>
+              <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                {task.target_state && <span><MapPin className="h-3 w-3 inline" /> {task.target_state}</span>}
+                <span><Clock className="h-3 w-3 inline" /> {task.deadline_hours || 24}h deadline</span>
+              </div>
               <div className="flex justify-between items-center mt-2">
-                <span className="text-[10px] text-muted-foreground">0/{task.max_syndicates} syndicates</span>
+                <span className="text-[10px] text-muted-foreground">₦{task.total_cost} total | {task.max_syndicates} syndicates</span>
                 <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => viewSubmissions(task.id)}>
-                  <Eye className="h-3 w-3 mr-1" />View Proofs
+                  <Eye className="h-3 w-3 mr-1" />View Submissions
                 </Button>
               </div>
             </CardContent>
