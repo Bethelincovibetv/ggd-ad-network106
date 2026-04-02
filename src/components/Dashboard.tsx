@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +11,7 @@ import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Lo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import AdminPanel from "@/components/AdminPanel";
+
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
 import SlideCarousel from "@/components/SlideCarousel";
@@ -68,6 +69,7 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
+  const navigate = useNavigate();
   const [ads, setAds] = useState<Ad[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -692,7 +694,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <SupportPage userEmail={userEmail} />;
 
       case 'admin':
-        return isAdmin ? <AdminPanel /> : null;
+        return null;
 
       default:
         return null;
