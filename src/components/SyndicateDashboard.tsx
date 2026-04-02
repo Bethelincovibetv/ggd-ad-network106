@@ -177,12 +177,12 @@ const SyndicateDashboard = () => {
 
           {/* Time remaining */}
           {(assignment.status === 'accepted' || assignment.status === 'assigned') && !isExpired && (
-            <div className="flex items-center gap-1 text-[10px] text-orange-600">
-              <Clock className="h-3 w-3" />
+            <div className="flex items-center gap-1.5 text-xs text-orange-600 font-medium bg-orange-50 dark:bg-orange-950/30 rounded-md px-2 py-1">
+              <Clock className="h-3.5 w-3.5" />
               <span>{hoursLeft}h {minsLeft}m remaining</span>
             </div>
           )}
-          {isExpired && <Badge variant="destructive" className="text-[9px]">Expired - Task Missed</Badge>}
+          {isExpired && <Badge variant="destructive" className="text-xs px-2 py-0.5">Expired - Task Missed</Badge>}
 
           <div className="flex gap-2 flex-wrap">
             {task.description && (
