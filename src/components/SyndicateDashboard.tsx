@@ -203,22 +203,22 @@ const SyndicateDashboard = () => {
           </div>
 
           <div className="flex items-center justify-between">
-            <Badge className={
+            <Badge className={`text-xs px-2.5 py-1 ${
               assignment.status === 'approved' ? 'bg-green-500' :
               assignment.status === 'submitted' ? 'bg-yellow-500' :
               assignment.status === 'rejected' ? 'bg-red-500' :
               isExpired ? 'bg-gray-500' : 'bg-blue-500'
-            }>
-              {isExpired ? 'expired' : assignment.status}
+            }`}>
+              {isExpired ? 'Expired' : assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
             </Badge>
 
             {(assignment.status === 'accepted' || assignment.status === 'assigned') && !isExpired && (
               <>
                 <input type="file" id={`proof-${assignment.id}`} accept="image/*" className="hidden"
                   onChange={e => e.target.files?.[0] && uploadProof(assignment.id, e.target.files[0])} />
-                <Button size="sm" className="bg-green-600 text-white text-[10px]" disabled={uploading === assignment.id}
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs h-9 px-4" disabled={uploading === assignment.id}
                   onClick={() => document.getElementById(`proof-${assignment.id}`)?.click()}>
-                  {uploading === assignment.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                  {uploading === assignment.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
                   Upload Proof
                 </Button>
               </>
