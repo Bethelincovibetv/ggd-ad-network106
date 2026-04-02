@@ -11,7 +11,7 @@ import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Lo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import AdminPanel from "@/components/AdminPanel";
+
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
 import SlideCarousel from "@/components/SlideCarousel";
