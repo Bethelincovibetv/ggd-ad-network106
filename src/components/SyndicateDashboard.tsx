@@ -159,66 +159,66 @@ const SyndicateDashboard = () => {
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
     return (
-      <Card key={assignment.id} className={
-        assignment.status === 'approved' ? 'border-green-200' :
-        assignment.status === 'rejected' ? 'border-red-200' :
-        isExpired ? 'border-gray-300 opacity-60' : ''
-      }>
-        <CardContent className="p-3 space-y-2">
+      <Card key={assignment.id} className={`shadow-sm ${
+        assignment.status === 'approved' ? 'border-green-300 bg-green-50/30 dark:bg-green-950/10' :
+        assignment.status === 'rejected' ? 'border-red-300 bg-red-50/30 dark:bg-red-950/10' :
+        isExpired ? 'border-gray-300 opacity-60' : 'border-border'
+      }`}>
+        <CardContent className="p-4 space-y-3">
           {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
-          <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
-          <p className="text-[10px] text-muted-foreground">{task.description}</p>
+          <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
+          <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {(task.placements || []).map((p: string) => (
-              <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
+              <Badge key={p} variant="secondary" className="text-[10px] px-2 py-0.5">{p.replace(/_/g, ' ')}</Badge>
             ))}
           </div>
 
           {/* Time remaining */}
           {(assignment.status === 'accepted' || assignment.status === 'assigned') && !isExpired && (
-            <div className="flex items-center gap-1 text-[10px] text-orange-600">
-              <Clock className="h-3 w-3" />
+            <div className="flex items-center gap-1.5 text-xs text-orange-600 font-medium bg-orange-50 dark:bg-orange-950/30 rounded-md px-2 py-1">
+              <Clock className="h-3.5 w-3.5" />
               <span>{hoursLeft}h {minsLeft}m remaining</span>
             </div>
           )}
-          {isExpired && <Badge variant="destructive" className="text-[9px]">Expired - Task Missed</Badge>}
+          {isExpired && <Badge variant="destructive" className="text-xs px-2 py-0.5">Expired - Task Missed</Badge>}
 
           <div className="flex gap-2 flex-wrap">
             {task.description && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => copyText(task.description)}>
-                <Copy className="h-3 w-3 mr-1" />Copy Text
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => copyText(task.description)}>
+                <Copy className="h-3.5 w-3.5 mr-1" />Copy Text
               </Button>
             )}
             {task.share_link && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => window.open(task.share_link, '_blank')}>
-                <ExternalLink className="h-3 w-3 mr-1" />Open Link
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => window.open(task.share_link, '_blank')}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1" />Open Link
               </Button>
             )}
             {task.flyer_url && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
-                <Download className="h-3 w-3 mr-1" />Flyer
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
+                <Download className="h-3.5 w-3.5 mr-1" />Flyer
               </Button>
             )}
           </div>
 
           <div className="flex items-center justify-between">
-            <Badge className={
+            <Badge className={`text-xs px-2.5 py-1 ${
               assignment.status === 'approved' ? 'bg-green-500' :
               assignment.status === 'submitted' ? 'bg-yellow-500' :
               assignment.status === 'rejected' ? 'bg-red-500' :
               isExpired ? 'bg-gray-500' : 'bg-blue-500'
-            }>
-              {isExpired ? 'expired' : assignment.status}
+            }`}>
+              {isExpired ? 'Expired' : assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
             </Badge>
 
             {(assignment.status === 'accepted' || assignment.status === 'assigned') && !isExpired && (
               <>
                 <input type="file" id={`proof-${assignment.id}`} accept="image/*" className="hidden"
                   onChange={e => e.target.files?.[0] && uploadProof(assignment.id, e.target.files[0])} />
-                <Button size="sm" className="bg-green-600 text-white text-[10px]" disabled={uploading === assignment.id}
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs h-9 px-4" disabled={uploading === assignment.id}
                   onClick={() => document.getElementById(`proof-${assignment.id}`)?.click()}>
-                  {uploading === assignment.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                  {uploading === assignment.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
                   Upload Proof
                 </Button>
               </>
@@ -255,9 +255,9 @@ const SyndicateDashboard = () => {
             </div>
             <div className="flex-1">
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div><div className="text-lg font-bold text-foreground">{profile?.ranking_score || 0}</div><div className="text-[9px] text-muted-foreground">Rank</div></div>
-                <div><div className="text-lg font-bold text-foreground">{profile?.tasks_completed || 0}</div><div className="text-[9px] text-muted-foreground">Done</div></div>
-                <div><div className="text-lg font-bold text-green-600">₦{wallet?.balance || 0}</div><div className="text-[9px] text-muted-foreground">Earnings</div></div>
+              <div><div className="text-xl font-bold text-foreground">{profile?.ranking_score || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Rank</div></div>
+                <div><div className="text-xl font-bold text-foreground">{profile?.tasks_completed || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Done</div></div>
+                <div><div className="text-xl font-bold text-green-600">₦{wallet?.balance || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Earnings</div></div>
               </div>
             </div>
           </div>
@@ -277,17 +277,17 @@ const SyndicateDashboard = () => {
       </Button>
 
       {/* Tabbed Assignment View */}
-      <Tabs defaultValue="pending" className="space-y-2">
-        <TabsList className="w-full grid grid-cols-5">
-          <TabsTrigger value="pending" className="text-[9px]">
-            Pending {pendingAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-blue-500">{pendingAssignments.length}</Badge>}
+      <Tabs defaultValue="pending" className="space-y-3">
+        <TabsList className="w-full grid grid-cols-5 h-10">
+          <TabsTrigger value="pending" className="text-[10px] font-medium">
+            Pending {pendingAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1.5 text-[9px] bg-blue-500">{pendingAssignments.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="submitted" className="text-[9px]">
-            Review {submittedAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-yellow-500">{submittedAssignments.length}</Badge>}
+          <TabsTrigger value="submitted" className="text-[10px] font-medium">
+            Review {submittedAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1.5 text-[9px] bg-yellow-500">{submittedAssignments.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="completed" className="text-[9px]">Done</TabsTrigger>
-          <TabsTrigger value="rejected" className="text-[9px]">Rejected</TabsTrigger>
-          <TabsTrigger value="expired" className="text-[9px]">Missed</TabsTrigger>
+          <TabsTrigger value="completed" className="text-[10px] font-medium">Done</TabsTrigger>
+          <TabsTrigger value="rejected" className="text-[10px] font-medium">Rejected</TabsTrigger>
+          <TabsTrigger value="expired" className="text-[10px] font-medium">Missed</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-2">
@@ -308,26 +308,26 @@ const SyndicateDashboard = () => {
       </Tabs>
 
       {/* Available Tasks */}
-      <h3 className="font-bold text-sm text-foreground">Available Tasks</h3>
-      <div className="space-y-2">
+      <h3 className="font-bold text-base text-foreground">Available Tasks</h3>
+      <div className="space-y-3">
         {availableTasks.map(task => (
-          <Card key={task.id}>
-            <CardContent className="p-3 space-y-2">
+          <Card key={task.id} className="shadow-sm">
+            <CardContent className="p-4 space-y-3">
               {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
-              <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
-              <p className="text-[10px] text-muted-foreground line-clamp-2">{task.description}</p>
-              <div className="flex flex-wrap gap-1">
+              <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
+              <div className="flex flex-wrap gap-1.5">
                 {(task.placements || []).map((p: string) => (
-                  <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
+                  <Badge key={p} variant="secondary" className="text-[10px] px-2 py-0.5">{p.replace(/_/g, ' ')}</Badge>
                 ))}
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                {task.target_state && <span><MapPin className="h-3 w-3 inline" /> {task.target_state}</span>}
-                <span><Clock className="h-3 w-3 inline" /> {task.deadline_hours || 24}h</span>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {task.target_state && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {task.target_state}</span>}
+                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {task.deadline_hours || 24}h deadline</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>
-                <Button size="sm" className="bg-purple-600 text-white text-[10px]" onClick={() => acceptTask(task.id)}>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-sm text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>
+                <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-9 px-4" onClick={() => acceptTask(task.id)}>
                   Accept Task
                 </Button>
               </div>
@@ -335,9 +335,10 @@ const SyndicateDashboard = () => {
           </Card>
         ))}
         {availableTasks.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No available tasks right now</p>
+          <div className="text-center py-10 text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">No available tasks right now</p>
+            <p className="text-xs mt-1">Check back soon or request task matching above</p>
           </div>
         )}
       </div>
