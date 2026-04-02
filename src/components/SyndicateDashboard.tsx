@@ -166,12 +166,12 @@ const SyndicateDashboard = () => {
       }>
         <CardContent className="p-3 space-y-2">
           {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
-          <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
-          <p className="text-[10px] text-muted-foreground">{task.description}</p>
+          <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
+          <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {(task.placements || []).map((p: string) => (
-              <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
+              <Badge key={p} variant="secondary" className="text-[10px] px-2 py-0.5">{p.replace(/_/g, ' ')}</Badge>
             ))}
           </div>
 
