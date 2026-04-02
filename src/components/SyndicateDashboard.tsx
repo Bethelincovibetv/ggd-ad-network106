@@ -308,26 +308,26 @@ const SyndicateDashboard = () => {
       </Tabs>
 
       {/* Available Tasks */}
-      <h3 className="font-bold text-sm text-foreground">Available Tasks</h3>
-      <div className="space-y-2">
+      <h3 className="font-bold text-base text-foreground">Available Tasks</h3>
+      <div className="space-y-3">
         {availableTasks.map(task => (
-          <Card key={task.id}>
-            <CardContent className="p-3 space-y-2">
+          <Card key={task.id} className="shadow-sm">
+            <CardContent className="p-4 space-y-3">
               {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
-              <h4 className="font-semibold text-xs text-foreground">{task.title}</h4>
-              <p className="text-[10px] text-muted-foreground line-clamp-2">{task.description}</p>
-              <div className="flex flex-wrap gap-1">
+              <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
+              <div className="flex flex-wrap gap-1.5">
                 {(task.placements || []).map((p: string) => (
-                  <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
+                  <Badge key={p} variant="secondary" className="text-[10px] px-2 py-0.5">{p.replace(/_/g, ' ')}</Badge>
                 ))}
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                {task.target_state && <span><MapPin className="h-3 w-3 inline" /> {task.target_state}</span>}
-                <span><Clock className="h-3 w-3 inline" /> {task.deadline_hours || 24}h</span>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {task.target_state && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {task.target_state}</span>}
+                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {task.deadline_hours || 24}h deadline</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>
-                <Button size="sm" className="bg-purple-600 text-white text-[10px]" onClick={() => acceptTask(task.id)}>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-sm text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>
+                <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-9 px-4" onClick={() => acceptTask(task.id)}>
                   Accept Task
                 </Button>
               </div>
@@ -335,9 +335,10 @@ const SyndicateDashboard = () => {
           </Card>
         ))}
         {availableTasks.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No available tasks right now</p>
+          <div className="text-center py-10 text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">No available tasks right now</p>
+            <p className="text-xs mt-1">Check back soon or request task matching above</p>
           </div>
         )}
       </div>
