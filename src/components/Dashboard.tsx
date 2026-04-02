@@ -69,6 +69,7 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
+  const navigate = useNavigate();
   const [ads, setAds] = useState<Ad[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreating, setIsCreating] = useState(false);
