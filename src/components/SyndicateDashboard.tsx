@@ -159,12 +159,12 @@ const SyndicateDashboard = () => {
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
     return (
-      <Card key={assignment.id} className={
-        assignment.status === 'approved' ? 'border-green-200' :
-        assignment.status === 'rejected' ? 'border-red-200' :
-        isExpired ? 'border-gray-300 opacity-60' : ''
-      }>
-        <CardContent className="p-3 space-y-2">
+      <Card key={assignment.id} className={`shadow-sm ${
+        assignment.status === 'approved' ? 'border-green-300 bg-green-50/30 dark:bg-green-950/10' :
+        assignment.status === 'rejected' ? 'border-red-300 bg-red-50/30 dark:bg-red-950/10' :
+        isExpired ? 'border-gray-300 opacity-60' : 'border-border'
+      }`}>
+        <CardContent className="p-4 space-y-3">
           {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
           <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
           <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
