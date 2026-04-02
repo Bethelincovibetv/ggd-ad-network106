@@ -255,9 +255,9 @@ const SyndicateDashboard = () => {
             </div>
             <div className="flex-1">
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div><div className="text-lg font-bold text-foreground">{profile?.ranking_score || 0}</div><div className="text-[9px] text-muted-foreground">Rank</div></div>
-                <div><div className="text-lg font-bold text-foreground">{profile?.tasks_completed || 0}</div><div className="text-[9px] text-muted-foreground">Done</div></div>
-                <div><div className="text-lg font-bold text-green-600">₦{wallet?.balance || 0}</div><div className="text-[9px] text-muted-foreground">Earnings</div></div>
+              <div><div className="text-xl font-bold text-foreground">{profile?.ranking_score || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Rank</div></div>
+                <div><div className="text-xl font-bold text-foreground">{profile?.tasks_completed || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Done</div></div>
+                <div><div className="text-xl font-bold text-green-600">₦{wallet?.balance || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Earnings</div></div>
               </div>
             </div>
           </div>
