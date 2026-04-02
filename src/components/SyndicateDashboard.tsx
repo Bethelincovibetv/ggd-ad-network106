@@ -186,18 +186,18 @@ const SyndicateDashboard = () => {
 
           <div className="flex gap-2 flex-wrap">
             {task.description && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => copyText(task.description)}>
-                <Copy className="h-3 w-3 mr-1" />Copy Text
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => copyText(task.description)}>
+                <Copy className="h-3.5 w-3.5 mr-1" />Copy Text
               </Button>
             )}
             {task.share_link && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => window.open(task.share_link, '_blank')}>
-                <ExternalLink className="h-3 w-3 mr-1" />Open Link
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => window.open(task.share_link, '_blank')}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1" />Open Link
               </Button>
             )}
             {task.flyer_url && (
-              <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
-                <Download className="h-3 w-3 mr-1" />Flyer
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => downloadFlyer(task.flyer_url, task.title)}>
+                <Download className="h-3.5 w-3.5 mr-1" />Flyer
               </Button>
             )}
           </div>
