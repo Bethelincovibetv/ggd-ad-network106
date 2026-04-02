@@ -693,7 +693,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <SupportPage userEmail={userEmail} />;
 
       case 'admin':
-        return isAdmin ? <AdminPanel /> : null;
+        return null;
 
       default:
         return null;
