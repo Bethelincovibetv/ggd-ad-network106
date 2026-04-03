@@ -19,6 +19,7 @@ const AdminUserManager = () => {
   const [wallets, setWallets] = useState<Record<string, any>>({});
   const [viewingUser, setViewingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [businessProfiles, setBusinessProfiles] = useState<Record<string, any>>({});
 
   useEffect(() => { fetchUsers(); fetchWallets(); }, []);
 
