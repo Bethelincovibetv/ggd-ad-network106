@@ -40,6 +40,21 @@ const AdminUserManager = () => {
     setWallets(map);
   };
 
+  const fetchBusinessProfiles = async () => {
+    const { data } = await (supabase.from('business_profiles') as any).select('user_id, id, paystack_enabled, paystack_public_key');
+    const map: Record<string, any> = {};
+    (data || []).forEach((b: any) => { map[b.user_id] = b; });
+    setBusinessProfiles(map);
+  };
+
+  const togglePaystack = async (userId: string) => {
+    const bp = businessProfiles[userId];
+    if (!bp) return;
+    await (supabase.from('business_profiles') as any).update({ paystack_enabled: !bp.paystack_enabled }).eq('id', bp.id);
+    toast.success(bp.paystack_enabled ? 'Paystack disabled' : 'Paystack enabled');
+    fetchBusinessProfiles();
+  };
+
   const toggleBan = async (userId: string, isBanned: boolean) => {
     await supabase.from('profiles').update({ is_banned: !isBanned }).eq('user_id', userId);
     toast.success(isBanned ? 'User unbanned' : 'User banned');
