@@ -340,30 +340,56 @@ const ApplicationCard = ({ app, onApprove, onReject }: { app: any; onApprove: (a
 
   return (
     <Card className="border-yellow-200">
-      <CardContent className="p-3 space-y-2">
-        <div className="flex justify-between items-center">
-          <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
-          {app.state && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{app.state}</span>}
-        </div>
-        <p className="text-[10px] font-medium text-foreground">Select platforms to approve:</p>
-        {influenceFields.map(f => app[f.key] && (
-          <div key={f.key} className="flex items-center gap-2">
-            <Checkbox checked={selectedPlatforms.includes(f.platform)}
-              onCheckedChange={() => setSelectedPlatforms(prev =>
-                prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
-              )} />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            {app._profile?.avatar_url ? (
+              <img src={app._profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <Users className="h-5 w-5 text-yellow-600" />
+              </div>
+            )}
             <div>
-              <span className="text-xs font-medium">{f.label}:</span>
-              <span className="text-xs text-muted-foreground ml-1">{app[f.key]}</span>
+              <p className="font-bold text-sm text-foreground">{app._profile?.display_name || app._profile?.email || 'Unknown'}</p>
+              <p className="text-[10px] text-muted-foreground">{app._profile?.email}</p>
             </div>
           </div>
-        ))}
-        <div className="flex gap-2 mt-2">
-          <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" disabled={selectedPlatforms.length === 0}
+          <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
+        </div>
+
+        {app.state && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{app.state}</p>
+        )}
+
+        <div className="border-t pt-2">
+          <p className="text-xs font-bold text-foreground mb-2">Social Channels & Influence:</p>
+          {influenceFields.map(f => app[f.key] && (
+            <div key={f.key} className="flex items-start gap-2 py-1.5 border-b border-border/50 last:border-0">
+              <Checkbox checked={selectedPlatforms.includes(f.platform)}
+                onCheckedChange={() => setSelectedPlatforms(prev =>
+                  prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
+                )} />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-bold text-foreground">{f.label}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{app[f.key]}</p>
+              </div>
+            </div>
+          ))}
+          {app.other_platforms && (
+            <div className="mt-2 p-2 bg-muted/30 rounded-lg">
+              <p className="text-[10px] font-semibold text-muted-foreground">OTHER PLATFORMS</p>
+              <p className="text-xs text-foreground">{app.other_platforms}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1 bg-green-600 text-white text-xs h-9" disabled={selectedPlatforms.length === 0}
             onClick={() => onApprove(app, selectedPlatforms)}>
-            <CheckCircle className="h-3 w-3 mr-1" />Approve
+            <CheckCircle className="h-3 w-3 mr-1" />Approve ({selectedPlatforms.length} platforms)
           </Button>
-          <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => onReject(app)}>
+          <Button size="sm" variant="destructive" className="flex-1 text-xs h-9" onClick={() => onReject(app)}>
             <XCircle className="h-3 w-3 mr-1" />Reject
           </Button>
         </div>
