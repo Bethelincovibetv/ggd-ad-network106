@@ -219,6 +219,21 @@ const AdminUserManager = () => {
               </div>
             )}
 
+            {/* Paystack Toggle for Business */}
+            {user.roles.includes('business') && businessProfiles[user.user_id] && (
+              <div className="border-t pt-2 mt-1 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-foreground">Paystack Payments</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {businessProfiles[user.user_id]?.paystack_public_key ? 'Key configured' : 'No key set'}
+                  </p>
+                </div>
+                <Switch
+                  checked={businessProfiles[user.user_id]?.paystack_enabled || false}
+                  onCheckedChange={() => togglePaystack(user.user_id)}
+                />
+              </div>
+            )}
             {/* Roles */}
             <div className="flex gap-1 flex-wrap">
               {['admin', 'premium', 'business', 'syndicate'].map(role => (
