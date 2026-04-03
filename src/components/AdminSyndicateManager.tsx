@@ -27,17 +27,22 @@ const AdminSyndicateManager = () => {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes] = await Promise.all([
+    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes] = await Promise.all([
       supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
       supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_pricing').select('*').order('platform_name'),
+      supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
     ]);
 
-    setApplications(appsRes.data || []);
-    setSyndicates(syndicatesRes.data || []);
-    setWithdrawals(withdrawalsRes.data || []);
+    // Enrich syndicates and applications with profile info
+    const profileMap: Record<string, any> = {};
+    (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+    setApplications((appsRes.data || []).map((a: any) => ({ ...a, _profile: profileMap[a.user_id] })));
+    setSyndicates((syndicatesRes.data || []).map((s: any) => ({ ...s, _profile: profileMap[s.user_id] })));
+    setWithdrawals((withdrawalsRes.data || []).map((w: any) => ({ ...w, _profile: profileMap[w.user_id] })));
     setAllTasks(tasksRes.data || []);
     setPlatformPricing(pricingRes.data || []);
     setLoading(false);
