@@ -21,7 +21,7 @@ const AdminUserManager = () => {
   const [editForm, setEditForm] = useState<any>({});
   const [businessProfiles, setBusinessProfiles] = useState<Record<string, any>>({});
 
-  useEffect(() => { fetchUsers(); fetchWallets(); }, []);
+  useEffect(() => { fetchUsers(); fetchWallets(); fetchBusinessProfiles(); }, []);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
