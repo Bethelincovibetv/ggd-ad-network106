@@ -139,7 +139,7 @@ const AdminPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-card/95 shadow-2xl backdrop-blur-xl lg:w-60">
+      <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-card shadow-2xl lg:w-60">
         <div className="flex items-center gap-3 border-b border-border px-4 py-5">
           <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
           <div>
@@ -165,7 +165,7 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl">
+      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button
@@ -238,7 +238,7 @@ const AdminPage = () => {
       </main>
 
       {/* Mobile Bottom Nav - Quick access to top sections */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur-xl safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card shadow-lg safe-area-bottom">
         <div className="flex items-center justify-around px-2 py-2">
           {[navItems[0], navItems[1], navItems[2], navItems[3], navItems[4]].map(item => {
             const active = activeSection === item.id;

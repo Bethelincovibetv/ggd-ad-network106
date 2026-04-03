@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Users, Search, Plus, Crown, Ban, CheckCircle, Minus, Eye, Shield, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,8 +19,9 @@ const AdminUserManager = () => {
   const [wallets, setWallets] = useState<Record<string, any>>({});
   const [viewingUser, setViewingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [businessProfiles, setBusinessProfiles] = useState<Record<string, any>>({});
 
-  useEffect(() => { fetchUsers(); fetchWallets(); }, []);
+  useEffect(() => { fetchUsers(); fetchWallets(); fetchBusinessProfiles(); }, []);
 
   const fetchUsers = async () => {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -36,6 +38,21 @@ const AdminUserManager = () => {
     const map: Record<string, any> = {};
     (data || []).forEach(w => { map[w.user_id] = w; });
     setWallets(map);
+  };
+
+  const fetchBusinessProfiles = async () => {
+    const { data } = await (supabase.from('business_profiles') as any).select('user_id, id, paystack_enabled, paystack_public_key');
+    const map: Record<string, any> = {};
+    (data || []).forEach((b: any) => { map[b.user_id] = b; });
+    setBusinessProfiles(map);
+  };
+
+  const togglePaystack = async (userId: string) => {
+    const bp = businessProfiles[userId];
+    if (!bp) return;
+    await (supabase.from('business_profiles') as any).update({ paystack_enabled: !bp.paystack_enabled }).eq('id', bp.id);
+    toast.success(bp.paystack_enabled ? 'Paystack disabled' : 'Paystack enabled');
+    fetchBusinessProfiles();
   };
 
   const toggleBan = async (userId: string, isBanned: boolean) => {
@@ -202,6 +219,21 @@ const AdminUserManager = () => {
               </div>
             )}
 
+            {/* Paystack Toggle for Business */}
+            {user.roles.includes('business') && businessProfiles[user.user_id] && (
+              <div className="border-t pt-2 mt-1 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-foreground">Paystack Payments</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {businessProfiles[user.user_id]?.paystack_public_key ? 'Key configured' : 'No key set'}
+                  </p>
+                </div>
+                <Switch
+                  checked={businessProfiles[user.user_id]?.paystack_enabled || false}
+                  onCheckedChange={() => togglePaystack(user.user_id)}
+                />
+              </div>
+            )}
             {/* Roles */}
             <div className="flex gap-1 flex-wrap">
               {['admin', 'premium', 'business', 'syndicate'].map(role => (

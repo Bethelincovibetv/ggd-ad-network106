@@ -27,17 +27,22 @@ const AdminSyndicateManager = () => {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes] = await Promise.all([
+    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes] = await Promise.all([
       supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
       supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_pricing').select('*').order('platform_name'),
+      supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
     ]);
 
-    setApplications(appsRes.data || []);
-    setSyndicates(syndicatesRes.data || []);
-    setWithdrawals(withdrawalsRes.data || []);
+    // Enrich syndicates and applications with profile info
+    const profileMap: Record<string, any> = {};
+    (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+    setApplications((appsRes.data || []).map((a: any) => ({ ...a, _profile: profileMap[a.user_id] })));
+    setSyndicates((syndicatesRes.data || []).map((s: any) => ({ ...s, _profile: profileMap[s.user_id] })));
+    setWithdrawals((withdrawalsRes.data || []).map((w: any) => ({ ...w, _profile: profileMap[w.user_id] })));
     setAllTasks(tasksRes.data || []);
     setPlatformPricing(pricingRes.data || []);
     setLoading(false);
@@ -159,19 +164,63 @@ const AdminSyndicateManager = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search syndicates..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
+        <p className="text-xs text-muted-foreground">{syndicates.length} syndicate members</p>
         {syndicates.filter(s => !searchQuery || JSON.stringify(s).toLowerCase().includes(searchQuery.toLowerCase())).map(s => (
-          <Card key={s.id}>
-            <CardContent className="p-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="flex gap-1 flex-wrap">
-                    {(s.verified_platforms || []).map((p: string) => <Badge key={p} className="text-[9px] bg-purple-100 text-purple-700">{p} ✓</Badge>)}
+          <Card key={s.id} className="border">
+            <CardContent className="p-4 space-y-3">
+              {/* User identity */}
+              <div className="flex items-center gap-3">
+                {s.avatar_url || s._profile?.avatar_url ? (
+                  <img src={s.avatar_url || s._profile?.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-purple-200" />
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-purple-500" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Tasks: {s.tasks_completed || 0} | Score: {s.ranking_score || 0}</p>
-                  {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{s.state}</p>}
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-foreground truncate">{s._profile?.display_name || s._profile?.email || 'Unknown User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{s._profile?.email || ''}</p>
+                  {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{s.state}</p>}
                 </div>
-                {s.is_verified && <CheckCircle className="h-4 w-4 text-green-500" />}
               </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-purple-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-purple-700">{s.tasks_completed || 0}</p>
+                  <p className="text-[9px] text-purple-600">Tasks Done</p>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-blue-700">{s.ranking_score || 0}</p>
+                  <p className="text-[9px] text-blue-600">Score</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-green-700">{(s.verified_platforms || []).length}</p>
+                  <p className="text-[9px] text-green-600">Platforms</p>
+                </div>
+              </div>
+
+              {/* Verified platforms */}
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground mb-1">VERIFIED PLATFORMS</p>
+                <div className="flex gap-1 flex-wrap">
+                  {(s.verified_platforms || []).map((p: string) => (
+                    <Badge key={p} className="text-[10px] bg-purple-100 text-purple-700 gap-1">
+                      <CheckCircle className="h-3 w-3" />{p}
+                    </Badge>
+                  ))}
+                  {(s.verified_platforms || []).length === 0 && <span className="text-[10px] text-muted-foreground">None assigned</span>}
+                </div>
+              </div>
+
+              {/* Bank details */}
+              {(s.bank_name || s.account_number) && (
+                <div className="bg-muted/30 rounded-lg p-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">BANK DETAILS</p>
+                  <p className="text-xs text-foreground">{s.bank_name} — {s.account_number}</p>
+                  {s.account_name && <p className="text-[10px] text-muted-foreground">{s.account_name}</p>}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -291,30 +340,56 @@ const ApplicationCard = ({ app, onApprove, onReject }: { app: any; onApprove: (a
 
   return (
     <Card className="border-yellow-200">
-      <CardContent className="p-3 space-y-2">
-        <div className="flex justify-between items-center">
-          <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
-          {app.state && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{app.state}</span>}
-        </div>
-        <p className="text-[10px] font-medium text-foreground">Select platforms to approve:</p>
-        {influenceFields.map(f => app[f.key] && (
-          <div key={f.key} className="flex items-center gap-2">
-            <Checkbox checked={selectedPlatforms.includes(f.platform)}
-              onCheckedChange={() => setSelectedPlatforms(prev =>
-                prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
-              )} />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            {app._profile?.avatar_url ? (
+              <img src={app._profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <Users className="h-5 w-5 text-yellow-600" />
+              </div>
+            )}
             <div>
-              <span className="text-xs font-medium">{f.label}:</span>
-              <span className="text-xs text-muted-foreground ml-1">{app[f.key]}</span>
+              <p className="font-bold text-sm text-foreground">{app._profile?.display_name || app._profile?.email || 'Unknown'}</p>
+              <p className="text-[10px] text-muted-foreground">{app._profile?.email}</p>
             </div>
           </div>
-        ))}
-        <div className="flex gap-2 mt-2">
-          <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" disabled={selectedPlatforms.length === 0}
+          <Badge className="bg-yellow-500"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
+        </div>
+
+        {app.state && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{app.state}</p>
+        )}
+
+        <div className="border-t pt-2">
+          <p className="text-xs font-bold text-foreground mb-2">Social Channels & Influence:</p>
+          {influenceFields.map(f => app[f.key] && (
+            <div key={f.key} className="flex items-start gap-2 py-1.5 border-b border-border/50 last:border-0">
+              <Checkbox checked={selectedPlatforms.includes(f.platform)}
+                onCheckedChange={() => setSelectedPlatforms(prev =>
+                  prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
+                )} />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-bold text-foreground">{f.label}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{app[f.key]}</p>
+              </div>
+            </div>
+          ))}
+          {app.other_platforms && (
+            <div className="mt-2 p-2 bg-muted/30 rounded-lg">
+              <p className="text-[10px] font-semibold text-muted-foreground">OTHER PLATFORMS</p>
+              <p className="text-xs text-foreground">{app.other_platforms}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1 bg-green-600 text-white text-xs h-9" disabled={selectedPlatforms.length === 0}
             onClick={() => onApprove(app, selectedPlatforms)}>
-            <CheckCircle className="h-3 w-3 mr-1" />Approve
+            <CheckCircle className="h-3 w-3 mr-1" />Approve ({selectedPlatforms.length} platforms)
           </Button>
-          <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => onReject(app)}>
+          <Button size="sm" variant="destructive" className="flex-1 text-xs h-9" onClick={() => onReject(app)}>
             <XCircle className="h-3 w-3 mr-1" />Reject
           </Button>
         </div>

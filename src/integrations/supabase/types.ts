@@ -145,9 +145,88 @@ export type Database = {
         }
         Relationships: []
       }
+      business_categories: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      business_listings: {
+        Row: {
+          business_profile_id: string
+          created_at: string
+          description: string | null
+          featured_until: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          is_featured: boolean | null
+          price: number | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          business_profile_id: string
+          created_at?: string
+          description?: string | null
+          featured_until?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          price?: number | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          business_profile_id?: string
+          created_at?: string
+          description?: string | null
+          featured_until?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          price?: number | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_listings_business_profile_id_fkey"
+            columns: ["business_profile_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
+          address: string | null
           business_name: string
+          category_id: string | null
           created_at: string
           description: string | null
           directory_subscription_expires_at: string | null
@@ -156,15 +235,21 @@ export type Database = {
           instagram_url: string | null
           is_directory_listed: boolean | null
           logo_url: string | null
+          paystack_enabled: boolean | null
+          paystack_public_key: string | null
+          phone_number: string | null
           telegram_url: string | null
           tiktok_url: string | null
           twitter_url: string | null
           user_id: string
           website_link: string | null
+          whatsapp_group_link: string | null
           whatsapp_link: string | null
         }
         Insert: {
+          address?: string | null
           business_name: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           directory_subscription_expires_at?: string | null
@@ -173,15 +258,21 @@ export type Database = {
           instagram_url?: string | null
           is_directory_listed?: boolean | null
           logo_url?: string | null
+          paystack_enabled?: boolean | null
+          paystack_public_key?: string | null
+          phone_number?: string | null
           telegram_url?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           user_id: string
           website_link?: string | null
+          whatsapp_group_link?: string | null
           whatsapp_link?: string | null
         }
         Update: {
+          address?: string | null
           business_name?: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           directory_subscription_expires_at?: string | null
@@ -190,14 +281,26 @@ export type Database = {
           instagram_url?: string | null
           is_directory_listed?: boolean | null
           logo_url?: string | null
+          paystack_enabled?: boolean | null
+          paystack_public_key?: string | null
+          phone_number?: string | null
           telegram_url?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
           user_id?: string
           website_link?: string | null
+          whatsapp_group_link?: string | null
           whatsapp_link?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "business_profiles_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "business_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_transfers: {
         Row: {
