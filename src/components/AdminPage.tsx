@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
@@ -34,6 +35,8 @@ const navItems = [
   { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-indigo-500' },
   { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-red-400' },
 ];
+
+type NavItem = (typeof navItems)[number];
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -84,41 +87,75 @@ const AdminPage = () => {
 
   const activeItem = navItems.find(n => n.id === activeSection);
 
+  const renderNavItem = (item: NavItem, mobile = false) => {
+    const active = activeSection === item.id;
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => {
+          setActiveSection(item.id);
+          if (mobile) setMobileMenuOpen(false);
+        }}
+        className={`group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all ${
+          active
+            ? 'border-primary/20 bg-primary/10 text-primary shadow-sm'
+            : 'border-transparent bg-transparent text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+        }`}
+      >
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-primary/15' : 'bg-secondary/80'}`}>
+          <item.icon className={`h-5 w-5 ${active ? 'text-primary' : item.color}`} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold leading-tight">{item.label}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {item.id === 'guide'
+              ? 'Overview and system help'
+              : item.id === 'analytics'
+              ? 'Performance and usage'
+              : item.id === 'users'
+              ? 'Profiles, roles and credits'
+              : item.id === 'syndicate'
+              ? 'Applications and operations'
+              : item.id === 'settings'
+              ? 'Platform controls'
+              : item.id === 'features'
+              ? 'Toggle product tools'
+              : item.id === 'slides'
+              ? 'Homepage slider assets'
+              : item.id === 'tasks'
+              ? 'Task catalogue management'
+              : item.id === 'api'
+              ? 'Key access management'
+              : item.id === 'apps'
+              ? 'Marketplace and promo apps'
+              : 'Homepage and section videos'}
+          </span>
+        </span>
+      </button>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-orange-950 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-gray-900/80 backdrop-blur border-r border-white/10 min-h-screen">
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
+      <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-card/95 shadow-2xl backdrop-blur-xl lg:w-60">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-5">
           <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
           <div>
-            <h1 className="text-sm font-bold text-white">GGD Admin</h1>
-            <p className="text-[10px] text-gray-400">Control Panel</p>
+            <h1 className="text-base font-bold text-foreground">GGD Admin</h1>
+            <p className="text-xs text-muted-foreground">Control panel</p>
           </div>
         </div>
-        <ScrollArea className="flex-1 py-2">
-          <nav className="space-y-1 px-2">
-            {navItems.map(item => {
-              const active = activeSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all
-                    ${active 
-                      ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border border-orange-500/30' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                >
-                  <item.icon className={`h-4 w-4 ${active ? 'text-orange-400' : item.color}`} />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              );
-            })}
+        <ScrollArea className="flex-1 px-3 py-4">
+          <nav className="space-y-2">
+            {navItems.map(item => renderNavItem(item))}
           </nav>
         </ScrollArea>
-        <div className="p-3 border-t border-white/10">
+        <div className="border-t border-border p-3">
           <Button 
             variant="ghost" 
-            className="w-full justify-start text-gray-400 hover:text-white text-sm gap-2"
+            className="h-11 w-full justify-start gap-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
             onClick={() => navigate('/')}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -128,80 +165,93 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-50 bg-gray-900/95 backdrop-blur border-b border-white/10">
+      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-secondary/80 text-foreground"
+            >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-orange-400" />
-              <span className="text-sm font-bold text-white">
+              <Shield className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">
                 {activeItem?.label || 'Admin'}
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="text-gray-400 text-xs" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate('/')}>
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             Back
           </Button>
         </div>
-
-        {/* Mobile Nav Dropdown */}
-        {mobileMenuOpen && (
-          <div className="absolute top-full left-0 right-0 bg-gray-900/98 backdrop-blur border-b border-white/10 z-50 max-h-[70vh] overflow-y-auto">
-            <nav className="p-2 space-y-1">
-              {navItems.map(item => {
-                const active = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { setActiveSection(item.id); setMobileMenuOpen(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all
-                      ${active 
-                        ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border border-orange-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <item.icon className={`h-4.5 w-4.5 ${active ? 'text-orange-400' : item.color}`} />
-                    <span className="font-medium">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        )}
       </header>
+
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[86vw] max-w-[320px] border-r border-border bg-card/98 p-0">
+          <div className="flex h-full flex-col">
+            <SheetHeader className="border-b border-border px-4 py-5 text-left">
+              <SheetTitle className="flex items-center gap-3 text-base">
+                <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+                <span>Admin Navigation</span>
+              </SheetTitle>
+            </SheetHeader>
+
+            <ScrollArea className="flex-1 px-3 py-4">
+              <nav className="space-y-2">
+                {navItems.map(item => renderNavItem(item, true))}
+              </nav>
+            </ScrollArea>
+
+            <div className="border-t border-border p-3">
+              <Button
+                variant="ghost"
+                className="h-11 w-full justify-start gap-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/');
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content */}
       <main className="flex-1 min-h-screen">
-        <div className="max-w-4xl mx-auto p-4 md:p-6 pb-24 md:pb-6">
+        <div className="mx-auto max-w-5xl p-4 pb-24 md:p-6 md:pb-6">
           {/* Section Header (desktop) */}
-          <div className="hidden md:flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+          <div className="mb-6 hidden items-center gap-3 border-b border-border pb-4 md:flex">
             {activeItem && <activeItem.icon className={`h-6 w-6 ${activeItem.color}`} />}
-            <h1 className="text-xl font-bold text-white">{activeItem?.label}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{activeItem?.label}</h1>
           </div>
 
           {/* Content Card */}
-          <div className="bg-card rounded-xl shadow-xl border border-border/50 p-4 md:p-6 min-h-[60vh]">
+          <div className="min-h-[60vh] rounded-2xl border border-border bg-card/95 p-4 shadow-xl md:p-6">
             {renderContent()}
           </div>
         </div>
       </main>
 
       {/* Mobile Bottom Nav - Quick access to top sections */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-t border-white/10 safe-area-bottom">
-        <div className="flex items-center justify-around px-1 py-1.5">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur-xl safe-area-bottom">
+        <div className="flex items-center justify-around px-2 py-2">
           {[navItems[0], navItems[1], navItems[2], navItems[3], navItems[4]].map(item => {
             const active = activeSection === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
-                className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-lg transition-colors min-w-0
-                  ${active ? 'text-orange-400 bg-orange-500/10' : 'text-gray-500 hover:text-gray-300'}`}
+                className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-2.5 py-2 transition-colors ${
+                  active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 <item.icon className="h-5 w-5" />
-                <span className="text-[9px] font-medium leading-none truncate max-w-[50px]">
+                <span className="max-w-[64px] truncate text-[10px] font-semibold leading-none">
                   {item.id === 'guide' ? 'Guide' : item.id === 'analytics' ? 'Stats' : item.id === 'users' ? 'Users' : item.id === 'syndicate' ? 'Syndicate' : 'Settings'}
                 </span>
               </button>

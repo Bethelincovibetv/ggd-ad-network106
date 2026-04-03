@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ const SyndicateDashboard = () => {
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [requestingMatch, setRequestingMatch] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -40,17 +41,70 @@ const SyndicateDashboard = () => {
 
   const uploadAvatar = async (file: File) => {
     setUploadingAvatar(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setUploadingAvatar(false); return; }
-    const ext = file.name.split('.').pop();
-    const fileName = `${user.id}/avatar.${ext}`;
-    const { error } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { upsert: true });
-    if (error) { toast.error("Upload failed"); setUploadingAvatar(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from('syndicate-proofs').getPublicUrl(fileName);
-    await supabase.from('syndicate_profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id);
-    toast.success("Profile photo updated!");
-    setUploadingAvatar(false);
-    fetchData();
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in again");
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please choose an image file");
+        return;
+      }
+
+      const { data: profileRows, error: profileLookupError } = await supabase
+        .from('syndicate_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (profileLookupError) {
+        toast.error("Could not verify your profile");
+        return;
+      }
+
+      if (!profileRows?.length) {
+        toast.error("Your syndicate profile is not ready yet");
+        return;
+      }
+
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const uniqueSuffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const fileName = `${user.id}/avatars/${uniqueSuffix}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('syndicate-proofs')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) {
+        toast.error(uploadError.message || "Upload failed");
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('syndicate-proofs')
+        .getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('syndicate_profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        toast.error(updateError.message || "Could not save your profile photo");
+        return;
+      }
+
+      setProfile((current: any) => current ? { ...current, avatar_url: publicUrl } : current);
+      toast.success("Profile photo updated!");
+      fetchData();
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const acceptTask = async (taskId: string) => {
@@ -247,8 +301,18 @@ const SyndicateDashboard = () => {
                   <Users className="h-6 w-6 text-purple-600" />
                 )}
               </div>
-              <input type="file" id="avatarUpload" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && uploadAvatar(e.target.files[0])} />
-              <button onClick={() => document.getElementById('avatarUpload')?.click()} disabled={uploadingAvatar}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadAvatar(file);
+                  e.target.value = '';
+                }}
+              />
+              <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
                 className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-purple-600 text-white flex items-center justify-center">
                 {uploadingAvatar ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
               </button>
