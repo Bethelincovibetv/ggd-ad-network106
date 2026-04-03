@@ -164,19 +164,63 @@ const AdminSyndicateManager = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search syndicates..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
+        <p className="text-xs text-muted-foreground">{syndicates.length} syndicate members</p>
         {syndicates.filter(s => !searchQuery || JSON.stringify(s).toLowerCase().includes(searchQuery.toLowerCase())).map(s => (
-          <Card key={s.id}>
-            <CardContent className="p-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="flex gap-1 flex-wrap">
-                    {(s.verified_platforms || []).map((p: string) => <Badge key={p} className="text-[9px] bg-purple-100 text-purple-700">{p} ✓</Badge>)}
+          <Card key={s.id} className="border">
+            <CardContent className="p-4 space-y-3">
+              {/* User identity */}
+              <div className="flex items-center gap-3">
+                {s.avatar_url || s._profile?.avatar_url ? (
+                  <img src={s.avatar_url || s._profile?.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border-2 border-purple-200" />
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-purple-500" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Tasks: {s.tasks_completed || 0} | Score: {s.ranking_score || 0}</p>
-                  {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{s.state}</p>}
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-foreground truncate">{s._profile?.display_name || s._profile?.email || 'Unknown User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{s._profile?.email || ''}</p>
+                  {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{s.state}</p>}
                 </div>
-                {s.is_verified && <CheckCircle className="h-4 w-4 text-green-500" />}
               </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-purple-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-purple-700">{s.tasks_completed || 0}</p>
+                  <p className="text-[9px] text-purple-600">Tasks Done</p>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-blue-700">{s.ranking_score || 0}</p>
+                  <p className="text-[9px] text-blue-600">Score</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold text-green-700">{(s.verified_platforms || []).length}</p>
+                  <p className="text-[9px] text-green-600">Platforms</p>
+                </div>
+              </div>
+
+              {/* Verified platforms */}
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground mb-1">VERIFIED PLATFORMS</p>
+                <div className="flex gap-1 flex-wrap">
+                  {(s.verified_platforms || []).map((p: string) => (
+                    <Badge key={p} className="text-[10px] bg-purple-100 text-purple-700 gap-1">
+                      <CheckCircle className="h-3 w-3" />{p}
+                    </Badge>
+                  ))}
+                  {(s.verified_platforms || []).length === 0 && <span className="text-[10px] text-muted-foreground">None assigned</span>}
+                </div>
+              </div>
+
+              {/* Bank details */}
+              {(s.bank_name || s.account_number) && (
+                <div className="bg-muted/30 rounded-lg p-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">BANK DETAILS</p>
+                  <p className="text-xs text-foreground">{s.bank_name} — {s.account_number}</p>
+                  {s.account_name && <p className="text-[10px] text-muted-foreground">{s.account_name}</p>}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
