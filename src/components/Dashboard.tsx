@@ -36,6 +36,7 @@ import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
 import BusinessStorefront from "@/components/BusinessStorefront";
 import BusinessDirectory from "@/components/BusinessDirectory";
 import UserGuide from "@/components/UserGuide";
+import ApiDocumentation from "@/components/ApiDocumentation";
 import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -685,6 +686,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* API Documentation */}
+                <ApiDocumentation />
               </>
             )}
           </div>
