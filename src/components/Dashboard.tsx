@@ -686,6 +686,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* API Documentation */}
+                <ApiDocumentation />
               </>
             )}
           </div>
