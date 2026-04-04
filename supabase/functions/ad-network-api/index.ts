@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const url = new URL(req.url)
-    const path = url.pathname.split('/').pop() || ''
     
     // Get API key from header or query param
     const apiKey = req.headers.get('x-api-key') || url.searchParams.get('api_key')
@@ -52,11 +51,8 @@ Deno.serve(async (req) => {
       requests_count: (keyData.requests_count || 0) + 1 
     }).eq('id', keyData.id)
 
-    // Route based on method and action
-    const action = url.searchParams.get('action') || 'fetch'
-
     // === GET: Fetch active ads ===
-    if (req.method === 'GET' || action === 'fetch') {
+    if (req.method === 'GET') {
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50)
       const now = new Date().toISOString()
       
@@ -96,7 +92,6 @@ Deno.serve(async (req) => {
           event_type: body.event_type,
         })
 
-        // Update counters
         if (body.event_type === 'click') {
           const { data: ad } = await supabase.from('ads').select('clicks').eq('id', body.ad_id).single()
           if (ad) await supabase.from('ads').update({ clicks: (ad.clicks || 0) + 1 }).eq('id', body.ad_id)
@@ -125,6 +120,15 @@ Deno.serve(async (req) => {
           })
         }
 
+        // Check if auto-approve is enabled
+        const { data: toggleData } = await supabase
+          .from('feature_toggles')
+          .select('is_enabled')
+          .eq('feature_key', 'auto_approve_api_ads')
+          .single()
+        
+        const autoApprove = toggleData?.is_enabled === true
+
         const expiresAt = body.duration_days 
           ? new Date(Date.now() + body.duration_days * 86400000).toISOString()
           : null
@@ -135,7 +139,7 @@ Deno.serve(async (req) => {
           description: (body.description || '').slice(0, 1000),
           image_url: body.image_url || null,
           target_url: body.target_url,
-          is_active: false, // Needs admin approval
+          is_active: autoApprove,
           expires_at: expiresAt,
         }).select('id, title, is_active, created_at').single()
 
@@ -143,7 +147,9 @@ Deno.serve(async (req) => {
 
         return new Response(JSON.stringify({ 
           success: true,
-          message: 'Ad submitted successfully. It will be reviewed and activated by admin.',
+          message: autoApprove 
+            ? 'Ad submitted and automatically approved! It is now live.'
+            : 'Ad submitted successfully. It will be reviewed and activated by admin.',
           ad: newAd
         }), {
           status: 201,
