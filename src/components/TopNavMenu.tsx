@@ -32,7 +32,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
   ];
 
   return (
-    <div className="bg-card/80 backdrop-blur border-b">
+    <div className="bg-card backdrop-blur border-b border-border">
       <ScrollArea className="w-full">
         <div className="flex gap-1 px-4 py-2">
           {items.map(item => {
