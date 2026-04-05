@@ -20,6 +20,7 @@ import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
+import AdminAdManager from "@/components/AdminAdManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
@@ -34,6 +35,7 @@ const navItems = [
   { id: 'api', icon: Key, label: 'API Keys', color: 'text-red-500' },
   { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-indigo-500' },
   { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-red-400' },
+  { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-orange-500' },
 ];
 
 type NavItem = (typeof navItems)[number];
@@ -81,6 +83,7 @@ const AdminPage = () => {
       case 'api': return <AdminApiManager />;
       case 'apps': return <AdminMarketingApps />;
       case 'videos': return <AdminVideoManager />;
+      case 'ads': return <AdminAdManager />;
       default: return <AdminGuide />;
     }
   };
@@ -129,6 +132,8 @@ const AdminPage = () => {
               ? 'Key access management'
               : item.id === 'apps'
               ? 'Marketplace and promo apps'
+              : item.id === 'ads'
+              ? 'All platform advertisements'
               : 'Homepage and section videos'}
           </span>
         </span>
