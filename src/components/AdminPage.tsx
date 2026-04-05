@@ -132,6 +132,8 @@ const AdminPage = () => {
               ? 'Key access management'
               : item.id === 'apps'
               ? 'Marketplace and promo apps'
+              : item.id === 'ads'
+              ? 'All platform advertisements'
               : 'Homepage and section videos'}
           </span>
         </span>
