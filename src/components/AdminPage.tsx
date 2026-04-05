@@ -243,7 +243,7 @@ const AdminPage = () => {
       </main>
 
       {/* Mobile Bottom Nav - Quick access to top sections */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card shadow-lg safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white dark:bg-card shadow-lg safe-area-bottom">
         <div className="flex items-center justify-around px-2 py-2">
           {[navItems[0], navItems[1], navItems[2], navItems[3], navItems[4]].map(item => {
             const active = activeSection === item.id;
