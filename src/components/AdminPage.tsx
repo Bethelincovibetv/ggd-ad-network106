@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
-  Menu, X
+  Menu, X, Bell, MessageSquare
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
@@ -21,6 +21,8 @@ import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
 import AdminAdManager from "@/components/AdminAdManager";
+import AdminNotificationSender from "@/components/AdminNotificationSender";
+import AdminChatSystem from "@/components/AdminChatSystem";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
@@ -36,6 +38,8 @@ const navItems = [
   { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-indigo-500' },
   { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-red-400' },
   { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-orange-500' },
+  { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-yellow-500' },
+  { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-green-500' },
 ];
 
 type NavItem = (typeof navItems)[number];
@@ -84,6 +88,8 @@ const AdminPage = () => {
       case 'apps': return <AdminMarketingApps />;
       case 'videos': return <AdminVideoManager />;
       case 'ads': return <AdminAdManager />;
+      case 'notifications': return <AdminNotificationSender />;
+      case 'chat': return <AdminChatSystem />;
       default: return <AdminGuide />;
     }
   };
@@ -134,6 +140,10 @@ const AdminPage = () => {
               ? 'Marketplace and promo apps'
               : item.id === 'ads'
               ? 'All platform advertisements'
+              : item.id === 'notifications'
+              ? 'Send alerts to users'
+              : item.id === 'chat'
+              ? 'Chat with any user'
               : 'Homepage and section videos'}
           </span>
         </span>
