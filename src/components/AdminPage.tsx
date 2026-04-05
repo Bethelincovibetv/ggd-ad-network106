@@ -20,6 +20,7 @@ import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
+import AdminAdManager from "@/components/AdminAdManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
