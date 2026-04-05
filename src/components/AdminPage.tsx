@@ -170,7 +170,7 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card">
+      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-white dark:bg-card">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button
