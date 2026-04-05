@@ -83,6 +83,7 @@ const AdminPage = () => {
       case 'api': return <AdminApiManager />;
       case 'apps': return <AdminMarketingApps />;
       case 'videos': return <AdminVideoManager />;
+      case 'ads': return <AdminAdManager />;
       default: return <AdminGuide />;
     }
   };
