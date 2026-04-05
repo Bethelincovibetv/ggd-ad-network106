@@ -144,7 +144,7 @@ const AdminPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-card shadow-2xl lg:w-60">
+      <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-white dark:bg-card shadow-2xl lg:w-60">
         <div className="flex items-center gap-3 border-b border-border px-4 py-5">
           <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
           <div>
