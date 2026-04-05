@@ -38,6 +38,9 @@ const navItems = [
   { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-indigo-500' },
   { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-red-400' },
   { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-orange-500' },
+  { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-yellow-500' },
+  { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-green-500' },
+];
 ];
 
 type NavItem = (typeof navItems)[number];
