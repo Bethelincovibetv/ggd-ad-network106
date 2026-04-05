@@ -41,7 +41,6 @@ const navItems = [
   { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-yellow-500' },
   { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-green-500' },
 ];
-];
 
 type NavItem = (typeof navItems)[number];
 
