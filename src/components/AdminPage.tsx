@@ -140,6 +140,10 @@ const AdminPage = () => {
               ? 'Marketplace and promo apps'
               : item.id === 'ads'
               ? 'All platform advertisements'
+              : item.id === 'notifications'
+              ? 'Send alerts to users'
+              : item.id === 'chat'
+              ? 'Chat with any user'
               : 'Homepage and section videos'}
           </span>
         </span>
