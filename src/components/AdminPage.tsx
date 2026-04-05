@@ -194,7 +194,7 @@ const AdminPage = () => {
       </header>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[86vw] max-w-[320px] border-r border-border bg-card/98 p-0">
+        <SheetContent side="left" className="w-[86vw] max-w-[320px] border-r border-border bg-white dark:bg-card p-0">
           <div className="flex h-full flex-col">
             <SheetHeader className="border-b border-border px-4 py-5 text-left">
               <SheetTitle className="flex items-center gap-3 text-base">
