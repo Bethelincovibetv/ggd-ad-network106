@@ -92,6 +92,7 @@ const AdminPage = () => {
       case 'ads': return <AdminAdManager />;
       case 'notifications': return <AdminNotificationSender />;
       case 'chat': return <AdminChatSystem />;
+      case 'coowners': return <AdminCoOwnerManager />;
       default: return <AdminGuide />;
     }
   };
