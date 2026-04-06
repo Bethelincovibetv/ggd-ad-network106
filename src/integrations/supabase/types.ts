@@ -329,6 +329,48 @@ export type Database = {
           },
         ]
       }
+      co_owner_applications: {
+        Row: {
+          account_name: string
+          account_number: string
+          admin_notes: string | null
+          bank_name: string
+          created_at: string
+          earning_percentage: number | null
+          id: string
+          reviewed_at: string | null
+          status: string
+          total_earnings: number | null
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          admin_notes?: string | null
+          bank_name: string
+          created_at?: string
+          earning_percentage?: number | null
+          id?: string
+          reviewed_at?: string | null
+          status?: string
+          total_earnings?: number | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          admin_notes?: string | null
+          bank_name?: string
+          created_at?: string
+          earning_percentage?: number | null
+          id?: string
+          reviewed_at?: string | null
+          status?: string
+          total_earnings?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_transfers: {
         Row: {
           amount: number
@@ -1007,6 +1049,7 @@ export type Database = {
         | "syndicate"
         | "moderator"
         | "user"
+        | "co_owner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1141,6 +1184,7 @@ export const Constants = {
         "syndicate",
         "moderator",
         "user",
+        "co_owner",
       ],
     },
   },

@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
-  Menu, X, Bell, MessageSquare
+  Menu, X, Bell, MessageSquare, Crown
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
@@ -23,6 +23,7 @@ import AdminVideoManager from "@/components/AdminVideoManager";
 import AdminAdManager from "@/components/AdminAdManager";
 import AdminNotificationSender from "@/components/AdminNotificationSender";
 import AdminChatSystem from "@/components/AdminChatSystem";
+import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
@@ -40,6 +41,7 @@ const navItems = [
   { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-orange-500' },
   { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-yellow-500' },
   { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-green-500' },
+  { id: 'coowners', icon: Crown, label: 'Co-Owners', color: 'text-yellow-500' },
 ];
 
 type NavItem = (typeof navItems)[number];
@@ -90,6 +92,7 @@ const AdminPage = () => {
       case 'ads': return <AdminAdManager />;
       case 'notifications': return <AdminNotificationSender />;
       case 'chat': return <AdminChatSystem />;
+      case 'coowners': return <AdminCoOwnerManager />;
       default: return <AdminGuide />;
     }
   };
@@ -144,6 +147,8 @@ const AdminPage = () => {
               ? 'Send alerts to users'
               : item.id === 'chat'
               ? 'Chat with any user'
+              : item.id === 'coowners'
+              ? 'Manage co-owner partners'
               : 'Homepage and section videos'}
           </span>
         </span>
