@@ -43,15 +43,46 @@ const useCountUp = (end: number, duration: number = 2000, suffix: string = '') =
 const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
+  const [sampleAds, setSampleAds] = useState<any[]>([]);
+  const [currentAdIdx, setCurrentAdIdx] = useState(0);
 
-  const impressions = useCountUp(10000, 2500);
-  const campaigns = useCountUp(500, 2000);
-  const sites = useCountUp(100, 1800);
+  const impressions = useCountUp(liveStats.impressions || 100, 2500);
+  const campaigns = useCountUp(liveStats.campaigns || 1, 2000);
+  const sites = useCountUp(liveStats.sites || 1, 1800);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
       .then(({ data }) => { if (data?.value) setWaGroupLink(data.value); });
+
+    // Fetch live stats
+    const fetchStats = async () => {
+      const [adsRes, keysRes] = await Promise.all([
+        supabase.from('ads').select('id, impressions, is_active'),
+        supabase.from('api_keys').select('id', { count: 'exact' }),
+      ]);
+      const allAds = adsRes.data || [];
+      const activeCount = allAds.filter(a => a.is_active).length;
+      const totalImpressions = allAds.reduce((sum, a) => sum + (a.impressions || 0), 0);
+      setLiveStats({
+        impressions: totalImpressions || 100,
+        campaigns: activeCount || 1,
+        sites: keysRes.count || 1,
+      });
+    };
+    fetchStats();
+
+    // Fetch sample ads for display
+    supabase.from('ads').select('*').eq('is_active', true).limit(5)
+      .then(({ data }) => { if (data?.length) setSampleAds(data); });
   }, []);
+
+  // Rotate sample ads
+  useEffect(() => {
+    if (sampleAds.length <= 1) return;
+    const interval = setInterval(() => setCurrentAdIdx(prev => (prev + 1) % sampleAds.length), 6000);
+    return () => clearInterval(interval);
+  }, [sampleAds]);
 
   const scrollTo = (id: string) => {
     setMenuOpen(false);
