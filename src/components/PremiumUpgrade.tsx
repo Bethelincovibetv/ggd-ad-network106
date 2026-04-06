@@ -158,40 +158,7 @@ const PremiumUpgrade = ({ onUpgraded, credits, isPremium }: PremiumUpgradeProps)
         </CardContent>
       </Card>
 
-      {/* Vendor Plan */}
-      <Card className="border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50">
-        <CardContent className="p-5 space-y-4">
-          <div className="text-center">
-            <Store className="h-10 w-10 mx-auto text-purple-500 mb-2" />
-            <h3 className="text-xl font-bold text-foreground">Credit Vendor</h3>
-            <p className="text-3xl font-black text-purple-600 mt-1">{vendorCost} <span className="text-sm font-normal">credits</span></p>
-            <p className="text-xs text-muted-foreground">or ₦{vendorCost * exchangeRate} via Paystack</p>
-          </div>
-          <ul className="space-y-2">
-            {[
-              { text: 'Everything in Premium' },
-              { text: 'Sell credits to other users' },
-              { text: 'Credit vendor badge' },
-              { text: 'Bulk credit purchasing' },
-            ].map((f, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-foreground">
-                <Check className="h-4 w-4 text-purple-500" />{f.text}
-              </li>
-            ))}
-          </ul>
-          <div className="space-y-2">
-            <Button onClick={() => upgradeWithCredits('vendor')} disabled={!!loading}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white">
-              {loading === 'vendor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Store className="h-4 w-4 mr-2" />}
-              Upgrade with {vendorCost} Credits
-            </Button>
-            <Button onClick={() => upgradeWithPaystack('vendor')} variant="outline" disabled={!!loading} className="w-full">
-              {loading === 'vendor_pay' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
-              Pay ₦{vendorCost * exchangeRate} via Paystack
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Note: Vendor plan removed — replaced by Co-Owner in Upgrade page */}
     </div>
   );
 };
