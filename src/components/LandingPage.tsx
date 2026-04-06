@@ -208,6 +208,44 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </div>
 
+      {/* Live Ad Display Sample */}
+      {sampleAds.length > 0 && (
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Live Ad Campaigns</h2>
+            <p className="text-gray-400 text-sm">See real ads running on GGD Ad Network right now</p>
+          </div>
+          <div className="max-w-sm mx-auto">
+            <Card className="overflow-hidden bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-500">
+              {sampleAds[currentAdIdx]?.image_url && (
+                <div className="relative">
+                  <img src={sampleAds[currentAdIdx].image_url} alt={sampleAds[currentAdIdx].title} className="w-full h-48 object-cover" />
+                  <div className="absolute top-2 right-2 bg-[#e67e22] text-white px-2 py-1 rounded-full text-[10px] font-bold">LIVE AD</div>
+                </div>
+              )}
+              <div className="p-4 space-y-2">
+                <h3 className="font-bold text-white line-clamp-2">{sampleAds[currentAdIdx]?.title}</h3>
+                <p className="text-gray-400 text-sm line-clamp-2">{sampleAds[currentAdIdx]?.description}</p>
+                <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-4 py-2 rounded-lg text-center text-sm font-medium cursor-pointer"
+                  onClick={() => window.open(sampleAds[currentAdIdx]?.target_url, '_blank')}>
+                  Visit Ad →
+                </div>
+              </div>
+              <div className="bg-[#111] px-4 py-2 text-center border-t border-[#333]">
+                <p className="text-[10px] text-gray-500">Powered by <span className="font-semibold text-[#e67e22]">GGD Ad Network</span></p>
+              </div>
+            </Card>
+            {sampleAds.length > 1 && (
+              <div className="flex justify-center mt-3 gap-1.5">
+                {sampleAds.map((_, i) => (
+                  <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentAdIdx ? 'bg-[#e67e22]' : 'bg-[#444]'}`} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* For Business Section */}
       <div id="business" className="container mx-auto px-4 py-16">
         <Card className="bg-gradient-to-br from-[#0a1628] to-[#1a2744] border-[#2a3f5f] max-w-3xl mx-auto overflow-hidden">
