@@ -43,15 +43,46 @@ const useCountUp = (end: number, duration: number = 2000, suffix: string = '') =
 const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
+  const [sampleAds, setSampleAds] = useState<any[]>([]);
+  const [currentAdIdx, setCurrentAdIdx] = useState(0);
 
-  const impressions = useCountUp(10000, 2500);
-  const campaigns = useCountUp(500, 2000);
-  const sites = useCountUp(100, 1800);
+  const impressions = useCountUp(liveStats.impressions || 100, 2500);
+  const campaigns = useCountUp(liveStats.campaigns || 1, 2000);
+  const sites = useCountUp(liveStats.sites || 1, 1800);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
       .then(({ data }) => { if (data?.value) setWaGroupLink(data.value); });
+
+    // Fetch live stats
+    const fetchStats = async () => {
+      const [adsRes, keysRes] = await Promise.all([
+        supabase.from('ads').select('id, impressions, is_active'),
+        supabase.from('api_keys').select('id', { count: 'exact' }),
+      ]);
+      const allAds = adsRes.data || [];
+      const activeCount = allAds.filter(a => a.is_active).length;
+      const totalImpressions = allAds.reduce((sum, a) => sum + (a.impressions || 0), 0);
+      setLiveStats({
+        impressions: totalImpressions || 100,
+        campaigns: activeCount || 1,
+        sites: keysRes.count || 1,
+      });
+    };
+    fetchStats();
+
+    // Fetch sample ads for display
+    supabase.from('ads').select('*').eq('is_active', true).limit(5)
+      .then(({ data }) => { if (data?.length) setSampleAds(data); });
   }, []);
+
+  // Rotate sample ads
+  useEffect(() => {
+    if (sampleAds.length <= 1) return;
+    const interval = setInterval(() => setCurrentAdIdx(prev => (prev + 1) % sampleAds.length), 6000);
+    return () => clearInterval(interval);
+  }, [sampleAds]);
 
   const scrollTo = (id: string) => {
     setMenuOpen(false);
@@ -176,6 +207,44 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           </div>
         </div>
       </div>
+
+      {/* Live Ad Display Sample */}
+      {sampleAds.length > 0 && (
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Live Ad Campaigns</h2>
+            <p className="text-gray-400 text-sm">See real ads running on GGD Ad Network right now</p>
+          </div>
+          <div className="max-w-sm mx-auto">
+            <Card className="overflow-hidden bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-500">
+              {sampleAds[currentAdIdx]?.image_url && (
+                <div className="relative">
+                  <img src={sampleAds[currentAdIdx].image_url} alt={sampleAds[currentAdIdx].title} className="w-full h-48 object-cover" />
+                  <div className="absolute top-2 right-2 bg-[#e67e22] text-white px-2 py-1 rounded-full text-[10px] font-bold">LIVE AD</div>
+                </div>
+              )}
+              <div className="p-4 space-y-2">
+                <h3 className="font-bold text-white line-clamp-2">{sampleAds[currentAdIdx]?.title}</h3>
+                <p className="text-gray-400 text-sm line-clamp-2">{sampleAds[currentAdIdx]?.description}</p>
+                <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-4 py-2 rounded-lg text-center text-sm font-medium cursor-pointer"
+                  onClick={() => window.open(sampleAds[currentAdIdx]?.target_url, '_blank')}>
+                  Visit Ad →
+                </div>
+              </div>
+              <div className="bg-[#111] px-4 py-2 text-center border-t border-[#333]">
+                <p className="text-[10px] text-gray-500">Powered by <span className="font-semibold text-[#e67e22]">GGD Ad Network</span></p>
+              </div>
+            </Card>
+            {sampleAds.length > 1 && (
+              <div className="flex justify-center mt-3 gap-1.5">
+                {sampleAds.map((_, i) => (
+                  <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentAdIdx ? 'bg-[#e67e22]' : 'bg-[#444]'}`} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* For Business Section */}
       <div id="business" className="container mx-auto px-4 py-16">
