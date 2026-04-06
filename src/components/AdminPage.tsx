@@ -23,6 +23,7 @@ import AdminVideoManager from "@/components/AdminVideoManager";
 import AdminAdManager from "@/components/AdminAdManager";
 import AdminNotificationSender from "@/components/AdminNotificationSender";
 import AdminChatSystem from "@/components/AdminChatSystem";
+import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
