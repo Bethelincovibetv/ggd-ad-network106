@@ -147,6 +147,8 @@ const AdminPage = () => {
               ? 'Send alerts to users'
               : item.id === 'chat'
               ? 'Chat with any user'
+              : item.id === 'coowners'
+              ? 'Manage co-owner partners'
               : 'Homepage and section videos'}
           </span>
         </span>
