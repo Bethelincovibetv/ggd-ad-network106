@@ -18,7 +18,8 @@ import SlideCarousel from "@/components/SlideCarousel";
 import TaskList from "@/components/TaskList";
 import SupportPage from "@/components/SupportPage";
 import InstallPrompt from "@/components/InstallPrompt";
-import TopNavMenu from "@/components/TopNavMenu";
+import SideNavMenu from "@/components/SideNavMenu";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import BusinessTaskCreator from "@/components/BusinessTaskCreator";
 import SyndicateDashboard from "@/components/SyndicateDashboard";
 import SyndicateWallet from "@/components/SyndicateWallet";
@@ -706,34 +707,48 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 pb-20">
-      <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
-            <h1 className="text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">GGD</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
-            {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
-            {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
-            {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
-            <NotificationBell />
-            <Button variant="outline" size="sm" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
-          </div>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-50 to-orange-50">
+        <SideNavMenu
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          isBusiness={isBusiness}
+          isSyndicate={isSyndicate}
+          isAdmin={isAdmin}
+          isPremium={isPremium}
+        />
+
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="bg-white border-b border-border sticky top-0 z-40">
+            <div className="px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <SidebarTrigger className="flex-shrink-0" />
+                <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
+                <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
+                  GGD Ad Network
+                </h1>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
+                {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
+                {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
+                {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
+                <NotificationBell />
+                <Button variant="outline" size="sm" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 px-3 sm:px-4 py-4 pb-24 md:pb-6 max-w-5xl w-full mx-auto">
+            {renderContent()}
+          </main>
+
+          <MobileFooterMenu activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          <AdminChatWidget />
+          <InstallPrompt />
         </div>
-      </header>
-
-      <TopNavMenu activeTab={activeTab} onTabChange={setActiveTab} isBusiness={isBusiness} isSyndicate={isSyndicate} isAdmin={isAdmin} isPremium={isPremium} />
-
-      <div className="container mx-auto px-4 py-4">
-        {renderContent()}
       </div>
-
-      <MobileFooterMenu activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
-      <AdminChatWidget />
-      <InstallPrompt />
-    </div>
+    </SidebarProvider>
   );
 };
 
