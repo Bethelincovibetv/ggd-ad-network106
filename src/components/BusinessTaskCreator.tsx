@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,13 +7,22 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image, User, MapPin, Calendar } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image as ImageIcon,
+  User, MapPin, Calendar, Search, Archive, BarChart3, Trophy, Hourglass, Trash2, ChevronRight
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const BusinessTaskCreator = () => {
   const [tasks, setTasks] = useState<any[]>([]);
+  const [allAssignments, setAllAssignments] = useState<any[]>([]);
+  const [profilesMap, setProfilesMap] = useState<Record<string, any>>({});
   const [wallet, setWallet] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -24,9 +33,10 @@ const BusinessTaskCreator = () => {
     placements: [] as string[], target_state: '', deadline_hours: '24',
   });
   const [flyerUrl, setFlyerUrl] = useState('');
-  const [viewingTask, setViewingTask] = useState<string | null>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [submissionProfiles, setSubmissionProfiles] = useState<Record<string, any>>({});
+  const [openTask, setOpenTask] = useState<any>(null);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -34,15 +44,36 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, walletRes, pricingRes] = await Promise.all([
+    const [tasksRes, walletRes, pricingRes, assignmentsRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('platform_pricing').select('*').order('platform_name'),
+      supabase.from('syndicate_task_assignments').select('*'),
     ]);
+
+    const myTaskIds = new Set((tasksRes.data || []).map(t => t.id));
+    const myAssignments = (assignmentsRes.data || []).filter(a => myTaskIds.has(a.task_id));
 
     setTasks(tasksRes.data || []);
     setWallet(walletRes.data);
     setPlatformPricing(pricingRes.data || []);
+    setAllAssignments(myAssignments);
+
+    // Load profiles for all syndicates that submitted to my tasks
+    const userIds = [...new Set(myAssignments.map(a => a.syndicate_user_id))];
+    if (userIds.length > 0) {
+      const [{ data: profiles }, { data: synProfiles }] = await Promise.all([
+        supabase.from('profiles').select('user_id, display_name, email, avatar_url').in('user_id', userIds),
+        supabase.from('syndicate_profiles').select('user_id, state, verified_platforms, ranking_score, tasks_completed').in('user_id', userIds),
+      ]);
+      const map: Record<string, any> = {};
+      userIds.forEach(uid => {
+        const p = (profiles || []).find(x => x.user_id === uid);
+        const s = (synProfiles || []).find(x => x.user_id === uid);
+        map[uid] = { ...(p || {}), ...(s || {}) };
+      });
+      setProfilesMap(map);
+    }
     setLoading(false);
   };
 
@@ -92,7 +123,6 @@ const BusinessTaskCreator = () => {
       max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
       total_cost: totalCost, deadline_hours: parseInt(form.deadline_hours) || 24,
     });
-
     if (error) { toast.error("Failed to create task"); return; }
 
     await supabase.from('task_wallets').update({
@@ -107,33 +137,10 @@ const BusinessTaskCreator = () => {
     fetchData();
   };
 
-  const togglePlacement = (id: string) => {
-    setForm(prev => ({
-      ...prev,
-      placements: prev.placements.includes(id) ? prev.placements.filter(p => p !== id) : [...prev.placements, id],
+  const togglePlacement = (id: string) =>
+    setForm(prev => ({ ...prev,
+      placements: prev.placements.includes(id) ? prev.placements.filter(p => p !== id) : [...prev.placements, id]
     }));
-  };
-
-  const viewSubmissions = async (taskId: string) => {
-    setViewingTask(taskId);
-    const { data } = await supabase.from('syndicate_task_assignments').select('*').eq('task_id', taskId);
-    const subs = data || [];
-    setSubmissions(subs);
-
-    // Fetch profiles for each syndicate user
-    const userIds = [...new Set(subs.map(s => s.syndicate_user_id))];
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('*').in('user_id', userIds);
-      const { data: synProfiles } = await supabase.from('syndicate_profiles').select('*').in('user_id', userIds);
-      const map: Record<string, any> = {};
-      userIds.forEach(uid => {
-        const profile = (profiles || []).find(p => p.user_id === uid);
-        const synProfile = (synProfiles || []).find(p => p.user_id === uid);
-        map[uid] = { ...(profile || {}), ...(synProfile || {}) };
-      });
-      setSubmissionProfiles(map);
-    }
-  };
 
   const reviewSubmission = async (assignmentId: string, approve: boolean) => {
     const status = approve ? 'approved' : 'rejected';
@@ -142,18 +149,17 @@ const BusinessTaskCreator = () => {
     }).eq('id', assignmentId);
 
     if (approve) {
-      const assignment = submissions.find(s => s.id === assignmentId);
+      const assignment = allAssignments.find(s => s.id === assignmentId);
       if (assignment) {
         const task = tasks.find(t => t.id === assignment.task_id);
         const payout = task?.cost_per_syndicate || 50;
-        const { data: syndicateWallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-        if (syndicateWallet) {
+        const { data: synWallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+        if (synWallet) {
           await supabase.from('task_wallets').update({
-            balance: (syndicateWallet.balance || 0) + payout,
-            total_earned: (syndicateWallet.total_earned || 0) + payout,
+            balance: (synWallet.balance || 0) + payout,
+            total_earned: (synWallet.total_earned || 0) + payout,
           }).eq('user_id', assignment.syndicate_user_id);
         }
-        // Update syndicate profile stats
         const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
         if (synProfile) {
           await supabase.from('syndicate_profiles').update({
@@ -161,7 +167,6 @@ const BusinessTaskCreator = () => {
             ranking_score: (synProfile.ranking_score || 0) + 10,
           }).eq('user_id', assignment.syndicate_user_id);
         }
-
         await supabase.from('notifications').insert({
           user_id: assignment.syndicate_user_id,
           title: '💰 Task Approved!',
@@ -170,42 +175,151 @@ const BusinessTaskCreator = () => {
         });
       }
     } else {
-      const assignment = submissions.find(s => s.id === assignmentId);
+      const assignment = allAssignments.find(s => s.id === assignmentId);
       if (assignment) {
         await supabase.from('notifications').insert({
           user_id: assignment.syndicate_user_id,
           title: '❌ Task Rejected',
-          message: `Your task submission was rejected. Please review the requirements.`,
+          message: 'Your task submission was rejected. Please review the requirements.',
           type: 'warning',
         });
       }
     }
 
-    toast.success(approve ? "Submission approved & paid!" : "Submission rejected");
-    viewSubmissions(viewingTask!);
+    toast.success(approve ? "Approved & paid" : "Rejected");
+    fetchData();
   };
 
-  if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+  const archiveTask = async (taskId: string) => {
+    if (!confirm('Move this task to Completed Campaigns? It will stop accepting new submissions.')) return;
+    await supabase.from('syndicate_tasks').update({ status: 'completed' }).eq('id', taskId);
+    toast.success('Moved to Completed Campaigns');
+    fetchData();
+  };
+
+  // Per-task stats
+  const taskStats = useMemo(() => {
+    const map: Record<string, { approved: number; pending: number; rejected: number; total: number; remaining: number }> = {};
+    tasks.forEach(t => {
+      const subs = allAssignments.filter(a => a.task_id === t.id);
+      const approved = subs.filter(s => s.status === 'approved').length;
+      const pending = subs.filter(s => s.status === 'submitted' || s.status === 'accepted').length;
+      const rejected = subs.filter(s => s.status === 'rejected').length;
+      map[t.id] = {
+        approved, pending, rejected,
+        total: subs.length,
+        remaining: Math.max((t.max_syndicates || 0) - approved, 0),
+      };
+    });
+    return map;
+  }, [tasks, allAssignments]);
+
+  if (loading) return <div className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /></div>;
+
+  const activeTasks = tasks.filter(t => t.status === 'active');
+  const completedTasks = tasks.filter(t => t.status !== 'active');
+
+  // Auto-completed: every slot approved
+  const visibleActive = activeTasks.filter(t => {
+    const s = taskStats[t.id];
+    return !s || s.remaining > 0;
+  });
+  const autoCompleted = activeTasks.filter(t => {
+    const s = taskStats[t.id];
+    return s && s.remaining === 0 && s.approved >= (t.max_syndicates || 0);
+  });
+  const allCompleted = [...completedTasks, ...autoCompleted];
 
   const totalCostPreview = calculateTotalCost();
-  const activeTaskCount = tasks.filter(t => t.status === 'active').length;
-  const completedTaskCount = tasks.filter(t => t.status !== 'active').length;
+
+  const filterTasks = (list: any[]) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
+  };
+
+  const renderTaskCard = (task: any, isCompleted: boolean) => {
+    const s = taskStats[task.id] || { approved: 0, pending: 0, rejected: 0, total: 0, remaining: task.max_syndicates };
+    const pct = task.max_syndicates ? Math.round((s.approved / task.max_syndicates) * 100) : 0;
+    return (
+      <Card key={task.id} className="overflow-hidden hover:shadow-md transition cursor-pointer" onClick={() => setOpenTask(task)}>
+        <CardContent className="p-0">
+          {task.flyer_url && (
+            <div className="aspect-video bg-muted overflow-hidden">
+              <img src={task.flyer_url} alt={task.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm text-foreground line-clamp-1">{task.title}</h3>
+              <Badge className={isCompleted ? 'bg-green-600 text-white text-[9px]' : 'bg-orange-500 text-white text-[9px]'}>
+                {isCompleted ? 'completed' : 'live'}
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground line-clamp-2">{task.description}</p>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">{s.approved}/{task.max_syndicates} approved</span>
+                <span className="font-semibold">{pct}%</span>
+              </div>
+              <Progress value={pct} className="h-1.5" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 pt-1">
+              <div className="bg-green-50 rounded p-1.5 text-center">
+                <p className="text-[9px] text-green-700">Done</p>
+                <p className="text-xs font-bold text-green-700">{s.approved}</p>
+              </div>
+              <div className="bg-yellow-50 rounded p-1.5 text-center">
+                <p className="text-[9px] text-yellow-700">Pending</p>
+                <p className="text-xs font-bold text-yellow-700">{s.pending}</p>
+              </div>
+              <div className="bg-blue-50 rounded p-1.5 text-center">
+                <p className="text-[9px] text-blue-700">Left</p>
+                <p className="text-xs font-bold text-blue-700">{s.remaining}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1 border-t">
+              <span className="text-[10px] text-muted-foreground">₦{task.total_cost} • {task.deadline_hours || 24}h</span>
+              <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); setOpenTask(task); }}>
+                <Eye className="h-3 w-3 mr-1" />View <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-4">
       {/* Hero / Wallet Summary */}
       <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 text-white p-5 relative">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -left-6 -bottom-6 h-32 w-32 rounded-full bg-yellow-400/20 blur-2xl" />
         <div className="relative">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider opacity-90">
             <Briefcase className="h-3.5 w-3.5" /> Business Console
           </div>
           <p className="text-[11px] mt-3 opacity-80">Task wallet balance</p>
           <p className="text-4xl font-black mt-0.5">₦{wallet?.balance?.toLocaleString() || 0}</p>
-          <div className="flex items-center gap-3 mt-3 text-[11px] opacity-90">
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {activeTaskCount} active</span>
-            <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> {completedTaskCount} done</span>
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
+              <Hourglass className="h-3 w-3 mx-auto opacity-80" />
+              <p className="text-base font-bold mt-1">{visibleActive.length}</p>
+              <p className="text-[9px] opacity-80 uppercase">Active</p>
+            </div>
+            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
+              <Trophy className="h-3 w-3 mx-auto opacity-80" />
+              <p className="text-base font-bold mt-1">{allCompleted.length}</p>
+              <p className="text-[9px] opacity-80 uppercase">Completed</p>
+            </div>
+            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
+              <BarChart3 className="h-3 w-3 mx-auto opacity-80" />
+              <p className="text-base font-bold mt-1">{allAssignments.filter(a => a.status === 'approved').length}</p>
+              <p className="text-[9px] opacity-80 uppercase">Done</p>
+            </div>
           </div>
         </div>
       </div>
@@ -215,18 +329,13 @@ const BusinessTaskCreator = () => {
         <Button onClick={() => setIsCreating(true)}
           className="h-auto py-3.5 flex-col gap-1 bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md rounded-xl">
           <Plus className="h-5 w-5" />
-          <span className="text-xs font-semibold">New Task</span>
+          <span className="text-xs font-semibold">New Campaign</span>
         </Button>
         <Button variant="outline" onClick={fetchData}
           className="h-auto py-3.5 flex-col gap-1 rounded-xl border-2">
           <Eye className="h-5 w-5 text-orange-600" />
           <span className="text-xs font-semibold">Refresh</span>
         </Button>
-      </div>
-
-      <div className="flex items-center justify-between pt-1">
-        <h2 className="text-base font-bold text-foreground">My Tasks</h2>
-        <Badge variant="outline" className="text-[10px]">{tasks.length} total</Badge>
       </div>
 
       {isCreating && (
@@ -236,21 +345,19 @@ const BusinessTaskCreator = () => {
             <Textarea placeholder="Write-up / ad copy *" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} />
             <Input placeholder="Share link (optional)" value={form.share_link} onChange={e => setForm({...form, share_link: e.target.value})} />
 
-            {/* Flyer Upload */}
             <div>
               <Label className="text-xs font-medium">Flyer / Image</Label>
               <input type="file" id="flyerUpload" accept="image/*" onChange={e => e.target.files?.[0] && uploadFlyer(e.target.files[0])} className="hidden" />
               <Button variant="outline" className="w-full mt-1 text-xs" disabled={uploading}
                 onClick={() => document.getElementById('flyerUpload')?.click()}>
-                {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Image className="h-4 w-4 mr-2" />}
+                {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ImageIcon className="h-4 w-4 mr-2" />}
                 {uploading ? 'Uploading...' : 'Upload Flyer'}
               </Button>
               {flyerUrl && <img src={flyerUrl} alt="Flyer" className="w-full rounded-lg mt-2" />}
             </div>
 
-            {/* Social Placements with Prices */}
             <div>
-              <Label className="text-xs font-medium mb-2 block">Target Placements * (each has its own price)</Label>
+              <Label className="text-xs font-medium mb-2 block">Target Placements *</Label>
               <div className="space-y-2">
                 {platformPricing.filter(p => p.is_active).map(p => (
                   <div key={p.platform_key} className="flex items-center justify-between gap-2">
@@ -285,7 +392,7 @@ const BusinessTaskCreator = () => {
 
             <Card className="bg-orange-50 border-orange-200">
               <CardContent className="p-3">
-                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} syndicates × selected placements)</p>
+                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} × placements)</p>
               </CardContent>
             </Card>
 
@@ -297,127 +404,170 @@ const BusinessTaskCreator = () => {
         </Card>
       )}
 
-      {/* Submission Detail View */}
-      {viewingTask && (
-        <Card className="border-blue-200">
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-sm">Task Submissions</CardTitle>
-              <Button size="sm" variant="ghost" onClick={() => setViewingTask(null)} className="text-xs">Close</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {submissions.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No submissions yet</p>
-            ) : submissions.map(sub => {
-              const profile = submissionProfiles[sub.syndicate_user_id] || {};
-              return (
-                <Card key={sub.id} className={`border ${sub.status === 'approved' ? 'border-green-200 bg-green-50/50' : sub.status === 'rejected' ? 'border-red-200 bg-red-50/50' : 'border-yellow-200'}`}>
-                  <CardContent className="p-3 space-y-2">
-                    {/* Syndicate Profile Info */}
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden">
-                        {profile.avatar_url ? (
-                          <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <User className="h-4 w-4 text-purple-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-foreground">{profile.display_name || 'Syndicate'}</p>
-                        <p className="text-[10px] text-muted-foreground">{profile.email}</p>
-                      </div>
-                      <Badge className={
-                        sub.status === 'approved' ? 'bg-green-500' :
-                        sub.status === 'rejected' ? 'bg-red-500' :
-                        sub.status === 'submitted' ? 'bg-yellow-500' : 'bg-blue-500'
-                      }>
-                        {sub.status}
-                      </Badge>
-                    </div>
-
-                    {/* Syndicate Details */}
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      {profile.state && (
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <MapPin className="h-3 w-3" />{profile.state}
-                        </div>
-                      )}
-                      {profile.verified_platforms?.length > 0 && (
-                        <div className="flex gap-1 flex-wrap">
-                          {profile.verified_platforms.map((p: string) => (
-                            <Badge key={p} className="text-[8px] bg-purple-100 text-purple-700 h-4">{p}</Badge>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : 'Pending'}
-                      </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <CheckCircle className="h-3 w-3" />
-                        Tasks done: {profile.tasks_completed || 0}
-                      </div>
-                    </div>
-
-                    {/* Proof Screenshot */}
-                    {sub.proof_url && (
-                      <div>
-                        <p className="text-[10px] font-medium text-foreground mb-1">Screenshot Proof:</p>
-                        <img src={sub.proof_url} alt="Proof screenshot" className="w-full rounded-lg border cursor-pointer" onClick={() => window.open(sub.proof_url, '_blank')} />
-                      </div>
-                    )}
-
-                    {/* Approve/Reject only for submitted status */}
-                    {sub.status === 'submitted' && (
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 bg-green-600 text-white text-xs" onClick={() => reviewSubmission(sub.id, true)}>
-                          <CheckCircle className="h-3 w-3 mr-1" />Approve & Pay
-                        </Button>
-                        <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => reviewSubmission(sub.id, false)}>
-                          <XCircle className="h-3 w-3 mr-1" />Reject
-                        </Button>
-                      </div>
-                    )}
-
-                    {sub.reviewed_at && (
-                      <p className="text-[9px] text-muted-foreground">Reviewed: {new Date(sub.reviewed_at).toLocaleString()}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Task List */}
-      <div className="space-y-3">
-        {tasks.map(task => (
-          <Card key={task.id}>
-            <CardContent className="p-3">
-              {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg mb-2" />}
-              <h3 className="font-semibold text-sm text-foreground">{task.title}</h3>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {(task.placements || []).map((p: string) => (
-                  <Badge key={p} variant="secondary" className="text-[9px]">{p.replace(/_/g, ' ')}</Badge>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                {task.target_state && <span><MapPin className="h-3 w-3 inline" /> {task.target_state}</span>}
-                <span><Clock className="h-3 w-3 inline" /> {task.deadline_hours || 24}h deadline</span>
-              </div>
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-[10px] text-muted-foreground">₦{task.total_cost} total | {task.max_syndicates} syndicates</span>
-                <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => viewSubmissions(task.id)}>
-                  <Eye className="h-3 w-3 mr-1" />View Submissions
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search campaigns…" value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
       </div>
+
+      {/* Tabs Active vs Completed */}
+      <Tabs defaultValue="active">
+        <TabsList className="grid grid-cols-2 w-full">
+          <TabsTrigger value="active" className="text-xs">
+            <Hourglass className="h-3.5 w-3.5 mr-1" />Active ({visibleActive.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs">
+            <Trophy className="h-3.5 w-3.5 mr-1" />Completed ({allCompleted.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="space-y-3 pt-3">
+          {filterTasks(visibleActive).length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">
+              <Briefcase className="h-10 w-10 mx-auto mb-2 opacity-40" />
+              No active campaigns. Create one above.
+            </CardContent></Card>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {filterTasks(visibleActive).map(t => renderTaskCard(t, false))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-3 pt-3">
+          {filterTasks(allCompleted).length === 0 ? (
+            <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">
+              <Trophy className="h-10 w-10 mx-auto mb-2 opacity-40" />
+              No completed campaigns yet.
+            </CardContent></Card>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {filterTasks(allCompleted).map(t => renderTaskCard(t, true))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Task detail sheet — full submissions list */}
+      <Sheet open={!!openTask} onOpenChange={o => { if (!o) { setOpenTask(null); setStatusFilter('all'); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
+          {openTask && (() => {
+            const subs = allAssignments.filter(a => a.task_id === openTask.id);
+            const s = taskStats[openTask.id];
+            const pct = openTask.max_syndicates ? Math.round((s.approved / openTask.max_syndicates) * 100) : 0;
+            const filtered = subs.filter(sub => {
+              if (statusFilter === 'all') return true;
+              if (statusFilter === 'pending') return sub.status === 'submitted' || sub.status === 'accepted';
+              return sub.status === statusFilter;
+            });
+            return (
+              <>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white p-5">
+                  <SheetHeader className="text-left">
+                    <SheetTitle className="text-white text-base line-clamp-1">{openTask.title}</SheetTitle>
+                  </SheetHeader>
+                  <p className="text-[11px] opacity-90 mt-1 line-clamp-2">{openTask.description}</p>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="opacity-90">{s.approved}/{openTask.max_syndicates} approved</span>
+                      <span className="font-bold">{pct}%</span>
+                    </div>
+                    <Progress value={pct} className="h-2 bg-white/20" />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mt-4">
+                    <div className="bg-white/15 rounded p-2 text-center"><p className="text-[9px] opacity-80">Total</p><p className="text-sm font-bold">{subs.length}</p></div>
+                    <div className="bg-white/15 rounded p-2 text-center"><p className="text-[9px] opacity-80">Done</p><p className="text-sm font-bold">{s.approved}</p></div>
+                    <div className="bg-white/15 rounded p-2 text-center"><p className="text-[9px] opacity-80">Pending</p><p className="text-sm font-bold">{s.pending}</p></div>
+                    <div className="bg-white/15 rounded p-2 text-center"><p className="text-[9px] opacity-80">Left</p><p className="text-sm font-bold">{s.remaining}</p></div>
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+                      <Button key={f} size="sm" variant={statusFilter === f ? 'default' : 'outline'}
+                        className="h-7 text-[10px] capitalize" onClick={() => setStatusFilter(f)}>{f}</Button>
+                    ))}
+                  </div>
+
+                  {openTask.status === 'active' && (
+                    <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => archiveTask(openTask.id)}>
+                      <Archive className="h-3 w-3 mr-1" />Mark campaign as completed
+                    </Button>
+                  )}
+
+                  {filtered.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-6">No submissions to show</p>
+                  )}
+
+                  {filtered.map(sub => {
+                    const profile = profilesMap[sub.syndicate_user_id] || {};
+                    return (
+                      <Card key={sub.id} className={
+                        sub.status === 'approved' ? 'border-green-200 bg-green-50/30' :
+                        sub.status === 'rejected' ? 'border-red-200 bg-red-50/30' :
+                        'border-yellow-200'
+                      }>
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={profile.avatar_url || ''} />
+                              <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">
+                                {(profile.display_name || 'S').slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-foreground truncate">{profile.display_name || 'Syndicate'}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{profile.email}</p>
+                            </div>
+                            <Badge className={
+                              sub.status === 'approved' ? 'bg-green-600' :
+                              sub.status === 'rejected' ? 'bg-red-600' :
+                              'bg-yellow-500'
+                            }>{sub.status}</Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
+                            {profile.state && <div className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{profile.state}</div>}
+                            <div className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />{sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : '—'}</div>
+                          </div>
+
+                          {sub.proof_url && (
+                            <div>
+                              <p className="text-[10px] font-medium text-foreground mb-1">Proof:</p>
+                              <button onClick={() => setZoomImage(sub.proof_url)} className="block w-full">
+                                <img src={sub.proof_url} alt="Proof" className="w-full rounded-lg border" />
+                              </button>
+                            </div>
+                          )}
+
+                          {sub.status === 'submitted' && (
+                            <div className="flex gap-2">
+                              <Button size="sm" className="flex-1 bg-green-600 text-white text-xs hover:bg-green-700" onClick={() => reviewSubmission(sub.id, true)}>
+                                <CheckCircle className="h-3 w-3 mr-1" />Approve & Pay
+                              </Button>
+                              <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => reviewSubmission(sub.id, false)}>
+                                <XCircle className="h-3 w-3 mr-1" />Reject
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* Image zoom */}
+      <Dialog open={!!zoomImage} onOpenChange={o => { if (!o) setZoomImage(null); }}>
+        <DialogContent className="max-w-3xl p-2 bg-black/95">
+          {zoomImage && <img src={zoomImage} alt="Proof full size" className="w-full h-auto rounded" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

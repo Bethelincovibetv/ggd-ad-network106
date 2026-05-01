@@ -40,6 +40,8 @@ import UserGuide from "@/components/UserGuide";
 import ApiDocumentation from "@/components/ApiDocumentation";
 import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
+import UserProfilePage from "@/components/UserProfilePage";
+import LinkShortener from "@/components/LinkShortener";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface Ad {
@@ -600,6 +602,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'business-tasks':
         return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
+      case 'profile':
+        return <UserProfilePage />;
+
+      case 'smart-links':
+        return <LinkShortener />;
 
       case 'my-business':
         return <BusinessStorefront />;

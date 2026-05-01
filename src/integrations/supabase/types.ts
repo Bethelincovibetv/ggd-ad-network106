@@ -422,6 +422,44 @@ export type Database = {
         }
         Relationships: []
       }
+      link_clicks: {
+        Row: {
+          country: string | null
+          created_at: string
+          device: string | null
+          id: string
+          referrer: string | null
+          short_link_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          id?: string
+          referrer?: string | null
+          short_link_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          id?: string
+          referrer?: string | null
+          short_link_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_clicks_short_link_id_fkey"
+            columns: ["short_link_id"]
+            isOneToOne: false
+            referencedRelation: "short_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_apps: {
         Row: {
           app_link: string
@@ -632,6 +670,42 @@ export type Database = {
           sort_order?: number | null
           title?: string
           youtube_url?: string
+        }
+        Relationships: []
+      }
+      short_links: {
+        Row: {
+          clicks: number
+          created_at: string
+          id: string
+          is_active: boolean
+          link_type: string
+          slug: string
+          target_url: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link_type?: string
+          slug: string
+          target_url: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link_type?: string
+          slug?: string
+          target_url?: string
+          title?: string | null
+          user_id?: string
         }
         Relationships: []
       }
