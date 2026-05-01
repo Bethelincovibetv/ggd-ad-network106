@@ -193,25 +193,40 @@ const BusinessTaskCreator = () => {
 
   return (
     <div className="space-y-4">
-      {/* Wallet Summary */}
-      <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-        <CardContent className="p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">Task Wallet Balance</p>
-            <p className="text-2xl font-bold text-green-700">₦{wallet?.balance || 0}</p>
+      {/* Hero / Wallet Summary */}
+      <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 text-white p-5 relative">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -left-6 -bottom-6 h-32 w-32 rounded-full bg-yellow-400/20 blur-2xl" />
+        <div className="relative">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider opacity-90">
+            <Briefcase className="h-3.5 w-3.5" /> Business Console
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">{activeTaskCount} active tasks</p>
-            <p className="text-xs text-muted-foreground">{completedTaskCount} completed</p>
+          <p className="text-[11px] mt-3 opacity-80">Task wallet balance</p>
+          <p className="text-4xl font-black mt-0.5">₦{wallet?.balance?.toLocaleString() || 0}</p>
+          <div className="flex items-center gap-3 mt-3 text-[11px] opacity-90">
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {activeTaskCount} active</span>
+            <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> {completedTaskCount} done</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="flex justify-between items-center">
-        <h2 className="text-base font-bold text-foreground">My Tasks</h2>
-        <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
-          <Plus className="h-3 w-3 mr-1" />Create Task
+      {/* Quick action grid */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <Button onClick={() => setIsCreating(true)}
+          className="h-auto py-3.5 flex-col gap-1 bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md rounded-xl">
+          <Plus className="h-5 w-5" />
+          <span className="text-xs font-semibold">New Task</span>
         </Button>
+        <Button variant="outline" onClick={fetchData}
+          className="h-auto py-3.5 flex-col gap-1 rounded-xl border-2">
+          <Eye className="h-5 w-5 text-orange-600" />
+          <span className="text-xs font-semibold">Refresh</span>
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <h2 className="text-base font-bold text-foreground">My Tasks</h2>
+        <Badge variant="outline" className="text-[10px]">{tasks.length} total</Badge>
       </div>
 
       {isCreating && (

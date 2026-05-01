@@ -289,55 +289,72 @@ const SyndicateDashboard = () => {
     <div className="space-y-4">
       <YouTubeEmbed section="syndicate" />
 
-      {/* Profile & Stats */}
-      <Card className="border-purple-200">
-        <CardContent className="p-3">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-14 w-14 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden border-2 border-purple-300">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
-                ) : (
-                  <Users className="h-6 w-6 text-purple-600" />
-                )}
-              </div>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadAvatar(file);
-                  e.target.value = '';
-                }}
-              />
-              <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
-                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-purple-600 text-white flex items-center justify-center">
-                {uploadingAvatar ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-              </button>
+      {/* Hero Profile */}
+      <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 text-white p-5 relative">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -left-6 -bottom-6 h-32 w-32 rounded-full bg-yellow-400/20 blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="relative">
+            <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/40 backdrop-blur">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <Users className="h-7 w-7 text-white" />
+              )}
             </div>
-            <div className="flex-1">
-              <div className="grid grid-cols-3 gap-2 text-center">
-              <div><div className="text-xl font-bold text-foreground">{profile?.ranking_score || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Rank</div></div>
-                <div><div className="text-xl font-bold text-foreground">{profile?.tasks_completed || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Done</div></div>
-                <div><div className="text-xl font-bold text-green-600">₦{wallet?.balance || 0}</div><div className="text-[10px] text-muted-foreground font-medium">Earnings</div></div>
-              </div>
-            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) uploadAvatar(file);
+                e.target.value = '';
+              }}
+            />
+            <button onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-white text-purple-700 flex items-center justify-center shadow-lg">
+              {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            </button>
           </div>
-          {profile?.state && <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1"><MapPin className="h-3 w-3" />{profile.state}</p>}
-          {profile?.verified_platforms?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {profile.verified_platforms.map((p: string) => <Badge key={p} className="text-[9px] bg-purple-100 text-purple-700">{p} ✓</Badge>)}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs uppercase tracking-wider opacity-90 flex items-center gap-1">
+              <Award className="h-3 w-3" /> Syndicate
+            </p>
+            <p className="text-lg font-bold truncate">{profile?.display_name || 'Earner'}</p>
+            {profile?.state && <p className="text-[11px] opacity-80 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{profile.state}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mt-4 relative">
+          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
+            <div className="text-xl font-black">{profile?.ranking_score || 0}</div>
+            <div className="text-[10px] opacity-90">Rank Score</div>
+          </div>
+          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
+            <div className="text-xl font-black">{profile?.tasks_completed || 0}</div>
+            <div className="text-[10px] opacity-90">Completed</div>
+          </div>
+          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
+            <div className="text-xl font-black">₦{wallet?.balance?.toLocaleString() || 0}</div>
+            <div className="text-[10px] opacity-90">Earnings</div>
+          </div>
+        </div>
+
+        {profile?.verified_platforms?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-3 relative">
+            {profile.verified_platforms.map((p: string) => (
+              <Badge key={p} className="text-[9px] bg-white/20 text-white border-0 hover:bg-white/30">{p} ✓</Badge>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Request Matching */}
-      <Button variant="outline" className="w-full text-xs" onClick={requestTaskMatching} disabled={requestingMatch}>
-        {requestingMatch ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-        Request Task Matching
+      <Button variant="outline" className="w-full h-11 rounded-xl border-2 font-semibold" onClick={requestTaskMatching} disabled={requestingMatch}>
+        {requestingMatch ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+        Find Me a Task
       </Button>
 
       {/* Tabbed Assignment View */}
