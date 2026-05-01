@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -33,6 +33,8 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
+    { id: 'profile', icon: User, label: 'My Profile' },
+    { id: 'smart-links', icon: Link2, label: 'Smart Links' },
     { id: 'fund-credits', icon: CreditCard, label: 'Buy Credits' },
     { id: 'transfer', icon: Send, label: 'Transfer' },
     { id: 'premium', icon: Crown, label: 'Premium' },
