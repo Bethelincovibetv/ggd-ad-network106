@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter } from "lucide-react";
+import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,7 +50,6 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
     setSubscribing(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSubscribing(false); return; }
-
     if (directoryCost > 0) {
       const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).single();
       if (!profile || profile.credits < directoryCost) {
@@ -60,16 +59,13 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
       }
       await supabase.from('profiles').update({ credits: profile.credits - directoryCost }).eq('user_id', user.id);
     }
-
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
-
     await (supabase.from('business_profiles') as any).update({
       is_directory_listed: true,
       directory_subscription_expires_at: expiresAt.toISOString(),
     }).eq('user_id', user.id);
-
-    toast.success("🎉 Your business is now listed in the directory!");
+    toast.success("🎉 Your business is now listed!");
     setIsListed(true);
     setSubscribing(false);
     fetchData();
@@ -82,101 +78,116 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
     return matchesSearch && matchesCategory;
   });
 
-  if (loading) return <div className="text-center py-8 text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
   return (
-    <div className="space-y-4">
-      <div className="text-center space-y-1">
-        <h2 className="text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">Business Directory</h2>
-        <p className="text-xs text-muted-foreground">Discover verified businesses on GGD Network</p>
+    <div className="space-y-5">
+      {/* Hero */}
+      <div className="rounded-2xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white relative overflow-hidden">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-yellow-300/15 blur-2xl" />
+        <Store className="h-8 w-8 mb-2 drop-shadow-lg relative" />
+        <h2 className="text-lg font-black relative">Business Directory</h2>
+        <p className="text-[11px] opacity-80 relative">Discover verified businesses on GGD Network</p>
+        <div className="grid grid-cols-2 gap-2 mt-3 relative">
+          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
+            <p className="text-xl font-black">{businesses.length}</p>
+            <p className="text-[9px] opacity-80">Listed</p>
+          </div>
+          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
+            <p className="text-xl font-black">{categories.length}</p>
+            <p className="text-[9px] opacity-80">Categories</p>
+          </div>
+        </div>
       </div>
 
       {/* Subscribe CTA */}
       {isBusiness && !isListed && (
-        <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50">
-          <CardContent className="p-4 text-center space-y-2">
-            <Crown className="h-8 w-8 mx-auto text-orange-600" />
-            <h3 className="font-bold text-sm text-foreground">List Your Business</h3>
-            <p className="text-xs text-muted-foreground">Get discovered by thousands of users.</p>
-            <Button onClick={subscribeToDirectory} disabled={subscribing} className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+        <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-amber-400 to-orange-500 p-4 text-center text-white">
+            <Crown className="h-10 w-10 mx-auto mb-2 drop-shadow-lg" />
+            <h3 className="font-black text-sm">List Your Business</h3>
+            <p className="text-[11px] opacity-90">Get discovered by thousands of users</p>
+            <Button onClick={subscribeToDirectory} disabled={subscribing} className="mt-3 bg-white text-orange-600 hover:bg-white/90 font-bold rounded-xl shadow-md h-10">
               {subscribing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Store className="h-4 w-4 mr-2" />}
-              Subscribe {directoryCost > 0 ? `(${directoryCost} credits/month)` : '(Free)'}
+              Subscribe {directoryCost > 0 ? `(${directoryCost} credits/mo)` : '(Free)'}
             </Button>
-          </CardContent>
+          </div>
         </Card>
       )}
 
       {isBusiness && isListed && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="p-3 text-center">
-            <p className="text-xs text-green-700 font-medium">✅ Your business is listed in the directory!</p>
-          </CardContent>
-        </Card>
+        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl p-4 text-center border-0 shadow-sm">
+          <p className="text-sm text-emerald-700 font-bold flex items-center justify-center gap-2">
+            <span className="h-6 w-6 rounded-full bg-emerald-500 text-white grid place-items-center text-xs">✓</span>
+            Your business is listed!
+          </p>
+        </div>
       )}
 
       {/* Search & Filter */}
       <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search businesses..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
+          <Input placeholder="Search businesses..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 h-11 rounded-xl bg-secondary/50 border-0" />
         </div>
         {categories.length > 0 && (
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="h-9">
+            <SelectTrigger className="h-10 rounded-xl bg-secondary/50 border-0">
               <Filter className="h-3 w-3 mr-2 text-muted-foreground" />
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
+              {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
             </SelectContent>
           </Select>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">{filtered.length} businesses listed</p>
+      <p className="text-[11px] text-muted-foreground font-medium">{filtered.length} businesses listed</p>
 
       <div className="space-y-3">
         {filtered.map(biz => {
           const bizCategory = categories.find(c => c.id === biz.category_id);
           return (
-            <Card key={biz.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/business/${biz.id}`)}>
+            <Card key={biz.id} className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-all cursor-pointer active:scale-[0.98]" onClick={() => navigate(`/business/${biz.id}`)}>
               <CardContent className="p-0">
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 flex items-center gap-3">
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 flex items-center gap-3">
                   {biz.logo_url ? (
-                    <img src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30" />
+                    <img src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30 shadow-md" />
                   ) : (
-                    <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center">
+                    <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
                       <Store className="h-7 w-7 text-white/80" />
                     </div>
                   )}
                   <div className="text-white min-w-0 flex-1">
-                    <h3 className="font-bold text-sm truncate">{biz.business_name}</h3>
-                    {biz.description && <p className="text-[11px] text-white/80 line-clamp-2">{biz.description}</p>}
-                    {bizCategory && <Badge className="mt-1 bg-white/20 text-white border-0 text-[9px]">{bizCategory.name}</Badge>}
+                    <h3 className="font-black text-sm truncate">{biz.business_name}</h3>
+                    {biz.description && <p className="text-[11px] text-white/80 line-clamp-2 leading-relaxed">{biz.description}</p>}
+                    {bizCategory && <Badge className="mt-1.5 bg-white/20 text-white border-0 text-[9px] rounded-full">{bizCategory.name}</Badge>}
                   </div>
-                  <Eye className="h-5 w-5 text-white/60 flex-shrink-0" />
+                  <div className="h-9 w-9 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0">
+                    <Eye className="h-4 w-4 text-white/80" />
+                  </div>
                 </div>
                 <div className="p-3 flex flex-wrap gap-1.5">
                   {biz.whatsapp_link && (
-                    <Badge variant="outline" className="text-[10px] gap-1 border-green-200 text-green-700">
+                    <Badge className="text-[10px] gap-1 bg-green-50 text-green-700 border-0 rounded-full">
                       <Phone className="h-3 w-3" />WhatsApp
                     </Badge>
                   )}
                   {biz.website_link && (
-                    <Badge variant="outline" className="text-[10px] gap-1">
+                    <Badge className="text-[10px] gap-1 bg-blue-50 text-blue-700 border-0 rounded-full">
                       <Globe className="h-3 w-3" />Website
                     </Badge>
                   )}
                   {biz.facebook_url && (
-                    <Badge variant="outline" className="text-[10px] gap-1 border-blue-200 text-blue-700">
+                    <Badge className="text-[10px] gap-1 bg-indigo-50 text-indigo-700 border-0 rounded-full">
                       <Facebook className="h-3 w-3" />Facebook
                     </Badge>
                   )}
                   {biz.instagram_url && (
-                    <Badge variant="outline" className="text-[10px] gap-1 border-pink-200 text-pink-700">
+                    <Badge className="text-[10px] gap-1 bg-pink-50 text-pink-700 border-0 rounded-full">
                       <Instagram className="h-3 w-3" />Instagram
                     </Badge>
                   )}
@@ -186,9 +197,12 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
           );
         })}
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Store className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No businesses listed yet.</p>
+          <div className="text-center py-16">
+            <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+              <Store className="h-10 w-10 text-muted-foreground/40" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">No businesses found</p>
+            <p className="text-xs text-muted-foreground mt-1">Try adjusting your search</p>
           </div>
         )}
       </div>
