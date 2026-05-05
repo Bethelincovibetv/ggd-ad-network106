@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store } from "lucide-react";
+import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -127,14 +127,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
         await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
       }
-      const today = new Date().toISOString().split('T')[0];
-      if (profile.last_credit_date !== today && !userRoles.includes('admin')) {
-        const newCredits = (profile.credits || 0) + loginCreditsAmount;
+      const currentCredits = profile.credits || 0;
+      // Only grant free daily credits if user has 0 credits (like Lovable credits system)
+      // Credits don't stack - user must use them before getting more
+      if (currentCredits === 0 && profile.last_credit_date !== new Date().toISOString().split('T')[0] && !userRoles.includes('admin')) {
+        const newCredits = loginCreditsAmount;
+        const today = new Date().toISOString().split('T')[0];
         await supabase.from('profiles').update({ credits: newCredits, last_credit_date: today }).eq('user_id', user.id);
         setCredits(newCredits);
-        toast.success(`🎉 You earned ${loginCreditsAmount} credits for logging in today!`);
+        toast.success(`🎉 You received ${loginCreditsAmount} free credits!`);
       } else {
-        setCredits(profile.credits || 0);
+        setCredits(currentCredits);
       }
     }
 
@@ -237,6 +240,18 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     await supabase.from('ads').delete().eq('id', id);
     toast.success("Ad deleted!");
     fetchAds();
+  };
+
+  const convertAdToTask = async (ad: Ad) => {
+    const { error } = await supabase.from('tasks').insert({
+      title: `Share: ${ad.title}`,
+      description: ad.description || `Share this ad and earn credits!`,
+      reward_credits: 5,
+      task_type: 'share',
+      share_url: ad.target_url,
+    });
+    if (error) { toast.error("Failed to convert ad to task"); return; }
+    toast.success("Ad converted to task! Users can now earn credits by sharing it.");
   };
 
   const createApiKey = async () => {
@@ -532,6 +547,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
                           </div>
                         </div>
+                        <Button size="sm" variant="outline" className="w-full mt-2 text-xs h-7 border-orange-200 text-orange-600 hover:bg-orange-50"
+                          onClick={() => convertAdToTask(ad)}>
+                          <ArrowRight className="h-3 w-3 mr-1" />Convert to Task
+                        </Button>
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex gap-3 text-[11px] text-muted-foreground">
                             <span>👁️ {ad.impressions}</span><span>🖱️ {ad.clicks}</span>

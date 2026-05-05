@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Gift, CheckCircle, Share2, ExternalLink } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ClipboardList, Plus, Trash2, Gift, CheckCircle, Share2, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,44 +17,49 @@ const TaskList = ({ onCreditsUpdate, credits }: TaskListProps) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [completions, setCompletions] = useState<string[]>([]);
   const [referralCode, setReferralCode] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', description: '', reward_credits: '5', share_url: '' });
 
   useEffect(() => { fetchTasks(); }, []);
 
   const fetchTasks = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data: tasksData } = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', { ascending: false });
     setTasks(tasksData || []);
-
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     setCompletions((comps || []).map(c => c.task_id));
-
     const { data: profile } = await supabase.from('profiles').select('referral_code').eq('user_id', user.id).single();
     if (profile?.referral_code) setReferralCode(profile.referral_code);
+  };
+
+  const createTask = async () => {
+    if (!newTask.title.trim()) { toast.error("Title required"); return; }
+    const { error } = await supabase.from('tasks').insert({
+      title: newTask.title,
+      description: newTask.description || null,
+      reward_credits: parseInt(newTask.reward_credits) || 5,
+      task_type: 'share',
+      share_url: newTask.share_url || null,
+    });
+    if (error) { toast.error("Failed to create task"); return; }
+    toast.success("Task created!");
+    setNewTask({ title: '', description: '', reward_credits: '5', share_url: '' });
+    setShowCreate(false);
+    fetchTasks();
   };
 
   const completeTask = async (task: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    // Open share URL if provided
     if (task.share_url) {
-      const platforms = [
-        { name: 'WhatsApp', url: `https://wa.me/?text=${encodeURIComponent(task.share_url)}` },
-        { name: 'Facebook', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(task.share_url)}` },
-        { name: 'Twitter/X', url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(task.share_url)}` },
-      ];
-      const choice = platforms[0]; // Default to WhatsApp
-      window.open(choice.url, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(task.share_url)}`, '_blank');
     }
-
     const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
     if (error) {
       if (error.code === '23505') { toast.info("Already completed!"); return; }
       toast.error("Failed to complete task"); return;
     }
-
     const newCredits = credits + task.reward_credits;
     await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
     onCreditsUpdate(newCredits);
@@ -71,9 +79,43 @@ const TaskList = ({ onCreditsUpdate, credits }: TaskListProps) => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-        <Gift className="h-5 w-5 text-orange-500" />Earn Credits
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+          <Gift className="h-5 w-5 text-orange-500" />Earn Credits
+        </h2>
+        <Button size="sm" onClick={() => setShowCreate(!showCreate)} className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
+          <Plus className="h-3 w-3 mr-1" />Create Task
+        </Button>
+      </div>
+
+      {/* Create Task Form */}
+      {showCreate && (
+        <Card className="border-orange-200">
+          <CardContent className="p-4 space-y-3">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />New Task
+            </h3>
+            <Input placeholder="Task title *" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} className="h-9 text-sm" />
+            <Textarea placeholder="Description (optional)" value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} rows={2} className="text-sm" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Reward Credits</Label>
+                <Input type="number" value={newTask.reward_credits} onChange={e => setNewTask({ ...newTask, reward_credits: e.target.value })} className="h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Share URL</Label>
+                <Input placeholder="https://..." value={newTask.share_url} onChange={e => setNewTask({ ...newTask, share_url: e.target.value })} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={createTask} className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
+                <Plus className="h-3 w-3 mr-1" />Create
+              </Button>
+              <Button onClick={() => setShowCreate(false)} variant="outline" className="flex-1 text-xs">Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Referral Card */}
       {referralCode && (
@@ -120,7 +162,7 @@ const TaskList = ({ onCreditsUpdate, credits }: TaskListProps) => {
         {tasks.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Gift className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No tasks available yet. Check back later!</p>
+            <p className="text-sm">No tasks available yet. Create one or check back later!</p>
           </div>
         )}
       </div>

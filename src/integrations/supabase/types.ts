@@ -172,6 +172,39 @@ export type Database = {
         }
         Relationships: []
       }
+      business_addons: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_free: boolean
+          name: string
+          price: number
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          name: string
+          price?: number
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          name?: string
+          price?: number
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       business_categories: {
         Row: {
           created_at: string
@@ -1015,6 +1048,35 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      user_addon_purchases: {
+        Row: {
+          addon_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          addon_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          addon_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_addon_purchases_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "business_addons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_app_redemptions: {
         Row: {
