@@ -1,8 +1,9 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, Crown, Sparkles } from "lucide-react";
+import { Briefcase, Crown, Sparkles, Package } from "lucide-react";
 import BusinessUpgradeForm from "@/components/BusinessUpgradeForm";
 import CoOwnerUpgradeForm from "@/components/CoOwnerUpgradeForm";
+import BusinessAddons from "@/components/BusinessAddons";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface UpgradePageProps {
