@@ -200,6 +200,12 @@ const AdminSettings = () => {
           ))}
         </CardContent>
       </Card>
+      {/* Business Add-ons Management */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <CardContent className="p-4">
+          <BusinessAddons isAdmin={true} />
+        </CardContent>
+      </Card>
     </div>
   );
 };
