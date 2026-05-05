@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import AdminPage from "./components/AdminPage";
 import BusinessDetailPage from "./pages/BusinessDetailPage";
 import RedirectPage from "./pages/RedirectPage";
+import SyndicateRegister from "./pages/SyndicateRegister";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/business/:id" element={<BusinessDetailPage />} />
           <Route path="/r/:slug" element={<RedirectPage />} />
+          <Route path="/syndicate-register" element={<SyndicateRegister />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

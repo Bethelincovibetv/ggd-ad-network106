@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe, Zap, BarChart3, Code, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, Briefcase, TrendingUp, DollarSign, Target } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -41,6 +42,7 @@ const useCountUp = (end: number, duration: number = 2000, suffix: string = '') =
 };
 
 const LandingPage = ({ onGetStarted }: LandingPageProps) => {
+  const navigate = useNavigate();
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
@@ -297,7 +299,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 </div>
               ))}
             </div>
-            <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
+            <Button onClick={() => navigate('/syndicate-register')} size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
               Become a Syndicate <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </CardContent>
