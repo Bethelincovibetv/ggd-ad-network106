@@ -47,9 +47,12 @@ const UpgradePage = ({ onUpgraded, credits = 0 }: UpgradePageProps) => {
 
       {showCoOwner ? (
         <Tabs defaultValue="business">
-          <TabsList className="w-full grid grid-cols-2 h-11 rounded-xl bg-secondary/80 p-1">
+          <TabsList className="w-full grid grid-cols-3 h-11 rounded-xl bg-secondary/80 p-1">
             <TabsTrigger value="business" className="text-xs gap-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
               <Briefcase className="h-3.5 w-3.5" />Business
+            </TabsTrigger>
+            <TabsTrigger value="addons" className="text-xs gap-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
+              <Package className="h-3.5 w-3.5" />Add-ons
             </TabsTrigger>
             <TabsTrigger value="coowner" className="text-xs gap-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
               <Crown className="h-3.5 w-3.5" />Co-Owner
@@ -58,12 +61,30 @@ const UpgradePage = ({ onUpgraded, credits = 0 }: UpgradePageProps) => {
           <TabsContent value="business">
             <BusinessUpgradeForm onUpgraded={onUpgraded} />
           </TabsContent>
+          <TabsContent value="addons">
+            <BusinessAddons />
+          </TabsContent>
           <TabsContent value="coowner">
             <CoOwnerUpgradeForm onUpgraded={onUpgraded} credits={credits} />
           </TabsContent>
         </Tabs>
       ) : (
-        <BusinessUpgradeForm onUpgraded={onUpgraded} />
+        <Tabs defaultValue="business">
+          <TabsList className="w-full grid grid-cols-2 h-11 rounded-xl bg-secondary/80 p-1">
+            <TabsTrigger value="business" className="text-xs gap-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
+              <Briefcase className="h-3.5 w-3.5" />Business
+            </TabsTrigger>
+            <TabsTrigger value="addons" className="text-xs gap-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
+              <Package className="h-3.5 w-3.5" />Add-ons
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="business">
+            <BusinessUpgradeForm onUpgraded={onUpgraded} />
+          </TabsContent>
+          <TabsContent value="addons">
+            <BusinessAddons />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
