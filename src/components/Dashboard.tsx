@@ -547,6 +547,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
                           </div>
                         </div>
+                        <Button size="sm" variant="outline" className="w-full mt-2 text-xs h-7 border-orange-200 text-orange-600 hover:bg-orange-50"
+                          onClick={() => convertAdToTask(ad)}>
+                          <ArrowRight className="h-3 w-3 mr-1" />Convert to Task
+                        </Button>
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex gap-3 text-[11px] text-muted-foreground">
                             <span>👁️ {ad.impressions}</span><span>🖱️ {ad.clicks}</span>
