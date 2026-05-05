@@ -242,6 +242,18 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     fetchAds();
   };
 
+  const convertAdToTask = async (ad: Ad) => {
+    const { error } = await supabase.from('tasks').insert({
+      title: `Share: ${ad.title}`,
+      description: ad.description || `Share this ad and earn credits!`,
+      reward_credits: 5,
+      task_type: 'share',
+      share_url: ad.target_url,
+    });
+    if (error) { toast.error("Failed to convert ad to task"); return; }
+    toast.success("Ad converted to task! Users can now earn credits by sharing it.");
+  };
+
   const createApiKey = async () => {
     if (!isPremium && !isAdmin) { toast.error("Upgrade to Premium to create API keys"); return; }
     const { data: { user } } = await supabase.auth.getUser();
