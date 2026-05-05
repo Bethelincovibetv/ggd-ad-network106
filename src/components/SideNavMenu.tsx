@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
