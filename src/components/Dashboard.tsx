@@ -127,14 +127,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
         await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
       }
-      const today = new Date().toISOString().split('T')[0];
-      if (profile.last_credit_date !== today && !userRoles.includes('admin')) {
-        const newCredits = (profile.credits || 0) + loginCreditsAmount;
+      const currentCredits = profile.credits || 0;
+      // Only grant free daily credits if user has 0 credits (like Lovable credits system)
+      // Credits don't stack - user must use them before getting more
+      if (currentCredits === 0 && profile.last_credit_date !== new Date().toISOString().split('T')[0] && !userRoles.includes('admin')) {
+        const newCredits = loginCreditsAmount;
+        const today = new Date().toISOString().split('T')[0];
         await supabase.from('profiles').update({ credits: newCredits, last_credit_date: today }).eq('user_id', user.id);
         setCredits(newCredits);
-        toast.success(`🎉 You earned ${loginCreditsAmount} credits for logging in today!`);
+        toast.success(`🎉 You received ${loginCreditsAmount} free credits!`);
       } else {
-        setCredits(profile.credits || 0);
+        setCredits(currentCredits);
       }
     }
 
