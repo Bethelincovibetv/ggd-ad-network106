@@ -333,10 +333,10 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { step: "01", title: "Sign Up", desc: "Create your free account in seconds" },
-            { step: "02", title: "Create Ads", desc: "Upload banners and set your campaign" },
-            { step: "03", title: "Earn Credits", desc: "Complete tasks, refer friends, buy credits" },
-            { step: "04", title: "Grow Business", desc: "Upgrade to Premium or Business for more" },
+            { step: "01", title: "Create an Advert", desc: "Launch your promotion in minutes." },
+            { step: "02", title: "Tasks Are Generated", desc: "Your ad is distributed as shareable tasks." },
+            { step: "03", title: "Syndicates Promote It", desc: "Real users share your ad across multiple platforms." },
+            { step: "04", title: "Reach Thousands Instantly", desc: "Get visibility, traffic, and grow your business." },
           ].map((s, i) => (
             <div key={i} className="text-center space-y-3 group hover:scale-105 transition-transform">
               <div className="text-5xl font-black text-[#e67e22]/20 group-hover:text-[#e67e22]/40 transition-colors">{s.step}</div>
