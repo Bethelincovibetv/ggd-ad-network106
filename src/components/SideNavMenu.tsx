@@ -33,6 +33,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
+    { id: 'tasks', icon: ClipboardList, label: 'Tasks' },
     { id: 'profile', icon: User, label: 'My Profile' },
     { id: 'smart-links', icon: Link2, label: 'Smart Links' },
     { id: 'fund-credits', icon: CreditCard, label: 'Buy Credits' },
