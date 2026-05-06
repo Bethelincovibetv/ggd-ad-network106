@@ -1019,7 +1019,9 @@ export type Database = {
       tasks: {
         Row: {
           created_at: string
+          creator_id: string | null
           description: string | null
+          funded: boolean
           id: string
           is_active: boolean | null
           reward_credits: number | null
@@ -1029,7 +1031,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          creator_id?: string | null
           description?: string | null
+          funded?: boolean
           id?: string
           is_active?: boolean | null
           reward_credits?: number | null
@@ -1039,7 +1043,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          creator_id?: string | null
           description?: string | null
+          funded?: boolean
           id?: string
           is_active?: boolean | null
           reward_credits?: number | null
