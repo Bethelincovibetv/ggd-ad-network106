@@ -29,6 +29,7 @@ const UpgradePage = ({ onUpgraded, credits = 0 }: UpgradePageProps) => {
             <Briefcase className="h-4 w-4 mx-auto mb-1 opacity-80" />
             <p className="text-[10px] font-bold">Business</p>
             <p className="text-[9px] opacity-70">Create tasks</p>
+          </div>
           <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
             <Package className="h-4 w-4 mx-auto mb-1 opacity-80" />
             <p className="text-[10px] font-bold">Add-ons</p>
