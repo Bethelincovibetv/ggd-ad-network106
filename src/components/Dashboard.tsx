@@ -582,7 +582,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'tasks':
-        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={setActiveTab} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
         return isEnabled('credit_funding') ? <CreditFunding credits={credits} onCreditsUpdate={setCredits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
