@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
   credits: number;
+  onNavigate?: (tab: string) => void;
 }
 
 type TaskType = 'share' | 'social';
