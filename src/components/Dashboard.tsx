@@ -644,7 +644,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <TaskWalletFunding />;
 
       case 'upgrade':
-        return <UpgradePage onUpgraded={handleUpgraded} credits={credits} />;
+        return <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />;
 
       case 'api-keys':
         return (
