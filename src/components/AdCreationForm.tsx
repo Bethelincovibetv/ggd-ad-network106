@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight } from "lucide-react";
+import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface AdCreationFormProps {
@@ -63,136 +63,214 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
     { value: '90', label: '3 Months', price: '₦144,000' },
   ];
 
-  return (
-    <Card className="border border-orange-500/20 bg-gradient-to-b from-orange-500/5 to-transparent overflow-hidden">
-      {/* Header */}
-      <div className="p-4 pb-0 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-            <Megaphone className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground">New Campaign</h3>
-            <p className="text-[10px] text-muted-foreground">Step {step} of 3</p>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onCancel} className="h-8 w-8 p-0 rounded-full">
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+  const totalPrice = getPriceForDuration(newAd.durationDays) * 1600;
 
-      {/* Progress bar */}
-      <div className="px-4 pt-3">
-        <div className="flex gap-1.5">
-          {[1, 2, 3].map(s => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-all ${s <= step ? 'bg-gradient-to-r from-orange-500 to-red-600' : 'bg-muted'}`} />
+  return (
+    <div className="space-y-4">
+      {/* Hero Header */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-orange-600 via-red-500 to-pink-600 p-5">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-50" />
+        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -left-4 -bottom-4 h-24 w-24 rounded-full bg-yellow-400/15 blur-xl" />
+        
+        <div className="relative flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+              <Megaphone className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white">Create Campaign</h3>
+              <p className="text-[10px] text-white/70 font-medium">Step {step} of 3 — {step === 1 ? 'Content' : step === 2 ? 'Media & Link' : 'Review & Pay'}</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onCancel} className="h-9 w-9 p-0 rounded-full bg-white/10 hover:bg-white/20 text-white">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="relative flex items-center gap-2">
+          {[
+            { num: 1, label: 'Content' },
+            { num: 2, label: 'Media' },
+            { num: 3, label: 'Payment' },
+          ].map((s, i) => (
+            <React.Fragment key={s.num}>
+              <div className="flex items-center gap-1.5">
+                <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                  s.num < step ? 'bg-white text-orange-600' :
+                  s.num === step ? 'bg-white/90 text-orange-600 ring-2 ring-white/50 shadow-lg' :
+                  'bg-white/15 text-white/60'
+                }`}>
+                  {s.num < step ? '✓' : s.num}
+                </div>
+                <span className={`text-[10px] font-semibold ${s.num <= step ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
+              </div>
+              {i < 2 && <div className={`flex-1 h-0.5 rounded-full ${s.num < step ? 'bg-white/80' : 'bg-white/15'}`} />}
+            </React.Fragment>
           ))}
         </div>
       </div>
 
-      <CardContent className="p-4 space-y-4">
-        {/* Step 1: Ad Content */}
-        {step === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Ad Title</Label>
+      {/* Step 1: Ad Content */}
+      {step === 1 && (
+        <Card className="border-0 shadow-lg bg-card/80 backdrop-blur-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+          <CardContent className="p-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-orange-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Campaign Details</h4>
+                <p className="text-[10px] text-muted-foreground">Tell us about your promotion</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Campaign Title</Label>
               <Input
-                placeholder="Enter a compelling title..."
+                placeholder="e.g. 50% Off All Products This Week"
                 value={newAd.title}
                 onChange={(e) => setNewAd({ ...newAd, title: e.target.value })}
-                className="h-11 rounded-xl border-border/50 bg-background/50 text-sm"
+                className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium placeholder:text-muted-foreground/50 focus:bg-background transition-colors"
               />
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Description</Label>
               <Textarea
-                placeholder="What makes your offer irresistible?"
+                placeholder="Describe what makes your offer irresistible..."
                 value={newAd.description}
                 onChange={(e) => setNewAd({ ...newAd, description: e.target.value })}
                 rows={3}
-                className="rounded-xl border-border/50 bg-background/50 text-sm resize-none"
+                className="rounded-2xl border-border/40 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background resize-none transition-colors"
               />
             </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { icon: Eye, label: 'Impressions', value: '10K+' },
+                { icon: MousePointerClick, label: 'Avg Clicks', value: '500+' },
+                { icon: TrendingUp, label: 'ROI', value: '300%' },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="bg-muted/30 rounded-xl p-2.5 text-center">
+                  <Icon className="h-3.5 w-3.5 mx-auto mb-1 text-orange-500" />
+                  <p className="text-[10px] text-muted-foreground">{label}</p>
+                  <p className="text-xs font-bold text-foreground">{value}</p>
+                </div>
+              ))}
+            </div>
+
             <Button
               onClick={() => setStep(2)}
               disabled={!canProceed}
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white text-sm font-semibold"
+              className="w-full h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-sm font-bold shadow-lg shadow-orange-500/25 transition-all"
             >
               Continue <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Step 2: Link & Image */}
-        {step === 2 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+      {/* Step 2: Link & Image */}
+      {step === 2 && (
+        <Card className="border-0 shadow-lg bg-card/80 backdrop-blur-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+          <CardContent className="p-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+                <Link2 className="h-4 w-4 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Media & Link</h4>
+                <p className="text-[10px] text-muted-foreground">Add your landing page and creative</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Link2 className="h-3 w-3" /> Landing Page URL
               </Label>
               <Input
                 placeholder="https://your-landing-page.com"
                 value={newAd.targetUrl}
                 onChange={(e) => setNewAd({ ...newAd, targetUrl: e.target.value })}
-                className="h-11 rounded-xl border-border/50 bg-background/50 text-sm"
+                className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium placeholder:text-muted-foreground/50 focus:bg-background transition-colors"
               />
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <ImagePlus className="h-3 w-3" /> Ad Creative (Optional)
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ImagePlus className="h-3 w-3" /> Ad Creative
               </Label>
               <input type="file" id="newAdImage" accept="image/*" onChange={handleImageUpload} className="hidden" />
               {newAd.imageUrl ? (
-                <div className="relative rounded-xl overflow-hidden border border-border/50">
-                  <img src={newAd.imageUrl} alt="Preview" className="w-full h-32 object-cover" />
+                <div className="relative rounded-2xl overflow-hidden border border-border/30 shadow-sm">
+                  <img src={newAd.imageUrl} alt="Preview" className="w-full h-40 object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setNewAd({ ...newAd, imageUrl: '' })}
-                    className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/50 text-white hover:bg-black/70"
+                    className="absolute top-2 right-2 h-8 w-8 p-0 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm"
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
+                  <p className="absolute bottom-2 left-3 text-[10px] text-white/80 font-medium">✓ Image uploaded</p>
                 </div>
               ) : (
                 <Button
                   variant="outline"
                   onClick={() => document.getElementById('newAdImage')?.click()}
-                  className="w-full h-24 rounded-xl border-dashed border-2 border-border/50 flex flex-col gap-1.5"
+                  className="w-full h-28 rounded-2xl border-dashed border-2 border-border/40 flex flex-col gap-2 hover:border-orange-500/40 hover:bg-orange-500/5 transition-all"
                 >
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Tap to upload image</span>
+                  <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <span className="text-xs text-muted-foreground font-medium">Tap to upload image</span>
+                  <span className="text-[10px] text-muted-foreground/60">JPG, PNG up to 5MB</span>
                 </Button>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-11 rounded-xl text-sm">Back</Button>
+            <div className="flex gap-2.5">
+              <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-12 rounded-2xl text-sm font-semibold border-border/40">Back</Button>
               <Button
                 onClick={() => setStep(3)}
                 disabled={!canProceed}
-                className="flex-1 h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white text-sm font-semibold"
+                className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 text-white text-sm font-bold shadow-lg shadow-orange-500/25"
               >
                 Continue <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Step 3: Duration & Payment */}
-        {step === 3 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+      {/* Step 3: Duration & Payment */}
+      {step === 3 && (
+        <Card className="border-0 shadow-lg bg-card/80 backdrop-blur-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+          <CardContent className="p-5 space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-green-500" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Review & Pay</h4>
+                <p className="text-[10px] text-muted-foreground">Confirm your campaign details</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="h-3 w-3" /> Campaign Duration
               </Label>
               <Select value={newAd.durationDays.toString()} onValueChange={(value) => setNewAd({ ...newAd, durationDays: parseInt(value) })}>
-                <SelectTrigger className="h-11 rounded-xl border-border/50 bg-background/50 text-sm">
+                <SelectTrigger className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover rounded-xl">
                   {durationOptions.map(opt => (
                     <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                      {opt.label} — {opt.price}
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-muted-foreground ml-2">— {opt.price}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -200,45 +278,56 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
             </div>
 
             {/* Summary Card */}
-            <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-orange-500" />
-                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Campaign Summary</span>
+            <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 via-red-500/5 to-pink-500/10 border border-orange-500/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 px-4 py-2.5 border-b border-orange-500/10">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-orange-500" />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">Campaign Summary</span>
+                </div>
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Title</span>
-                  <span className="font-medium text-foreground truncate ml-4 max-w-[60%] text-right">{newAd.title}</span>
+              <div className="p-4 space-y-2.5">
+                {newAd.imageUrl && (
+                  <div className="rounded-xl overflow-hidden mb-3">
+                    <img src={newAd.imageUrl} alt="Ad preview" className="w-full h-24 object-cover" />
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Campaign</span>
+                  <span className="text-xs font-semibold text-foreground truncate ml-4 max-w-[55%] text-right">{newAd.title}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration</span>
-                  <span className="font-medium text-foreground">{durationOptions.find(o => o.value === newAd.durationDays.toString())?.label}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Duration</span>
+                  <span className="text-xs font-semibold text-foreground">{durationOptions.find(o => o.value === newAd.durationDays.toString())?.label}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rate</span>
-                  <span className="font-medium text-foreground">₦1,600/day</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Daily Rate</span>
+                  <span className="text-xs font-semibold text-foreground">₦1,600/day</span>
                 </div>
-                <div className="border-t border-orange-500/20 pt-2 flex justify-between">
-                  <span className="font-bold text-foreground">Total</span>
-                  <span className="font-bold text-orange-500 text-base">₦{(getPriceForDuration(newAd.durationDays) * 1600).toLocaleString()}</span>
+                <div className="border-t border-orange-500/15 pt-3 mt-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-foreground">Total Amount</span>
+                    <div className="text-right">
+                      <span className="text-lg font-black bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">₦{totalPrice.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(2)} className="flex-1 h-11 rounded-xl text-sm">Back</Button>
+            <div className="flex gap-2.5">
+              <Button variant="outline" onClick={() => setStep(2)} className="flex-1 h-12 rounded-2xl text-sm font-semibold border-border/40">Back</Button>
               <Button
                 onClick={createAd}
-                className="flex-1 h-12 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold shadow-lg shadow-green-500/20"
+                className="flex-1 h-13 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm font-bold shadow-lg shadow-green-500/25 transition-all"
               >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Pay & Launch
               </Button>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

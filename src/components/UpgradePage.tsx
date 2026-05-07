@@ -24,17 +24,17 @@ const UpgradePage = ({ onUpgraded, credits = 0 }: UpgradePageProps) => {
         <Sparkles className="h-8 w-8 mb-2 drop-shadow-lg relative" />
         <h2 className="text-lg font-black relative">Upgrade Your Account</h2>
         <p className="text-[11px] opacity-80 relative">Unlock powerful features and start earning</p>
-        <div className={`grid ${showCoOwner ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mt-4 relative`}>
+        <div className={`grid ${showCoOwner ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mt-4 relative`}>
           <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
             <Briefcase className="h-4 w-4 mx-auto mb-1 opacity-80" />
             <p className="text-[10px] font-bold">Business</p>
             <p className="text-[9px] opacity-70">Create tasks</p>
+          </div>
           <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
             <Package className="h-4 w-4 mx-auto mb-1 opacity-80" />
             <p className="text-[10px] font-bold">Add-ons</p>
             <p className="text-[9px] opacity-70">Extra features</p>
           </div>
-        </div>
           {showCoOwner && (
             <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
               <Crown className="h-4 w-4 mx-auto mb-1 opacity-80" />
