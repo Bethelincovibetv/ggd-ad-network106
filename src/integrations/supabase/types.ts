@@ -1018,36 +1018,45 @@ export type Database = {
       }
       tasks: {
         Row: {
+          completions_count: number
           created_at: string
           creator_id: string | null
           description: string | null
+          flyer_url: string | null
           funded: boolean
           id: string
           is_active: boolean | null
+          max_completions: number
           reward_credits: number | null
           share_url: string | null
           task_type: string | null
           title: string
         }
         Insert: {
+          completions_count?: number
           created_at?: string
           creator_id?: string | null
           description?: string | null
+          flyer_url?: string | null
           funded?: boolean
           id?: string
           is_active?: boolean | null
+          max_completions?: number
           reward_credits?: number | null
           share_url?: string | null
           task_type?: string | null
           title: string
         }
         Update: {
+          completions_count?: number
           created_at?: string
           creator_id?: string | null
           description?: string | null
+          flyer_url?: string | null
           funded?: boolean
           id?: string
           is_active?: boolean | null
+          max_completions?: number
           reward_credits?: number | null
           share_url?: string | null
           task_type?: string | null
