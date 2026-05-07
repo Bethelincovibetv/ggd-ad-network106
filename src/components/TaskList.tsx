@@ -163,48 +163,69 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
           {/* Premium Social Task */}
           <Card
-            className={`border overflow-hidden transition-all ${
-              isBusiness
-                ? 'border-purple-500/30 hover:border-purple-500/50 cursor-pointer hover:shadow-lg hover:shadow-purple-500/10 group'
-                : 'border-border/30 opacity-75'
-            }`}
+            className="border overflow-hidden transition-all border-purple-500/30 hover:border-purple-500/50 cursor-pointer hover:shadow-lg hover:shadow-purple-500/10 group"
             onClick={() => {
               if (isBusiness) {
-                setSelectedTaskType('social');
+                // Already upgraded — go straight to Business Task Campaign Creator
+                if (onNavigate) {
+                  onNavigate('business-tasks');
+                  setShowCreate(false);
+                  setSelectedTaskType(null);
+                } else {
+                  setSelectedTaskType('social');
+                }
               } else {
-                toast.error("Upgrade to Business to create Premium Social Tasks!", {
-                  action: { label: 'Upgrade', onClick: () => {} },
-                });
+                // Not a business — take them to upgrade their business details
+                toast.info("You need a Business upgrade to create Premium Syndicate Tasks. Let's set up your business!", { duration: 4000 });
+                if (onNavigate) {
+                  onNavigate('upgrade');
+                  setShowCreate(false);
+                  setSelectedTaskType(null);
+                }
               }
             }}
           >
-            <CardContent className="p-4 flex items-center gap-4 relative">
-              {!isBusiness && (
-                <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="flex items-center gap-2 bg-background/90 border border-border/50 rounded-2xl px-4 py-2 shadow-lg">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-bold text-foreground">Business Required</p>
-                      <p className="text-[10px] text-muted-foreground">Upgrade to unlock premium tasks</p>
-                    </div>
+            <CardContent className="p-4 relative">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Crown className="h-6 w-6 text-purple-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-foreground">Premium Social Task</h4>
+                    <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">PRO</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Syndicate campaign — verified social promoters share your ad across Facebook, Instagram, TikTok & more for massive reach.
+                  </p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Business only</span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 20 credits</span>
                   </div>
                 </div>
-              )}
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Crown className="h-6 w-6 text-purple-500" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors shrink-0" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-foreground">Premium Social Task</h4>
-                  <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">PRO</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Advanced social media promotions — Facebook, Instagram, TikTok campaigns with proof.</p>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Business only</span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 20 credits</span>
-                </div>
+
+              {/* Explanation banner */}
+              <div className="mt-3 rounded-xl bg-purple-500/10 border border-purple-500/20 px-3 py-2">
+                <p className="text-[10px] text-purple-400 font-semibold mb-1">🔥 How is this different?</p>
+                <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc list-inside">
+                  <li>Your ad is assigned to <span className="font-semibold text-foreground">verified Syndicate promoters</span></li>
+                  <li>Promoters share with <span className="font-semibold text-foreground">proof of posting</span> on real social accounts</li>
+                  <li>Get <span className="font-semibold text-foreground">massive organic reach</span> across multiple platforms</li>
+                  <li>Track performance with detailed analytics per promoter</li>
+                </ul>
+                {!isBusiness && (
+                  <p className="text-[10px] text-purple-400 font-bold mt-1.5 flex items-center gap-1">
+                    <Lock className="h-3 w-3" /> Upgrade to Business to unlock →
+                  </p>
+                )}
+                {isBusiness && (
+                  <p className="text-[10px] text-green-400 font-bold mt-1.5 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" /> You're a Business — tap to create campaign
+                  </p>
+                )}
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors shrink-0" />
             </CardContent>
           </Card>
 
