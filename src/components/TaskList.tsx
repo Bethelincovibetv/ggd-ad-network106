@@ -16,7 +16,7 @@ interface TaskListProps {
 
 type TaskType = 'share' | 'social';
 
-const TaskList = ({ onCreditsUpdate, credits }: TaskListProps) => {
+const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [completions, setCompletions] = useState<string[]>([]);
   const [referralCode, setReferralCode] = useState('');
