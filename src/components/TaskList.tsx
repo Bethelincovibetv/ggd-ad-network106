@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,7 +23,11 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType | null>(null);
   const [isBusiness, setIsBusiness] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', reward_credits: '5', share_url: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', reward_credits: '5', share_url: '', max_completions: '10' });
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
+  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
 
   useEffect(() => { fetchTasks(); checkBusinessStatus(); }, []);
 
@@ -45,30 +49,57 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     if (profile?.referral_code) setReferralCode(profile.referral_code);
   };
 
+  const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setFlyerFile(file);
+    setFlyerPreview(URL.createObjectURL(file));
+  };
+
+  const uploadFlyer = async (): Promise<string | null> => {
+    if (!flyerFile) return null;
+    setUploadingFlyer(true);
+    const ext = flyerFile.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('task-flyers').upload(fileName, flyerFile);
+    setUploadingFlyer(false);
+    if (error) { toast.error("Failed to upload image"); return null; }
+    const { data: urlData } = supabase.storage.from('task-flyers').getPublicUrl(fileName);
+    return urlData.publicUrl;
+  };
+
   const createTask = async () => {
     if (!newTask.title.trim()) { toast.error("Title required"); return; }
-    const rewardAmount = parseInt(newTask.reward_credits) || 5;
+    const rewardPerPerson = parseInt(newTask.reward_credits) || 5;
+    const maxPeople = parseInt(newTask.max_completions) || 1;
+    const totalCost = rewardPerPerson * maxPeople;
 
-    if (credits < rewardAmount) {
-      toast.error(`Insufficient credits! You need ${rewardAmount} credits but have ${credits}.`);
+    if (credits < totalCost) {
+      toast.error(`Insufficient credits! You need ${totalCost} credits (${rewardPerPerson} × ${maxPeople} people) but have ${credits}.`);
       return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const newCredits = credits - rewardAmount;
+    // Upload flyer if selected
+    const flyerUrl = await uploadFlyer();
+
+    const newCredits = credits - totalCost;
     const { error: creditError } = await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
     if (creditError) { toast.error("Failed to deduct credits"); return; }
 
     const { error } = await supabase.from('tasks').insert({
       title: newTask.title,
       description: newTask.description || null,
-      reward_credits: rewardAmount,
+      reward_credits: rewardPerPerson,
       task_type: selectedTaskType || 'share',
       share_url: newTask.share_url || null,
       creator_id: user.id,
       funded: true,
+      max_completions: maxPeople,
+      flyer_url: flyerUrl,
     });
     if (error) {
       await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
@@ -77,8 +108,10 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     }
 
     onCreditsUpdate(newCredits);
-    toast.success(`Task created! ${rewardAmount} credits deducted from your wallet.`);
-    setNewTask({ title: '', description: '', reward_credits: '5', share_url: '' });
+    toast.success(`Task created! ${totalCost} credits deducted (${rewardPerPerson} × ${maxPeople} people).`);
+    setNewTask({ title: '', description: '', reward_credits: '5', share_url: '', max_completions: '10' });
+    setFlyerFile(null);
+    setFlyerPreview(null);
     setShowCreate(false);
     setSelectedTaskType(null);
     fetchTasks();
@@ -93,19 +126,45 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       return;
     }
 
+    // Check if max completions reached
+    if (task.max_completions && task.completions_count >= task.max_completions) {
+      toast.error("This task has reached its maximum number of completions.");
+      return;
+    }
+
+    // Open share URL first
     if (task.share_url) {
       window.open(`https://wa.me/?text=${encodeURIComponent(task.share_url)}`, '_blank');
     }
-    const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
-    if (error) {
-      if (error.code === '23505') { toast.info("Already completed!"); return; }
-      toast.error("Failed to complete task"); return;
-    }
-    const updatedCredits = credits + task.reward_credits;
-    await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
-    onCreditsUpdate(updatedCredits);
-    setCompletions(prev => [...prev, task.id]);
-    toast.success(`🎉 Earned ${task.reward_credits} credits!`);
+
+    // Start verification timer (15 seconds)
+    setVerifyingTaskId(task.id);
+    toast.info("⏳ Verifying your share... Please wait 15 seconds.", { duration: 15000 });
+
+    setTimeout(async () => {
+      const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
+      if (error) {
+        setVerifyingTaskId(null);
+        if (error.code === '23505') { toast.info("Already completed!"); return; }
+        toast.error("Failed to complete task"); return;
+      }
+
+      // Increment completions count
+      await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+
+      // Deactivate if max reached
+      if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+        await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+      }
+
+      const updatedCredits = credits + task.reward_credits;
+      await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
+      onCreditsUpdate(updatedCredits);
+      setCompletions(prev => [...prev, task.id]);
+      setVerifyingTaskId(null);
+      toast.success(`🎉 Earned ${task.reward_credits} credits!`);
+      fetchTasks();
+    }, 15000);
   };
 
   const shareReferral = () => {
@@ -117,6 +176,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       toast.success("Referral link copied!");
     }
   };
+
+  const totalCost = (parseInt(newTask.reward_credits) || 5) * (parseInt(newTask.max_completions) || 1);
 
   return (
     <div className="space-y-4">
@@ -166,7 +227,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
             className="border overflow-hidden transition-all border-purple-500/30 hover:border-purple-500/50 cursor-pointer hover:shadow-lg hover:shadow-purple-500/10 group"
             onClick={() => {
               if (isBusiness) {
-                // Already upgraded — go straight to Business Task Campaign Creator
                 if (onNavigate) {
                   onNavigate('business-tasks');
                   setShowCreate(false);
@@ -175,7 +235,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   setSelectedTaskType('social');
                 }
               } else {
-                // Not a business — take them to upgrade their business details
                 toast.info("You need a Business upgrade to create Premium Syndicate Tasks. Let's set up your business!", { duration: 4000 });
                 if (onNavigate) {
                   onNavigate('upgrade');
@@ -206,7 +265,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors shrink-0" />
               </div>
 
-              {/* Explanation banner */}
               <div className="mt-3 rounded-xl bg-purple-500/10 border border-purple-500/20 px-3 py-2">
                 <p className="text-[10px] text-purple-400 font-semibold mb-1">🔥 How is this different?</p>
                 <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc list-inside">
@@ -270,16 +328,53 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
             <Input placeholder="Task title *" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30 font-medium" />
             <Textarea placeholder="Describe what needs to be done..." value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} rows={2} className="text-sm rounded-2xl border-border/40 bg-muted/30 resize-none" />
-            <div className="grid grid-cols-2 gap-3">
+
+            {/* Flyer / Image Upload */}
+            <div>
+              <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Task Flyer / Image</Label>
+              <input type="file" id="taskFlyerInput" accept="image/*" onChange={handleFlyerSelect} className="hidden" />
+              {flyerPreview ? (
+                <div className="relative rounded-2xl overflow-hidden border border-border/40">
+                  <img src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
+                  <Button variant="ghost" size="sm" onClick={() => { setFlyerFile(null); setFlyerPreview(null); }} className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('taskFlyerInput')?.click()}
+                  className="w-full h-24 rounded-2xl border-dashed border-2 border-border/40 bg-muted/20 hover:bg-muted/30 flex flex-col items-center justify-center gap-1.5"
+                >
+                  <Image className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">Upload flyer or image</span>
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Reward Credits</Label>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Credits/Person</Label>
                 <div className="relative">
                   <Coins className={`absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`} />
                   <Input
                     type="number"
-                    min={selectedTaskType === 'social' ? 20 : 5}
+                    min={selectedTaskType === 'social' ? 20 : 1}
                     value={newTask.reward_credits}
                     onChange={e => setNewTask({ ...newTask, reward_credits: e.target.value })}
+                    className="h-11 text-sm pl-9 rounded-2xl border-border/40 bg-muted/30 font-medium"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Max People</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newTask.max_completions}
+                    onChange={e => setNewTask({ ...newTask, max_completions: e.target.value })}
                     className="h-11 text-sm pl-9 rounded-2xl border-border/40 bg-muted/30 font-medium"
                   />
                 </div>
@@ -290,24 +385,42 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               </div>
             </div>
 
-            {parseInt(newTask.reward_credits) > credits && (
+            {/* Cost Summary */}
+            <div className={`rounded-xl px-3 py-2.5 border ${selectedTaskType === 'social' ? 'bg-purple-500/5 border-purple-500/20' : 'bg-orange-500/5 border-orange-500/20'}`}>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Credits per person</span>
+                <span className="font-semibold text-foreground">{parseInt(newTask.reward_credits) || 5}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs mt-1">
+                <span className="text-muted-foreground">Number of people</span>
+                <span className="font-semibold text-foreground">× {parseInt(newTask.max_completions) || 1}</span>
+              </div>
+              <div className="border-t border-border/30 my-1.5" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-foreground">Total Cost</span>
+                <span className={`font-black ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`}>{totalCost} credits</span>
+              </div>
+            </div>
+
+            {totalCost > credits && (
               <div className="flex items-center gap-2 bg-red-500/10 rounded-xl px-3 py-2">
                 <Zap className="h-3.5 w-3.5 text-red-500" />
-                <p className="text-xs text-red-500 font-medium">Not enough credits. You need {parseInt(newTask.reward_credits) || 5} but have {credits}.</p>
+                <p className="text-xs text-red-500 font-medium">Not enough credits. You need {totalCost} but have {credits}.</p>
               </div>
             )}
 
             <Button
               onClick={createTask}
-              disabled={parseInt(newTask.reward_credits) > credits}
+              disabled={totalCost > credits || uploadingFlyer}
               className={`w-full text-white text-sm h-12 rounded-2xl font-bold shadow-lg transition-all ${
                 selectedTaskType === 'social'
                   ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-purple-500/25'
                   : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/25'
               }`}
             >
-              <Wallet className="h-4 w-4 mr-2" />
-              Fund & Create — {parseInt(newTask.reward_credits) || 5} credits
+              {uploadingFlyer ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : (
+                <><Wallet className="h-4 w-4 mr-2" />Fund & Create — {totalCost} credits</>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -334,39 +447,62 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         {tasks.map(task => {
           const completed = completions.includes(task.id);
           const isPremium = task.task_type === 'social';
+          const isVerifying = verifyingTaskId === task.id;
+          const spotsLeft = task.max_completions ? task.max_completions - (task.completions_count || 0) : null;
           return (
             <Card key={task.id} className={`transition-all ${completed ? 'opacity-60' : 'hover:shadow-md'} ${isPremium ? 'border-purple-500/20' : ''}`}>
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className={`p-2.5 rounded-2xl ${
-                  completed
-                    ? 'bg-green-100 dark:bg-green-500/20'
-                    : isPremium
-                      ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-500/20 dark:to-pink-500/20'
-                      : 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20'
-                }`}>
-                  {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
-                   isPremium ? <Crown className="h-4 w-4 text-purple-600" /> :
-                   <Gift className="h-4 w-4 text-orange-600" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-semibold text-foreground">{task.title}</p>
-                    {isPremium && <span className="text-[8px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>}
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl ${
+                    completed
+                      ? 'bg-green-100 dark:bg-green-500/20'
+                      : isPremium
+                        ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-500/20 dark:to-pink-500/20'
+                        : 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20'
+                  }`}>
+                    {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
+                     isPremium ? <Crown className="h-4 w-4 text-purple-600" /> :
+                     <Gift className="h-4 w-4 text-orange-600" />}
                   </div>
-                  {task.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>}
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Coins className="h-3 w-3 text-green-500" />
-                    <p className="text-[10px] text-green-600 font-bold">+{task.reward_credits} credits</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-foreground">{task.title}</p>
+                      {isPremium && <span className="text-[8px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>}
+                    </div>
+                    {task.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-1">
+                        <Coins className="h-3 w-3 text-green-500" />
+                        <p className="text-[10px] text-green-600 font-bold">+{task.reward_credits} credits</p>
+                      </div>
+                      {spotsLeft !== null && (
+                        <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+                          {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {isVerifying ? (
+                    <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full">
+                      <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
+                      <span className="text-[10px] text-yellow-600 font-medium">Verifying...</span>
+                    </div>
+                  ) : !completed ? (
+                    <Button size="sm" className={`h-8 text-xs rounded-full text-white px-4 ${
+                      isPremium ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-orange-500 to-red-600'
+                    }`} onClick={() => completeTask(task)} disabled={spotsLeft !== null && spotsLeft <= 0}>
+                      {task.share_url ? <><Share2 className="h-3 w-3 mr-1" />Share</> : <>Do it <ArrowRight className="h-3 w-3 ml-1" /></>}
+                    </Button>
+                  ) : (
+                    <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full">Done ✓</span>
+                  )}
                 </div>
-                {!completed ? (
-                  <Button size="sm" className={`h-8 text-xs rounded-full text-white px-4 ${
-                    isPremium ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-orange-500 to-red-600'
-                  }`} onClick={() => completeTask(task)}>
-                    {task.share_url ? <><Share2 className="h-3 w-3 mr-1" />Share</> : <>Do it <ArrowRight className="h-3 w-3 ml-1" /></>}
-                  </Button>
-                ) : (
-                  <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full">Done ✓</span>
+
+                {/* Task flyer image */}
+                {task.flyer_url && (
+                  <div className="rounded-xl overflow-hidden border border-border/30">
+                    <img src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
+                  </div>
                 )}
               </CardContent>
             </Card>
