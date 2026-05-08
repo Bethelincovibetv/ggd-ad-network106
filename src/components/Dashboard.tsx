@@ -640,6 +640,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'syndicate':
         return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
+      case 'syndicate-join':
+        return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
+
       case 'syndicate-wallet':
         return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
