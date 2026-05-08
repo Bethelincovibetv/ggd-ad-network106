@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -28,6 +28,8 @@ import UpgradePage from "@/components/UpgradePage";
 import PremiumUpgrade from "@/components/PremiumUpgrade";
 import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
+import WalletHub from "@/components/WalletHub";
+import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
@@ -106,7 +108,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const userRoles = (roles || []).map(r => r.role);
     setIsAdmin(userRoles.includes('admin'));
     setIsPremium(userRoles.includes('premium'));
-    setIsBusiness(userRoles.includes('business'));
+    // Every registered user is a business by default
+    setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
     const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code').eq('user_id', user.id).single();
@@ -400,46 +403,30 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               </Card>
             )}
 
-            {/* Role Badges */}
-            <div className="flex gap-2 flex-wrap">
-              {isPremium && (
-                <Card className="flex-1 min-w-0 border-yellow-200 bg-yellow-50">
-                  <CardContent className="p-2 text-center">
-                    <Crown className="h-4 w-4 mx-auto text-yellow-500" />
-                    <p className="text-[10px] font-medium text-yellow-700 mt-1">Premium 👑</p>
-                  </CardContent>
-                </Card>
-              )}
-              {isBusiness && (
-                <Card className="flex-1 min-w-0 border-blue-200 bg-blue-50">
-                  <CardContent className="p-2 text-center">
-                    <Briefcase className="h-4 w-4 mx-auto text-blue-600" />
-                    <p className="text-[10px] font-medium text-blue-700 mt-1">Business</p>
-                  </CardContent>
-                </Card>
-              )}
-              {isSyndicate && (
-                <Card className="flex-1 min-w-0 border-purple-200 bg-purple-50">
-                  <CardContent className="p-2 text-center">
-                    <Users className="h-4 w-4 mx-auto text-purple-600" />
-                    <p className="text-[10px] font-medium text-purple-700 mt-1">Syndicate ✓</p>
-                  </CardContent>
-                </Card>
-              )}
-              {!isPremium && !isAdmin && (
-                <Card className="flex-1 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50 cursor-pointer" onClick={() => setActiveTab('premium')}>
-                  <CardContent className="p-2 text-center">
-                    <Crown className="h-4 w-4 mx-auto text-yellow-500" />
-                    <p className="text-[10px] font-medium text-yellow-700 mt-1">Go Premium →</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            {/* Join Syndicate CTA — earn money */}
+            {!isSyndicate && !isAdmin && (
+              <Card
+                className="border-0 cursor-pointer overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white shadow-lg shadow-purple-500/20"
+                onClick={() => setActiveTab('syndicate-join')}
+              >
+                <CardContent className="p-4 flex items-center gap-3 relative">
+                  <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                  <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 min-w-0 relative">
+                    <p className="text-sm font-black">Join Syndicate — Earn Real ₦</p>
+                    <p className="text-[10px] opacity-90">Get verified to share campaigns and earn cash to your bank.</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 relative" />
+                </CardContent>
+              </Card>
+            )}
 
-            {/* My Campaigns */}
-            <div className="flex justify-between items-center">
-              <h2 className="text-base font-bold text-foreground">My Campaigns</h2>
-              <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
+            {/* My Campaigns - compact pro-style */}
+            <div className="flex justify-between items-center pt-1">
+              <h2 className="text-base font-black text-foreground">My Campaigns</h2>
+              <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
                 <Plus className="h-3 w-3 mr-1" />New Ad ({isAdmin ? 'Free' : `${adCostCredits}cr`})
               </Button>
             </div>
@@ -527,46 +514,64 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               </Card>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {ads.map(ad => {
                 const expired = isExpired(ad);
                 const remaining = daysLeft(ad);
+                const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : '0.0';
                 return (
-                  <Card key={ad.id} className={`overflow-hidden ${expired ? 'opacity-50 border-destructive/30' : ad.is_active ? 'border-green-200' : 'opacity-60'}`}>
-                    <CardContent className="p-0">
-                      {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full" />}
-                      <div className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm text-foreground">{ad.title}</h3>
-                            {ad.description && <p className="text-xs text-muted-foreground mt-0.5">{ad.description}</p>}
-                            <a href={ad.target_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-orange-600 hover:underline truncate block mt-1">{ad.target_url}</a>
-                          </div>
-                          <div className="flex flex-col gap-1 flex-shrink-0">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAd(ad)}><Edit className="h-3 w-3" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
-                          </div>
+                  <Card key={ad.id} className={`overflow-hidden border rounded-2xl transition-all hover:shadow-md ${expired ? 'opacity-60 border-destructive/30' : 'border-border/50'}`}>
+                    <CardContent className="p-2.5">
+                      <div className="flex gap-3 items-center">
+                        <div className="h-14 w-14 rounded-xl overflow-hidden bg-gradient-to-br from-orange-100 to-yellow-100 flex-shrink-0 flex items-center justify-center">
+                          {ad.image_url ? (
+                            <img src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <Megaphone className="h-6 w-6 text-orange-400" />
+                          )}
                         </div>
-                        <Button size="sm" variant="outline" className="w-full mt-2 text-xs h-7 border-orange-200 text-orange-600 hover:bg-orange-50"
-                          onClick={() => convertAdToTask(ad)}>
-                          <ArrowRight className="h-3 w-3 mr-1" />Convert to Task
-                        </Button>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex gap-3 text-[11px] text-muted-foreground">
-                            <span>👁️ {ad.impressions}</span><span>🖱️ {ad.clicks}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-bold text-[13px] text-foreground truncate">{ad.title}</h3>
                             {expired ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expired</span>
-                            ) : remaining !== null ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{remaining}d left</span>
-                            ) : null}
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${ad.is_active && !expired ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                              {ad.is_active && !expired ? 'Active' : 'Inactive'}
-                            </span>
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 shrink-0">EXPIRED</span>
+                            ) : ad.is_active ? (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">LIVE</span>
+                            ) : (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">OFF</span>
+                            )}
                           </div>
+                          <p className="text-[10px] text-muted-foreground truncate">{ad.target_url}</p>
+                        </div>
+                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => setEditingAd(ad)}><Edit className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 mt-2.5 pt-2.5 border-t border-border/30">
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Views</p>
+                          <p className="text-[12px] font-black text-foreground">{ad.impressions}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Clicks</p>
+                          <p className="text-[12px] font-black text-blue-500">{ad.clicks}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">CTR</p>
+                          <p className="text-[12px] font-black text-purple-500">{ctr}%</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Days</p>
+                          <p className="text-[12px] font-black text-orange-500">{remaining ?? '∞'}</p>
+                        </div>
+                      </div>
+
+                      <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
+                        onClick={() => convertAdToTask(ad)}>
+                        <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
+                      </Button>
                     </CardContent>
                   </Card>
                 );
@@ -585,10 +590,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={setActiveTab} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
-        return isEnabled('credit_funding') ? <CreditFunding credits={credits} onCreditsUpdate={setCredits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
-
       case 'transfer':
-        return isEnabled('credit_transfer') ? <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+      case 'task-wallet':
+      case 'wallet':
+        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
 
       case 'premium':
         return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -636,6 +641,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'syndicate':
         return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
+      case 'syndicate-join':
+        return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
 
       case 'syndicate-wallet':
         return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;

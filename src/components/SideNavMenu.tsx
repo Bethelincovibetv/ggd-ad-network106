@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -36,24 +36,19 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     { id: 'tasks', icon: ClipboardList, label: 'Tasks' },
     { id: 'profile', icon: User, label: 'My Profile' },
     { id: 'smart-links', icon: Link2, label: 'Smart Links' },
-    { id: 'fund-credits', icon: CreditCard, label: 'Buy Credits' },
-    { id: 'transfer', icon: Send, label: 'Transfer' },
+    { id: 'wallet', icon: Wallet, label: 'Wallet' },
     { id: 'premium', icon: Crown, label: 'Premium' },
   ];
 
   const work = [
-    ...(isBusiness ? [
-      { id: 'business-tasks', icon: Briefcase, label: 'My Tasks' },
-      { id: 'my-business', icon: Store, label: 'My Business' },
-      { id: 'task-wallet', icon: Wallet, label: 'Task Wallet' },
-    ] : []),
+    { id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' },
+    { id: 'my-business', icon: Store, label: 'My Business' },
+    { id: 'upgrade', icon: Edit3, label: 'Business Details' },
     ...(isSyndicate ? [
       { id: 'syndicate', icon: Users, label: 'Available Jobs' },
-      { id: 'syndicate-wallet', icon: Wallet, label: 'Earnings' },
-    ] : []),
-    ...(!isBusiness && !isSyndicate ? [
-      { id: 'upgrade', icon: Megaphone, label: 'Upgrade Account' },
-    ] : []),
+    ] : [
+      { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
+    ]),
   ];
 
   const discover = [
