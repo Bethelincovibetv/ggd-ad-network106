@@ -106,7 +106,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const userRoles = (roles || []).map(r => r.role);
     setIsAdmin(userRoles.includes('admin'));
     setIsPremium(userRoles.includes('premium'));
-    setIsBusiness(userRoles.includes('business'));
+    // Every registered user is a business by default
+    setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
     const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code').eq('user_id', user.id).single();
@@ -585,10 +586,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={setActiveTab} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
-        return isEnabled('credit_funding') ? <CreditFunding credits={credits} onCreditsUpdate={setCredits} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
-
       case 'transfer':
-        return isEnabled('credit_transfer') ? <CreditTransfer credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+      case 'task-wallet':
+      case 'wallet':
+        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
 
       case 'premium':
         return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
