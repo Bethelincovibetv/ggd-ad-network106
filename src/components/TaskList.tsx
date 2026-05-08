@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import SlideCarousel from "@/components/SlideCarousel";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -17,6 +19,7 @@ interface TaskListProps {
 type TaskType = 'share' | 'social';
 
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
+  const { isEnabled } = useFeatureToggles();
   const [tasks, setTasks] = useState<any[]>([]);
   const [completions, setCompletions] = useState<string[]>([]);
   const [referralCode, setReferralCode] = useState('');
@@ -226,21 +229,13 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           <Card
             className="border overflow-hidden transition-all border-purple-500/30 hover:border-purple-500/50 cursor-pointer hover:shadow-lg hover:shadow-purple-500/10 group"
             onClick={() => {
-              if (isBusiness) {
-                if (onNavigate) {
-                  onNavigate('business-tasks');
-                  setShowCreate(false);
-                  setSelectedTaskType(null);
-                } else {
-                  setSelectedTaskType('social');
-                }
+              // Every user is now a business — go straight to syndicate campaign creation
+              if (onNavigate) {
+                onNavigate('business-tasks');
+                setShowCreate(false);
+                setSelectedTaskType(null);
               } else {
-                toast.info("You need a Business upgrade to create Premium Syndicate Tasks. Let's set up your business!", { duration: 4000 });
-                if (onNavigate) {
-                  onNavigate('upgrade');
-                  setShowCreate(false);
-                  setSelectedTaskType(null);
-                }
+                setSelectedTaskType('social');
               }
             }}
           >
