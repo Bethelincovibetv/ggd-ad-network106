@@ -403,46 +403,30 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               </Card>
             )}
 
-            {/* Role Badges */}
-            <div className="flex gap-2 flex-wrap">
-              {isPremium && (
-                <Card className="flex-1 min-w-0 border-yellow-200 bg-yellow-50">
-                  <CardContent className="p-2 text-center">
-                    <Crown className="h-4 w-4 mx-auto text-yellow-500" />
-                    <p className="text-[10px] font-medium text-yellow-700 mt-1">Premium 👑</p>
-                  </CardContent>
-                </Card>
-              )}
-              {isBusiness && (
-                <Card className="flex-1 min-w-0 border-blue-200 bg-blue-50">
-                  <CardContent className="p-2 text-center">
-                    <Briefcase className="h-4 w-4 mx-auto text-blue-600" />
-                    <p className="text-[10px] font-medium text-blue-700 mt-1">Business</p>
-                  </CardContent>
-                </Card>
-              )}
-              {isSyndicate && (
-                <Card className="flex-1 min-w-0 border-purple-200 bg-purple-50">
-                  <CardContent className="p-2 text-center">
-                    <Users className="h-4 w-4 mx-auto text-purple-600" />
-                    <p className="text-[10px] font-medium text-purple-700 mt-1">Syndicate ✓</p>
-                  </CardContent>
-                </Card>
-              )}
-              {!isPremium && !isAdmin && (
-                <Card className="flex-1 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50 cursor-pointer" onClick={() => setActiveTab('premium')}>
-                  <CardContent className="p-2 text-center">
-                    <Crown className="h-4 w-4 mx-auto text-yellow-500" />
-                    <p className="text-[10px] font-medium text-yellow-700 mt-1">Go Premium →</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            {/* Join Syndicate CTA — earn money */}
+            {!isSyndicate && !isAdmin && (
+              <Card
+                className="border-0 cursor-pointer overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white shadow-lg shadow-purple-500/20"
+                onClick={() => setActiveTab('syndicate-join')}
+              >
+                <CardContent className="p-4 flex items-center gap-3 relative">
+                  <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                  <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 min-w-0 relative">
+                    <p className="text-sm font-black">Join Syndicate — Earn Real ₦</p>
+                    <p className="text-[10px] opacity-90">Get verified to share campaigns and earn cash to your bank.</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 relative" />
+                </CardContent>
+              </Card>
+            )}
 
-            {/* My Campaigns */}
-            <div className="flex justify-between items-center">
-              <h2 className="text-base font-bold text-foreground">My Campaigns</h2>
-              <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
+            {/* My Campaigns - compact pro-style */}
+            <div className="flex justify-between items-center pt-1">
+              <h2 className="text-base font-black text-foreground">My Campaigns</h2>
+              <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
                 <Plus className="h-3 w-3 mr-1" />New Ad ({isAdmin ? 'Free' : `${adCostCredits}cr`})
               </Button>
             </div>
