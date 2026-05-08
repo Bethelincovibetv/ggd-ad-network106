@@ -514,46 +514,64 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               </Card>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {ads.map(ad => {
                 const expired = isExpired(ad);
                 const remaining = daysLeft(ad);
+                const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : '0.0';
                 return (
-                  <Card key={ad.id} className={`overflow-hidden ${expired ? 'opacity-50 border-destructive/30' : ad.is_active ? 'border-green-200' : 'opacity-60'}`}>
-                    <CardContent className="p-0">
-                      {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full" />}
-                      <div className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm text-foreground">{ad.title}</h3>
-                            {ad.description && <p className="text-xs text-muted-foreground mt-0.5">{ad.description}</p>}
-                            <a href={ad.target_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-orange-600 hover:underline truncate block mt-1">{ad.target_url}</a>
-                          </div>
-                          <div className="flex flex-col gap-1 flex-shrink-0">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAd(ad)}><Edit className="h-3 w-3" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
-                          </div>
+                  <Card key={ad.id} className={`overflow-hidden border rounded-2xl transition-all hover:shadow-md ${expired ? 'opacity-60 border-destructive/30' : 'border-border/50'}`}>
+                    <CardContent className="p-2.5">
+                      <div className="flex gap-3 items-center">
+                        <div className="h-14 w-14 rounded-xl overflow-hidden bg-gradient-to-br from-orange-100 to-yellow-100 flex-shrink-0 flex items-center justify-center">
+                          {ad.image_url ? (
+                            <img src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <Megaphone className="h-6 w-6 text-orange-400" />
+                          )}
                         </div>
-                        <Button size="sm" variant="outline" className="w-full mt-2 text-xs h-7 border-orange-200 text-orange-600 hover:bg-orange-50"
-                          onClick={() => convertAdToTask(ad)}>
-                          <ArrowRight className="h-3 w-3 mr-1" />Convert to Task
-                        </Button>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex gap-3 text-[11px] text-muted-foreground">
-                            <span>👁️ {ad.impressions}</span><span>🖱️ {ad.clicks}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-bold text-[13px] text-foreground truncate">{ad.title}</h3>
                             {expired ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">Expired</span>
-                            ) : remaining !== null ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{remaining}d left</span>
-                            ) : null}
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${ad.is_active && !expired ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                              {ad.is_active && !expired ? 'Active' : 'Inactive'}
-                            </span>
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 shrink-0">EXPIRED</span>
+                            ) : ad.is_active ? (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">LIVE</span>
+                            ) : (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">OFF</span>
+                            )}
                           </div>
+                          <p className="text-[10px] text-muted-foreground truncate">{ad.target_url}</p>
+                        </div>
+                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => setEditingAd(ad)}><Edit className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 mt-2.5 pt-2.5 border-t border-border/30">
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Views</p>
+                          <p className="text-[12px] font-black text-foreground">{ad.impressions}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Clicks</p>
+                          <p className="text-[12px] font-black text-blue-500">{ad.clicks}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">CTR</p>
+                          <p className="text-[12px] font-black text-purple-500">{ctr}%</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Days</p>
+                          <p className="text-[12px] font-black text-orange-500">{remaining ?? '∞'}</p>
+                        </div>
+                      </div>
+
+                      <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
+                        onClick={() => convertAdToTask(ad)}>
+                        <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
+                      </Button>
                     </CardContent>
                   </Card>
                 );
