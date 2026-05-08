@@ -28,6 +28,8 @@ import UpgradePage from "@/components/UpgradePage";
 import PremiumUpgrade from "@/components/PremiumUpgrade";
 import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
+import WalletHub from "@/components/WalletHub";
+import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
