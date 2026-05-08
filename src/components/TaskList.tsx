@@ -284,16 +284,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   <li>Get <span className="font-semibold text-foreground">massive organic reach</span> across multiple platforms</li>
                   <li>Track performance with detailed analytics per promoter</li>
                 </ul>
-                {!isBusiness && (
-                  <p className="text-[10px] text-purple-400 font-bold mt-1.5 flex items-center gap-1">
-                    <Lock className="h-3 w-3" /> Upgrade to Business to unlock →
-                  </p>
-                )}
-                {isBusiness && (
-                  <p className="text-[10px] text-green-400 font-bold mt-1.5 flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" /> You're a Business — tap to create campaign
-                  </p>
-                )}
+                <p className="text-[10px] text-green-400 font-bold mt-1.5 flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" /> Tap to launch your campaign
+                </p>
               </div>
             </CardContent>
           </Card>
