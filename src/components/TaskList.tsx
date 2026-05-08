@@ -184,13 +184,29 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
   return (
     <div className="space-y-4">
+      {/* Slides at top of task feed */}
+      {isEnabled('slides') && <SlideCarousel />}
+
+      {/* Earn summary header */}
+      <div className="rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 text-white p-3.5 flex items-center justify-between shadow-lg shadow-orange-500/20">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+            <Wallet className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Your Credits</p>
+            <p className="text-lg font-black leading-tight">{credits.toLocaleString()}</p>
+          </div>
+        </div>
+        <Button size="sm" onClick={() => { setShowCreate(!showCreate); setSelectedTaskType(null); }} className="bg-white text-orange-600 hover:bg-white/90 text-xs rounded-full px-4 font-bold shadow-md">
+          <Plus className="h-3 w-3 mr-1" />New Task
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
           <Gift className="h-5 w-5 text-orange-500" />Earn Credits
         </h2>
-        <Button size="sm" onClick={() => { setShowCreate(!showCreate); setSelectedTaskType(null); }} className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
-          <Plus className="h-3 w-3 mr-1" />Create Task
-        </Button>
       </div>
 
       {/* Task Type Selector */}
