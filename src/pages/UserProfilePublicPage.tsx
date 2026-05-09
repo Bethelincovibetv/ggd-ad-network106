@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe, MessageCircle, Crown, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe, MessageCircle, Crown, Star, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -30,26 +30,22 @@ const UserProfilePublicPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [syndicate, setSyndicate] = useState<any>(null);
   const [business, setBusiness] = useState<any>(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [premiumSystemEnabled, setPremiumSystemEnabled] = useState(true);
+  const [sitesEnabled, setSitesEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [p, s, b, roles, sysToggle] = await Promise.all([
+      const [p, s, b, toggle] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', id).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', id).maybeSingle(),
-        supabase.from('business_profiles').select('id, business_name, logo_url, description, is_directory_listed').eq('user_id', id).maybeSingle(),
-        supabase.from('user_roles').select('role').eq('user_id', id),
-        supabase.from('app_settings').select('value').eq('key', 'premium_system_enabled').maybeSingle(),
+        supabase.from('business_profiles').select('id, business_name, logo_url, hero_image_url, description, is_directory_listed').eq('user_id', id).maybeSingle(),
+        supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
       ]);
       setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
-      const sysOn = sysToggle.data?.value !== 'false';
-      setPremiumSystemEnabled(sysOn);
-      setIsPremium(!sysOn || (roles.data || []).some((r: any) => r.role === 'premium' || r.role === 'admin'));
+      setSitesEnabled(toggle.data?.is_enabled !== false);
       setLoading(false);
     })();
   }, [id]);
@@ -102,16 +98,17 @@ const UserProfilePublicPage: React.FC = () => {
     </div>
   );
 
-  if (!profile) return (
+  if (!profile || !sitesEnabled) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-      <p className="text-muted-foreground">User not found</p>
+      <p className="text-muted-foreground">{!sitesEnabled ? 'Business sites are currently disabled.' : 'User not found'}</p>
       <Button onClick={() => navigate('/')} variant="outline"><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
     </div>
   );
 
   const name = profile.business_name || profile.display_name || 'User';
   const initials = name.slice(0, 2).toUpperCase();
-  const heroImage = profile.business_logo_url || profile.avatar_url;
+  const logoImage = profile.business_logo_url || profile.avatar_url;
+  const heroBanner = business?.hero_image_url || logoImage;
   const waPhone = (profile.business_phone || '').replace(/[^\d]/g, '');
 
   return (
@@ -129,58 +126,38 @@ const UserProfilePublicPage: React.FC = () => {
       </header>
 
       <article className="container mx-auto px-4 py-6 max-w-3xl space-y-4">
-        {/* Premium pro hero */}
-        {isPremium ? (
-          <Card className="overflow-hidden border-0 shadow-2xl">
-            <div className="relative h-44 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600">
-              {heroImage && (
-                <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <Badge className="absolute top-3 right-3 bg-amber-400 text-amber-950 gap-1 font-bold text-[10px]">
-                <Crown className="h-3 w-3" />PREMIUM VERIFIED
-              </Badge>
+        {/* Animated pro hero — available to every user */}
+        <Card className="overflow-hidden border-0 shadow-2xl animate-fade-in">
+          <div className="relative h-52 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 overflow-hidden">
+            {heroBanner && (
+              <img src={heroBanner} alt={`${name} hero banner`} className="absolute inset-0 w-full h-full object-cover opacity-40 scale-110 animate-[heroZoom_20s_ease-in-out_infinite_alternate]" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl animate-pulse" />
+            <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+            <Badge className="absolute top-3 right-3 bg-amber-400 text-amber-950 gap-1 font-bold text-[10px] animate-fade-in">
+              <Sparkles className="h-3 w-3" />VERIFIED
+            </Badge>
+          </div>
+          <div className="px-5 pb-5 -mt-14 relative">
+            <Avatar className="h-24 w-24 border-4 border-card shadow-xl ring-2 ring-orange-400/40 animate-scale-in">
+              <AvatarImage src={logoImage || ''} />
+              <AvatarFallback className="bg-orange-500 text-white text-2xl font-black">{initials}</AvatarFallback>
+            </Avatar>
+            <h1 className="text-2xl font-black mt-3 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">{name}</h1>
+            {profile.business_category && <p className="text-sm text-orange-600 font-semibold">{profile.business_category}</p>}
+            {profile.business_location && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />{profile.business_location}
+              </p>
+            )}
+            <div className="flex gap-1 flex-wrap mt-3">
+              {syndicate && <Badge variant="secondary" className="text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
+              {business?.is_directory_listed && <Badge variant="secondary" className="text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
+              <Badge variant="secondary" className="text-[10px] gap-0.5"><Star className="h-2.5 w-2.5 text-amber-500" />Trusted</Badge>
             </div>
-            <div className="px-5 pb-5 -mt-12 relative">
-              <Avatar className="h-24 w-24 border-4 border-card shadow-xl">
-                <AvatarImage src={heroImage || ''} />
-                <AvatarFallback className="bg-orange-500 text-white text-2xl font-black">{initials}</AvatarFallback>
-              </Avatar>
-              <h1 className="text-2xl font-black mt-3">{name}</h1>
-              {profile.business_category && <p className="text-sm text-orange-600 font-semibold">{profile.business_category}</p>}
-              {profile.business_location && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />{profile.business_location}
-                </p>
-              )}
-              <div className="flex gap-1 flex-wrap mt-3">
-                {syndicate && <Badge variant="secondary" className="text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
-                {business?.is_directory_listed && <Badge variant="secondary" className="text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
-                <Badge variant="secondary" className="text-[10px] gap-0.5"><Star className="h-2.5 w-2.5 text-amber-500" />Trusted</Badge>
-              </div>
-            </div>
-          </Card>
-        ) : (
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-6 text-white text-center">
-              <Avatar className="h-24 w-24 mx-auto border-4 border-white shadow-xl">
-                <AvatarImage src={heroImage || ''} />
-                <AvatarFallback className="bg-white text-orange-600 text-2xl font-black">{initials}</AvatarFallback>
-              </Avatar>
-              <h1 className="text-2xl font-black mt-3">{name}</h1>
-              {profile.business_category && <p className="text-xs opacity-90 mt-1">{profile.business_category}</p>}
-              {profile.business_location && (
-                <p className="text-xs opacity-90 mt-1 flex items-center justify-center gap-1">
-                  <MapPin className="h-3 w-3" />{profile.business_location}
-                </p>
-              )}
-              <div className="flex justify-center gap-1 flex-wrap mt-2">
-                {syndicate && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
-                {business?.is_directory_listed && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
-              </div>
-            </div>
-          </Card>
-        )}
+          </div>
+        </Card>
 
         {/* About / description */}
         {profile.business_description && (
@@ -258,15 +235,6 @@ const UserProfilePublicPage: React.FC = () => {
               <Button size="sm" onClick={() => navigate(`/business/${business.id}`)} className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
                 View Business Page
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {!isPremium && premiumSystemEnabled && (
-          <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
-            <CardContent className="p-4 text-center">
-              <Crown className="h-6 w-6 mx-auto text-amber-500 mb-1" />
-              <p className="text-xs font-semibold text-foreground">Upgrade to Premium for a pro auto-generated business site with SEO boost.</p>
             </CardContent>
           </Card>
         )}
