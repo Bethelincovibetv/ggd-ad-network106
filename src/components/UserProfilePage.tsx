@@ -20,6 +20,11 @@ const UserProfilePage = () => {
   const [wallet, setWallet] = useState<any>(null);
   const [displayName, setDisplayName] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [businessDescription, setBusinessDescription] = useState('');
+  const [businessCategory, setBusinessCategory] = useState('');
+  const [businessLocation, setBusinessLocation] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessWebsite, setBusinessWebsite] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -44,6 +49,11 @@ const UserProfilePage = () => {
     setWallet(w);
     setDisplayName(p?.display_name || '');
     setBusinessName(p?.business_name || '');
+    setBusinessDescription(p?.business_description || '');
+    setBusinessCategory(p?.business_category || '');
+    setBusinessLocation(p?.business_location || '');
+    setBusinessPhone(p?.business_phone || '');
+    setBusinessWebsite(p?.business_website || '');
     setNewEmail(user.email || '');
     setLoading(false);
   };
@@ -63,13 +73,23 @@ const UserProfilePage = () => {
     load();
   };
 
+  const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60);
+
   const saveProfile = async () => {
     if (!authUser) return;
     if (!displayName.trim()) { toast.error('Name cannot be empty'); return; }
     setSaving(true);
+    const slugBase = slugify(businessName || displayName);
+    const slug = slugBase ? `${slugBase}-${authUser.id.slice(0, 6)}` : null;
     const { error } = await supabase.from('profiles').update({
       display_name: displayName.trim().slice(0, 100),
       business_name: businessName.trim().slice(0, 120) || null,
+      business_description: businessDescription.trim().slice(0, 1000) || null,
+      business_category: businessCategory.trim().slice(0, 80) || null,
+      business_location: businessLocation.trim().slice(0, 120) || null,
+      business_phone: businessPhone.trim().slice(0, 30) || null,
+      business_website: businessWebsite.trim().slice(0, 200) || null,
+      business_slug: slug,
     }).eq('user_id', authUser.id);
     setSaving(false);
     if (error) { toast.error('Failed to save'); return; }
@@ -187,9 +207,44 @@ const UserProfilePage = () => {
                 <Input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={100} className="mt-1" />
               </div>
               <div>
-                <Label className="text-xs">Business name (optional)</Label>
-                <Input value={businessName} onChange={e => setBusinessName(e.target.value)} maxLength={120} className="mt-1" />
+                <Label className="text-xs">Business name</Label>
+                <Input value={businessName} onChange={e => setBusinessName(e.target.value)} maxLength={120} className="mt-1" placeholder="Your business or brand" />
               </div>
+              <div>
+                <Label className="text-xs">Business description</Label>
+                <textarea value={businessDescription} onChange={e => setBusinessDescription(e.target.value)} maxLength={1000} rows={3}
+                  placeholder="What you do, products, services, what makes you unique…"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs" />
+                <p className="text-[10px] text-muted-foreground mt-1">Used to auto-generate your professional public site & SEO description.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Category</Label>
+                  <Input value={businessCategory} onChange={e => setBusinessCategory(e.target.value)} maxLength={80} className="mt-1" placeholder="e.g. Fashion, Food" />
+                </div>
+                <div>
+                  <Label className="text-xs">Location</Label>
+                  <Input value={businessLocation} onChange={e => setBusinessLocation(e.target.value)} maxLength={120} className="mt-1" placeholder="City, State" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Phone / WhatsApp</Label>
+                  <Input value={businessPhone} onChange={e => setBusinessPhone(e.target.value)} maxLength={30} className="mt-1" placeholder="+234…" />
+                </div>
+                <div>
+                  <Label className="text-xs">Website</Label>
+                  <Input value={businessWebsite} onChange={e => setBusinessWebsite(e.target.value)} maxLength={200} className="mt-1" placeholder="https://" />
+                </div>
+              </div>
+              {profile?.business_slug && (
+                <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-lg p-2.5">
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Your professional site</p>
+                  <a href={`/user/${authUser.id}`} target="_blank" rel="noreferrer" className="text-xs font-mono break-all text-orange-600 hover:underline">
+                    {`${window.location.origin}/user/${authUser.id}`}
+                  </a>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2 text-xs pt-1">
                 <div className="bg-muted rounded-lg p-2">
                   <p className="text-[10px] text-muted-foreground">Referral code</p>

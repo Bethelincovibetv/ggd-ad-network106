@@ -4,9 +4,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users } from 'lucide-react';
+import { ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe, MessageCircle, Crown, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
+
+const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
+  let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute(attr, name);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+};
+
+const setLink = (rel: string, href: string) => {
+  let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+  if (!el) { el = document.createElement('link'); el.setAttribute('rel', rel); document.head.appendChild(el); }
+  el.setAttribute('href', href);
+};
 
 const UserProfilePublicPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,22 +30,71 @@ const UserProfilePublicPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [syndicate, setSyndicate] = useState<any>(null);
   const [business, setBusiness] = useState<any>(null);
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumSystemEnabled, setPremiumSystemEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [p, s, b] = await Promise.all([
-        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, created_at').eq('user_id', id).maybeSingle(),
+      const [p, s, b, roles, sysToggle] = await Promise.all([
+        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', id).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', id).maybeSingle(),
         supabase.from('business_profiles').select('id, business_name, logo_url, description, is_directory_listed').eq('user_id', id).maybeSingle(),
+        supabase.from('user_roles').select('role').eq('user_id', id),
+        supabase.from('app_settings').select('value').eq('key', 'premium_system_enabled').maybeSingle(),
       ]);
       setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
+      const sysOn = sysToggle.data?.value !== 'false';
+      setPremiumSystemEnabled(sysOn);
+      setIsPremium(!sysOn || (roles.data || []).some((r: any) => r.role === 'premium' || r.role === 'admin'));
       setLoading(false);
     })();
   }, [id]);
+
+  // SEO meta tags
+  useEffect(() => {
+    if (!profile) return;
+    const name = profile.business_name || profile.display_name || 'GGD User';
+    const desc = (profile.business_description ||
+      `${name}${profile.business_category ? ' — ' + profile.business_category : ''}${profile.business_location ? ' in ' + profile.business_location : ''}. Verified on GGD Ad Network.`).slice(0, 158);
+    const img = profile.business_logo_url || profile.avatar_url || `${window.location.origin}${ggdLogo}`;
+    const url = window.location.href;
+    const title = `${name}${profile.business_category ? ' | ' + profile.business_category : ''} | GGD Network`;
+
+    document.title = title.slice(0, 60);
+    setMeta('description', desc);
+    setMeta('og:title', title, 'property');
+    setMeta('og:description', desc, 'property');
+    setMeta('og:image', img, 'property');
+    setMeta('og:type', 'profile', 'property');
+    setMeta('og:url', url, 'property');
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('twitter:title', title);
+    setMeta('twitter:description', desc);
+    setMeta('twitter:image', img);
+    setLink('canonical', url);
+
+    // JSON-LD LocalBusiness
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': profile.business_category ? 'LocalBusiness' : 'Person',
+      name,
+      description: desc,
+      image: img,
+      url,
+      ...(profile.business_phone && { telephone: profile.business_phone }),
+      ...(profile.business_location && { address: { '@type': 'PostalAddress', addressLocality: profile.business_location } }),
+      ...(profile.business_website && { sameAs: [profile.business_website] }),
+    };
+    let s = document.getElementById('ld-business') as HTMLScriptElement | null;
+    if (!s) { s = document.createElement('script'); s.id = 'ld-business'; s.type = 'application/ld+json'; document.head.appendChild(s); }
+    s.textContent = JSON.stringify(ld);
+
+    return () => { document.title = 'GGD Ad Network'; };
+  }, [profile]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-orange-50">
@@ -44,8 +109,10 @@ const UserProfilePublicPage: React.FC = () => {
     </div>
   );
 
-  const name = profile.display_name || profile.business_name || 'User';
+  const name = profile.business_name || profile.display_name || 'User';
   const initials = name.slice(0, 2).toUpperCase();
+  const heroImage = profile.business_logo_url || profile.avatar_url;
+  const waPhone = (profile.business_phone || '').replace(/[^\d]/g, '');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
@@ -61,25 +128,95 @@ const UserProfilePublicPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 max-w-2xl space-y-4">
-        <Card className="overflow-hidden border-0 shadow-lg">
-          <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-6 text-white text-center">
-            <Avatar className="h-24 w-24 mx-auto border-4 border-white shadow-xl">
-              <AvatarImage src={profile.avatar_url || profile.business_logo_url || ''} />
-              <AvatarFallback className="bg-white text-orange-600 text-2xl font-black">{initials}</AvatarFallback>
-            </Avatar>
-            <h1 className="text-2xl font-black mt-3">{name}</h1>
-            <div className="flex justify-center gap-1 flex-wrap mt-2">
-              {syndicate && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
-              {business?.is_directory_listed && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
+      <article className="container mx-auto px-4 py-6 max-w-3xl space-y-4">
+        {/* Premium pro hero */}
+        {isPremium ? (
+          <Card className="overflow-hidden border-0 shadow-2xl">
+            <div className="relative h-44 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600">
+              {heroImage && (
+                <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <Badge className="absolute top-3 right-3 bg-amber-400 text-amber-950 gap-1 font-bold text-[10px]">
+                <Crown className="h-3 w-3" />PREMIUM VERIFIED
+              </Badge>
             </div>
-            {syndicate?.state && (
-              <p className="text-xs opacity-90 mt-2 flex items-center justify-center gap-1">
-                <MapPin className="h-3 w-3" />{syndicate.state}
-              </p>
-            )}
-          </div>
-        </Card>
+            <div className="px-5 pb-5 -mt-12 relative">
+              <Avatar className="h-24 w-24 border-4 border-card shadow-xl">
+                <AvatarImage src={heroImage || ''} />
+                <AvatarFallback className="bg-orange-500 text-white text-2xl font-black">{initials}</AvatarFallback>
+              </Avatar>
+              <h1 className="text-2xl font-black mt-3">{name}</h1>
+              {profile.business_category && <p className="text-sm text-orange-600 font-semibold">{profile.business_category}</p>}
+              {profile.business_location && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />{profile.business_location}
+                </p>
+              )}
+              <div className="flex gap-1 flex-wrap mt-3">
+                {syndicate && <Badge variant="secondary" className="text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
+                {business?.is_directory_listed && <Badge variant="secondary" className="text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
+                <Badge variant="secondary" className="text-[10px] gap-0.5"><Star className="h-2.5 w-2.5 text-amber-500" />Trusted</Badge>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden border-0 shadow-lg">
+            <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-6 text-white text-center">
+              <Avatar className="h-24 w-24 mx-auto border-4 border-white shadow-xl">
+                <AvatarImage src={heroImage || ''} />
+                <AvatarFallback className="bg-white text-orange-600 text-2xl font-black">{initials}</AvatarFallback>
+              </Avatar>
+              <h1 className="text-2xl font-black mt-3">{name}</h1>
+              {profile.business_category && <p className="text-xs opacity-90 mt-1">{profile.business_category}</p>}
+              {profile.business_location && (
+                <p className="text-xs opacity-90 mt-1 flex items-center justify-center gap-1">
+                  <MapPin className="h-3 w-3" />{profile.business_location}
+                </p>
+              )}
+              <div className="flex justify-center gap-1 flex-wrap mt-2">
+                {syndicate && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Award className="h-2.5 w-2.5" />Syndicate</Badge>}
+                {business?.is_directory_listed && <Badge className="bg-white/20 text-white text-[10px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />Business</Badge>}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* About / description */}
+        {profile.business_description && (
+          <Card>
+            <CardContent className="p-5">
+              <h2 className="text-sm font-bold mb-2 text-foreground">About</h2>
+              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{profile.business_description}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Contact & links */}
+        {(profile.business_phone || profile.business_website) && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <h2 className="text-sm font-bold mb-2">Contact</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {profile.business_phone && (
+                  <Button variant="outline" className="justify-start gap-2 text-xs" onClick={() => window.open(`tel:${profile.business_phone}`)}>
+                    <Phone className="h-4 w-4 text-orange-500" />{profile.business_phone}
+                  </Button>
+                )}
+                {waPhone && (
+                  <Button className="justify-start gap-2 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => window.open(`https://wa.me/${waPhone}`, '_blank')}>
+                    <MessageCircle className="h-4 w-4" />WhatsApp
+                  </Button>
+                )}
+                {profile.business_website && (
+                  <Button variant="outline" className="justify-start gap-2 text-xs col-span-full" onClick={() => window.open(profile.business_website, '_blank')}>
+                    <Globe className="h-4 w-4 text-blue-500" />{profile.business_website}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {syndicate && (
           <Card>
@@ -115,7 +252,7 @@ const UserProfilePublicPage: React.FC = () => {
         {business?.is_directory_listed && (
           <Card>
             <CardContent className="p-4 space-y-2">
-              <h2 className="text-sm font-bold flex items-center gap-2"><Briefcase className="h-4 w-4 text-orange-500" />Business</h2>
+              <h2 className="text-sm font-bold flex items-center gap-2"><Briefcase className="h-4 w-4 text-orange-500" />Business directory</h2>
               <p className="text-sm font-semibold">{business.business_name}</p>
               {business.description && <p className="text-xs text-muted-foreground">{business.description}</p>}
               <Button size="sm" onClick={() => navigate(`/business/${business.id}`)} className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
@@ -125,12 +262,21 @@ const UserProfilePublicPage: React.FC = () => {
           </Card>
         )}
 
+        {!isPremium && premiumSystemEnabled && (
+          <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <CardContent className="p-4 text-center">
+              <Crown className="h-6 w-6 mx-auto text-amber-500 mb-1" />
+              <p className="text-xs font-semibold text-foreground">Upgrade to Premium for a pro auto-generated business site with SEO boost.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {profile.created_at && (
           <p className="text-center text-[10px] text-muted-foreground">
-            Joined {new Date(profile.created_at).toLocaleDateString()}
+            Joined {new Date(profile.created_at).toLocaleDateString()} · GGD Ad Network
           </p>
         )}
-      </div>
+      </article>
     </div>
   );
 };
