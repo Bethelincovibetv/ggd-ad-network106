@@ -108,7 +108,9 @@ const UserProfilePage = () => {
     const bw = businessWebsite.trim().slice(0, 200) || null;
     const bc = businessCategory.trim().slice(0, 80) || null;
 
-    const { error } = await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').upsert({
+      user_id: authUser.id,
+      email: authUser.email,
       display_name: displayName.trim().slice(0, 100),
       business_name: bn,
       business_description: bd,
@@ -117,7 +119,7 @@ const UserProfilePage = () => {
       business_phone: bp,
       business_website: bw,
       business_slug: slug,
-    }).eq('user_id', authUser.id);
+    }, { onConflict: 'user_id' });
 
     // Mirror shared business fields into business_profiles so both views show the same data
     if (bn) {
