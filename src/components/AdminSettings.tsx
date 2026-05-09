@@ -38,7 +38,10 @@ const AdminSettings = () => {
   const saveAllSettings = async () => {
     const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits',
       'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
-      'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost'];
+      'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
+      'premium_system_enabled', 'auto_convert_ads_to_tasks',
+      'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
+      'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days'];
     for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
     toast.success('All settings saved!');
   };
