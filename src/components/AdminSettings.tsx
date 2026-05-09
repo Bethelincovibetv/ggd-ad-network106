@@ -171,6 +171,39 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
 
+      {/* Premium System */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-3 flex items-center gap-2 text-white">
+          <Shield className="h-4 w-4" /><h4 className="text-sm font-bold">Premium System</h4>
+        </div>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between bg-secondary/30 rounded-xl p-3">
+            <div>
+              <Label className="text-xs font-semibold">Premium gating ON</Label>
+              <p className="text-[10px] text-muted-foreground">Off = all users get all features free</p>
+            </div>
+            <input type="checkbox" className="h-5 w-5 accent-orange-500" checked={settings.premium_system_enabled === 'true'}
+              onChange={e => setSettings(p => ({ ...p, premium_system_enabled: e.target.checked ? 'true' : 'false' }))} />
+          </div>
+          <div className="flex items-center justify-between bg-secondary/30 rounded-xl p-3">
+            <div>
+              <Label className="text-xs font-semibold">Auto-convert API ads → tasks</Label>
+              <p className="text-[10px] text-muted-foreground">New ads from API auto-spawn share tasks</p>
+            </div>
+            <input type="checkbox" className="h-5 w-5 accent-orange-500" checked={settings.auto_convert_ads_to_tasks === 'true'}
+              onChange={e => setSettings(p => ({ ...p, auto_convert_ads_to_tasks: e.target.checked ? 'true' : 'false' }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SettingField label="Tier 1 Price ₦" settingKey="premium_tier1_price" type="number" placeholder="1000" />
+            <SettingField label="Tier 1 Days" settingKey="premium_tier1_days" type="number" placeholder="3" />
+            <SettingField label="Tier 2 Price ₦" settingKey="premium_tier2_price" type="number" placeholder="3000" />
+            <SettingField label="Tier 2 Days" settingKey="premium_tier2_days" type="number" placeholder="15" />
+            <SettingField label="Tier 3 Price ₦" settingKey="premium_tier3_price" type="number" placeholder="5000" />
+            <SettingField label="Tier 3 Days" settingKey="premium_tier3_days" type="number" placeholder="30" />
+          </div>
+        </CardContent>
+      </Card>
+
       <Button onClick={saveAllSettings} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white h-12 rounded-xl shadow-lg font-bold text-sm">
         <Save className="h-4 w-4 mr-2" />Save All Settings
       </Button>
