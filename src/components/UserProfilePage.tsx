@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +19,7 @@ const UserProfilePage = () => {
   const [authUser, setAuthUser] = useState<any>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [wallet, setWallet] = useState<any>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [displayName, setDisplayName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
@@ -39,12 +41,14 @@ const UserProfilePage = () => {
     if (!user) { setLoading(false); return; }
     setAuthUser(user);
 
-    const [{ data: p }, { data: r }, { data: w }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: w }, { data: cats }] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('user_roles').select('role').eq('user_id', user.id),
       supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('business_categories').select('id,name').eq('is_active', true).order('sort_order'),
     ]);
     setProfile(p);
+    setCategories((cats as any) || []);
     setRoles((r || []).map(x => x.role));
     setWallet(w);
     setDisplayName(p?.display_name || '');
@@ -270,7 +274,15 @@ const UserProfilePage = () => {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Category</Label>
-                  <Input value={businessCategory} onChange={e => setBusinessCategory(e.target.value)} maxLength={80} className="mt-1" placeholder="e.g. Fashion, Food" />
+                  <Select value={businessCategory || undefined} onValueChange={setBusinessCategory}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select industry" /></SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {categories.map(c => (<SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>))}
+                      {businessCategory && !categories.find(c => c.name === businessCategory) && (
+                        <SelectItem value={businessCategory}>{businessCategory}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Location</Label>
