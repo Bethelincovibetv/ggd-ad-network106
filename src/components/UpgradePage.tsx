@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Crown, Sparkles, CheckCircle, Users, Edit3, ArrowRight } from "lucide-react";
-import BusinessUpgradeForm from "@/components/BusinessUpgradeForm";
+import { Briefcase, Crown, Sparkles, CheckCircle, Users, Edit3, ArrowRight, User } from "lucide-react";
 import CoOwnerUpgradeForm from "@/components/CoOwnerUpgradeForm";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
