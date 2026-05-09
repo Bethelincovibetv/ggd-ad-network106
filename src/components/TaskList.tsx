@@ -401,8 +401,27 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Share URL</Label>
-                <Input placeholder="https://..." value={newTask.share_url} onChange={e => setNewTask({ ...newTask, share_url: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30" />
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Share Link</Label>
+                <div className="flex gap-1 mb-1">
+                  <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Paste URL</button>
+                  <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                </div>
+                {shareLinkMode === 'manual' ? (
+                  <Input placeholder="https://..." value={newTask.share_url} onChange={e => setNewTask({ ...newTask, share_url: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30" />
+                ) : myShortLinks.length > 0 ? (
+                  <Select value={newTask.share_url} onValueChange={v => setNewTask({ ...newTask, share_url: v })}>
+                    <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-sm"><SelectValue placeholder="Pick smart link" /></SelectTrigger>
+                    <SelectContent>
+                      {myShortLinks.map((sl: any) => (
+                        <SelectItem key={sl.id} value={`${window.location.origin}/r/${sl.slug}`} className="text-xs">
+                          {sl.title || sl.slug} ({sl.clicks} clicks)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground bg-muted/30 rounded-xl p-2">No smart links yet. Create one in Smart Links menu.</p>
+                )}
               </div>
             </div>
 
@@ -447,21 +466,43 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </Card>
       )}
 
-      {/* Referral Card */}
-      {referralCode && (
-        <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-500/10 dark:to-yellow-500/10 overflow-hidden">
-          <CardContent className="p-4 space-y-2">
-            <h3 className="font-bold text-sm text-foreground">🎁 Invite & Earn</h3>
-            <p className="text-[11px] text-muted-foreground">Share your referral code and earn 20 credits for each friend who joins!</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-background/80 px-3 py-1.5 rounded-xl border text-orange-600 font-mono">{referralCode}</code>
-              <Button size="sm" onClick={shareReferral} className="bg-orange-500 text-white text-xs rounded-full px-4">
-                <Share2 className="h-3 w-3 mr-1" />Share
-              </Button>
+      {/* Share Platform Picker Dialog */}
+      <Dialog open={!!shareTarget} onOpenChange={o => { if (!o) setShareTarget(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base">Where will you share?</DialogTitle>
+          </DialogHeader>
+          {shareTarget?.task && (
+            <div className="space-y-3">
+              {shareTarget.task.flyer_url && (
+                <img src={shareTarget.task.flyer_url} alt="" className="w-full h-32 object-cover rounded-xl" />
+              )}
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-sm font-bold text-foreground">{shareTarget.task.title}</p>
+                {shareTarget.task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{shareTarget.task.description}</p>}
+                <p className="text-[10px] text-blue-500 mt-1 truncate">{shareTarget.task.share_url}</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground text-center">Pick a platform — sharing opens with title, image & link.</p>
+              <div className="grid grid-cols-3 gap-2">
+                {SHARE_PLATFORMS.map(p => {
+                  const Icon = p.icon;
+                  return (
+                    <button
+                      key={p.key}
+                      onClick={() => startVerification(shareTarget.task, p.key)}
+                      className={`${p.color} text-white rounded-2xl p-3 flex flex-col items-center gap-1.5 hover:opacity-90 active:scale-95 transition`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px] font-semibold">{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-orange-500 text-center font-medium">⏳ You'll earn credits 15s after sharing.</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Tasks */}
       <div className="space-y-2">
