@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag } from "lucide-react";
+import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -175,6 +175,37 @@ const BusinessStorefront = () => {
             {profile.description && <p className="text-sm text-white/80 mt-1">{profile.description}</p>}
           </div>
         </Card>
+
+        {/* Your public site */}
+        {profile.user_id && (() => {
+          const siteUrl = `${window.location.origin}/user/${profile.user_id}`;
+          return (
+            <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-red-500/5">
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-orange-600" />
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Your website</p>
+                </div>
+                <p className="text-xs font-mono break-all text-orange-600">{siteUrl}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button size="sm" variant="outline" className="text-[10px] h-8" onClick={() => window.open(siteUrl, '_blank')}>
+                    <ExternalLink className="h-3 w-3 mr-1" />Visit
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-[10px] h-8" onClick={() => { navigator.clipboard.writeText(siteUrl); toast.success('Link copied!'); }}>
+                    <Copy className="h-3 w-3 mr-1" />Copy
+                  </Button>
+                  <Button size="sm" className="text-[10px] h-8 bg-gradient-to-r from-orange-500 to-red-600 text-white" onClick={() => {
+                    const text = `Check out my business: ${profile.business_name} — ${siteUrl}`;
+                    if ((navigator as any).share) (navigator as any).share({ title: profile.business_name, text, url: siteUrl });
+                    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }}>
+                    <Share2 className="h-3 w-3 mr-1" />Share
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Edit Form */}
         <Card>
