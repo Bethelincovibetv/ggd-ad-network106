@@ -24,7 +24,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
   const [tasks, setTasks] = useState<any[]>([]);
   const [completions, setCompletions] = useState<string[]>([]);
-  const [referralCode, setReferralCode] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType | null>(null);
   const [isBusiness, setIsBusiness] = useState(false);
@@ -33,8 +32,18 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
+  const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
+  const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
 
-  useEffect(() => { fetchTasks(); checkBusinessStatus(); }, []);
+  useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
+
+  const fetchMyShortLinks = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('short_links').select('*').eq('user_id', user.id).eq('is_active', true).order('created_at', { ascending: false });
+    setMyShortLinks(data || []);
+  };
 
   const checkBusinessStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,8 +59,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     setTasks(tasksData || []);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     setCompletions((comps || []).map(c => c.task_id));
-    const { data: profile } = await supabase.from('profiles').select('referral_code').eq('user_id', user.id).single();
-    if (profile?.referral_code) setReferralCode(profile.referral_code);
   };
 
   const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
