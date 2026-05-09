@@ -592,9 +592,14 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          business_category: string | null
           business_description: string | null
+          business_location: string | null
           business_logo_url: string | null
           business_name: string | null
+          business_phone: string | null
+          business_slug: string | null
+          business_website: string | null
           created_at: string
           credits: number
           display_name: string | null
@@ -608,9 +613,14 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          business_category?: string | null
           business_description?: string | null
+          business_location?: string | null
           business_logo_url?: string | null
           business_name?: string | null
+          business_phone?: string | null
+          business_slug?: string | null
+          business_website?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
@@ -624,9 +634,14 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          business_category?: string | null
           business_description?: string | null
+          business_location?: string | null
           business_logo_url?: string | null
           business_name?: string | null
+          business_phone?: string | null
+          business_slug?: string | null
+          business_website?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
