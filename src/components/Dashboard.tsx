@@ -44,6 +44,7 @@ import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import UserProfilePage from "@/components/UserProfilePage";
 import LinkShortener from "@/components/LinkShortener";
+import ReferralsPage from "@/components/ReferralsPage";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -628,6 +629,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'smart-links':
         return <LinkShortener />;
+
+      case 'referrals':
+        return <ReferralsPage />;
 
       case 'my-business':
         return <BusinessStorefront />;

@@ -39,7 +39,7 @@ const AdminSettings = () => {
     const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits',
       'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
       'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
-      'premium_system_enabled', 'auto_convert_ads_to_tasks',
+      'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
       'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
       'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days'];
     for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
@@ -113,6 +113,9 @@ const AdminSettings = () => {
           <SettingField label="Vendor Bonus ₦" settingKey="vendor_wallet_bonus" type="number" placeholder="0" />
           <div className="col-span-2">
             <SettingField label="Directory Cost (Credits)" settingKey="directory_listing_cost" type="number" placeholder="0 = free" />
+          </div>
+          <div className="col-span-2">
+            <SettingField label="Referral % (earned from referred user's credits)" settingKey="referral_percentage" type="number" placeholder="2" />
           </div>
         </CardContent>
       </Card>
