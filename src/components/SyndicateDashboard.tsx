@@ -360,15 +360,17 @@ const SyndicateDashboard = () => {
       {/* Tabbed Assignment View */}
       <Tabs defaultValue="pending" className="space-y-3">
         <TabsList className="w-full grid grid-cols-5 h-auto p-1 gap-0.5">
-          <TabsTrigger value="pending" className="text-[10px] font-medium">
-            Pending {pendingAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1.5 text-[9px] bg-blue-500">{pendingAssignments.length}</Badge>}
+          <TabsTrigger value="pending" className="text-[9px] font-medium px-1 py-1.5 flex-col gap-0.5 leading-tight">
+            <span>Pending</span>
+            {pendingAssignments.length > 0 && <Badge className="h-3.5 px-1 text-[8px] bg-blue-500">{pendingAssignments.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="submitted" className="text-[10px] font-medium">
-            Review {submittedAssignments.length > 0 && <Badge className="ml-0.5 h-4 px-1.5 text-[9px] bg-yellow-500">{submittedAssignments.length}</Badge>}
+          <TabsTrigger value="submitted" className="text-[9px] font-medium px-1 py-1.5 flex-col gap-0.5 leading-tight">
+            <span>Review</span>
+            {submittedAssignments.length > 0 && <Badge className="h-3.5 px-1 text-[8px] bg-yellow-500">{submittedAssignments.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="completed" className="text-[10px] font-medium">Done</TabsTrigger>
-          <TabsTrigger value="rejected" className="text-[10px] font-medium">Rejected</TabsTrigger>
-          <TabsTrigger value="expired" className="text-[10px] font-medium">Missed</TabsTrigger>
+          <TabsTrigger value="completed" className="text-[9px] font-medium px-1 py-1.5 leading-tight">Done</TabsTrigger>
+          <TabsTrigger value="rejected" className="text-[9px] font-medium px-1 py-1.5 leading-tight">Rejected</TabsTrigger>
+          <TabsTrigger value="expired" className="text-[9px] font-medium px-1 py-1.5 leading-tight">Missed</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-2">
