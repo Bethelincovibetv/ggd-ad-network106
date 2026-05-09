@@ -14,7 +14,8 @@ interface AuthFormProps {
 const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '', displayName: '' });
+  const refFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ref') || '' : '';
+  const [formData, setFormData] = useState({ email: '', password: '', displayName: '', ref: refFromUrl });
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +44,10 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
           email: formData.email,
           password: formData.password,
           options: {
-            data: { display_name: formData.displayName || formData.email.split('@')[0] },
+            data: {
+              display_name: formData.displayName || formData.email.split('@')[0],
+              ref: formData.ref || undefined,
+            },
           },
         });
         if (error) throw error;
@@ -69,11 +73,18 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <div>
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input id="displayName" placeholder="Your name" value={formData.displayName}
-                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} className="mt-1" />
-            </div>
+            <>
+              <div>
+                <Label htmlFor="displayName">Display Name</Label>
+                <Input id="displayName" placeholder="Your name" value={formData.displayName}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="ref">Referral Code (optional)</Label>
+                <Input id="ref" placeholder="Friend's code" value={formData.ref}
+                  onChange={(e) => setFormData({ ...formData, ref: e.target.value })} className="mt-1" />
+              </div>
+            </>
           )}
           <div>
             <Label htmlFor="email">Email</Label>
