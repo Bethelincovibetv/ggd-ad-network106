@@ -67,7 +67,14 @@ const UserProfilePage = () => {
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
     if (error) { toast.error('Upload failed'); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', authUser.id);
+    // Unified: profile picture == business logo everywhere
+    await supabase.from('profiles').update({
+      avatar_url: publicUrl,
+      business_logo_url: publicUrl,
+    }).eq('user_id', authUser.id);
+    await (supabase.from('business_profiles') as any)
+      .update({ logo_url: publicUrl })
+      .eq('user_id', authUser.id);
     toast.success('Profile picture updated!');
     setUploading(false);
     load();
@@ -81,16 +88,44 @@ const UserProfilePage = () => {
     setSaving(true);
     const slugBase = slugify(businessName || displayName);
     const slug = slugBase ? `${slugBase}-${authUser.id.slice(0, 6)}` : null;
+    const bn = businessName.trim().slice(0, 120) || null;
+    const bd = businessDescription.trim().slice(0, 1000) || null;
+    const bp = businessPhone.trim().slice(0, 30) || null;
+    const bl = businessLocation.trim().slice(0, 120) || null;
+    const bw = businessWebsite.trim().slice(0, 200) || null;
+    const bc = businessCategory.trim().slice(0, 80) || null;
+
     const { error } = await supabase.from('profiles').update({
       display_name: displayName.trim().slice(0, 100),
-      business_name: businessName.trim().slice(0, 120) || null,
-      business_description: businessDescription.trim().slice(0, 1000) || null,
-      business_category: businessCategory.trim().slice(0, 80) || null,
-      business_location: businessLocation.trim().slice(0, 120) || null,
-      business_phone: businessPhone.trim().slice(0, 30) || null,
-      business_website: businessWebsite.trim().slice(0, 200) || null,
+      business_name: bn,
+      business_description: bd,
+      business_category: bc,
+      business_location: bl,
+      business_phone: bp,
+      business_website: bw,
       business_slug: slug,
     }).eq('user_id', authUser.id);
+
+    // Mirror shared business fields into business_profiles so both views show the same data
+    if (bn) {
+      const sharedLogo = profile?.business_logo_url || profile?.avatar_url || null;
+      const { data: existingBP } = await (supabase.from('business_profiles') as any)
+        .select('id').eq('user_id', authUser.id).maybeSingle();
+      const bpPayload: any = {
+        business_name: bn,
+        description: bd,
+        phone_number: bp,
+        address: bl,
+        website_link: bw,
+        logo_url: sharedLogo,
+      };
+      if (existingBP?.id) {
+        await (supabase.from('business_profiles') as any).update(bpPayload).eq('id', existingBP.id);
+      } else {
+        await (supabase.from('business_profiles') as any).insert({ ...bpPayload, user_id: authUser.id });
+      }
+    }
+
     setSaving(false);
     if (error) { toast.error('Failed to save'); return; }
     toast.success('Profile saved');

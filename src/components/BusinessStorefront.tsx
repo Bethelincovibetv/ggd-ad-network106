@@ -50,12 +50,18 @@ const BusinessStorefront = () => {
     if (error) { toast.error("Upload failed"); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(fileName);
     setProfile((p: any) => ({ ...p, logo_url: publicUrl }));
+    // Unified: business logo == user avatar
+    await supabase.from('profiles').update({
+      business_logo_url: publicUrl,
+      avatar_url: publicUrl,
+    }).eq('user_id', user.id);
     setUploading(false);
   };
 
   const saveProfile = async () => {
     if (!profile) return;
     setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await (supabase.from('business_profiles') as any).update({
       business_name: profile.business_name,
       description: profile.description,
@@ -73,6 +79,17 @@ const BusinessStorefront = () => {
       address: profile.address,
       paystack_public_key: profile.paystack_public_key,
     }).eq('id', profile.id);
+    // Mirror shared fields back into profiles so the user profile page stays in sync
+    if (user) {
+      await supabase.from('profiles').update({
+        business_name: profile.business_name || null,
+        business_description: profile.description || null,
+        business_phone: profile.phone_number || null,
+        business_location: profile.address || null,
+        business_website: profile.website_link || null,
+        business_logo_url: profile.logo_url || null,
+      }).eq('user_id', user.id);
+    }
     if (error) toast.error("Save failed");
     else toast.success("Business profile updated! 🎉");
     setSaving(false);
