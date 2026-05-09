@@ -49,6 +49,11 @@ const UserProfilePage = () => {
     setWallet(w);
     setDisplayName(p?.display_name || '');
     setBusinessName(p?.business_name || '');
+    setBusinessDescription(p?.business_description || '');
+    setBusinessCategory(p?.business_category || '');
+    setBusinessLocation(p?.business_location || '');
+    setBusinessPhone(p?.business_phone || '');
+    setBusinessWebsite(p?.business_website || '');
     setNewEmail(user.email || '');
     setLoading(false);
   };
@@ -68,13 +73,23 @@ const UserProfilePage = () => {
     load();
   };
 
+  const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60);
+
   const saveProfile = async () => {
     if (!authUser) return;
     if (!displayName.trim()) { toast.error('Name cannot be empty'); return; }
     setSaving(true);
+    const slugBase = slugify(businessName || displayName);
+    const slug = slugBase ? `${slugBase}-${authUser.id.slice(0, 6)}` : null;
     const { error } = await supabase.from('profiles').update({
       display_name: displayName.trim().slice(0, 100),
       business_name: businessName.trim().slice(0, 120) || null,
+      business_description: businessDescription.trim().slice(0, 1000) || null,
+      business_category: businessCategory.trim().slice(0, 80) || null,
+      business_location: businessLocation.trim().slice(0, 120) || null,
+      business_phone: businessPhone.trim().slice(0, 30) || null,
+      business_website: businessWebsite.trim().slice(0, 200) || null,
+      business_slug: slug,
     }).eq('user_id', authUser.id);
     setSaving(false);
     if (error) { toast.error('Failed to save'); return; }
