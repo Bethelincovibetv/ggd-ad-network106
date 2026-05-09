@@ -1126,18 +1126,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          premium_tier: number | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          premium_tier?: number | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          premium_tier?: number | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -1191,6 +1194,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
     }
     Enums: {
       app_role:
