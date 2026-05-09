@@ -68,13 +68,26 @@ const UserProfilePage = () => {
     if (error) { toast.error('Upload failed'); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
     // Unified: profile picture == business logo everywhere
-    await supabase.from('profiles').update({
+    const { error: upErr } = await supabase.from('profiles').upsert({
+      user_id: authUser.id,
+      email: authUser.email,
       avatar_url: publicUrl,
       business_logo_url: publicUrl,
-    }).eq('user_id', authUser.id);
-    await (supabase.from('business_profiles') as any)
-      .update({ logo_url: publicUrl })
-      .eq('user_id', authUser.id);
+    }, { onConflict: 'user_id' });
+    if (upErr) { toast.error('Failed to save photo: ' + upErr.message); setUploading(false); return; }
+
+    // Mirror to business_profiles (insert if missing)
+    const { data: existingBP } = await (supabase.from('business_profiles') as any)
+      .select('id').eq('user_id', authUser.id).maybeSingle();
+    if (existingBP?.id) {
+      await (supabase.from('business_profiles') as any).update({ logo_url: publicUrl }).eq('id', existingBP.id);
+    } else {
+      await (supabase.from('business_profiles') as any).insert({
+        user_id: authUser.id,
+        business_name: profile?.business_name || profile?.display_name || authUser.email?.split('@')[0] || 'My Business',
+        logo_url: publicUrl,
+      });
+    }
     toast.success('Profile picture updated!');
     setUploading(false);
     load();
