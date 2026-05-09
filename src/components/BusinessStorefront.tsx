@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag } from "lucide-react";
+import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
