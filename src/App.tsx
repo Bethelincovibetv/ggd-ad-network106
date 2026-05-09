@@ -10,7 +10,7 @@ import UserProfilePublicPage from "./pages/UserProfilePublicPage";
 import RedirectPage from "./pages/RedirectPage";
 import SyndicateRegister from "./pages/SyndicateRegister";
 import NotFound from "./pages/NotFound";
-import FloatingWhatsApp from "./components/FloatingWhatsApp";
+import AdminChatWidget from "./components/AdminChatWidget";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +30,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <FloatingWhatsApp />
+        <AdminChatWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
