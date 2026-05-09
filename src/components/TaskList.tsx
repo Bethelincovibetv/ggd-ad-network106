@@ -129,6 +129,28 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     fetchTasks();
   };
 
+  const SHARE_PLATFORMS = [
+    { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'bg-green-500', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}` },
+    { key: 'facebook', label: 'Facebook', icon: Facebook, color: 'bg-blue-600', build: (_text: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
+    { key: 'telegram', label: 'Telegram', icon: Send, color: 'bg-sky-500', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
+    { key: 'twitter', label: 'X / Twitter', icon: Share2, color: 'bg-black', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+    { key: 'pinterest', label: 'Pinterest', icon: Image, color: 'bg-red-600', build: (text: string, url: string, img?: string) => `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(text)}${img ? `&media=${encodeURIComponent(img)}` : ''}` },
+    { key: 'instagram', label: 'Instagram (copy)', icon: Instagram, color: 'bg-pink-600', build: () => '' /* IG has no web share — copy + open */ },
+  ];
+
+  const openShare = (task: any, platformKey: string) => {
+    const platform = SHARE_PLATFORMS.find(p => p.key === platformKey);
+    if (!platform || !task.share_url) return;
+    const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
+    if (platformKey === 'instagram') {
+      navigator.clipboard.writeText(`${text}\n${task.share_url}`);
+      toast.success('Caption copied! Open Instagram to paste.');
+      window.open('https://www.instagram.com/', '_blank');
+    } else {
+      window.open(platform.build(text, task.share_url, task.flyer_url), '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const completeTask = async (task: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -137,38 +159,34 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       toast.error("You can't complete your own task!");
       return;
     }
-
-    // Check if max completions reached
     if (task.max_completions && task.completions_count >= task.max_completions) {
       toast.error("This task has reached its maximum number of completions.");
       return;
     }
+    // Open share platform picker first — user must actually share before reward
+    setShareTarget({ task });
+  };
 
-    // Open share URL first
-    if (task.share_url) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(task.share_url)}`, '_blank');
-    }
+  const startVerification = (task: any, platformKey: string) => {
+    openShare(task, platformKey);
+    setShareTarget(null);
 
-    // Start verification timer (15 seconds)
     setVerifyingTaskId(task.id);
-    toast.info("⏳ Verifying your share... Please wait 15 seconds.", { duration: 15000 });
+    toast.info("⏳ Sharing... Verifying in 15 seconds. Stay on the share page!", { duration: 15000 });
 
     setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setVerifyingTaskId(null); return; }
       const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
       if (error) {
         setVerifyingTaskId(null);
         if (error.code === '23505') { toast.info("Already completed!"); return; }
         toast.error("Failed to complete task"); return;
       }
-
-      // Increment completions count
       await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
-
-      // Deactivate if max reached
       if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
         await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
       }
-
       const updatedCredits = credits + task.reward_credits;
       await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
       onCreditsUpdate(updatedCredits);
@@ -177,16 +195,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       toast.success(`🎉 Earned ${task.reward_credits} credits!`);
       fetchTasks();
     }, 15000);
-  };
-
-  const shareReferral = () => {
-    const link = `${window.location.origin}?ref=${referralCode}`;
-    if (navigator.share) {
-      navigator.share({ title: 'Join GGD Ad Network', text: `Use my referral code ${referralCode} to join GGD Ad Network!`, url: link });
-    } else {
-      navigator.clipboard.writeText(link);
-      toast.success("Referral link copied!");
-    }
   };
 
   const totalCost = (parseInt(newTask.reward_credits) || 5) * (parseInt(newTask.max_completions) || 1);
