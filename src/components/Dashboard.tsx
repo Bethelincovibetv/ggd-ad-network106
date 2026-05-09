@@ -33,7 +33,7 @@ import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
-import AdminChatWidget from "@/components/AdminChatWidget";
+
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
 import BusinessStorefront from "@/components/BusinessStorefront";
@@ -44,7 +44,7 @@ import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import UserProfilePage from "@/components/UserProfilePage";
 import LinkShortener from "@/components/LinkShortener";
-import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -773,7 +773,6 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           </main>
 
           <MobileFooterMenu activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
-          <AdminChatWidget />
           <InstallPrompt />
         </div>
       </div>
