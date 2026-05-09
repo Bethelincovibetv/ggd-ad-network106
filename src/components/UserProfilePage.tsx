@@ -68,13 +68,26 @@ const UserProfilePage = () => {
     if (error) { toast.error('Upload failed'); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
     // Unified: profile picture == business logo everywhere
-    await supabase.from('profiles').update({
+    const { error: upErr } = await supabase.from('profiles').upsert({
+      user_id: authUser.id,
+      email: authUser.email,
       avatar_url: publicUrl,
       business_logo_url: publicUrl,
-    }).eq('user_id', authUser.id);
-    await (supabase.from('business_profiles') as any)
-      .update({ logo_url: publicUrl })
-      .eq('user_id', authUser.id);
+    }, { onConflict: 'user_id' });
+    if (upErr) { toast.error('Failed to save photo: ' + upErr.message); setUploading(false); return; }
+
+    // Mirror to business_profiles (insert if missing)
+    const { data: existingBP } = await (supabase.from('business_profiles') as any)
+      .select('id').eq('user_id', authUser.id).maybeSingle();
+    if (existingBP?.id) {
+      await (supabase.from('business_profiles') as any).update({ logo_url: publicUrl }).eq('id', existingBP.id);
+    } else {
+      await (supabase.from('business_profiles') as any).insert({
+        user_id: authUser.id,
+        business_name: profile?.business_name || profile?.display_name || authUser.email?.split('@')[0] || 'My Business',
+        logo_url: publicUrl,
+      });
+    }
     toast.success('Profile picture updated!');
     setUploading(false);
     load();
@@ -95,7 +108,9 @@ const UserProfilePage = () => {
     const bw = businessWebsite.trim().slice(0, 200) || null;
     const bc = businessCategory.trim().slice(0, 80) || null;
 
-    const { error } = await supabase.from('profiles').update({
+    const { error } = await supabase.from('profiles').upsert({
+      user_id: authUser.id,
+      email: authUser.email,
       display_name: displayName.trim().slice(0, 100),
       business_name: bn,
       business_description: bd,
@@ -104,7 +119,7 @@ const UserProfilePage = () => {
       business_phone: bp,
       business_website: bw,
       business_slug: slug,
-    }).eq('user_id', authUser.id);
+    }, { onConflict: 'user_id' });
 
     // Mirror shared business fields into business_profiles so both views show the same data
     if (bn) {
