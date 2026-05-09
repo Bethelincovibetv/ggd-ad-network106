@@ -19,6 +19,7 @@ const UserProfilePage = () => {
   const [authUser, setAuthUser] = useState<any>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [wallet, setWallet] = useState<any>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [displayName, setDisplayName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
