@@ -205,6 +205,32 @@ const UserProfilePage = () => {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Referral share card */}
+          {profile?.referral_code && (
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-1.5"><Users className="h-4 w-4 text-orange-500" />Refer & earn</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">Share your link — earn credits when friends join.</p>
+                <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-lg p-3">
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Your link</p>
+                  <p className="text-xs font-mono break-all mt-1">{`${window.location.origin}?ref=${profile.referral_code}`}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?ref=${profile.referral_code}`); toast.success('Link copied!'); }}>
+                    Copy link
+                  </Button>
+                  <Button size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white" onClick={() => {
+                    const url = `${window.location.origin}?ref=${profile.referral_code}`;
+                    const text = `Join GGD Ad Network and earn — ${url}`;
+                    if (navigator.share) navigator.share({ title: 'Join me', text, url }); else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }}>
+                    Share
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="email" className="space-y-3">
