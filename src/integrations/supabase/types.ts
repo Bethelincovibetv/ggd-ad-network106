@@ -609,6 +609,7 @@ export type Database = {
           last_credit_date: string | null
           referral_code: string | null
           referred_by: string | null
+          referred_by_user_id: string | null
           user_id: string
         }
         Insert: {
@@ -630,6 +631,7 @@ export type Database = {
           last_credit_date?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_user_id?: string | null
           user_id: string
         }
         Update: {
@@ -651,6 +653,7 @@ export type Database = {
           last_credit_date?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_user_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -718,6 +721,63 @@ export type Database = {
           sort_order?: number | null
           title?: string
           youtube_url?: string
+        }
+        Relationships: []
+      }
+      referral_earnings: {
+        Row: {
+          created_at: string
+          credits_earned: number
+          id: string
+          referred_user_id: string
+          referrer_id: string
+          source: string
+          source_amount: number
+        }
+        Insert: {
+          created_at?: string
+          credits_earned?: number
+          id?: string
+          referred_user_id: string
+          referrer_id: string
+          source?: string
+          source_amount?: number
+        }
+        Update: {
+          created_at?: string
+          credits_earned?: number
+          id?: string
+          referred_user_id?: string
+          referrer_id?: string
+          source?: string
+          source_amount?: number
+        }
+        Relationships: []
+      }
+      referral_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          receiver_id?: string
+          sender_id?: string
         }
         Relationships: []
       }
