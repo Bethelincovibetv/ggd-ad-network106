@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Crown, Sparkles, CheckCircle, Users, Edit3, ArrowRight } from "lucide-react";
-import BusinessUpgradeForm from "@/components/BusinessUpgradeForm";
+import { Briefcase, Crown, Sparkles, CheckCircle, Users, Edit3, ArrowRight, User } from "lucide-react";
 import CoOwnerUpgradeForm from "@/components/CoOwnerUpgradeForm";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,18 +70,24 @@ const UpgradePage = ({ onUpgraded, credits = 0, onNavigate }: UpgradePageProps) 
         </Button>
       </div>
 
-      {/* Business details form (always available — to update info) */}
-      <div className="space-y-2">
+      {/* Profile management CTA — business details live on the unified profile */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Edit3 className="h-4 w-4 text-orange-500" />
           <h3 className="text-sm font-bold text-foreground">
-            {hasBusinessName ? 'Update Business Details' : 'Set Up Your Business Details'}
+            {hasBusinessName ? 'Update Your Business Details' : 'Set Up Your Business Details'}
           </h3>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Add your business name, logo, contact, social links and more — required for syndicate campaigns.
+          Your profile <span className="font-semibold">is</span> your business. Add your name, logo, contact info, social links and website on the profile page — these power your public storefront and syndicate campaigns.
         </p>
-        <BusinessUpgradeForm onUpgraded={onUpgraded} />
+        <Button
+          onClick={() => onNavigate?.('profile')}
+          className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-bold text-sm justify-between px-5"
+        >
+          <span className="flex items-center gap-2"><User className="h-4 w-4" />Edit Profile & Business Details</span>
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
 
       {showCoOwner && (
