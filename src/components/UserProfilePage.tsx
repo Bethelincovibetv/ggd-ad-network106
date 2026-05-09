@@ -20,6 +20,11 @@ const UserProfilePage = () => {
   const [wallet, setWallet] = useState<any>(null);
   const [displayName, setDisplayName] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [businessDescription, setBusinessDescription] = useState('');
+  const [businessCategory, setBusinessCategory] = useState('');
+  const [businessLocation, setBusinessLocation] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessWebsite, setBusinessWebsite] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

@@ -395,19 +395,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               </Card>
             </div>
 
-            {/* WhatsApp Group */}
-            {whatsappGroupLink && (
-              <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 cursor-pointer"
-                onClick={() => window.open(whatsappGroupLink, '_blank')}>
-                <CardContent className="p-3 flex items-center gap-3">
-                  <MessageCircle className="h-6 w-6 text-green-600" />
-                  <div>
-                    <p className="text-sm font-bold text-green-800">Join Our WhatsApp Group</p>
-                    <p className="text-[10px] text-green-600">Get updates, tips & connect with the community</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* WhatsApp support is now provided by the global FloatingWhatsApp button */}
 
             {/* Join Syndicate CTA — earn money */}
             {!isSyndicate && !isAdmin && (
