@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag, Copy, Share2 } from "lucide-react";
+import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag, Copy, Share2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -22,6 +22,7 @@ const BusinessStorefront = () => {
   const [newListing, setNewListing] = useState({ title: '', description: '', price: '', image_url: '' });
   const [addingListing, setAddingListing] = useState(false);
   const [uploadingListingImg, setUploadingListingImg] = useState(false);
+  const [generatingHero, setGeneratingHero] = useState(false);
   const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchAll(); }, []);
@@ -206,6 +207,33 @@ const BusinessStorefront = () => {
             </Card>
           );
         })()}
+
+        {/* AI Hero Generator */}
+        <Card className="border-purple-500/30 bg-gradient-to-r from-purple-500/5 to-pink-500/5">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">AI Hero Banner</p>
+            </div>
+            {profile.hero_image_url && <img src={profile.hero_image_url} alt="Hero" className="w-full h-24 object-cover rounded-lg" />}
+            <p className="text-[11px] text-muted-foreground">Generate a stunning AI banner tailored to your business — boosts SEO & engagement.</p>
+            <Button size="sm" disabled={generatingHero} className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+              onClick={async () => {
+                setGeneratingHero(true);
+                const cat = categories.find(c => c.id === profile.category_id)?.name;
+                const { data, error } = await supabase.functions.invoke('generate-business-hero', {
+                  body: { businessName: profile.business_name, category: cat, description: profile.description },
+                });
+                setGeneratingHero(false);
+                if (error || (data as any)?.error) { toast.error('Generation failed'); return; }
+                setProfile((p: any) => ({ ...p, hero_image_url: (data as any).url }));
+                toast.success('AI hero banner generated! ✨');
+              }}>
+              {generatingHero ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+              {profile.hero_image_url ? 'Regenerate AI Banner' : 'Generate AI Banner'}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Edit Form */}
         <Card>
