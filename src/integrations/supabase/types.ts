@@ -291,6 +291,7 @@ export type Database = {
           description: string | null
           directory_subscription_expires_at: string | null
           facebook_url: string | null
+          hero_image_url: string | null
           id: string
           instagram_url: string | null
           is_directory_listed: boolean | null
@@ -314,6 +315,7 @@ export type Database = {
           description?: string | null
           directory_subscription_expires_at?: string | null
           facebook_url?: string | null
+          hero_image_url?: string | null
           id?: string
           instagram_url?: string | null
           is_directory_listed?: boolean | null
@@ -337,6 +339,7 @@ export type Database = {
           description?: string | null
           directory_subscription_expires_at?: string | null
           facebook_url?: string | null
+          hero_image_url?: string | null
           id?: string
           instagram_url?: string | null
           is_directory_listed?: boolean | null
