@@ -274,7 +274,15 @@ const UserProfilePage = () => {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Category</Label>
-                  <Input value={businessCategory} onChange={e => setBusinessCategory(e.target.value)} maxLength={80} className="mt-1" placeholder="e.g. Fashion, Food" />
+                  <Select value={businessCategory || undefined} onValueChange={setBusinessCategory}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select industry" /></SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {categories.map(c => (<SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>))}
+                      {businessCategory && !categories.find(c => c.name === businessCategory) && (
+                        <SelectItem value={businessCategory}>{businessCategory}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Location</Label>
