@@ -44,6 +44,8 @@ import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import UserProfilePage from "@/components/UserProfilePage";
 import LinkShortener from "@/components/LinkShortener";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface Ad {
@@ -95,6 +97,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const premium = usePremiumSettings();
+  // Effective premium: master toggle off OR user has premium role OR admin
+  const effectivePremium = !premium.enabled || isPremium || isAdmin;
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
@@ -197,8 +202,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const createAd = async () => {
     if (!newAd.title.trim() || !newAd.target_url.trim()) { toast.error("Title and target URL are required"); return; }
     const duration = parseInt(newAd.duration);
-    if (duration > 7 && !isPremium && !isAdmin) {
-      toast.error("Upgrade to Premium for ads longer than 7 days!");
+    const maxFreeDays = premium.freeAdDays;
+    if (duration > maxFreeDays && !effectivePremium) {
+      toast.error(`Free users can run ads up to ${maxFreeDays} days. Upgrade for longer campaigns.`);
       setActiveTab('premium');
       return;
     }
