@@ -29,7 +29,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     ...(!isBusiness && !isSyndicate ? [{ id: 'upgrade', icon: Megaphone, label: 'Upgrade' }] : []),
     ...(isSyndicate ? [{ id: 'syndicate-wallet', icon: Wallet, label: 'Earnings' }] : []),
     ...(isBusiness ? [{ id: 'task-wallet', icon: Wallet, label: 'Wallet' }] : []),
-    ...(isPremium || isAdmin ? [{ id: 'api-keys', icon: Key, label: 'API' }] : []),
+    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API' }] : []),
     { id: 'guide', icon: BookOpen, label: 'Guide' },
     { id: 'about', icon: Info, label: 'About' },
   ];
