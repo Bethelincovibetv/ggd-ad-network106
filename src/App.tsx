@@ -9,6 +9,7 @@ import BusinessDetailPage from "./pages/BusinessDetailPage";
 import UserProfilePublicPage from "./pages/UserProfilePublicPage";
 import RedirectPage from "./pages/RedirectPage";
 import SyndicateRegister from "./pages/SyndicateRegister";
+import SharePreviewPage from "./pages/SharePreviewPage";
 import NotFound from "./pages/NotFound";
 import AdminChatWidget from "./components/AdminChatWidget";
 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/business/:id" element={<BusinessDetailPage />} />
           <Route path="/user/:id" element={<UserProfilePublicPage />} />
           <Route path="/r/:slug" element={<RedirectPage />} />
+          <Route path="/s/:slug" element={<SharePreviewPage />} />
           <Route path="/syndicate-register" element={<SyndicateRegister />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
