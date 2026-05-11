@@ -10,11 +10,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -25,9 +26,10 @@ interface SideNavMenuProps {
   isSyndicate: boolean;
   isAdmin: boolean;
   isPremium?: boolean;
+  onLogout?: () => void;
 }
 
-const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: SideNavMenuProps) => {
+const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium, onLogout }: SideNavMenuProps) => {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
