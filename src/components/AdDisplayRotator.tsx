@@ -7,9 +7,23 @@ import { AdRotatorAd } from "@/types/advert";
 interface AdDisplayRotatorProps {
   ads: AdRotatorAd[];
   onAdClick?: (ad: AdRotatorAd) => void;
+  slotId?: string;
 }
 
-const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick }) => {
+// Page-wide reservation so multiple rotator slots don't show duplicates
+const PAGE_USED = new Set<string>();
+
+const shuffle = <T,>(arr: T[]): T[] => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slotId }) => {
+  const [queue, setQueue] = useState<AdRotatorAd[]>([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [currentAd, setCurrentAd] = useState<AdRotatorAd | null>(null);
 
@@ -22,21 +36,30 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick }) =
   );
 
   useEffect(() => {
-    if (activeAds.length === 0) {
-      setCurrentAd(null);
-      return;
-    }
+    if (activeAds.length === 0) { setCurrentAd(null); return; }
+    // Build a shuffled queue, preferring ads not already shown elsewhere on this page
+    const fresh = activeAds.filter(a => !PAGE_USED.has(a.id));
+    const pool = (fresh.length ? fresh : activeAds);
+    const shuffled = shuffle(pool);
+    if (slotId && shuffled[0]) PAGE_USED.add(shuffled[0].id);
+    setQueue(shuffled);
+    setCurrentAdIndex(0);
+    return () => {
+      if (slotId) shuffled.forEach(a => PAGE_USED.delete(a.id));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ads.length]);
 
-    setCurrentAd(activeAds[currentAdIndex]);
-
-    if (activeAds.length > 1) {
+  useEffect(() => {
+    if (queue.length === 0) { setCurrentAd(null); return; }
+    setCurrentAd(queue[currentAdIndex % queue.length]);
+    if (queue.length > 1) {
       const interval = setInterval(() => {
-        setCurrentAdIndex((prev) => (prev + 1) % activeAds.length);
-      }, 8000); // Rotate every 8 seconds
-
+        setCurrentAdIndex(prev => (prev + 1) % queue.length);
+      }, 8000);
       return () => clearInterval(interval);
     }
-  }, [activeAds, currentAdIndex]);
+  }, [queue, currentAdIndex]);
 
   const handleAdClick = (ad: AdRotatorAd) => {
     // Track click
