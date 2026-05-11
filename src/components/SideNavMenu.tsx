@@ -133,6 +133,23 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {onLogout && (
+        <SidebarFooter className="border-t border-border bg-white mt-auto">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={onLogout}
+                tooltip="Logout"
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                {!collapsed && <span className="text-sm font-medium">Logout</span>}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 };
