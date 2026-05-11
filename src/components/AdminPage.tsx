@@ -27,21 +27,21 @@ import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const navItems = [
-  { id: 'guide', icon: BookOpen, label: 'Admin Guide', color: 'text-orange-500' },
-  { id: 'analytics', icon: TrendingUp, label: 'Analytics', color: 'text-blue-500' },
-  { id: 'users', icon: Users, label: 'User Management', color: 'text-green-500' },
-  { id: 'syndicate', icon: Briefcase, label: 'Syndicate Manager', color: 'text-purple-500' },
-  { id: 'settings', icon: Settings, label: 'Platform Settings', color: 'text-gray-500' },
-  { id: 'features', icon: Settings2, label: 'Feature Toggles', color: 'text-cyan-500' },
-  { id: 'slides', icon: Image, label: 'Slide Manager', color: 'text-pink-500' },
-  { id: 'tasks', icon: ClipboardList, label: 'Task Manager', color: 'text-yellow-500' },
-  { id: 'api', icon: Key, label: 'API Keys', color: 'text-red-500' },
-  { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-indigo-500' },
-  { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-red-400' },
-  { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-orange-500' },
-  { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-yellow-500' },
-  { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-green-500' },
-  { id: 'coowners', icon: Crown, label: 'Co-Owners', color: 'text-yellow-500' },
+  { id: 'guide', icon: BookOpen, label: 'Admin Guide', color: 'text-white', gradient: 'from-emerald-500 to-teal-600' },
+  { id: 'analytics', icon: TrendingUp, label: 'Analytics', color: 'text-white', gradient: 'from-blue-500 to-indigo-600' },
+  { id: 'users', icon: Users, label: 'User Management', color: 'text-white', gradient: 'from-orange-500 to-red-600' },
+  { id: 'syndicate', icon: Briefcase, label: 'Syndicate Manager', color: 'text-white', gradient: 'from-purple-500 to-fuchsia-600' },
+  { id: 'settings', icon: Settings, label: 'Platform Settings', color: 'text-white', gradient: 'from-pink-500 to-rose-600' },
+  { id: 'features', icon: Settings2, label: 'Feature Toggles', color: 'text-white', gradient: 'from-cyan-500 to-blue-600' },
+  { id: 'slides', icon: Image, label: 'Slide Manager', color: 'text-white', gradient: 'from-violet-500 to-purple-600' },
+  { id: 'tasks', icon: ClipboardList, label: 'Task Manager', color: 'text-white', gradient: 'from-green-500 to-emerald-600' },
+  { id: 'api', icon: Key, label: 'API Keys', color: 'text-white', gradient: 'from-yellow-500 to-amber-600' },
+  { id: 'apps', icon: Megaphone, label: 'Marketing Apps', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
+  { id: 'videos', icon: Video, label: 'Video Manager', color: 'text-white', gradient: 'from-red-500 to-rose-600' },
+  { id: 'ads', icon: Megaphone, label: 'Ad Manager', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
+  { id: 'notifications', icon: Bell, label: 'Notifications', color: 'text-white', gradient: 'from-yellow-400 to-orange-500' },
+  { id: 'chat', icon: MessageSquare, label: 'User Chat', color: 'text-white', gradient: 'from-lime-500 to-green-600' },
+  { id: 'coowners', icon: Crown, label: 'Co-Owners', color: 'text-white', gradient: 'from-amber-400 to-yellow-600' },
 ];
 
 type NavItem = (typeof navItems)[number];
@@ -109,18 +109,18 @@ const AdminPage = () => {
           setActiveSection(item.id);
           if (mobile) setMobileMenuOpen(false);
         }}
-        className={`group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all ${
+        className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3.5 py-3 text-left transition-all ${
           active
-            ? 'border-primary/20 bg-primary/10 text-primary shadow-sm'
-            : 'border-transparent bg-transparent text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+            ? `bg-gradient-to-r ${item.gradient} text-white shadow-lg scale-[1.02]`
+            : 'bg-white/60 dark:bg-card text-foreground hover:scale-[1.01] hover:shadow-md'
         }`}
       >
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-primary/15' : 'bg-secondary/80'}`}>
-          <item.icon className={`h-5 w-5 ${active ? 'text-primary' : item.color}`} />
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white/25' : `bg-gradient-to-br ${item.gradient}`}`}>
+          <item.icon className={`h-5 w-5 text-white drop-shadow`} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold leading-tight">{item.label}</span>
-          <span className="block truncate text-xs text-muted-foreground">
+          <span className={`block truncate text-sm font-bold leading-tight ${active ? 'text-white' : 'text-foreground'}`}>{item.label}</span>
+          <span className={`block truncate text-xs ${active ? 'text-white/80' : 'text-muted-foreground'}`}>
             {item.id === 'guide'
               ? 'Overview and system help'
               : item.id === 'analytics'
