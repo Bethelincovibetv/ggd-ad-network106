@@ -99,6 +99,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('');
   const premium = usePremiumSettings();
   // Effective premium: master toggle off OR user has premium role OR admin
   const effectivePremium = !premium.enabled || isPremium || isAdmin;
