@@ -18,6 +18,7 @@ import {
   Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface SideNavMenuProps {
   activeTab: string;
@@ -32,6 +33,7 @@ interface SideNavMenuProps {
 const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium, onLogout }: SideNavMenuProps) => {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const { isEnabled } = useFeatureToggles();
 
   const main = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
@@ -54,10 +56,10 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const discover = [
-    { id: 'marketplace', icon: Store, label: 'Apps' },
-    { id: 'directory', icon: Building2, label: 'Directory' },
+    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
+    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
     { id: 'promo', icon: Share2, label: 'Promote & Earn' },
-    ...(isPremium || isAdmin ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
+    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
   const help = [
