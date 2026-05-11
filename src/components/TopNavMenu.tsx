@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Shield, CreditCard, Send, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Gift } from "lucide-react";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface TopNavMenuProps {
   activeTab: string;
@@ -13,13 +14,14 @@ interface TopNavMenuProps {
 }
 
 const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
+  const { isEnabled } = useFeatureToggles();
   const items = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
     { id: 'fund-credits', icon: CreditCard, label: 'Buy Credits' },
     { id: 'transfer', icon: Send, label: 'Transfer' },
     { id: 'premium', icon: Crown, label: 'Premium' },
-    { id: 'marketplace', icon: Store, label: 'Apps' },
-    { id: 'directory', icon: Building2, label: 'Directory' },
+    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
+    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
     { id: 'promo', icon: Share2, label: 'Promote' },
     { id: 'referrals', icon: Gift, label: 'Referrals' },
     ...(isBusiness ? [{ id: 'business-tasks', icon: Briefcase, label: 'Tasks' }, { id: 'my-business', icon: Store, label: 'My Biz' }] : []),
