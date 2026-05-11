@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image as ImageIcon,
-  User, MapPin, Calendar, Search, Archive, BarChart3, Trophy, Hourglass, Trash2, ChevronRight
+  User, MapPin, Calendar, Search, Archive, BarChart3, Trophy, Hourglass, Trash2, ChevronRight, Megaphone
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,8 @@ const BusinessTaskCreator = () => {
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [bannerCostPerDay, setBannerCostPerDay] = useState<number>(50);
+  const [converting, setConverting] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -50,6 +52,9 @@ const BusinessTaskCreator = () => {
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('syndicate_task_assignments').select('*'),
     ]);
+
+    const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
+    if (setting?.value) setBannerCostPerDay(parseInt(setting.value) || 50);
 
     const myTaskIds = new Set((tasksRes.data || []).map(t => t.id));
     const myAssignments = (assignmentsRes.data || []).filter(a => myTaskIds.has(a.task_id));
@@ -195,6 +200,41 @@ const BusinessTaskCreator = () => {
     await supabase.from('syndicate_tasks').update({ status: 'completed' }).eq('id', taskId);
     toast.success('Moved to Completed Campaigns');
     fetchData();
+  };
+
+  const convertToBannerAd = async (task: any) => {
+    const daysStr = prompt(`Convert "${task.title}" into a banner ad?\n\nCost: ${bannerCostPerDay} credits/day\n\nHow many days should the banner run?`, '7');
+    if (!daysStr) return;
+    const days = parseInt(daysStr);
+    if (!days || days < 1) { toast.error('Enter valid days'); return; }
+    const cost = days * bannerCostPerDay;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+    if (!profile || (profile.credits || 0) < cost) {
+      toast.error(`Need ${cost} credits, have ${profile?.credits || 0}`);
+      return;
+    }
+    if (!task.share_link) { toast.error('Campaign needs a share link to convert'); return; }
+
+    setConverting(true);
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const { error: adErr } = await supabase.from('ads').insert({
+      user_id: user.id,
+      title: task.title,
+      description: task.description,
+      image_url: task.flyer_url || null,
+      target_url: task.share_link,
+      is_active: true,
+      expires_at: expiresAt,
+    });
+    if (adErr) { toast.error('Failed to create banner ad'); setConverting(false); return; }
+
+    await supabase.from('profiles').update({ credits: (profile.credits || 0) - cost }).eq('user_id', user.id);
+    toast.success(`Banner ad live for ${days} days! ${cost} credits deducted.`);
+    setConverting(false);
   };
 
   // Per-task stats
@@ -495,6 +535,12 @@ const BusinessTaskCreator = () => {
                       <Archive className="h-3 w-3 mr-1" />Mark campaign as completed
                     </Button>
                   )}
+
+                  <Button size="sm" disabled={converting} className="w-full text-xs bg-gradient-to-r from-orange-500 to-red-600 text-white"
+                    onClick={() => convertToBannerAd(openTask)}>
+                    {converting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Megaphone className="h-3 w-3 mr-1" />}
+                    Convert to Banner Ad ({bannerCostPerDay} credits/day)
+                  </Button>
 
                   {filtered.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-6">No submissions to show</p>
