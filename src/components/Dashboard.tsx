@@ -750,13 +750,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   GGD Ad Network
                 </h1>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
                 {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
                 {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
                 {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
                 <NotificationBell />
-                <Button variant="outline" size="sm" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
+                <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
               </div>
             </div>
           </header>
