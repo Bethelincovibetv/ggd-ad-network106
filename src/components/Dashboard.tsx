@@ -598,7 +598,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'tasks':
-        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={setActiveTab} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
       case 'transfer':
@@ -760,7 +760,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-50 to-orange-50">
         <SideNavMenu
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           isBusiness={isBusiness}
           isSyndicate={isSyndicate}
           isAdmin={isAdmin}
@@ -793,7 +793,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             {renderContent()}
           </main>
 
-          <MobileFooterMenu activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
           <InstallPrompt />
         </div>
       </div>
