@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Activity, HeadphonesIcon, Shield, Users, Wallet, Sparkles } from "lucide-react";
+import { LayoutDashboard, Activity, Shield, Users, Wallet, Sparkles } from "lucide-react";
 
 interface MobileFooterMenuProps {
   activeTab: string;
@@ -19,7 +19,6 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isBusiness, isSyndi
     ...(isSyndicate
       ? [{ id: 'syndicate', icon: Users, label: 'Syndicate' }]
       : [{ id: 'syndicate-join', icon: Users, label: 'Join' }]),
-    { id: 'support', icon: HeadphonesIcon, label: 'Support' },
     ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin' }] : []),
   ];
 
