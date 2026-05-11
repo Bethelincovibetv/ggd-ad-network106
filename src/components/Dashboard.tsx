@@ -403,25 +403,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
             {/* WhatsApp support is now provided by the global FloatingWhatsApp button */}
 
-            {/* Join Syndicate CTA — earn money */}
-            {!isSyndicate && !isAdmin && (
-              <Card
-                className="border-0 cursor-pointer overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white shadow-lg shadow-purple-500/20"
-                onClick={() => setActiveTab('syndicate-join')}
-              >
-                <CardContent className="p-4 flex items-center gap-3 relative">
-                  <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-                  <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
-                    <Users className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1 min-w-0 relative">
-                    <p className="text-sm font-black">Join Syndicate — Earn Real ₦</p>
-                    <p className="text-[10px] opacity-90">Get verified to share campaigns and earn cash to your bank.</p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 relative" />
-                </CardContent>
-              </Card>
-            )}
+            {/* Promotional CTA removed for cleaner business UI */}
 
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
