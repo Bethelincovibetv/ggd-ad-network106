@@ -1064,6 +1064,68 @@ export type Database = {
           },
         ]
       }
+      task_share_clicks: {
+        Row: {
+          country: string | null
+          created_at: string
+          id: string
+          referrer: string | null
+          share_link_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          referrer?: string | null
+          share_link_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          referrer?: string | null
+          share_link_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_share_clicks_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "task_share_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_share_links: {
+        Row: {
+          clicks: number
+          created_at: string
+          id: string
+          sharer_user_id: string
+          slug: string
+          task_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          sharer_user_id: string
+          slug?: string
+          task_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          sharer_user_id?: string
+          slug?: string
+          task_id?: string
+        }
+        Relationships: []
+      }
       task_wallets: {
         Row: {
           balance: number | null

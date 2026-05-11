@@ -67,7 +67,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const help = [
     { id: 'guide', icon: BookOpen, label: 'Guide' },
     { id: 'about', icon: Info, label: 'About' },
-    { id: 'support', icon: Headphones, label: 'Support' },
   ];
 
   const renderItems = (items: { id: string; icon: any; label: string }[]) =>
