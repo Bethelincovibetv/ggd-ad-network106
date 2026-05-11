@@ -9,6 +9,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import BusinessAddons from "@/components/BusinessAddons";
 
+const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
+  <div className="space-y-1.5">
+    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</Label>
+    <Input type={type} value={value} onChange={e => onChange(e.target.value)}
+      className="h-10 rounded-xl bg-secondary/30 border-0 font-medium" placeholder={placeholder} inputMode={type === 'number' ? 'numeric' : undefined} />
+  </div>
+);
+
 const AdminSettings = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -81,13 +89,7 @@ const AdminSettings = () => {
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
-  const SettingField = ({ label, settingKey, type = 'text', placeholder = '' }: { label: string; settingKey: string; type?: string; placeholder?: string }) => (
-    <div className="space-y-1.5">
-      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</Label>
-      <Input type={type} value={settings[settingKey] || ''} onChange={e => setSettings(p => ({ ...p, [settingKey]: e.target.value }))}
-        className="h-10 rounded-xl bg-secondary/30 border-0 font-medium" placeholder={placeholder} />
-    </div>
-  );
+  const field = (key: string) => ({ value: settings[key] || '', onChange: (v: string) => setSettings(p => ({ ...p, [key]: v })) });
 
   return (
     <div className="space-y-5">
@@ -105,17 +107,17 @@ const AdminSettings = () => {
           <Sparkles className="h-4 w-4" /><h4 className="text-sm font-bold">Credits & Pricing</h4>
         </div>
         <CardContent className="p-4 grid grid-cols-2 gap-3">
-          <SettingField label="Credits/Login" settingKey="login_credits" type="number" />
-          <SettingField label="Credits/Ad" settingKey="ad_cost_credits" type="number" />
-          <SettingField label="₦ per Credit" settingKey="credit_exchange_rate" type="number" />
-          <SettingField label="Premium Cost" settingKey="premium_upgrade_credits" type="number" />
-          <SettingField label="Vendor Cost" settingKey="vendor_upgrade_credits" type="number" />
-          <SettingField label="Vendor Bonus ₦" settingKey="vendor_wallet_bonus" type="number" placeholder="0" />
+          <SettingField label="Credits/Login" {...field('login_credits')} type="number" />
+          <SettingField label="Credits/Ad" {...field('ad_cost_credits')} type="number" />
+          <SettingField label="₦ per Credit" {...field('credit_exchange_rate')} type="number" />
+          <SettingField label="Premium Cost" {...field('premium_upgrade_credits')} type="number" />
+          <SettingField label="Vendor Cost" {...field('vendor_upgrade_credits')} type="number" />
+          <SettingField label="Vendor Bonus ₦" {...field('vendor_wallet_bonus')} type="number" placeholder="0" />
           <div className="col-span-2">
-            <SettingField label="Directory Cost (Credits)" settingKey="directory_listing_cost" type="number" placeholder="0 = free" />
+            <SettingField label="Directory Cost (Credits)" {...field('directory_listing_cost')} type="number" placeholder="0 = free" />
           </div>
           <div className="col-span-2">
-            <SettingField label="Referral % (earned from referred user's credits)" settingKey="referral_percentage" type="number" placeholder="2" />
+            <SettingField label="Referral % (earned from referred user's credits)" {...field('referral_percentage')} type="number" placeholder="2" />
           </div>
         </CardContent>
       </Card>
@@ -126,8 +128,8 @@ const AdminSettings = () => {
           <MessageCircle className="h-4 w-4" /><h4 className="text-sm font-bold">Communication</h4>
         </div>
         <CardContent className="p-4 space-y-3">
-          <SettingField label="Admin WhatsApp" settingKey="admin_whatsapp" placeholder="+234..." />
-          <SettingField label="WhatsApp Group Link" settingKey="whatsapp_group_link" placeholder="https://chat.whatsapp.com/..." />
+          <SettingField label="Admin WhatsApp" {...field('admin_whatsapp')} placeholder="+234..." />
+          <SettingField label="WhatsApp Group Link" {...field('whatsapp_group_link')} placeholder="https://chat.whatsapp.com/..." />
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Admin Bio</Label>
             <Textarea value={settings.admin_bio || ''} onChange={e => setSettings(p => ({ ...p, admin_bio: e.target.value }))} rows={2} className="rounded-xl bg-secondary/30 border-0" />
@@ -165,7 +167,7 @@ const AdminSettings = () => {
           <CreditCard className="h-4 w-4" /><h4 className="text-sm font-bold">Payment Integration</h4>
         </div>
         <CardContent className="p-4 space-y-3">
-          <SettingField label="Paystack Public Key" settingKey="paystack_public_key" placeholder="pk_live_..." />
+          <SettingField label="Paystack Public Key" {...field('paystack_public_key')} placeholder="pk_live_..." />
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paystack Secret Key</Label>
             <Input type="password" value={settings.paystack_secret_key || ''} onChange={e => setSettings(p => ({ ...p, paystack_secret_key: e.target.value }))}
@@ -197,12 +199,12 @@ const AdminSettings = () => {
               onChange={e => setSettings(p => ({ ...p, auto_convert_ads_to_tasks: e.target.checked ? 'true' : 'false' }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <SettingField label="Tier 1 Price ₦" settingKey="premium_tier1_price" type="number" placeholder="1000" />
-            <SettingField label="Tier 1 Days" settingKey="premium_tier1_days" type="number" placeholder="3" />
-            <SettingField label="Tier 2 Price ₦" settingKey="premium_tier2_price" type="number" placeholder="3000" />
-            <SettingField label="Tier 2 Days" settingKey="premium_tier2_days" type="number" placeholder="15" />
-            <SettingField label="Tier 3 Price ₦" settingKey="premium_tier3_price" type="number" placeholder="5000" />
-            <SettingField label="Tier 3 Days" settingKey="premium_tier3_days" type="number" placeholder="30" />
+            <SettingField label="Tier 1 Price ₦" {...field('premium_tier1_price')} type="number" placeholder="1000" />
+            <SettingField label="Tier 1 Days" {...field('premium_tier1_days')} type="number" placeholder="3" />
+            <SettingField label="Tier 2 Price ₦" {...field('premium_tier2_price')} type="number" placeholder="3000" />
+            <SettingField label="Tier 2 Days" {...field('premium_tier2_days')} type="number" placeholder="15" />
+            <SettingField label="Tier 3 Price ₦" {...field('premium_tier3_price')} type="number" placeholder="5000" />
+            <SettingField label="Tier 3 Days" {...field('premium_tier3_days')} type="number" placeholder="30" />
           </div>
         </CardContent>
       </Card>
