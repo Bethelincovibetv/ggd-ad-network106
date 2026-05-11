@@ -149,14 +149,16 @@ const AdRotator = () => {
       '<div class="ggd-ad-body"><h3>' + ad.title + '</h3>' +
       '<p>' + (ad.description || '') + '</p>' +
       '<a class="ggd-cta" href="' + ad.target_url + '" target="_blank" rel="noopener">Learn More →</a></div>' +
-      '<div class="ggd-foot">Powered by GGD Ad Network</div></div>';
+      '<div class="ggd-foot">Powered by GGD AD NETWORK</div></div>';
     track(ad.id, "impression");
   }
 
+  function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
   function rotate() {
     if (!ads.length) { container.innerHTML = ""; return; }
-    render(ads[idx]);
-    idx = (idx + 1) % ads.length;
+    var pool = shuffle(ads.slice());
+    render(pool[idx % pool.length]);
+    idx = (idx + 1) % pool.length;
   }
 
   fetch(API)
