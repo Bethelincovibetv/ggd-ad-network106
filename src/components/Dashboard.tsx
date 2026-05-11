@@ -121,7 +121,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
-    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, full_name').eq('user_id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name').eq('user_id', user.id).single();
     const { data: settings } = await supabase.from('app_settings').select('*');
     
     const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
