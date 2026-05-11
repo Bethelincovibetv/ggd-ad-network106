@@ -350,7 +350,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       if (ad.description) html += '<p style="margin:4px 0 0;font-size:12px;color:#666">'+ad.description+'</p>';
       html += '</div>';
     }
-    html += '<div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD Network</div></div>';
+    html += '<div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD AD NETWORK</div></div>';
     container.innerHTML = html;
     currentIndex = (currentIndex + 1) % ads.length;
   }
