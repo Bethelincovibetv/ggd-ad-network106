@@ -50,6 +50,7 @@ import ReferralsPage from "@/components/ReferralsPage";
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
 import GlobalSearchBar from "@/components/GlobalSearchBar";
+import HomeDashboard from "@/components/HomeDashboard";
 
 interface Ad {
   id: string;
@@ -406,6 +407,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'ads':
         return (
           <div className="space-y-4">
+            <HomeDashboard credits={credits} isAdmin={isAdmin} onNavigate={handleTabChange} />
             {isEnabled('slides') && <SlideCarousel />}
             
             {/* Ad Display Preview */}
