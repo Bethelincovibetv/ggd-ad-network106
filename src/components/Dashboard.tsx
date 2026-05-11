@@ -135,6 +135,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     if (!wizardSeen) setShowWizard(true);
 
     if (profile) {
+      setAvatarUrl(profile.avatar_url || null);
+      setDisplayName(profile.display_name || profile.business_name || user.email || '');
       if (!profile.referral_code) {
         const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
         await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
