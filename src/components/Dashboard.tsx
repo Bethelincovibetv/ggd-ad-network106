@@ -115,6 +115,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [activeTab, setActiveTab] = useState('ads');
+  const handleTabChange = (tab: string) => {
+    if (tab === 'ads-create') {
+      setActiveTab('ads');
+      setIsCreating(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
