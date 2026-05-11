@@ -99,7 +99,10 @@ const NotificationBell = () => {
       </Button>
       
       {open && (
-        <div className="absolute right-0 top-10 w-80 z-50 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
+        <>
+          {/* Mobile backdrop */}
+          <div className="fixed inset-0 bg-black/30 z-40 sm:hidden" onClick={() => setOpen(false)} />
+          <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-10 w-auto sm:w-80 max-w-[calc(100vw-1rem)] z-50 max-h-[70vh] sm:max-h-96 overflow-y-auto rounded-xl border bg-card shadow-2xl">
           <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-card z-10">
             <span className="font-semibold text-sm text-foreground">Notifications</span>
             {unreadCount > 0 && <button onClick={markAllRead} className="text-[10px] text-orange-600 font-medium">Mark all read</button>}
@@ -125,7 +128,8 @@ const NotificationBell = () => {
               );
             })
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
