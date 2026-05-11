@@ -19,7 +19,8 @@ import TaskList from "@/components/TaskList";
 import SupportPage from "@/components/SupportPage";
 import InstallPrompt from "@/components/InstallPrompt";
 import SideNavMenu from "@/components/SideNavMenu";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BusinessTaskCreator from "@/components/BusinessTaskCreator";
 import SyndicateDashboard from "@/components/SyndicateDashboard";
 import SyndicateWallet from "@/components/SyndicateWallet";
@@ -77,6 +78,25 @@ interface DashboardProps {
   userEmail: string;
 }
 
+const AvatarMenuButton = ({ avatarUrl, displayName, email }: { avatarUrl: string | null; displayName: string; email: string }) => {
+  const { toggleSidebar } = useSidebar();
+  const initial = (displayName || email || 'U').trim().charAt(0).toUpperCase();
+  return (
+    <button
+      onClick={toggleSidebar}
+      aria-label="Open menu"
+      className="rounded-full ring-2 ring-orange-500/30 hover:ring-orange-500 transition-all"
+    >
+      <Avatar className="h-8 w-8">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName || 'User'} /> : null}
+        <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
+          {initial}
+        </AvatarFallback>
+      </Avatar>
+    </button>
+  );
+};
+
 const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const navigate = useNavigate();
   const [ads, setAds] = useState<Ad[]>([]);
@@ -98,6 +118,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('');
   const premium = usePremiumSettings();
   // Effective premium: master toggle off OR user has premium role OR admin
   const effectivePremium = !premium.enabled || isPremium || isAdmin;
@@ -118,7 +140,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
-    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code').eq('user_id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name').eq('user_id', user.id).single();
     const { data: settings } = await supabase.from('app_settings').select('*');
     
     const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
@@ -132,6 +154,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     if (!wizardSeen) setShowWizard(true);
 
     if (profile) {
+      setAvatarUrl(profile.avatar_url || null);
+      setDisplayName(profile.display_name || profile.business_name || user.email || '');
       if (!profile.referral_code) {
         const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
         await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
@@ -398,25 +422,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
             {/* WhatsApp support is now provided by the global FloatingWhatsApp button */}
 
-            {/* Join Syndicate CTA — earn money */}
-            {!isSyndicate && !isAdmin && (
-              <Card
-                className="border-0 cursor-pointer overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white shadow-lg shadow-purple-500/20"
-                onClick={() => setActiveTab('syndicate-join')}
-              >
-                <CardContent className="p-4 flex items-center gap-3 relative">
-                  <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-                  <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
-                    <Users className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1 min-w-0 relative">
-                    <p className="text-sm font-black">Join Syndicate — Earn Real ₦</p>
-                    <p className="text-[10px] opacity-90">Get verified to share campaigns and earn cash to your bank.</p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 relative" />
-                </CardContent>
-              </Card>
-            )}
+            {/* Promotional CTA removed for cleaner business UI */}
 
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
@@ -751,6 +757,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           isSyndicate={isSyndicate}
           isAdmin={isAdmin}
           isPremium={isPremium}
+          onLogout={handleLogout}
         />
 
         <div className="flex-1 flex flex-col min-w-0">
@@ -763,13 +770,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   GGD Ad Network
                 </h1>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
                 {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
                 {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
                 {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
                 <NotificationBell />
-                <Button variant="outline" size="sm" onClick={handleLogout}><LogOut className="h-4 w-4" /></Button>
+                <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
               </div>
             </div>
           </header>
