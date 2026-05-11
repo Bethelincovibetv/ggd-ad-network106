@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Gift, HeadphonesIcon, Shield, Users, Wallet } from "lucide-react";
+import { LayoutDashboard, Activity, HeadphonesIcon, Shield, Users, Wallet, Sparkles } from "lucide-react";
 
 interface MobileFooterMenuProps {
   activeTab: string;
@@ -14,9 +14,11 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isBusiness, isSyndi
   const navigate = useNavigate();
   const items = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
-    { id: 'tasks', icon: Gift, label: 'Earn' },
+    { id: 'tasks', icon: Activity, label: 'Activity' },
     { id: 'wallet', icon: Wallet, label: 'Wallet' },
-    ...(isSyndicate ? [{ id: 'syndicate', icon: Users, label: 'Jobs' }] : [{ id: 'syndicate-join', icon: Users, label: 'Join' }]),
+    ...(isSyndicate
+      ? [{ id: 'syndicate', icon: Users, label: 'Syndicate' }]
+      : [{ id: 'syndicate-join', icon: Users, label: 'Join' }]),
     { id: 'support', icon: HeadphonesIcon, label: 'Support' },
     ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin' }] : []),
   ];
@@ -34,6 +36,18 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isBusiness, isSyndi
       <div className="flex items-center justify-around px-1 py-1">
         {items.map(item => {
           const active = activeTab === item.id;
+          if (item.id === 'admin') {
+            return (
+              <button key={item.id} onClick={() => handleClick(item.id)}
+                className="relative flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-lg overflow-hidden text-white shadow-md min-w-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500" />
+                <Shield className="h-5 w-5 relative drop-shadow" />
+                <span className="text-[10px] font-bold leading-none relative flex items-center gap-0.5">
+                  Admin <Sparkles className="h-2.5 w-2.5 text-yellow-200" />
+                </span>
+              </button>
+            );
+          }
           return (
             <button key={item.id} onClick={() => handleClick(item.id)}
               className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-lg transition-colors min-w-0
