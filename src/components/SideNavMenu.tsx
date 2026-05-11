@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useNavigate } from 'react-router-dom';
 
 interface SideNavMenuProps {
   activeTab: string;
@@ -34,31 +35,32 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { isEnabled } = useFeatureToggles();
+  const navigate = useNavigate();
 
   const main = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
-    { id: 'tasks', icon: ClipboardList, label: 'Tasks' },
+    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
     { id: 'profile', icon: User, label: 'My Profile' },
     { id: 'smart-links', icon: Link2, label: 'Smart Links' },
     { id: 'wallet', icon: Wallet, label: 'Wallet' },
-    { id: 'premium', icon: Crown, label: 'Premium' },
+    ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'Premium' }] : []),
   ];
 
   const work = [
-    { id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' },
+    ...(isEnabled('business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
     { id: 'my-business', icon: Store, label: 'My Business' },
     { id: 'upgrade', icon: Edit3, label: 'Business Details' },
-    ...(isSyndicate ? [
-      { id: 'syndicate', icon: Users, label: 'Available Jobs' },
+    ...(isEnabled('syndicate') ? (isSyndicate ? [
+      { id: 'syndicate', icon: Users, label: 'Open Syndicate' },
     ] : [
       { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
-    ]),
+    ]) : []),
   ];
 
   const discover = [
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
-    { id: 'promo', icon: Share2, label: 'Promote & Earn' },
+    ...(isEnabled('promotional_content') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
@@ -134,6 +136,33 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             <SidebarMenu>{renderItems(help)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Admin</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip="Admin Portal"
+                    onClick={() => navigate('/admin')}
+                    className="relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 opacity-90" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.25),_transparent_60%)]" />
+                    <Shield className="h-4 w-4 flex-shrink-0 relative text-white drop-shadow" />
+                    {!collapsed && (
+                      <span className="text-sm font-bold relative text-white drop-shadow flex items-center gap-1">
+                        Admin Portal
+                        <Sparkles className="h-3 w-3 text-yellow-200 animate-pulse" />
+                      </span>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {onLogout && (

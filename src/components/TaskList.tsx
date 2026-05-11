@@ -222,7 +222,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-          <Gift className="h-5 w-5 text-orange-500" />Earn Credits
+          <Gift className="h-5 w-5 text-orange-500" />Activity Feed
         </h2>
       </div>
 
@@ -230,8 +230,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       {showCreate && !selectedTaskType && (
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="text-center mb-1">
-            <h3 className="text-sm font-bold text-foreground">Choose Task Type</h3>
-            <p className="text-[10px] text-muted-foreground">Select how you want to promote</p>
+            <h3 className="text-sm font-bold text-foreground">Create New</h3>
+            <p className="text-[10px] text-muted-foreground">Pick a campaign type to launch</p>
           </div>
 
           {/* Normal Share Task */}
@@ -245,10 +245,10 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-foreground">Share Task</h4>
+                  <h4 className="text-sm font-bold text-foreground">📢 Normal Task</h4>
                   <span className="text-[9px] font-bold bg-green-500/15 text-green-600 px-2 py-0.5 rounded-full">FREE</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Basic sharing task — anyone can create. Share links on WhatsApp, Telegram & more.</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Credit ads — basic sharing task. Promote on WhatsApp, Telegram & more.</p>
                 <div className="flex items-center gap-3 mt-1.5">
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> All users</span>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
@@ -279,11 +279,11 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-foreground">Premium Social Task</h4>
+                    <h4 className="text-sm font-bold text-foreground">💰 Advanced Task</h4>
                     <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">PRO</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Syndicate campaign — verified social promoters share your ad across Facebook, Instagram, TikTok & more for massive reach.
+                    Paid Syndicate ads — verified promoters share your ad across Facebook, Instagram, TikTok & more for massive reach.
                   </p>
                   <div className="flex items-center gap-3 mt-1.5">
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Business only</span>
@@ -305,6 +305,35 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   <CheckCircle className="h-3 w-3" /> Tap to launch your campaign
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Banner Advert */}
+          <Card
+            className="border border-blue-500/30 hover:border-blue-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 overflow-hidden group"
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('ads-create');
+                setShowCreate(false);
+                setSelectedTaskType(null);
+              }
+            }}
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Megaphone className="h-6 w-6 text-blue-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">🖼️ Banner Advert</h4>
+                  <span className="text-[9px] font-bold bg-blue-500/15 text-blue-500 px-2 py-0.5 rounded-full">CROSS-PLATFORM</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Display banner ads across the GGD network and partner sites for guaranteed views.</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> Pay per duration</span>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-500 transition-colors shrink-0" />
             </CardContent>
           </Card>
 
