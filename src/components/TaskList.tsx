@@ -11,6 +11,7 @@ import SlideCarousel from "@/components/SlideCarousel";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -138,16 +139,18 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     { key: 'instagram', label: 'Instagram (copy)', icon: Instagram, color: 'bg-pink-600', build: () => '' /* IG has no web share — copy + open */ },
   ];
 
-  const openShare = (task: any, platformKey: string) => {
+  const openShare = async (task: any, platformKey: string) => {
     const platform = SHARE_PLATFORMS.find(p => p.key === platformKey);
     if (!platform || !task.share_url) return;
+    // Generate (or reuse) a tracked smart share URL that shows the banner before redirect
+    const smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url;
     const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
     if (platformKey === 'instagram') {
-      navigator.clipboard.writeText(`${text}\n${task.share_url}`);
+      navigator.clipboard.writeText(`${text}\n${smartUrl}`);
       toast.success('Caption copied! Open Instagram to paste.');
       window.open('https://www.instagram.com/', '_blank');
     } else {
-      window.open(platform.build(text, task.share_url, task.flyer_url), '_blank', 'noopener,noreferrer');
+      window.open(platform.build(text, smartUrl, task.flyer_url), '_blank', 'noopener,noreferrer');
     }
   };
 
