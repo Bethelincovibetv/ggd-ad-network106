@@ -93,7 +93,7 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick }) =
         
         <div className="bg-gray-50 px-4 py-2 text-center border-t">
           <p className="text-xs text-gray-500">
-            Powered by <span className="font-medium">GGD Ad Network</span>
+            Powered by <span className="font-medium">GGD AD NETWORK</span>
           </p>
         </div>
       </Card>
