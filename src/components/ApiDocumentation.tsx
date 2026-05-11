@@ -120,7 +120,7 @@ Body: { "ad_id": "uuid", "event_type": "impression" or "click" }
       + (ad.image_url ? '<img src="' + ad.image_url + '" style="width:100%;display:block">' : '')
       + '<div style="padding:10px 14px"><h3 style="margin:0;font-size:15px;font-weight:700">' + ad.title + '</h3>'
       + (ad.description ? '<p style="margin:4px 0 0;font-size:12px;color:#666">' + ad.description + '</p>' : '')
-      + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD Network</div></div>';
+      + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD AD NETWORK</div></div>';
     idx = (idx + 1) % ads.length;
   }
   load();
@@ -346,7 +346,7 @@ Body: { "ad_id": "uuid", "event_type": "impression" or "click" }
       + (ad.image_url ? '<img src="' + ad.image_url + '" style="width:100%;display:block">' : '')
       + '<div style="padding:10px 14px"><h3 style="margin:0;font-size:15px;font-weight:700">' + ad.title + '</h3>'
       + (ad.description ? '<p style="margin:4px 0 0;font-size:12px;color:#666">' + ad.description + '</p>' : '')
-      + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD Network</div></div>';
+      + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD AD NETWORK</div></div>';
     idx = (idx + 1) % ads.length;
   }
   load();
