@@ -244,11 +244,13 @@ const AdminPage = () => {
       {/* Main Content */}
       <main className="flex-1 min-h-screen">
         <div className="mx-auto max-w-5xl p-4 pb-24 md:p-6 md:pb-6">
-          {/* Section Header (desktop) */}
-          <div className="mb-6 hidden items-center gap-3 border-b border-border pb-4 md:flex">
-            {activeItem && <activeItem.icon className={`h-6 w-6 ${activeItem.color}`} />}
-            <h1 className="text-2xl font-bold text-foreground">{activeItem?.label}</h1>
-          </div>
+          {/* Colorful section header */}
+          {activeItem && (
+            <div className={`mb-6 rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-xl flex items-center gap-3`}>
+              <activeItem.icon className="h-6 w-6 md:h-7 md:w-7 text-white drop-shadow" />
+              <h1 className="text-lg md:text-2xl font-black drop-shadow">{activeItem.label}</h1>
+            </div>
+          )}
 
           {/* Content Card */}
           <div className="min-h-[60vh] rounded-2xl border border-border bg-card/95 p-4 shadow-xl md:p-6">
