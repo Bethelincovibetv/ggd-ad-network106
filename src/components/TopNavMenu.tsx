@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Shield, CreditCard, Send, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Gift } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
