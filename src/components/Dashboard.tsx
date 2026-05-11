@@ -78,6 +78,25 @@ interface DashboardProps {
   userEmail: string;
 }
 
+const AvatarMenuButton = ({ avatarUrl, displayName, email }: { avatarUrl: string | null; displayName: string; email: string }) => {
+  const { toggleSidebar } = useSidebar();
+  const initial = (displayName || email || 'U').trim().charAt(0).toUpperCase();
+  return (
+    <button
+      onClick={toggleSidebar}
+      aria-label="Open menu"
+      className="rounded-full ring-2 ring-orange-500/30 hover:ring-orange-500 transition-all"
+    >
+      <Avatar className="h-8 w-8">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName || 'User'} /> : null}
+        <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
+          {initial}
+        </AvatarFallback>
+      </Avatar>
+    </button>
+  );
+};
+
 const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const navigate = useNavigate();
   const [ads, setAds] = useState<Ad[]>([]);
