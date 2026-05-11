@@ -49,6 +49,7 @@ import ReferralsPage from "@/components/ReferralsPage";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
+import GlobalSearchBar from "@/components/GlobalSearchBar";
 
 interface Ad {
   id: string;
@@ -135,6 +136,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   useEffect(() => { initDashboard(); }, []);
+
+  useEffect(() => {
+    const handler = (e: any) => { if (e?.detail) handleTabChange(e.detail); };
+    window.addEventListener('ggd-nav', handler);
+    return () => window.removeEventListener('ggd-nav', handler);
+  }, []);
 
   const initDashboard = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -770,22 +777,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
         <div className="flex-1 flex flex-col min-w-0">
           <header className="bg-white border-b border-border sticky top-0 z-40">
-            <div className="px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <SidebarTrigger className="flex-shrink-0" />
-                <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
-                <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
-                  GGD Ad Network
-                </h1>
+            <div className="px-3 sm:px-4 py-2.5 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <SidebarTrigger className="flex-shrink-0" />
+                  <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
+                  <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
+                    GGD AD NETWORK
+                  </h1>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
+                  {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
+                  {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
+                  {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
+                  <NotificationBell />
+                  <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
-                {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
-                {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
-                {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
-                <NotificationBell />
-                <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
-              </div>
+              <GlobalSearchBar />
             </div>
           </header>
 
