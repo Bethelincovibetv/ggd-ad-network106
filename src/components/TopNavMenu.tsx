@@ -39,16 +39,22 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
   return (
     <div className="bg-card backdrop-blur border-b border-border">
       <ScrollArea className="w-full">
-        <div className="flex gap-1 px-4 py-2">
+        <div className="flex gap-2 px-3 py-3">
           {items.map(item => {
             const active = activeTab === item.id;
             return (
-              <Button key={item.id} variant={active ? "default" : "ghost"} size="sm"
-                className={`flex-shrink-0 text-xs gap-1.5 h-8 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white' : 'text-muted-foreground'}`}
-                onClick={() => onTabChange(item.id)}>
-                <item.icon className="h-3.5 w-3.5" />
-                {item.label}
-              </Button>
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1 min-w-[68px] h-16 rounded-2xl px-2 transition-all ${
+                  active
+                    ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg scale-105'
+                    : 'bg-secondary/40 text-muted-foreground hover:bg-secondary'
+                }`}
+              >
+                <item.icon className="h-6 w-6" strokeWidth={2.2} />
+                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+              </button>
             );
           })}
         </div>
