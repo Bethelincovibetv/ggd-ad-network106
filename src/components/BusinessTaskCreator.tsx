@@ -399,15 +399,20 @@ const BusinessTaskCreator = () => {
             <div>
               <Label className="text-xs font-medium mb-2 block">Target Placements *</Label>
               <div className="space-y-2">
-                {platformPricing.filter(p => p.is_active).map(p => (
-                  <div key={p.platform_key} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={form.placements.includes(p.platform_key)} onCheckedChange={() => togglePlacement(p.platform_key)} />
-                      <span className="text-xs">{p.platform_name}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] text-green-700 border-green-300">₦{p.price_per_task}</Badge>
-                  </div>
-                ))}
+                {platformPricing.filter(p => p.is_active).map(p => {
+                  const checked = form.placements.includes(p.platform_key);
+                  return (
+                    <button type="button" key={p.platform_key} onClick={() => togglePlacement(p.platform_key)}
+                      className={`w-full flex items-center justify-between gap-2 p-2 rounded-lg border transition ${checked ? 'border-orange-400 bg-orange-50' : 'border-border hover:bg-muted/40'}`}>
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={checked} className="pointer-events-none" />
+                        {p.icon_url && <img src={p.icon_url} alt={p.platform_name} className="h-5 w-5" />}
+                        <span className="text-xs font-medium">{p.platform_name}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] text-green-700 border-green-300">₦{p.price_per_task}</Badge>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

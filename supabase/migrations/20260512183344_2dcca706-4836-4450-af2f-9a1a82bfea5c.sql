@@ -1,0 +1,1 @@
+ALTER TABLE public.platform_pricing ADD COLUMN IF NOT EXISTS icon_url text;
