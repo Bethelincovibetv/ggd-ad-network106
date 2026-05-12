@@ -13,6 +13,7 @@ const ReferralsPage = () => {
   const [code, setCode] = useState('');
   const [percentage, setPercentage] = useState('2');
   const [members, setMembers] = useState<any[]>([]);
+  const [referrer, setReferrer] = useState<any | null>(null);
   const [totalEarned, setTotalEarned] = useState(0);
   const [chatPeer, setChatPeer] = useState<{ id: string; name: string } | null>(null);
 
@@ -24,15 +25,20 @@ const ReferralsPage = () => {
     if (!user) return setLoading(false);
 
     const [{ data: prof }, { data: setting }, { data: refs }, { data: earnings }] = await Promise.all([
-      supabase.from('profiles').select('referral_code').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('referral_code, referred_by_user_id').eq('user_id', user.id).maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'referral_percentage').maybeSingle(),
       supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('referred_by_user_id', user.id),
       supabase.from('referral_earnings' as any).select('credits_earned').eq('referrer_id', user.id),
     ]);
 
+    const { data: referrerProfile } = prof?.referred_by_user_id
+      ? await supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('user_id', prof.referred_by_user_id).maybeSingle()
+      : { data: null } as any;
+
     setCode(prof?.referral_code || '');
     setPercentage(setting?.value || '2');
     setMembers(refs || []);
+    setReferrer(referrerProfile || null);
     setTotalEarned((earnings || []).reduce((s: number, r: any) => s + (r.credits_earned || 0), 0));
     setLoading(false);
   };
@@ -89,7 +95,22 @@ const ReferralsPage = () => {
       <Card>
         <CardHeader><CardTitle className="text-lg">Your Community</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {members.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No referrals yet. Share your link!</p>}
+          {referrer && (
+            <div className="flex items-center gap-3 p-2 rounded-lg border border-orange-200 bg-orange-50/60">
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={referrer.avatar_url} />
+                <AvatarFallback>{(referrer.display_name || referrer.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{referrer.display_name || referrer.email}</div>
+                <div className="text-xs text-muted-foreground">Referred you</div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setChatPeer({ id: referrer.user_id, name: referrer.display_name || referrer.email })}>
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {members.length === 0 && !referrer && <p className="text-sm text-muted-foreground text-center py-6">No referrals yet. Share your link!</p>}
           {members.map((m) => (
             <div key={m.user_id} className="flex items-center gap-3 p-2 rounded-lg border">
               <Avatar className="h-9 w-9">
