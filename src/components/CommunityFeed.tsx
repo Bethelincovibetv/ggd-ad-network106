@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,21 +7,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
-  MessageCircle, ThumbsUp, X,
+  MessageCircle, ThumbsUp, X, Palette, Search, Heart,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
 
 type Reaction = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
-const REACTIONS: { key: Reaction; emoji: string; label: string; color: string }[] = [
-  { key: 'like', emoji: '👍', label: 'Like', color: 'text-blue-500' },
-  { key: 'love', emoji: '❤️', label: 'Love', color: 'text-red-500' },
-  { key: 'haha', emoji: '😂', label: 'Haha', color: 'text-yellow-500' },
-  { key: 'wow', emoji: '😮', label: 'Wow', color: 'text-yellow-500' },
-  { key: 'sad', emoji: '😢', label: 'Sad', color: 'text-yellow-500' },
-  { key: 'angry', emoji: '😡', label: 'Angry', color: 'text-orange-500' },
+const REACTIONS: { key: Reaction; emoji: string; label: string }[] = [
+  { key: 'like',  emoji: '👍', label: 'Like' },
+  { key: 'love',  emoji: '❤️', label: 'Love' },
+  { key: 'haha',  emoji: '😂', label: 'Haha' },
+  { key: 'wow',   emoji: '😮', label: 'Wow' },
+  { key: 'sad',   emoji: '😢', label: 'Sad' },
+  { key: 'angry', emoji: '😡', label: 'Angry' },
 ];
 
 const reactionEmoji = (r: Reaction | null) => REACTIONS.find(x => x.key === r)?.emoji || '👍';
@@ -41,6 +43,8 @@ interface Post {
   image_url: string | null;
   link_url: string | null;
   video_url: string | null;
+  background_template: string | null;
+  tags: string[] | null;
   created_at: string;
   author?: PostAuthor;
   reactions: Record<Reaction, number>;
@@ -70,6 +74,30 @@ const timeAgo = (iso: string) => {
   return new Date(iso).toLocaleDateString();
 };
 
+// Render content with hashtags as clickable chips.
+const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; className?: string }> = ({ text, onTagClick, className }) => {
+  const parts = text.split(/(#[\p{L}0-9_]{2,40})/gu);
+  return (
+    <span className={className}>
+      {parts.map((p, i) => {
+        if (p.startsWith('#')) {
+          const tag = p.slice(1);
+          return (
+            <button
+              key={i}
+              onClick={(e) => { e.stopPropagation(); onTagClick(tag.toLowerCase()); }}
+              className="text-orange-600 font-semibold hover:underline"
+            >
+              #{tag}
+            </button>
+          );
+        }
+        return <React.Fragment key={i}>{p}</React.Fragment>;
+      })}
+    </span>
+  );
+};
+
 const CommunityFeed = () => {
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -82,6 +110,12 @@ const CommunityFeed = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [activeTplCategory, setActiveTplCategory] = useState<string>(TEMPLATE_CATEGORIES[0]);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { init(); }, []);
@@ -151,6 +185,8 @@ const CommunityFeed = () => {
     if (f.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
     setImageFile(f);
     setImagePreview(URL.createObjectURL(f));
+    // Disable template when an image is attached — templates are for text posts.
+    setTemplateId(null);
   };
 
   const submitPost = async () => {
@@ -171,16 +207,20 @@ const CommunityFeed = () => {
         if (upErr) throw upErr;
         image_url = supabase.storage.from('community-posts').getPublicUrl(path).data.publicUrl;
       }
+      const tags = extractHashtags(text);
       const { error } = await supabase.from('community_posts').insert({
         user_id: me.id,
         content: text || null,
         image_url,
         link_url: linkUrl.trim() || null,
         video_url: videoUrl.trim() || null,
+        background_template: image_url ? null : templateId,
+        tags,
       });
       if (error) throw error;
       setContent(''); setLinkUrl(''); setVideoUrl('');
       setShowLink(false); setShowVideo(false);
+      setTemplateId(null);
       onPickImage(null);
       toast.success('Posted!');
       await loadFeed(me.id);
@@ -195,7 +235,6 @@ const CommunityFeed = () => {
     if (!me) { toast.error('Please sign in to react'); return; }
     const same = post.myReaction === reaction;
 
-    // optimistic
     setPosts(prev => prev.map(p => {
       if (p.id !== post.id) return p;
       const counts = { ...p.reactions };
@@ -222,35 +261,93 @@ const CommunityFeed = () => {
     toast.success('Post deleted');
   };
 
+  const visiblePosts = useMemo(() => {
+    let list = posts;
+    if (activeTag) list = list.filter(p => (p.tags || []).map(t => t.toLowerCase()).includes(activeTag));
+    const q = filterQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(p =>
+        (p.content || '').toLowerCase().includes(q) ||
+        (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
+        (p.author?.business_name || p.author?.display_name || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [posts, filterQuery, activeTag]);
+
   const myAvatar = me?.profile?.business_logo_url || me?.profile?.avatar_url;
   const myName = me?.profile?.business_name || me?.profile?.display_name || 'You';
+  const activeTpl = findTemplate(templateId);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={filterQuery}
+          onChange={e => setFilterQuery(e.target.value)}
+          placeholder="Search posts, #hashtags, businesses…"
+          className="pl-9 h-10 rounded-full bg-muted/40 border-0"
+        />
+        {activeTag && (
+          <button
+            onClick={() => setActiveTag(null)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-full"
+          >
+            #{activeTag} <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
       {/* Composer */}
       {me ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-3 sm:p-4 space-y-3">
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <CardContent className="p-3 space-y-3">
             <div className="flex gap-2 items-start">
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 flex-shrink-0">
                 {myAvatar && <AvatarImage src={myAvatar} alt={myName} />}
-                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-sm font-bold">
                   {myName[0]?.toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <Textarea
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder={`What's on your mind, ${myName.split(' ')[0]}?`}
-                rows={2}
-                className="flex-1 resize-none border-muted bg-muted/30"
-                maxLength={2000}
-              />
+              {activeTpl && !imagePreview ? (
+                <div
+                  className="flex-1 rounded-xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden"
+                  style={{ background: activeTpl.background }}
+                >
+                  <textarea
+                    value={content}
+                    onChange={e => setContent(e.target.value)}
+                    placeholder="Type something…"
+                    rows={3}
+                    maxLength={300}
+                    className={`w-full bg-transparent border-0 outline-none text-center font-bold text-lg sm:text-xl resize-none placeholder:opacity-70 ${activeTpl.textColor}`}
+                  />
+                  <button
+                    onClick={() => setTemplateId(null)}
+                    type="button"
+                    className="absolute top-1.5 right-1.5 bg-black/40 text-white rounded-full p-1"
+                    aria-label="Remove template"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Textarea
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  placeholder={`What's on your mind, ${myName.split(' ')[0]}? Use #hashtags to be discovered.`}
+                  rows={2}
+                  className="flex-1 resize-none border-muted bg-muted/30"
+                  maxLength={2000}
+                />
+              )}
             </div>
 
             {imagePreview && (
               <div className="relative">
-                <img src={imagePreview} alt="" className="w-full max-h-80 object-cover rounded-lg" />
+                <img src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
                 <button
                   onClick={() => onPickImage(null)}
                   className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
@@ -262,37 +359,79 @@ const CommunityFeed = () => {
             )}
 
             {showLink && (
-              <Input
-                placeholder="https://your-link.com"
-                value={linkUrl}
-                onChange={e => setLinkUrl(e.target.value)}
-              />
+              <Input placeholder="https://your-link.com" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} />
             )}
             {showVideo && (
-              <Input
-                placeholder="YouTube / Vimeo URL"
-                value={videoUrl}
-                onChange={e => setVideoUrl(e.target.value)}
-              />
+              <Input placeholder="YouTube / Vimeo URL" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
             )}
 
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex gap-1">
+            {/* Template picker */}
+            {showTemplatePicker && !imagePreview && (
+              <div className="border rounded-xl p-2 bg-muted/30">
+                <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+                  {TEMPLATE_CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveTplCategory(cat)}
+                      className={`flex-shrink-0 text-[11px] font-bold px-3 py-1 rounded-full ${
+                        activeTplCategory === cat
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-background text-muted-foreground'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-1">
+                  <button
+                    onClick={() => setTemplateId(null)}
+                    className={`aspect-square rounded-lg border-2 flex items-center justify-center text-[10px] font-bold ${
+                      !templateId ? 'border-orange-500 text-orange-500' : 'border-border text-muted-foreground'
+                    }`}
+                  >
+                    None
+                  </button>
+                  {POST_TEMPLATES.filter(t => t.category === activeTplCategory).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTemplateId(t.id)}
+                      className={`aspect-square rounded-lg border-2 overflow-hidden relative ${
+                        templateId === t.id ? 'border-orange-500 ring-2 ring-orange-300' : 'border-transparent'
+                      }`}
+                      style={{ background: t.background }}
+                      title={t.name}
+                    >
+                      <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 bg-black/30 ${t.textColor}`}>
+                        {t.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-1 flex-wrap">
+              <div className="flex gap-0.5 flex-wrap">
                 <input
                   type="file" ref={fileRef} accept="image/*" className="hidden"
                   onChange={e => onPickImage(e.target.files?.[0] || null)}
                 />
-                <Button type="button" variant="ghost" size="sm" onClick={() => fileRef.current?.click()}>
-                  <ImageIcon className="h-4 w-4 mr-1 text-green-600" /> Photo
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => fileRef.current?.click()}>
+                  <ImageIcon className="h-4 w-4 mr-1 text-green-600" /> <span className="text-xs">Photo</span>
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowLink(s => !s)}>
-                  <Link2 className="h-4 w-4 mr-1 text-blue-600" /> Link
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2"
+                        onClick={() => setShowTemplatePicker(s => !s)}>
+                  <Palette className="h-4 w-4 mr-1 text-fuchsia-500" /> <span className="text-xs">Theme</span>
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowVideo(s => !s)}>
-                  <Video className="h-4 w-4 mr-1 text-red-600" /> Video
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowLink(s => !s)}>
+                  <Link2 className="h-4 w-4 mr-1 text-blue-600" /> <span className="text-xs">Link</span>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowVideo(s => !s)}>
+                  <Video className="h-4 w-4 mr-1 text-red-600" /> <span className="text-xs">Video</span>
                 </Button>
               </div>
-              <Button onClick={submitPost} disabled={posting} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600">
+              <Button onClick={submitPost} disabled={posting} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full px-4">
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
               </Button>
             </div>
@@ -309,23 +448,34 @@ const CommunityFeed = () => {
       {/* Feed */}
       {loading ? (
         <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-orange-500" /></div>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <Card className="border-0 shadow-sm">
-          <CardContent className="p-8 text-center text-muted-foreground">
-            No posts yet. Be the first to share!
+          <CardContent className="p-8 text-center text-muted-foreground text-sm">
+            {filterQuery || activeTag ? 'No posts match your search.' : 'No posts yet. Be the first to share!'}
           </CardContent>
         </Card>
       ) : (
-        posts.map(p => (
+        visiblePosts.map(p => (
           <PostCard
             key={p.id}
             post={p}
             currentUserId={me?.id || null}
             onReact={react}
             onDelete={deletePost}
+            onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onImageOpen={(url) => setLightboxUrl(url)}
           />
         ))
       )}
+
+      {/* Image lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
+        <DialogContent className="max-w-5xl p-0 bg-black border-0">
+          {lightboxUrl && (
+            <img src={lightboxUrl} alt="" className="w-full h-auto max-h-[90vh] object-contain" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -335,14 +485,19 @@ interface PostCardProps {
   currentUserId: string | null;
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
+  onTagClick: (tag: string) => void;
+  onImageOpen: (url: string) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen }) => {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount);
+  const [heartBurst, setHeartBurst] = useState(false);
+  const lastTapRef = useRef<number>(0);
+
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD User';
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
@@ -351,6 +506,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const topReactions = (Object.entries(post.reactions) as [Reaction, number][])
     .filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
   const embed = post.video_url ? ytEmbed(post.video_url) : null;
+  const template = findTemplate(post.background_template);
 
   const loadComments = async () => {
     setLoadingComments(true);
@@ -391,37 +547,80 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     setCommentCount(c => Math.max(0, c - 1));
   };
 
+  const handleImageTap = (url: string) => {
+    const now = Date.now();
+    const since = now - lastTapRef.current;
+    lastTapRef.current = now;
+    if (since < 300) {
+      // Double tap → like + heart burst
+      if (post.myReaction !== 'love') onReact(post, 'love');
+      setHeartBurst(true);
+      setTimeout(() => setHeartBurst(false), 700);
+    } else {
+      // Single tap with delay → open lightbox
+      setTimeout(() => {
+        if (Date.now() - lastTapRef.current >= 290) onImageOpen(url);
+      }, 300);
+    }
+  };
+
   return (
-    <Card className="border-0 shadow-sm overflow-hidden">
+    <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
       <CardContent className="p-0">
-        <div className="p-3 sm:p-4 flex items-start gap-3">
+        {/* Header */}
+        <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
           <Link to={authorHref}>
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-9 w-9">
               {authorAvatar && <AvatarImage src={authorAvatar} alt={authorName} />}
-              <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white">
+              <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
                 {authorName[0]?.toUpperCase()}
               </AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1 min-w-0">
-            <Link to={authorHref} className="font-semibold text-sm text-foreground hover:underline truncate block">
+            <Link to={authorHref} className="font-bold text-[13px] text-foreground hover:underline truncate block">
               {authorName}
             </Link>
-            <p className="text-xs text-muted-foreground">{timeAgo(post.created_at)}</p>
+            <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
           </div>
           {currentUserId === post.user_id && (
-            <button onClick={() => onDelete(post)} className="text-muted-foreground hover:text-destructive p-1">
+            <button onClick={() => onDelete(post)} className="text-muted-foreground hover:text-destructive p-1.5">
               <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {post.content && (
-          <p className="px-4 pb-3 text-sm whitespace-pre-wrap break-words">{post.content}</p>
+        {/* Templated text post */}
+        {template && !post.image_url ? (
+          <div
+            className="mx-3 mb-2 rounded-xl flex items-center justify-center min-h-[180px] p-5"
+            style={{ background: template.background }}
+          >
+            <p className={`text-center font-extrabold text-lg sm:text-xl leading-snug whitespace-pre-wrap break-words ${template.textColor}`}>
+              {post.content && <RichContent text={post.content} onTagClick={onTagClick} />}
+            </p>
+          </div>
+        ) : (
+          post.content && (
+            <p className="px-3 pb-2 text-[14px] whitespace-pre-wrap break-words leading-snug">
+              <RichContent text={post.content} onTagClick={onTagClick} />
+            </p>
+          )
         )}
 
+        {/* Image with double-tap-to-like */}
         {post.image_url && (
-          <img src={post.image_url} alt="" className="w-full max-h-[500px] object-cover" />
+          <div
+            className="relative cursor-pointer select-none bg-muted"
+            onClick={() => handleImageTap(post.image_url!)}
+          >
+            <img src={post.image_url} alt="" className="w-full max-h-[480px] object-cover" />
+            {heartBurst && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Heart className="h-24 w-24 text-white fill-red-500 drop-shadow-2xl animate-scale-in" />
+              </div>
+            )}
+          </div>
         )}
 
         {embed && (
@@ -432,36 +631,53 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
 
         {post.video_url && !embed && (
           <a href={post.video_url} target="_blank" rel="noopener noreferrer"
-             className="block px-4 py-3 text-sm text-blue-600 hover:underline truncate">
-            <Video className="h-4 w-4 inline mr-1" />{post.video_url}
+             className="block px-3 py-2 text-xs text-blue-600 hover:underline truncate">
+            <Video className="h-3.5 w-3.5 inline mr-1" />{post.video_url}
           </a>
         )}
 
         {post.link_url && (
           <a href={post.link_url} target="_blank" rel="noopener noreferrer"
-             className="block mx-4 mb-3 px-3 py-2 bg-muted rounded-lg text-xs text-blue-600 hover:underline truncate">
+             className="block mx-3 mb-2 px-3 py-2 bg-muted rounded-lg text-xs text-blue-600 hover:underline truncate">
             <Link2 className="h-3 w-3 inline mr-1" />{post.link_url}
           </a>
         )}
 
+        {/* Tag chips */}
+        {(post.tags && post.tags.length > 0) && (
+          <div className="px-3 pb-2 flex flex-wrap gap-1">
+            {post.tags.slice(0, 6).map(t => (
+              <button
+                key={t}
+                onClick={() => onTagClick(t.toLowerCase())}
+                className="text-[10px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/20 px-2 py-0.5 rounded-full hover:bg-orange-200"
+              >
+                #{t}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Reaction summary */}
         {(totalReactions > 0 || commentCount > 0) && (
-          <div className="px-4 py-2 flex items-center justify-between text-xs text-muted-foreground border-t border-b border-border/50">
+          <div className="px-3 py-1.5 flex items-center justify-between text-[11px] text-muted-foreground border-t border-b border-border/50">
             <div className="flex items-center gap-1">
               {topReactions.map(r => <span key={r}>{reactionEmoji(r)}</span>)}
-              {totalReactions > 0 && <span className="ml-1">{totalReactions}</span>}
+              {totalReactions > 0 && <span className="ml-1 font-semibold">{totalReactions}</span>}
             </div>
             {commentCount > 0 && <span>{commentCount} comment{commentCount === 1 ? '' : 's'}</span>}
           </div>
         )}
 
         {/* Action buttons */}
-        <div className="grid grid-cols-2 px-2 py-1">
+        <div className="grid grid-cols-2 px-1 py-0.5">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className={`gap-2 ${post.myReaction ? 'text-orange-600 font-semibold' : ''}`}>
+              <Button variant="ghost" size="sm" className={`gap-1.5 h-9 ${post.myReaction ? 'text-orange-600 font-bold' : ''}`}>
                 {post.myReaction ? <span className="text-base">{reactionEmoji(post.myReaction)}</span> : <ThumbsUp className="h-4 w-4" />}
-                {post.myReaction ? REACTIONS.find(r => r.key === post.myReaction)?.label : 'Like'}
+                <span className="text-[13px]">
+                  {post.myReaction ? REACTIONS.find(r => r.key === post.myReaction)?.label : 'Like'}
+                </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-1 flex gap-1" side="top">
@@ -477,14 +693,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
               ))}
             </PopoverContent>
           </Popover>
-          <Button variant="ghost" size="sm" className="gap-2" onClick={toggleComments}>
-            <MessageCircle className="h-4 w-4" /> Comment
+          <Button variant="ghost" size="sm" className="gap-1.5 h-9" onClick={toggleComments}>
+            <MessageCircle className="h-4 w-4" /> <span className="text-[13px]">Comment</span>
           </Button>
         </div>
 
         {/* Comments */}
         {showComments && (
-          <div className="px-4 py-3 border-t bg-muted/20 space-y-3">
+          <div className="px-3 py-3 border-t bg-muted/20 space-y-3">
             {loadingComments ? (
               <div className="text-center"><Loader2 className="h-4 w-4 animate-spin inline" /></div>
             ) : (
@@ -502,7 +718,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                     <div className="flex-1 min-w-0">
                       <div className="bg-background rounded-2xl px-3 py-1.5 inline-block max-w-full">
                         <p className="text-xs font-semibold">{cn}</p>
-                        <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                        <p className="text-[13px] whitespace-pre-wrap break-words">{c.content}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground px-2">
                         <span>{timeAgo(c.created_at)}</span>
@@ -522,9 +738,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
-                  className="rounded-full bg-background"
+                  className="rounded-full bg-background h-9"
                 />
-                <Button size="sm" onClick={submitComment} className="bg-gradient-to-r from-orange-500 to-red-600">
+                <Button size="sm" onClick={submitComment} className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
