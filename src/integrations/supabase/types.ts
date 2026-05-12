@@ -409,31 +409,37 @@ export type Database = {
       }
       community_posts: {
         Row: {
+          background_template: string | null
           content: string | null
           created_at: string
           id: string
           image_url: string | null
           link_url: string | null
+          tags: string[]
           updated_at: string
           user_id: string
           video_url: string | null
         }
         Insert: {
+          background_template?: string | null
           content?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
           link_url?: string | null
+          tags?: string[]
           updated_at?: string
           user_id: string
           video_url?: string | null
         }
         Update: {
+          background_template?: string | null
           content?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
           link_url?: string | null
+          tags?: string[]
           updated_at?: string
           user_id?: string
           video_url?: string | null
@@ -573,7 +579,9 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean | null
+          link_url: string | null
           message: string | null
+          nav_target: string | null
           title: string
           type: string | null
           user_id: string
@@ -582,7 +590,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean | null
+          link_url?: string | null
           message?: string | null
+          nav_target?: string | null
           title: string
           type?: string | null
           user_id: string
@@ -591,7 +601,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean | null
+          link_url?: string | null
           message?: string | null
+          nav_target?: string | null
           title?: string
           type?: string | null
           user_id?: string
