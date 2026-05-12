@@ -97,13 +97,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     if (!user) return;
 
     // Upload flyer if selected
-    const flyerUrl = await uploadFlyer();
+    const { url: flyerUrl, failed } = await uploadFlyer(user.id);
+    if (failed) return; // do not deduct credits if image upload failed
 
     const newCredits = credits - totalCost;
     const { error: creditError } = await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
     if (creditError) { toast.error("Failed to deduct credits"); return; }
 
-    const { error } = await supabase.from('tasks').insert({
+    const { error } = await supabase.from('tasks').insert([{
       title: newTask.title,
       description: newTask.description || null,
       reward_credits: rewardPerPerson,
@@ -113,7 +114,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       funded: true,
       max_completions: maxPeople,
       flyer_url: flyerUrl,
-    });
+    }]);
     if (error) {
       await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
       toast.error("Failed to create task");
