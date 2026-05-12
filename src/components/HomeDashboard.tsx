@@ -19,61 +19,71 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
   const [syndicateCampaigns, setSyndicateCampaigns] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
 
+  const load = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+
+    const [adsRes, tasksRes, syndRes, sharesRes, walletRes] = await Promise.all([
+      supabase.from('ads').select('id,title,impressions,clicks,is_active,created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('id,title,completions_count,max_completions,is_active,created_at,reward_credits').eq('creator_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('syndicate_tasks').select('id,title,status,max_syndicates,cost_per_syndicate,total_cost,created_at').eq('business_user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('task_share_links').select('id,clicks,task_id,created_at').eq('sharer_user_id', user.id),
+      supabase.from('task_wallets').select('total_spent,balance').eq('user_id', user.id).maybeSingle(),
+    ]);
+
+    const ads = adsRes.data || [];
+    const tasks = tasksRes.data || [];
+    const synd = syndRes.data || [];
+    const shares = sharesRes.data || [];
+
+    const impressions = ads.reduce((s, a) => s + (a.impressions || 0), 0);
+    const clicks = ads.reduce((s, a) => s + (a.clicks || 0), 0);
+    const shareClicks = shares.reduce((s, sh) => s + (sh.clicks || 0), 0);
+    const spent = Number(walletRes.data?.total_spent || 0);
+
+    setStats({ impressions, clicks, shareClicks, spent });
+
+    setBannerCampaigns(ads.map((a: any) => ({
+      id: a.id, title: a.title,
+      metric1: { label: 'Views', value: a.impressions || 0 },
+      metric2: { label: 'Clicks', value: a.clicks || 0 },
+      active: a.is_active,
+    })));
+    setTaskCampaigns(tasks.map((t: any) => ({
+      id: t.id, title: t.title,
+      metric1: { label: 'Done', value: `${t.completions_count || 0}/${t.max_completions || '∞'}` },
+      metric2: { label: 'Reward', value: `${t.reward_credits} cr` },
+      active: t.is_active,
+    })));
+    setSyndicateCampaigns(synd.map((s: any) => ({
+      id: s.id, title: s.title,
+      metric1: { label: 'Slots', value: s.max_syndicates || 0 },
+      metric2: { label: 'Cost', value: `₦${Number(s.total_cost || 0).toLocaleString()}` },
+      active: s.status === 'active',
+    })));
+
+    const act = [
+      ...shares.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `🔗 Generated share link · ${s.clicks || 0} clicks` })),
+      ...tasks.slice(0, 5).map((t: any) => ({ ts: t.created_at, text: `📢 Created task: ${t.title}` })),
+      ...ads.slice(0, 5).map((a: any) => ({ ts: a.created_at, text: `🖼️ Created ad: ${a.title}` })),
+      ...synd.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `👥 Syndicate campaign: ${s.title}` })),
+    ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()).slice(0, 8);
+    setActivity(act);
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-
-      const [adsRes, tasksRes, syndRes, sharesRes, walletRes] = await Promise.all([
-        supabase.from('ads').select('id,title,impressions,clicks,is_active,created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('tasks').select('id,title,completions_count,max_completions,is_active,created_at,reward_credits').eq('creator_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('syndicate_tasks').select('id,title,status,max_syndicates,cost_per_syndicate,total_cost,created_at').eq('business_user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('task_share_links').select('id,clicks,task_id,created_at').eq('sharer_user_id', user.id),
-        supabase.from('task_wallets').select('total_spent,balance').eq('user_id', user.id).maybeSingle(),
-      ]);
-
-      const ads = adsRes.data || [];
-      const tasks = tasksRes.data || [];
-      const synd = syndRes.data || [];
-      const shares = sharesRes.data || [];
-
-      const impressions = ads.reduce((s, a) => s + (a.impressions || 0), 0);
-      const clicks = ads.reduce((s, a) => s + (a.clicks || 0), 0);
-      const shareClicks = shares.reduce((s, sh) => s + (sh.clicks || 0), 0);
-      const spent = Number(walletRes.data?.total_spent || 0);
-
-      setStats({ impressions, clicks, shareClicks, spent });
-
-      setBannerCampaigns(ads.map((a: any) => ({
-        id: a.id, title: a.title,
-        metric1: { label: 'Views', value: a.impressions || 0 },
-        metric2: { label: 'Clicks', value: a.clicks || 0 },
-        active: a.is_active,
-      })));
-      setTaskCampaigns(tasks.map((t: any) => ({
-        id: t.id, title: t.title,
-        metric1: { label: 'Done', value: `${t.completions_count || 0}/${t.max_completions || '∞'}` },
-        metric2: { label: 'Reward', value: `${t.reward_credits} cr` },
-        active: t.is_active,
-      })));
-      setSyndicateCampaigns(synd.map((s: any) => ({
-        id: s.id, title: s.title,
-        metric1: { label: 'Slots', value: s.max_syndicates || 0 },
-        metric2: { label: 'Cost', value: `₦${Number(s.total_cost || 0).toLocaleString()}` },
-        active: s.status === 'active',
-      })));
-
-      const act = [
-        ...shares.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `🔗 Generated share link · ${s.clicks || 0} clicks` })),
-        ...tasks.slice(0, 5).map((t: any) => ({ ts: t.created_at, text: `📢 Created task: ${t.title}` })),
-        ...ads.slice(0, 5).map((a: any) => ({ ts: a.created_at, text: `🖼️ Created ad: ${a.title}` })),
-        ...synd.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `👥 Syndicate campaign: ${s.title}` })),
-      ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()).slice(0, 8);
-      setActivity(act);
-
-      setLoading(false);
-    };
     load();
+    // Live activity updates via realtime channels
+    const channel = supabase
+      .channel('home-live-activity')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ads' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'syndicate_tasks' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_share_links' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const renderList = (items: any[], emptyMsg: string, accentBg: string, accentText: string) => (
@@ -190,20 +200,24 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
         </CardContent>
       </Card>
 
-      {/* Recent activity */}
+      {/* Live activity feed */}
       <Card className="border-0 shadow-md">
         <CardContent className="p-4">
           <h2 className="text-sm font-black flex items-center gap-2 mb-3">
-            <Activity className="h-4 w-4 text-purple-500" />Recent Activity
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <Activity className="h-4 w-4 text-purple-500" />Live Activity
           </h2>
           {activity.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">No activity yet</p>
+            <p className="text-xs text-muted-foreground py-3 text-center">Waiting for live events…</p>
           ) : (
             <ul className="space-y-1.5">
               {activity.map((a, i) => (
-                <li key={i} className="flex items-start justify-between gap-2 text-xs">
+                <li key={i} className="flex items-start justify-between gap-2 text-xs animate-fade-in">
                   <span className="text-foreground">{a.text}</span>
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0">{new Date(a.ts).toLocaleDateString()}</span>
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0">{new Date(a.ts).toLocaleString()}</span>
                 </li>
               ))}
             </ul>

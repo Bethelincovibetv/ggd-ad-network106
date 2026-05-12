@@ -119,6 +119,7 @@ const AdminChatWidget = () => {
         </CardHeader>
         <CardContent className="p-3 space-y-2">
           <p className="text-xs text-muted-foreground text-center">{adminBio}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Quick messages</p>
           <div className="space-y-1.5">
             {quickMessages.map((msg, i) => (
               <button key={i} onClick={() => openChat(msg)}
@@ -127,9 +128,19 @@ const AdminChatWidget = () => {
               </button>
             ))}
           </div>
-          <Button onClick={() => openChat('Hello! I need assistance.')}
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold pt-1">Or type your own</p>
+          <textarea
+            id="custom-wa-msg"
+            placeholder="Type your message..."
+            rows={2}
+            className="w-full text-xs p-2 rounded-lg border border-green-200 bg-green-50/40"
+          />
+          <Button onClick={() => {
+              const v = (document.getElementById('custom-wa-msg') as HTMLTextAreaElement)?.value.trim();
+              openChat(v || 'Hello! I need assistance.');
+            }}
             className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-xs">
-            <ExternalLink className="h-3 w-3 mr-1" />Open WhatsApp Chat
+            <ExternalLink className="h-3 w-3 mr-1" />Send to WhatsApp
           </Button>
         </CardContent>
       </Card>
