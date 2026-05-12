@@ -90,24 +90,40 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
+    const businessName = form.business_name.trim();
+    const slugBase = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'business';
+    const slug = `${slugBase}-${user.id.slice(0, 6)}`;
     const payload = {
-      business_name: form.business_name.trim(),
+      business_name: businessName,
       industry: form.industry.trim(),
       business_category: form.business_category.trim(),
       business_phone: form.business_phone.trim(),
       business_description: form.business_description.trim(),
       business_logo_url: form.business_logo_url || null,
+      business_slug: slug,
       profile_setup_complete: true,
     };
     const { error } = await supabase.from('profiles').upsert({
       user_id: user.id,
       email: user.email || null,
-      display_name: form.business_name.trim() || user.email?.split('@')[0] || 'User',
+      display_name: businessName || user.email?.split('@')[0] || 'User',
       ...payload,
     } as any, { onConflict: 'user_id' });
+    if (error) { setSaving(false); toast.error('Could not save profile'); return; }
+
+    const { data: existingBp } = await supabase.from('business_profiles').select('id').eq('user_id', user.id).maybeSingle();
+    if (!existingBp) {
+      await supabase.from('business_profiles').insert({
+        user_id: user.id,
+        business_name: businessName,
+        description: form.business_description.trim() || null,
+        logo_url: form.business_logo_url || null,
+        phone_number: form.business_phone.trim() || null,
+        is_directory_listed: true,
+      } as any);
+    }
     setSaving(false);
-    if (error) { toast.error('Could not save profile'); return; }
-    toast.success('🎉 Business profile activated!');
+    toast.success('🎉 Business storefront created! Your public site is live.');
     onComplete();
   };
 
