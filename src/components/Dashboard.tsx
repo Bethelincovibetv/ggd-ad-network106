@@ -422,18 +422,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'ads':
         return (
           <div className="space-y-4">
-            <HomeDashboard credits={credits} isAdmin={isAdmin} onNavigate={handleTabChange} />
+            {/* Slider directly under the search bar */}
             {isEnabled('slides') && <SlideCarousel />}
-            
+
+            <HomeDashboard credits={credits} isAdmin={isAdmin} onNavigate={handleTabChange} />
+
             {/* Ad Display Preview */}
             {isEnabled('ads') && <AdDisplayPreview />}
 
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>
-              <Button onClick={startCreateAd} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
-                <Plus className="h-3 w-3 mr-1" />New Banner Ad — {isAdmin ? 'Free' : `${adCostCredits} credits/day`}
-              </Button>
             </div>
 
             {isCreating && (

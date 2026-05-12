@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Activity, Shield, Users, Wallet, Sparkles, Store } from "lucide-react";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface MobileFooterMenuProps {
   activeTab: string;
@@ -12,9 +13,10 @@ interface MobileFooterMenuProps {
 
 const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: MobileFooterMenuProps) => {
   const navigate = useNavigate();
+  const { isEnabled } = useFeatureToggles();
   const items = [
     { id: 'ads',      icon: LayoutDashboard, label: 'Home',    color: 'text-orange-500' },
-    { id: 'feed',     icon: Sparkles,        label: 'Feed',    color: 'text-pink-500' },
+    ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Feed', color: 'text-pink-500' }] : []),
     { id: 'tasks',    icon: Activity,        label: 'Tasks',   color: 'text-emerald-500' },
     { id: 'wallet',   icon: Wallet,          label: 'Wallet',  color: 'text-blue-500' },
     ...(isSyndicate

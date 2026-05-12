@@ -43,14 +43,14 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
             <div className="bg-white/15 backdrop-blur rounded-2xl p-3">
               <div className="flex items-center gap-1.5 opacity-80">
                 <Coins className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Credits</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">GGG Credits</span>
               </div>
               <p className="text-2xl font-black mt-1">{credits.toLocaleString()}</p>
             </div>
             <div className="bg-white/15 backdrop-blur rounded-2xl p-3">
               <div className="flex items-center gap-1.5 opacity-80">
                 <Banknote className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Naira</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Naira Wallet</span>
               </div>
               <p className="text-2xl font-black mt-1">₦{nairaBalance.toLocaleString()}</p>
             </div>
@@ -62,13 +62,13 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
       <Tabs defaultValue="buy" className="w-full">
         <TabsList className="w-full grid grid-cols-3 h-11 rounded-2xl bg-secondary/80 p-1">
           <TabsTrigger value="buy" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
-            <CreditCard className="h-3.5 w-3.5" />Buy
+            <CreditCard className="h-3.5 w-3.5" />GGG Credits
           </TabsTrigger>
-          <TabsTrigger value="transfer" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
+          <TabsTrigger value="transfer" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
             <Send className="h-3.5 w-3.5" />Transfer
           </TabsTrigger>
-          <TabsTrigger value="naira" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
-            <Banknote className="h-3.5 w-3.5" />Naira
+          <TabsTrigger value="naira" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
+            <Banknote className="h-3.5 w-3.5" />Naira Wallet
           </TabsTrigger>
         </TabsList>
         <TabsContent value="buy" className="mt-4">
