@@ -95,7 +95,22 @@ const ReferralsPage = () => {
       <Card>
         <CardHeader><CardTitle className="text-lg">Your Community</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {members.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No referrals yet. Share your link!</p>}
+          {referrer && (
+            <div className="flex items-center gap-3 p-2 rounded-lg border border-orange-200 bg-orange-50/60">
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={referrer.avatar_url} />
+                <AvatarFallback>{(referrer.display_name || referrer.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{referrer.display_name || referrer.email}</div>
+                <div className="text-xs text-muted-foreground">Referred you</div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setChatPeer({ id: referrer.user_id, name: referrer.display_name || referrer.email })}>
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {members.length === 0 && !referrer && <p className="text-sm text-muted-foreground text-center py-6">No referrals yet. Share your link!</p>}
           {members.map((m) => (
             <div key={m.user_id} className="flex items-center gap-3 p-2 rounded-lg border">
               <Avatar className="h-9 w-9">
