@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import ggdLogo from '@/assets/ggd-logo.png';
+import businessImg from '@/assets/landing-business.jpg';
+import syndicateImg from '@/assets/landing-syndicate.jpg';
 import { supabase } from "@/integrations/supabase/client";
 
 interface LandingPageProps {
@@ -192,11 +194,10 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       {/* Stats with animated counters */}
       <div className="border-y border-[#333] bg-[#111]">
         <div className="container mx-auto px-4 py-8" ref={impressions.ref}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-3 gap-6">
             {[
               { value: impressions.count, suffix: "+", label: "Impressions Served" },
               { value: campaigns.count, suffix: "+", label: "Active Campaigns" },
-              { value: sites.count, suffix: "+", label: "Connected Sites" },
               { value: null, display: "Free", label: "To Get Started" },
             ].map((s, i) => (
               <div key={i} className="text-center">
