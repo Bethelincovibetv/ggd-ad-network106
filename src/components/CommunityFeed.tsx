@@ -346,7 +346,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD User';
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
-  const authorHref = author?.business_slug ? `/business/${author.business_slug}` : `/user/${post.user_id}`;
+  const authorHref = `/user/${post.user_id}`;
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const topReactions = (Object.entries(post.reactions) as [Reaction, number][])
     .filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);

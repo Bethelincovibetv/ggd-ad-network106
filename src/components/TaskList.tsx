@@ -70,16 +70,16 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     setFlyerPreview(URL.createObjectURL(file));
   };
 
-  const uploadFlyer = async (): Promise<string | null> => {
-    if (!flyerFile) return null;
+  const uploadFlyer = async (userId: string): Promise<{ url: string | null; failed: boolean }> => {
+    if (!flyerFile) return { url: null, failed: false };
     setUploadingFlyer(true);
-    const ext = flyerFile.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from('task-flyers').upload(fileName, flyerFile);
+    const ext = (flyerFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('task-flyers').upload(fileName, flyerFile, { upsert: false, contentType: flyerFile.type });
     setUploadingFlyer(false);
-    if (error) { toast.error("Failed to upload image"); return null; }
+    if (error) { toast.error(`Failed to upload image: ${error.message}`); return { url: null, failed: true }; }
     const { data: urlData } = supabase.storage.from('task-flyers').getPublicUrl(fileName);
-    return urlData.publicUrl;
+    return { url: urlData.publicUrl, failed: false };
   };
 
   const createTask = async () => {
@@ -97,13 +97,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     if (!user) return;
 
     // Upload flyer if selected
-    const flyerUrl = await uploadFlyer();
+    const { url: flyerUrl, failed } = await uploadFlyer(user.id);
+    if (failed) return; // do not deduct credits if image upload failed
 
     const newCredits = credits - totalCost;
     const { error: creditError } = await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
     if (creditError) { toast.error("Failed to deduct credits"); return; }
 
-    const { error } = await supabase.from('tasks').insert({
+    const { error } = await supabase.from('tasks').insert([{
       title: newTask.title,
       description: newTask.description || null,
       reward_credits: rewardPerPerson,
@@ -113,7 +114,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       funded: true,
       max_completions: maxPeople,
       flyer_url: flyerUrl,
-    });
+    }]);
     if (error) {
       await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
       toast.error("Failed to create task");
