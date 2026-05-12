@@ -634,7 +634,6 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'guide':
-        if (isBusiness) return <BusinessGuide />;
         if (isSyndicate) return <SyndicateGuide />;
         return <UserGuide />;
 
