@@ -24,11 +24,22 @@ const SharePreviewPage = () => {
 
       const { data: t } = await supabase
         .from('tasks')
-        .select('id,title,description,share_url,flyer_url')
+        .select('id,title,description,share_url,flyer_url,creator_id')
         .eq('id', link.task_id)
         .maybeSingle();
       if (!t) { setError('Campaign no longer available'); return; }
-      setTask(t);
+
+      // Fetch creator/business attribution
+      let creator: any = null;
+      if (t.creator_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug')
+          .eq('user_id', t.creator_id)
+          .maybeSingle();
+        creator = profile;
+      }
+      setTask({ ...t, creator });
 
       // Update OG/SEO tags so socials show the banner
       document.title = `${t.title} | GGD AD NETWORK`;
