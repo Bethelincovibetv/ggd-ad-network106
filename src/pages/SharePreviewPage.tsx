@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, AlertTriangle } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const SharePreviewPage = () => {
@@ -76,7 +76,7 @@ const SharePreviewPage = () => {
   useEffect(() => {
     if (!task?.share_url) return;
     if (countdown <= 0) {
-      window.location.replace(task.share_url);
+      window.location.assign(task.share_url);
       return;
     }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
@@ -102,6 +102,9 @@ const SharePreviewPage = () => {
       </div>
     );
   }
+
+  const safeShareUrl = typeof task.share_url === 'string' ? task.share_url.trim() : '';
+  const canRedirect = /^https?:\/\//i.test(safeShareUrl);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black flex flex-col items-center justify-center p-4">
@@ -143,16 +146,19 @@ const SharePreviewPage = () => {
             <h1 className="text-xl font-black text-gray-900">{task.title}</h1>
             {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
 
-            <a
-              href={task.share_url}
+            {canRedirect ? <a
+              href={safeShareUrl}
               className="block w-full text-center bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold py-3 rounded-2xl shadow-lg active:scale-95 transition"
             >
               <ExternalLink className="h-4 w-4 inline mr-2" />Continue Now
-            </a>
+            </a> : <div className="rounded-2xl bg-orange-50 border border-orange-200 px-3 py-2 text-orange-700 text-xs flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>This campaign has no valid destination link yet.</span>
+            </div>}
 
-            <p className="text-xs text-center text-gray-500">
+            {canRedirect && <p className="text-xs text-center text-gray-500">
               Auto-redirecting in <span className="font-bold text-orange-600">{countdown}</span>s…
-            </p>
+            </p>}
           </div>
           <div className="bg-gray-50 px-4 py-2 text-center border-t">
             <p className="text-[10px] text-gray-500">
