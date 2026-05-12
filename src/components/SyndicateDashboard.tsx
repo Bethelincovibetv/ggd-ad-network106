@@ -148,10 +148,48 @@ const SyndicateDashboard = () => {
     const { error: uploadError } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { upsert: true });
     if (uploadError) { toast.error("Upload failed"); setUploading(null); return; }
     const { data: { publicUrl } } = supabase.storage.from('syndicate-proofs').getPublicUrl(fileName);
-    await supabase.from('syndicate_task_assignments').update({
-      proof_url: publicUrl, status: 'submitted', submitted_at: new Date().toISOString(),
-    }).eq('id', assignmentId);
-    toast.success("Proof submitted! Waiting for review.");
+
+    // Look up task to check approval mode
+    const assignment = myAssignments.find(a => a.id === assignmentId);
+    const task = assignment?.syndicate_tasks;
+    const autoApprove = (task as any)?.approval_mode === 'auto';
+
+    if (autoApprove) {
+      const payout = Number(task?.cost_per_syndicate || 50);
+      await supabase.from('syndicate_task_assignments').update({
+        proof_url: publicUrl, status: 'approved',
+        submitted_at: new Date().toISOString(), reviewed_at: new Date().toISOString(),
+      }).eq('id', assignmentId);
+
+      const { data: synWallet } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+      if (synWallet) {
+        await supabase.from('task_wallets').update({
+          balance: (synWallet.balance || 0) + payout,
+          total_earned: (synWallet.total_earned || 0) + payout,
+        }).eq('user_id', user.id);
+      } else {
+        await supabase.from('task_wallets').insert({ user_id: user.id, balance: payout, total_earned: payout });
+      }
+      const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (synProfile) {
+        await supabase.from('syndicate_profiles').update({
+          tasks_completed: (synProfile.tasks_completed || 0) + 1,
+          ranking_score: (synProfile.ranking_score || 0) + 10,
+        }).eq('user_id', user.id);
+      }
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        title: '⚡ Auto-Approved!',
+        message: `Your proof was instantly approved. ₦${payout} credited to your wallet.`,
+        type: 'credit',
+      });
+      toast.success(`Auto-approved! ₦${payout} credited instantly.`);
+    } else {
+      await supabase.from('syndicate_task_assignments').update({
+        proof_url: publicUrl, status: 'submitted', submitted_at: new Date().toISOString(),
+      }).eq('id', assignmentId);
+      toast.success("Proof submitted! Waiting for review.");
+    }
     setUploading(null);
     fetchData();
   };

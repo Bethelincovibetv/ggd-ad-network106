@@ -1101,6 +1101,7 @@ export type Database = {
       }
       syndicate_tasks: {
         Row: {
+          approval_mode: string
           business_user_id: string
           cost_per_syndicate: number | null
           created_at: string
@@ -1118,6 +1119,7 @@ export type Database = {
           total_cost: number | null
         }
         Insert: {
+          approval_mode?: string
           business_user_id: string
           cost_per_syndicate?: number | null
           created_at?: string
@@ -1135,6 +1137,7 @@ export type Database = {
           total_cost?: number | null
         }
         Update: {
+          approval_mode?: string
           business_user_id?: string
           cost_per_syndicate?: number | null
           created_at?: string

@@ -45,14 +45,14 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1 min-w-[68px] h-16 rounded-2xl px-2 transition-all ${
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[92px] h-20 rounded-2xl px-3 transition-all ${
                   active
                     ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg scale-105'
                     : 'bg-secondary/40 text-muted-foreground hover:bg-secondary'
                 }`}
               >
-                <item.icon className="h-6 w-6" strokeWidth={2.2} />
-                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+                <item.icon className="h-7 w-7" strokeWidth={2.4} />
+                <span className="text-xs font-bold leading-none">{item.label}</span>
               </button>
             );
           })}
