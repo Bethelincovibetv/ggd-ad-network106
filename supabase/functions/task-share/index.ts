@@ -70,11 +70,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    const origin = `${url.protocol}//${url.host}`.replace(
-      /https?:\/\/[a-z0-9-]+\.supabase\.co/i,
-      'https://ggdadnetwork.com',
-    );
-    const previewUrl = `https://ggdadnetwork.com/s/${slug}`;
+    const requestedApp = url.searchParams.get('app') || '';
+    const fallbackApp = 'https://id-preview--973bda7e-494b-477f-9b1f-42214e756f39.lovable.app';
+    const appOrigin = /^https?:\/\//i.test(requestedApp) ? requestedApp.replace(/\/$/, '') : fallbackApp;
+    const previewUrl = `${appOrigin}/s/${encodeURIComponent(slug)}`;
     const image = task.flyer_url || FALLBACK_IMG;
     const title = `${task.title} — by ${creatorName}`;
     const description =
