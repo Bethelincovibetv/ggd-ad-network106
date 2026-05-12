@@ -388,6 +388,11 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>;
 
+  // MANDATORY: business profile setup must be completed before any other UI is shown.
+  if (profileSetupComplete === false) {
+    return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); initDashboard(); }} />;
+  }
+
   if (showWizard) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 pb-20">
