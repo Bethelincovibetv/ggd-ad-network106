@@ -80,10 +80,11 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             isActive={active}
             tooltip={item.label}
             onClick={() => onTabChange(item.id)}
+            className="h-12"
           >
-            <button className={`w-full flex items-center gap-3 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-500 hover:to-red-600 hover:text-white' : ''}`}>
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+            <button className={`w-full flex items-center gap-3 px-3 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-500 hover:to-red-600 hover:text-white shadow-md shadow-orange-500/20' : 'hover:bg-orange-50'}`}>
+              <item.icon className="h-5 w-5 flex-shrink-0" strokeWidth={active ? 2.5 : 2.2} />
+              {!collapsed && <span className="text-[15px] font-semibold">{item.label}</span>}
             </button>
           </SidebarMenuButton>
         </SidebarMenuItem>
