@@ -32,8 +32,12 @@ interface SideNavMenuProps {
 }
 
 const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium, onLogout }: SideNavMenuProps) => {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
+  const handleSelect = (id: string) => {
+    onTabChange(id);
+    if (isMobile) setOpenMobile(false);
+  };
   const { isEnabled } = useFeatureToggles();
   const navigate = useNavigate();
 
