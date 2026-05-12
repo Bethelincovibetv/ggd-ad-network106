@@ -287,7 +287,12 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <div id="earn" className="container mx-auto px-4 py-16">
         <Card className="bg-gradient-to-br from-[#1a1a2e] to-[#2d1b3d] border-[#3d2b4f] max-w-3xl mx-auto overflow-hidden">
           <CardContent className="p-8 text-center space-y-6 relative">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl" />
+            <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl animate-pulse" />
+            <div className="relative mx-auto w-full max-w-sm group">
+              <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-500/30 blur-2xl rounded-2xl animate-pulse" />
+              <img src={syndicateImg} alt="Earn money sharing ads on social media" loading="lazy" width={1024} height={768}
+                className="relative rounded-2xl shadow-2xl shadow-purple-500/20 hover:scale-105 transition-transform duration-500 animate-fade-in" />
+            </div>
             <Star className="h-12 w-12 text-yellow-400 mx-auto animate-pulse" />
             <h2 className="text-2xl md:text-3xl font-bold text-white">Earn Money as a Syndicate</h2>
             <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
@@ -299,7 +304,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 { icon: <Smartphone className="h-6 w-6 text-purple-400" />, label: "Work Mobile" },
                 { icon: <Globe className="h-6 w-6 text-green-400" />, label: "Anywhere" },
               ].map((item, i) => (
-                <div key={i} className="bg-[#2d1b3d]/80 border border-[#3d2b4f] rounded-xl p-4 hover:border-yellow-500/50 transition-colors">
+                <div key={i} className="bg-[#2d1b3d]/80 border border-[#3d2b4f] rounded-xl p-4 hover:border-yellow-500/50 hover:scale-105 transition-all">
                   <div className="flex justify-center mb-2">{item.icon}</div>
                   <p className="text-xs text-gray-300 font-medium">{item.label}</p>
                 </div>
