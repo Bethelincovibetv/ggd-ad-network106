@@ -253,8 +253,13 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <div id="business" className="container mx-auto px-4 py-16">
         <Card className="bg-gradient-to-br from-[#0a1628] to-[#1a2744] border-[#2a3f5f] max-w-3xl mx-auto overflow-hidden">
           <CardContent className="p-8 text-center space-y-6 relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
-            <Briefcase className="h-12 w-12 text-blue-400 mx-auto" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+            <div className="relative mx-auto w-full max-w-sm group">
+              <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 to-orange-500/30 blur-2xl rounded-2xl animate-pulse" />
+              <img src={businessImg} alt="Grow your small business with GGD ads" loading="lazy" width={1024} height={768}
+                className="relative rounded-2xl shadow-2xl shadow-blue-500/20 hover:scale-105 transition-transform duration-500 animate-fade-in" />
+            </div>
+            <Briefcase className="h-12 w-12 text-blue-400 mx-auto animate-bounce" />
             <h2 className="text-2xl md:text-3xl font-bold text-white">For Small Business Owners</h2>
             <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
               Don't have a big marketing budget? No problem. Create ad campaigns, post tasks for our syndicate network, and watch your business grow. Pay only for results.
@@ -265,7 +270,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 { icon: <Users className="h-6 w-6 text-orange-400" />, label: "Target Audience" },
                 { icon: <TrendingUp className="h-6 w-6 text-green-400" />, label: "Track Results" },
               ].map((item, i) => (
-                <div key={i} className="bg-[#1a2744]/80 border border-[#2a3f5f] rounded-xl p-4 hover:border-blue-500/50 transition-colors">
+                <div key={i} className="bg-[#1a2744]/80 border border-[#2a3f5f] rounded-xl p-4 hover:border-blue-500/50 hover:scale-105 transition-all">
                   <div className="flex justify-center mb-2">{item.icon}</div>
                   <p className="text-xs text-gray-300 font-medium">{item.label}</p>
                 </div>
