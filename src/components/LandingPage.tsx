@@ -342,14 +342,14 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <div id="how-it-works" className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">How It Works</h2>
-          <p className="text-gray-400">Start promoting in 4 simple steps</p>
+          <p className="text-gray-400">From signup to massive reach in 4 simple steps</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { step: "01", title: "Create an Advert", desc: "Launch your promotion in minutes." },
-            { step: "02", title: "Tasks Are Generated", desc: "Your ad is distributed as shareable tasks." },
-            { step: "03", title: "Syndicates Promote It", desc: "Real users share your ad across multiple platforms." },
-            { step: "04", title: "Reach Thousands Instantly", desc: "Get visibility, traffic, and grow your business." },
+            { step: "01", title: "Create Your Business Profile", desc: "Sign up free and set up your business storefront with logo, contact links and products." },
+            { step: "02", title: "Post Tasks & Community Updates", desc: "Launch share tasks with your flyer or post to the community feed — everyone sees your business." },
+            { step: "03", title: "Syndicates & Users Share It", desc: "Verified promoters and the GGD community share your content across WhatsApp, Facebook, TikTok and more." },
+            { step: "04", title: "Track Reach & Grow Sales", desc: "Get rich link previews on every share, real-time click tracking and direct customer conversations." },
           ].map((s, i) => (
             <div key={i} className="text-center space-y-3 group hover:scale-105 transition-transform">
               <div className="text-5xl font-black text-[#e67e22]/20 group-hover:text-[#e67e22]/40 transition-colors">{s.step}</div>
