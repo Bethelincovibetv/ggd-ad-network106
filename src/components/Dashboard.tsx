@@ -169,9 +169,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const waGroup = settings?.find(s => s.key === 'whatsapp_group_link')?.value || '';
     setWhatsappGroupLink(waGroup);
 
-    // Check if first visit for wizard
-    const wizardSeen = localStorage.getItem('ggd_wizard_seen');
-    if (!wizardSeen) setShowWizard(true);
+    // The mandatory business setup replaces the old optional onboarding wizard.
+    setShowWizard(false);
 
     if (profile) {
       setAvatarUrl(profile.avatar_url || null);
@@ -393,7 +392,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); setShowWizard(false); localStorage.setItem('ggd_wizard_seen', 'true'); initDashboard(); }} />;
   }
 
-  if (showWizard) {
+  if (showWizard && profileSetupComplete !== true) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 pb-20">
         <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">

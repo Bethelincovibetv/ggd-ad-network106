@@ -99,7 +99,12 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       business_logo_url: form.business_logo_url || null,
       profile_setup_complete: true,
     };
-    const { error } = await supabase.from('profiles').update(payload as any).eq('user_id', user.id);
+    const { error } = await supabase.from('profiles').upsert({
+      user_id: user.id,
+      email: user.email || null,
+      display_name: form.business_name.trim() || user.email?.split('@')[0] || 'User',
+      ...payload,
+    } as any, { onConflict: 'user_id' });
     setSaving(false);
     if (error) { toast.error('Could not save profile'); return; }
     toast.success('🎉 Business profile activated!');
