@@ -103,9 +103,9 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
   const features = [
     { icon: Globe, title: "Global Reach", description: "Display your ads across thousands of websites and social media platforms." },
-    { icon: Code, title: "Easy Integration", description: "One simple JavaScript snippet — paste it and your ads go live instantly." },
+    { icon: Code, title: "Launch In Minutes", description: "Set up your business profile, create a campaign, and reach real audiences fast." },
     { icon: BarChart3, title: "Real-Time Analytics", description: "Track impressions, clicks, and conversions with detailed dashboards." },
-    { icon: Shield, title: "API Key Security", description: "Secure API keys to control which sites display your ads." },
+    { icon: Shield, title: "Trusted & Secure", description: "Your campaigns and earnings are protected with bank-grade security." },
     { icon: Users, title: "Earn by Sharing", description: "Complete tasks, refer friends, and earn credits to grow your business." },
     { icon: Smartphone, title: "Mobile App", description: "Install our app on your phone for quick ad management on the go." },
   ];
