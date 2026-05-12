@@ -13,6 +13,7 @@ const ReferralsPage = () => {
   const [code, setCode] = useState('');
   const [percentage, setPercentage] = useState('2');
   const [members, setMembers] = useState<any[]>([]);
+  const [referrer, setReferrer] = useState<any | null>(null);
   const [totalEarned, setTotalEarned] = useState(0);
   const [chatPeer, setChatPeer] = useState<{ id: string; name: string } | null>(null);
 
@@ -24,15 +25,20 @@ const ReferralsPage = () => {
     if (!user) return setLoading(false);
 
     const [{ data: prof }, { data: setting }, { data: refs }, { data: earnings }] = await Promise.all([
-      supabase.from('profiles').select('referral_code').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('referral_code, referred_by_user_id').eq('user_id', user.id).maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'referral_percentage').maybeSingle(),
       supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('referred_by_user_id', user.id),
       supabase.from('referral_earnings' as any).select('credits_earned').eq('referrer_id', user.id),
     ]);
 
+    const { data: referrerProfile } = prof?.referred_by_user_id
+      ? await supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('user_id', prof.referred_by_user_id).maybeSingle()
+      : { data: null } as any;
+
     setCode(prof?.referral_code || '');
     setPercentage(setting?.value || '2');
     setMembers(refs || []);
+    setReferrer(referrerProfile || null);
     setTotalEarned((earnings || []).reduce((s: number, r: any) => s + (r.credits_earned || 0), 0));
     setLoading(false);
   };
