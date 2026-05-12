@@ -20,6 +20,74 @@ interface Section {
 
 const sections: Section[] = [
   {
+    icon: <Megaphone className="h-5 w-5 text-orange-500" />,
+    title: "Banner Ads — Create & Promote",
+    badge: "Ads",
+    keywords: "banner ad create new ad form duration credits cost upload image target url campaign promote",
+    content:
+`Banner ads run across the entire network. Anyone browsing the app sees them in rotation.
+
+**Create a banner:**
+1. Go to **Home** and tap **New Banner Ad** (cost shown on the button)
+2. The page scrolls straight to the banner form — no need to scroll yourself
+3. Enter a **Title**, **Description**, and **Target URL** (where clicks should go)
+4. Pick a **Duration** (1, 3, 7, 14 or 30 days). Premium/Admin unlock longer durations.
+5. Upload a **Banner Image** (recommended ratio: 16:9, max 2MB)
+6. Toggle **Active** on, then tap **Create**
+
+**How you're charged:**
+• Standard rate is *X credits per day* shown on the New Ad button (admin sets this in Admin Settings)
+• Total = duration × daily rate. Deducted from your credits the moment you tap Create.
+• Admins create banner ads for free.`,
+  },
+  {
+    icon: <Briefcase className="h-5 w-5 text-emerald-500" />,
+    title: "Syndicate Campaigns — Manual vs Auto Approval",
+    badge: "Business",
+    keywords: "syndicate campaign business task approval manual auto approve proof screenshot review payout",
+    content:
+`As a business you pay syndicates to share your ads on WhatsApp, Facebook, Google reviews and more.
+
+**Approval Mode (chosen when you create a campaign):**
+• **Manual Review** — every proof screenshot lands in your queue. You review and approve before the syndicate gets paid. Best when you want to verify quality.
+• **Auto Approve** — the moment a syndicate uploads a proof screenshot, they are paid automatically and stats update instantly. Best when you trust the network and want zero admin work.
+
+**Tip:** Start in Manual for the first 2-3 campaigns to learn what good proof looks like. Switch to Auto once you're comfortable.
+
+**Costs:** Each placement (WhatsApp, Facebook, Google Review, etc.) has its own ₦ rate per syndicate. Total cost = max syndicates × sum of placement rates. Funded from your Task Wallet.`,
+  },
+  {
+    icon: <Users className="h-5 w-5 text-purple-500" />,
+    title: "Earning as a Syndicate",
+    badge: "Earn",
+    keywords: "syndicate earn task wallet payout proof screenshot withdraw upload",
+    content:
+`Syndicates are paid per task they complete for businesses.
+
+1. Open the **Syndicate** dashboard from the sidebar
+2. Pick an available task → download the flyer & share link
+3. Post it on the required platform exactly as instructed
+4. Snap a **clear screenshot** showing your post is live
+5. Tap **Upload Proof** on the task card
+
+Depending on the task's mode you'll either be **paid instantly** (auto-approve) or wait for the business to review (usually within 24h). Earnings sit in your Syndicate Wallet — withdraw to your bank from the Wallet page.`,
+  },
+  {
+    icon: <ShieldCheck className="h-5 w-5 text-rose-500" />,
+    title: "Admin — Feature Toggles",
+    badge: "Admin",
+    keywords: "admin feature toggle enable disable switch on off control panel",
+    content:
+`Admins can switch every feature on or off in real time without code changes.
+
+Open **Admin → Feature Toggles**. Each row is a feature (Banner Ads, Syndicate Network, Marketplace, Directory, Premium Upgrade, AI Chat, Blog Generator, Ebook Generator, etc.).
+
+• **Switch ON** → the feature appears in the user navigation, side menu and pages.
+• **Switch OFF** → the feature is hidden everywhere instantly. Anyone who lands on the page sees a friendly "feature is currently disabled" notice.
+
+Useful for phased rollouts, maintenance windows, or A/B testing.`,
+  },
+  {
     icon: <Sparkles className="h-5 w-5 text-pink-500" />,
     title: "Community Feed",
     badge: "Social",

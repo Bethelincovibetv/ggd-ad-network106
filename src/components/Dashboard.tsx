@@ -119,10 +119,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [activeTab, setActiveTab] = useState('ads');
+  const scrollToBannerForm = () => {
+    setTimeout(() => {
+      document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+  const startCreateAd = () => { setIsCreating(true); scrollToBannerForm(); };
   const handleTabChange = (tab: string) => {
     if (tab === 'ads-create') {
       setActiveTab('ads');
-      setIsCreating(true);
+      startCreateAd();
       return;
     }
     setActiveTab(tab);
@@ -422,42 +428,23 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             {/* Ad Display Preview */}
             {isEnabled('ads') && <AdDisplayPreview />}
 
-            <div className="grid grid-cols-3 gap-3">
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-3 text-center">
-                  <Wallet className="h-5 w-5 mx-auto mb-1 text-green-600" />
-                  <div className="text-2xl font-bold text-foreground">{isAdmin ? '∞' : credits}</div>
-                  <div className="text-xs text-muted-foreground">Credits</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm">
-                <CardContent className="p-3 text-center">
-                  <BarChart3 className="h-5 w-5 mx-auto mb-1 text-blue-600" />
-                  <div className="text-2xl font-bold text-foreground">{ads.length}</div>
-                  <div className="text-xs text-muted-foreground">My Ads</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm cursor-pointer" onClick={() => setActiveTab('fund-credits')}>
-                <CardContent className="p-3 text-center">
-                  <Plus className="h-5 w-5 mx-auto mb-1 text-orange-600" />
-                  <div className="text-sm font-bold text-orange-600">Buy</div>
-                  <div className="text-xs text-muted-foreground">Credits</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* WhatsApp support is now provided by the global FloatingWhatsApp button */}
-
-            {/* Promotional CTA removed for cleaner business UI */}
-
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>
-              <Button onClick={() => setIsCreating(true)} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
-                <Plus className="h-3 w-3 mr-1" />New Ad ({isAdmin ? 'Free' : `${adCostCredits}cr`})
+              <Button onClick={startCreateAd} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs rounded-full px-4 shadow-md shadow-orange-500/20">
+                <Plus className="h-3 w-3 mr-1" />New Banner Ad — {isAdmin ? 'Free' : `${adCostCredits} credits/day`}
               </Button>
             </div>
 
+            {isCreating && (
+              <Card id="banner-form" className="border-orange-200">
+                <CardContent className="p-3 -mb-2">
+                  <div className="rounded-lg bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-2.5 text-xs text-orange-800">
+                    <strong>Banner ad cost:</strong> {isAdmin ? 'Free for admins' : `${adCostCredits} credits per day`} · You'll be charged based on duration selected.
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {isCreating && (
               <Card className="border-orange-200">
                 <CardContent className="p-4 space-y-3">

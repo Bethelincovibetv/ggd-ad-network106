@@ -31,6 +31,7 @@ const BusinessTaskCreator = () => {
   const [form, setForm] = useState({
     title: '', description: '', share_link: '', max_syndicates: '10',
     placements: [] as string[], target_state: '', deadline_hours: '24',
+    approval_mode: 'manual' as 'manual' | 'auto',
   });
   const [flyerUrl, setFlyerUrl] = useState('');
   const [openTask, setOpenTask] = useState<any>(null);
@@ -127,7 +128,8 @@ const BusinessTaskCreator = () => {
       placements: form.placements, target_state: form.target_state || null,
       max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
       total_cost: totalCost, deadline_hours: parseInt(form.deadline_hours) || 24,
-    });
+      approval_mode: form.approval_mode,
+    } as any);
     if (error) { toast.error("Failed to create task"); return; }
 
     await supabase.from('task_wallets').update({
@@ -136,7 +138,7 @@ const BusinessTaskCreator = () => {
     }).eq('user_id', user.id);
 
     toast.success("Task created! Syndicates will be notified.");
-    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', deadline_hours: '24' });
+    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', deadline_hours: '24', approval_mode: 'manual' });
     setFlyerUrl('');
     setIsCreating(false);
     fetchData();
@@ -432,6 +434,26 @@ const BusinessTaskCreator = () => {
               <div>
                 <Label className="text-xs">Deadline (hrs)</Label>
                 <Input type="number" value={form.deadline_hours} onChange={e => setForm({...form, deadline_hours: e.target.value})} className="mt-1" />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-medium mb-2 block">Approval Mode</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div role="button" tabIndex={0}
+                  onClick={() => setForm({ ...form, approval_mode: 'manual' })}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'manual' })}
+                  className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'manual' ? 'border-orange-400 bg-orange-50' : 'border-border hover:bg-muted/40'}`}>
+                  <p className="text-xs font-bold">Manual Review</p>
+                  <p className="text-[10px] text-muted-foreground">You review each proof before paying</p>
+                </div>
+                <div role="button" tabIndex={0}
+                  onClick={() => setForm({ ...form, approval_mode: 'auto' })}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'auto' })}
+                  className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'auto' ? 'border-emerald-400 bg-emerald-50' : 'border-border hover:bg-muted/40'}`}>
+                  <p className="text-xs font-bold">Auto Approve</p>
+                  <p className="text-[10px] text-muted-foreground">Pay instantly when proof is uploaded</p>
+                </div>
               </div>
             </div>
 
