@@ -1455,6 +1455,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_feature_enabled: { Args: { _key: string }; Returns: boolean }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
     }
     Enums: {
