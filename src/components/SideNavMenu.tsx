@@ -150,7 +150,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     tooltip="Admin Portal"
-                    onClick={() => navigate('/admin')}
+                    onClick={() => { navigate('/admin'); if (isMobile) setOpenMobile(false); }}
                     className="relative overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 opacity-90" />
