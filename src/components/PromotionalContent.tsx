@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Share2, Copy, Download, Users, Briefcase, Globe, Sparkles, Eye, X } from "lucide-react";
+import { Share2, Copy, Download, Users, Briefcase, Sparkles, Eye, X, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import ReferralsPage from "@/components/ReferralsPage";
 
 const PromotionalContent = () => {
   const [flyers, setFlyers] = useState<any[]>([]);
@@ -52,10 +53,6 @@ const PromotionalContent = () => {
       { title: '📢 Reach Millions of Customers!', text: `GGD Ad Network connects your business with thousands of social media operators who share your ads across WhatsApp groups, Facebook, Instagram, TikTok & more.\n\n✅ Pay-per-performance\n✅ Real verified proofs\n✅ Instant campaign launch\n\nStart now: ${referralLink}` },
       { title: '🎯 Targeted Social Media Advertising', text: `Want your product seen by thousands? GGD Ad Network deploys verified operators to share your ads across:\n\n📱 WhatsApp Status & Groups\n📘 Facebook Groups\n📸 Instagram Stories\n🎵 TikTok Videos\n\nSign up: ${referralLink}` },
     ],
-    siteOwners: [
-      { title: '💻 Monetize Your Website with GGD Ads', text: `Earn passive income by displaying GGD Network ads on your website or app!\n\n✅ Easy JavaScript integration\n✅ Real-time analytics\n✅ Competitive CPM rates\n✅ Premium API access\n\nGet your API key: ${referralLink}` },
-      { title: '🔗 GGD Ad Network - Partner Program', text: `Looking for a reliable ad network for your site? GGD Ad Network offers:\n\n• High-quality banner ads\n• Simple embed code (1 line!)\n• Real-time impression tracking\n• Secure API keys\n• Dedicated support\n\nJoin as a partner: ${referralLink}` },
-    ],
   };
 
   const copyText = (text: string) => { navigator.clipboard.writeText(text); toast.success('Copied to clipboard!'); };
@@ -101,15 +98,15 @@ const PromotionalContent = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="referrals">
         <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="users" className="text-[10px] gap-1"><Users className="h-3 w-3" />Users</TabsTrigger>
-          <TabsTrigger value="businesses" className="text-[10px] gap-1"><Briefcase className="h-3 w-3" />Business</TabsTrigger>
-          <TabsTrigger value="sites" className="text-[10px] gap-1"><Globe className="h-3 w-3" />Site Owners</TabsTrigger>
+          <TabsTrigger value="referrals" className="text-[10px] gap-1"><UserPlus className="h-3 w-3" />My Referrals</TabsTrigger>
+          <TabsTrigger value="users" className="text-[10px] gap-1"><Users className="h-3 w-3" />Invite Users</TabsTrigger>
+          <TabsTrigger value="businesses" className="text-[10px] gap-1"><Briefcase className="h-3 w-3" />Invite Business</TabsTrigger>
         </TabsList>
+        <TabsContent value="referrals"><ReferralsPage /></TabsContent>
         <TabsContent value="users">{renderCopies(shareCopies.users)}</TabsContent>
         <TabsContent value="businesses">{renderCopies(shareCopies.businesses)}</TabsContent>
-        <TabsContent value="sites">{renderCopies(shareCopies.siteOwners)}</TabsContent>
       </Tabs>
 
       {/* Flyers with Download & Preview */}
