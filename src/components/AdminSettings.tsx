@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, MessageCircle, Globe, Shield, Sparkles, Package } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import BusinessAddons from "@/components/BusinessAddons";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -45,7 +44,7 @@ const AdminSettings = () => {
   };
   const saveAllSettings = async () => {
     const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits',
-      'vendor_upgrade_credits', 'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
+      'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
       'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
       'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
       'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
@@ -111,8 +110,6 @@ const AdminSettings = () => {
           <SettingField label="Credits/Ad" {...field('ad_cost_credits')} type="number" />
           <SettingField label="₦ per Credit" {...field('credit_exchange_rate')} type="number" />
           <SettingField label="Premium Cost" {...field('premium_upgrade_credits')} type="number" />
-          <SettingField label="Vendor Cost" {...field('vendor_upgrade_credits')} type="number" />
-          <SettingField label="Vendor Bonus ₦" {...field('vendor_wallet_bonus')} type="number" placeholder="0" />
           <div className="col-span-2">
             <SettingField label="Directory Cost (Credits)" {...field('directory_listing_cost')} type="number" placeholder="0 = free" />
           </div>
@@ -239,12 +236,6 @@ const AdminSettings = () => {
               </Button>
             </div>
           ))}
-        </CardContent>
-      </Card>
-      {/* Business Add-ons Management */}
-      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-        <CardContent className="p-4">
-          <BusinessAddons isAdmin={true} />
         </CardContent>
       </Card>
     </div>
