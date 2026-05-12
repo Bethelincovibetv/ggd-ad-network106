@@ -51,6 +51,7 @@ import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import HomeDashboard from "@/components/HomeDashboard";
+import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 
 interface Ad {
   id: string;
