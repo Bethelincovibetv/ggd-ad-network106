@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, ArrowRight, Plus } from "lucide-react";
+import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, ArrowRight, Plus, Megaphone, ListChecks, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 
 interface HomeDashboardProps {
@@ -13,7 +14,9 @@ interface HomeDashboardProps {
 const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ impressions: 0, clicks: 0, shareClicks: 0, spent: 0 });
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [bannerCampaigns, setBannerCampaigns] = useState<any[]>([]);
+  const [taskCampaigns, setTaskCampaigns] = useState<any[]>([]);
+  const [syndicateCampaigns, setSyndicateCampaigns] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
 
   useEffect(() => {
@@ -21,15 +24,17 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const [adsRes, tasksRes, sharesRes, walletRes] = await Promise.all([
+      const [adsRes, tasksRes, syndRes, sharesRes, walletRes] = await Promise.all([
         supabase.from('ads').select('id,title,impressions,clicks,is_active,created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('tasks').select('id,title,completions_count,max_completions,is_active,created_at,reward_credits').eq('creator_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('syndicate_tasks').select('id,title,status,max_syndicates,cost_per_syndicate,total_cost,created_at').eq('business_user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('task_share_links').select('id,clicks,task_id,created_at').eq('sharer_user_id', user.id),
         supabase.from('task_wallets').select('total_spent,balance').eq('user_id', user.id).maybeSingle(),
       ]);
 
       const ads = adsRes.data || [];
       const tasks = tasksRes.data || [];
+      const synd = syndRes.data || [];
       const shares = sharesRes.data || [];
 
       const impressions = ads.reduce((s, a) => s + (a.impressions || 0), 0);
@@ -39,26 +44,30 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
 
       setStats({ impressions, clicks, shareClicks, spent });
 
-      const camp = [
-        ...ads.map((a: any) => ({
-          kind: 'Ad', id: a.id, title: a.title,
-          metric1: { label: 'Views', value: a.impressions || 0 },
-          metric2: { label: 'Clicks', value: a.clicks || 0 },
-          active: a.is_active,
-        })),
-        ...tasks.map((t: any) => ({
-          kind: 'Task', id: t.id, title: t.title,
-          metric1: { label: 'Done', value: `${t.completions_count || 0}/${t.max_completions || '∞'}` },
-          metric2: { label: 'Reward', value: t.reward_credits },
-          active: t.is_active,
-        })),
-      ].slice(0, 8);
-      setCampaigns(camp);
+      setBannerCampaigns(ads.map((a: any) => ({
+        id: a.id, title: a.title,
+        metric1: { label: 'Views', value: a.impressions || 0 },
+        metric2: { label: 'Clicks', value: a.clicks || 0 },
+        active: a.is_active,
+      })));
+      setTaskCampaigns(tasks.map((t: any) => ({
+        id: t.id, title: t.title,
+        metric1: { label: 'Done', value: `${t.completions_count || 0}/${t.max_completions || '∞'}` },
+        metric2: { label: 'Reward', value: `${t.reward_credits} cr` },
+        active: t.is_active,
+      })));
+      setSyndicateCampaigns(synd.map((s: any) => ({
+        id: s.id, title: s.title,
+        metric1: { label: 'Slots', value: s.max_syndicates || 0 },
+        metric2: { label: 'Cost', value: `₦${Number(s.total_cost || 0).toLocaleString()}` },
+        active: s.status === 'active',
+      })));
 
       const act = [
         ...shares.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `🔗 Generated share link · ${s.clicks || 0} clicks` })),
         ...tasks.slice(0, 5).map((t: any) => ({ ts: t.created_at, text: `📢 Created task: ${t.title}` })),
         ...ads.slice(0, 5).map((a: any) => ({ ts: a.created_at, text: `🖼️ Created ad: ${a.title}` })),
+        ...synd.slice(0, 5).map((s: any) => ({ ts: s.created_at, text: `👥 Syndicate campaign: ${s.title}` })),
       ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()).slice(0, 8);
       setActivity(act);
 
@@ -66,6 +75,32 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
     };
     load();
   }, []);
+
+  const renderList = (items: any[], emptyMsg: string, accentBg: string, accentText: string) => (
+    loading ? (
+      <p className="text-xs text-muted-foreground py-3 text-center">Loading…</p>
+    ) : items.length === 0 ? (
+      <p className="text-xs text-muted-foreground py-4 text-center">{emptyMsg}</p>
+    ) : (
+      <div className="space-y-2">
+        {items.map(c => (
+          <div key={c.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-foreground truncate">{c.title}</p>
+                {c.active ? <span className="text-[8px] font-bold text-green-600">●</span> : <span className="text-[8px] text-muted-foreground">○</span>}
+              </div>
+              <div className="flex gap-3 mt-0.5">
+                <span className="text-[10px] text-muted-foreground">{c.metric1.label}: <b className={accentText}>{c.metric1.value}</b></span>
+                <span className="text-[10px] text-muted-foreground">{c.metric2.label}: <b className={accentText}>{c.metric2.value}</b></span>
+              </div>
+            </div>
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          </div>
+        ))}
+      </div>
+    )
+  );
 
   return (
     <div className="space-y-4">
@@ -112,38 +147,46 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
       {/* Campaign performance */}
       <Card className="border-0 shadow-md">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-black flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-orange-500" />Campaign Performance
-            </h2>
-            <Button size="sm" variant="ghost" className="text-xs h-7 text-orange-600" onClick={() => onNavigate('ads-create')}>
-              <Plus className="h-3 w-3 mr-1" />New
-            </Button>
-          </div>
-          {loading ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">Loading…</p>
-          ) : campaigns.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">No campaigns yet. Create your first one!</p>
-          ) : (
-            <div className="space-y-2">
-              {campaigns.map(c => (
-                <div key={`${c.kind}-${c.id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${c.kind === 'Ad' ? 'bg-blue-500/20 text-blue-600' : 'bg-orange-500/20 text-orange-600'}`}>{c.kind}</span>
-                      <p className="text-xs font-semibold text-foreground truncate">{c.title}</p>
-                      {c.active ? <span className="text-[8px] font-bold text-green-600">●</span> : <span className="text-[8px] text-muted-foreground">○</span>}
-                    </div>
-                    <div className="flex gap-3 mt-0.5">
-                      <span className="text-[10px] text-muted-foreground">{c.metric1.label}: <b className="text-foreground">{c.metric1.value}</b></span>
-                      <span className="text-[10px] text-muted-foreground">{c.metric2.label}: <b className="text-foreground">{c.metric2.value}</b></span>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                </div>
-              ))}
-            </div>
-          )}
+          <h2 className="text-sm font-black flex items-center gap-2 mb-3">
+            <TrendingUp className="h-4 w-4 text-orange-500" />Campaign Performance
+          </h2>
+          <Tabs defaultValue="banner">
+            <TabsList className="w-full grid grid-cols-3 h-9 mb-3">
+              <TabsTrigger value="banner" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+                <Megaphone className="h-3 w-3" />Banner Ads
+              </TabsTrigger>
+              <TabsTrigger value="task" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white">
+                <ListChecks className="h-3 w-3" />Normal Tasks
+              </TabsTrigger>
+              <TabsTrigger value="syndicate" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
+                <Users className="h-3 w-3" />Syndicate
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="banner" className="mt-0">
+              <div className="flex justify-end mb-2">
+                <Button size="sm" variant="ghost" className="text-xs h-7 text-blue-600" onClick={() => onNavigate('ads-create')}>
+                  <Plus className="h-3 w-3 mr-1" />New Banner
+                </Button>
+              </div>
+              {renderList(bannerCampaigns, 'No banner ad campaigns yet. Create your first banner!', 'bg-blue-500/20', 'text-blue-600')}
+            </TabsContent>
+            <TabsContent value="task" className="mt-0">
+              <div className="flex justify-end mb-2">
+                <Button size="sm" variant="ghost" className="text-xs h-7 text-orange-600" onClick={() => onNavigate('tasks')}>
+                  <Plus className="h-3 w-3 mr-1" />New Task
+                </Button>
+              </div>
+              {renderList(taskCampaigns, 'No normal task campaigns yet.', 'bg-orange-500/20', 'text-orange-600')}
+            </TabsContent>
+            <TabsContent value="syndicate" className="mt-0">
+              <div className="flex justify-end mb-2">
+                <Button size="sm" variant="ghost" className="text-xs h-7 text-purple-600" onClick={() => onNavigate('business-tasks')}>
+                  <Plus className="h-3 w-3 mr-1" />New Syndicate
+                </Button>
+              </div>
+              {renderList(syndicateCampaigns, 'No syndicate campaigns yet.', 'bg-purple-500/20', 'text-purple-600')}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

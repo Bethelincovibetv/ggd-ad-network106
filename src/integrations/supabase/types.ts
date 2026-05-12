@@ -608,8 +608,10 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          industry: string | null
           is_banned: boolean | null
           last_credit_date: string | null
+          profile_setup_complete: boolean
           referral_code: string | null
           referred_by: string | null
           referred_by_user_id: string | null
@@ -630,8 +632,10 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          industry?: string | null
           is_banned?: boolean | null
           last_credit_date?: string | null
+          profile_setup_complete?: boolean
           referral_code?: string | null
           referred_by?: string | null
           referred_by_user_id?: string | null
@@ -652,8 +656,10 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          industry?: string | null
           is_banned?: boolean | null
           last_credit_date?: string | null
+          profile_setup_complete?: boolean
           referral_code?: string | null
           referred_by?: string | null
           referred_by_user_id?: string | null

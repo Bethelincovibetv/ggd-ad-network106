@@ -51,6 +51,7 @@ import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import HomeDashboard from "@/components/HomeDashboard";
+import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 
 interface Ad {
   id: string;
@@ -127,6 +128,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
+  const [profileSetupComplete, setProfileSetupComplete] = useState<boolean | null>(null);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
@@ -156,7 +158,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
-    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name').eq('user_id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete').eq('user_id', user.id).single();
+    // Admins and existing complete profiles bypass the wizard.
+    setProfileSetupComplete(userRoles.includes('admin') ? true : !!(profile as any)?.profile_setup_complete);
     const { data: settings } = await supabase.from('app_settings').select('*');
     
     const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
@@ -383,6 +387,11 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>;
+
+  // MANDATORY: business profile setup must be completed before any other UI is shown.
+  if (profileSetupComplete === false) {
+    return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); initDashboard(); }} />;
+  }
 
   if (showWizard) {
     return (
