@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import directoryHero from "@/assets/directory-hero.jpg";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -82,24 +83,45 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
 
   return (
     <div className="space-y-5">
-      {/* Hero */}
-      <div className="rounded-2xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-yellow-300/15 blur-2xl" />
-        <Store className="h-8 w-8 mb-2 drop-shadow-lg relative" />
-        <h2 className="text-lg font-black relative">Business Directory</h2>
-        <p className="text-[11px] opacity-80 relative">Discover verified businesses on GGD Network</p>
-        <div className="grid grid-cols-2 gap-2 mt-3 relative">
-          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
-            <p className="text-xl font-black">{businesses.length}</p>
-            <p className="text-[9px] opacity-80">Listed</p>
-          </div>
-          <div className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
-            <p className="text-xl font-black">{categories.length}</p>
-            <p className="text-[9px] opacity-80">Categories</p>
+      {/* Hero with background image */}
+      <div className="relative rounded-2xl overflow-hidden p-5 text-white shadow-xl">
+        <img src={directoryHero} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-600/85 via-red-600/80 to-pink-700/85" />
+        <div className="relative">
+          <Store className="h-9 w-9 mb-2 drop-shadow-lg" />
+          <h2 className="text-xl font-black drop-shadow">Business Directory</h2>
+          <p className="text-xs opacity-90">Discover verified businesses on GGD Network</p>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center border border-white/20">
+              <p className="text-2xl font-black">{businesses.length}</p>
+              <p className="text-[10px] opacity-90">Listed</p>
+            </div>
+            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center border border-white/20">
+              <p className="text-2xl font-black">{categories.length}</p>
+              <p className="text-[10px] opacity-90">Industries</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Industries quick filter chips */}
+      {categories.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide px-1">Industries</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition ${selectedCategory === 'all' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow' : 'bg-secondary text-foreground'}`}
+            >All</button>
+            {categories.map(c => (
+              <button key={c.id} onClick={() => setSelectedCategory(c.id)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition ${selectedCategory === c.id ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow' : 'bg-secondary text-foreground'}`}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Subscribe CTA */}
       {isBusiness && !isListed && (

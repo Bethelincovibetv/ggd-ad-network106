@@ -32,8 +32,12 @@ interface SideNavMenuProps {
 }
 
 const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium, onLogout }: SideNavMenuProps) => {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
+  const handleSelect = (id: string) => {
+    onTabChange(id);
+    if (isMobile) setOpenMobile(false);
+  };
   const { isEnabled } = useFeatureToggles();
   const navigate = useNavigate();
 
@@ -79,7 +83,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             asChild
             isActive={active}
             tooltip={item.label}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => handleSelect(item.id)}
             className="h-12"
           >
             <button className={`w-full flex items-center gap-3 px-3 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-500 hover:to-red-600 hover:text-white shadow-md shadow-orange-500/20' : 'hover:bg-orange-50'}`}>
@@ -146,7 +150,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     tooltip="Admin Portal"
-                    onClick={() => navigate('/admin')}
+                    onClick={() => { navigate('/admin'); if (isMobile) setOpenMobile(false); }}
                     className="relative overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 opacity-90" />
