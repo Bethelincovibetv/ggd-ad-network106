@@ -613,6 +613,7 @@ export type Database = {
       platform_pricing: {
         Row: {
           created_at: string | null
+          icon_url: string | null
           id: string
           is_active: boolean | null
           platform_key: string
@@ -621,6 +622,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean | null
           platform_key: string
@@ -629,6 +631,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          icon_url?: string | null
           id?: string
           is_active?: boolean | null
           platform_key?: string
