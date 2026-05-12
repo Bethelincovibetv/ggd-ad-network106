@@ -74,9 +74,10 @@ const SharePreviewPage = () => {
   }, [slug]);
 
   useEffect(() => {
-    if (!task?.share_url) return;
+    const destination = typeof task?.share_url === 'string' ? task.share_url.trim() : '';
+    if (!/^https?:\/\//i.test(destination)) return;
     if (countdown <= 0) {
-      window.location.assign(task.share_url);
+      window.location.assign(destination);
       return;
     }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
