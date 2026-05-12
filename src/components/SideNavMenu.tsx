@@ -39,6 +39,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home' },
+    { id: 'feed', icon: Sparkles, label: 'Community' },
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
     { id: 'profile', icon: User, label: 'My Profile' },
     { id: 'smart-links', icon: Link2, label: 'Smart Links' },

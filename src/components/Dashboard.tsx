@@ -52,6 +52,7 @@ import ggdLogo from '@/assets/ggd-logo.png';
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import HomeDashboard from "@/components/HomeDashboard";
 import BusinessProfileWizard from "@/components/BusinessProfileWizard";
+import CommunityFeed from "@/components/CommunityFeed";
 
 interface Ad {
   id: string;
@@ -760,6 +761,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             )}
           </div>
         );
+
+      case 'feed':
+        return <CommunityFeed />;
 
       case 'support':
         return <SupportPage userEmail={userEmail} />;
