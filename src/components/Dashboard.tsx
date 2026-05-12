@@ -128,6 +128,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
+  const [profileSetupComplete, setProfileSetupComplete] = useState<boolean | null>(null);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
