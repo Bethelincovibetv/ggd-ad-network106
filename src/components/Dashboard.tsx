@@ -390,7 +390,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
   // MANDATORY: business profile setup must be completed before any other UI is shown.
   if (profileSetupComplete === false) {
-    return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); initDashboard(); }} />;
+    return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); setShowWizard(false); localStorage.setItem('ggd_wizard_seen', 'true'); initDashboard(); }} />;
   }
 
   if (showWizard) {
