@@ -24,11 +24,22 @@ const SharePreviewPage = () => {
 
       const { data: t } = await supabase
         .from('tasks')
-        .select('id,title,description,share_url,flyer_url')
+        .select('id,title,description,share_url,flyer_url,creator_id')
         .eq('id', link.task_id)
         .maybeSingle();
       if (!t) { setError('Campaign no longer available'); return; }
-      setTask(t);
+
+      // Fetch creator/business attribution
+      let creator: any = null;
+      if (t.creator_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug')
+          .eq('user_id', t.creator_id)
+          .maybeSingle();
+        creator = profile;
+      }
+      setTask({ ...t, creator });
 
       // Update OG/SEO tags so socials show the banner
       document.title = `${t.title} | GGD AD NETWORK`;
@@ -105,6 +116,30 @@ const SharePreviewPage = () => {
             <img src={task.flyer_url} alt={task.title} className="w-full h-64 object-cover" />
           )}
           <div className="p-5 space-y-3">
+            {task.creator && (
+              <a
+                href={task.creator.business_slug ? `/business/${task.creator.business_slug}` : `/user/${task.creator.user_id}`}
+                className="flex items-center gap-2 pb-2 border-b border-gray-100 hover:opacity-80"
+              >
+                {(task.creator.business_logo_url || task.creator.avatar_url) ? (
+                  <img
+                    src={task.creator.business_logo_url || task.creator.avatar_url}
+                    alt={task.creator.business_name || task.creator.display_name || 'Creator'}
+                    className="h-9 w-9 rounded-full object-cover border"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 grid place-items-center text-white font-bold text-sm">
+                    {(task.creator.business_name || task.creator.display_name || 'G')[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[11px] text-gray-500 leading-none">Posted by</p>
+                  <p className="text-sm font-bold text-gray-900 truncate">
+                    {task.creator.business_name || task.creator.display_name || 'GGD User'}
+                  </p>
+                </div>
+              </a>
+            )}
             <h1 className="text-xl font-black text-gray-900">{task.title}</h1>
             {task.description && <p className="text-sm text-gray-600">{task.description}</p>}
 
