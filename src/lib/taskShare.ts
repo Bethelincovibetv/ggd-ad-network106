@@ -34,5 +34,7 @@ export async function getOrCreateTaskShareUrl(taskId: string): Promise<string | 
     })());
 
   if (!slug) return null;
-  return `${SUPABASE_URL}/functions/v1/task-share/${slug}`;
+  const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const query = appOrigin ? `?app=${encodeURIComponent(appOrigin)}` : '';
+  return `${SUPABASE_URL}/functions/v1/task-share/${slug}${query}`;
 }
