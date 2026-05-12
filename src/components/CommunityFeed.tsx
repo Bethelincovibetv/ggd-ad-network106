@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
