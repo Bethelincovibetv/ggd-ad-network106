@@ -83,7 +83,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             asChild
             isActive={active}
             tooltip={item.label}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => handleSelect(item.id)}
             className="h-12"
           >
             <button className={`w-full flex items-center gap-3 px-3 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-500 hover:to-red-600 hover:text-white shadow-md shadow-orange-500/20' : 'hover:bg-orange-50'}`}>
