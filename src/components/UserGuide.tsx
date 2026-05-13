@@ -9,6 +9,7 @@ import {
   Bell, Hash, Heart, MessageCircle, Search, Briefcase, Building2, Palette, Link2,
   ShieldCheck, Send, BarChart3,
 } from "lucide-react";
+import guideHero from "@/assets/guide-hero.jpg";
 
 interface Section {
   icon: React.ReactNode;
@@ -360,13 +361,18 @@ const UserGuide = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-1">
-        <BookOpen className="h-5 w-5 text-orange-500" />
-        <h2 className="text-lg font-bold text-foreground">User Guide</h2>
+      <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-xl">
+        <img src={guideHero} alt="GoodGift Gram Guide" className="w-full h-40 object-cover" loading="lazy" />
+        <div className="p-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            <h2 className="text-lg font-black">App Guide</h2>
+          </div>
+          <p className="text-xs opacity-90 mt-1">
+            Everything you need to grow on GoodGift Gram. Tap a section to learn.
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Learn how to use every feature of the GGD Network. Tap a section to expand it.
-      </p>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

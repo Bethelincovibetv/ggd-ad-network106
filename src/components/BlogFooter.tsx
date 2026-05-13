@@ -62,7 +62,7 @@ const BlogFooter = () => {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-6 border-t border-gray-700">
           <div className="text-center md:text-left">
             <p className="mb-2 text-lg font-medium">© {currentYear} Blogmate. All rights reserved.</p>
-            <p className="text-gray-400">Powered by Goodgift Digital</p>
+            <p className="text-gray-400">Powered by GoodGift Gram</p>
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-4">

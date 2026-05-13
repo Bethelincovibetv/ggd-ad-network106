@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import defaultAdImg from "@/assets/default-ad.jpg";
+
+const DEFAULT_AD = {
+  title: 'Promote Your Business',
+  description: 'Reach thousands on GoodGift Gram',
+  image_url: defaultAdImg,
+  target_url: '/',
+};
 
 const AdDisplayPreview = () => {
   const [ads, setAds] = useState<any[]>([]);
@@ -10,7 +18,7 @@ const AdDisplayPreview = () => {
     const fetchAds = async () => {
       const now = new Date().toISOString();
       const { data } = await supabase.from('ads').select('*').eq('is_active', true).or(`expires_at.is.null,expires_at.gt.${now}`).limit(10);
-      setAds(data || []);
+      setAds((data && data.length > 0) ? data : [DEFAULT_AD]);
     };
     fetchAds();
   }, []);
