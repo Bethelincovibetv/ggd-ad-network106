@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink, AlertTriangle } from "lucide-react";
+import { Loader2, ExternalLink, AlertTriangle, Download } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const SharePreviewPage = () => {
@@ -156,6 +156,18 @@ const SharePreviewPage = () => {
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>This campaign has no valid destination link yet.</span>
             </div>}
+
+            {task.flyer_url && (
+              <a
+                href={task.flyer_url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2.5 rounded-2xl text-sm"
+              >
+                <Download className="h-4 w-4 inline mr-2" />Download Flyer
+              </a>
+            )}
 
             {canRedirect && <p className="text-xs text-center text-gray-500">
               Auto-redirecting in <span className="font-bold text-orange-600">{countdown}</span>s…

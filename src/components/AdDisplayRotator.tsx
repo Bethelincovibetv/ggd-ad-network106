@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Eye } from "lucide-react";
 import { AdRotatorAd } from "@/types/advert";
+import defaultAdImg from "@/assets/default-ad.jpg";
 
 interface AdDisplayRotatorProps {
   ads: AdRotatorAd[];
@@ -73,11 +74,21 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slo
 
   if (!currentAd) {
     return (
-      <Card className="p-8 text-center bg-gray-50">
-        <Eye className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-600">No active ads to display</p>
-        <p className="text-sm text-gray-500 mt-1">Ads will appear here when campaigns are active</p>
-      </Card>
+      <div className="max-w-sm mx-auto">
+        <Card className="overflow-hidden cursor-pointer bg-white" onClick={() => window.open('/', '_self')}>
+          <img src={defaultAdImg} alt="Promote your business on GoodGift Gram" className="w-full h-48 object-cover" loading="lazy" />
+          <div className="p-4 space-y-2">
+            <h3 className="font-bold text-base text-gray-800">Promote Your Business Here</h3>
+            <p className="text-xs text-gray-600">Reach thousands daily on the GoodGift Gram ad network. Create your first ad in seconds.</p>
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-lg text-center font-medium text-sm">
+              Get Started →
+            </div>
+          </div>
+          <div className="bg-gray-50 px-4 py-2 text-center border-t">
+            <p className="text-xs text-gray-500">Sponsored · <span className="font-medium">GoodGift Gram</span></p>
+          </div>
+        </Card>
+      </div>
     );
   }
 
