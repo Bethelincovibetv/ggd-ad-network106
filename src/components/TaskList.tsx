@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import SlideCarousel from "@/components/SlideCarousel";
@@ -599,6 +599,19 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                     <img src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
                   </div>
                 )}
+
+                {/* Preview share page (everyone can preview) */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[10px] rounded-full"
+                  onClick={async () => {
+                    const u = await getOrCreateTaskShareUrl(task.id);
+                    if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
+                  }}
+                >
+                  <Eye className="h-3 w-3 mr-1" />Preview Share Page
+                </Button>
               </CardContent>
             </Card>
           );
