@@ -32,7 +32,7 @@ const ReferralsPage = () => {
     ]);
 
     const { data: referrerProfile } = prof?.referred_by_user_id
-      ? await supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('user_id', prof.referred_by_user_id).maybeSingle()
+      ? await supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at, business_name, business_phone, business_website, business_logo_url, business_location, business_slug').eq('user_id', prof.referred_by_user_id).maybeSingle()
       : { data: null } as any;
 
     setCode(prof?.referral_code || '');
@@ -96,18 +96,31 @@ const ReferralsPage = () => {
         <CardHeader><CardTitle className="text-lg">Your Community</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {referrer && (
-            <div className="flex items-center gap-3 p-2 rounded-lg border border-orange-200 bg-orange-50/60">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={referrer.avatar_url} />
-                <AvatarFallback>{(referrer.display_name || referrer.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{referrer.display_name || referrer.email}</div>
-                <div className="text-xs text-muted-foreground">Referred you</div>
+            <div className="p-3 rounded-xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-red-50 space-y-2">
+              <div className="text-[10px] uppercase font-bold text-orange-700 tracking-wider">Referred you</div>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12 ring-2 ring-orange-300">
+                  <AvatarImage src={referrer.business_logo_url || referrer.avatar_url} />
+                  <AvatarFallback>{(referrer.business_name || referrer.display_name || referrer.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">{referrer.business_name || referrer.display_name || referrer.email}</div>
+                  {referrer.business_name && referrer.display_name && (
+                    <div className="text-[11px] text-muted-foreground truncate">{referrer.display_name}</div>
+                  )}
+                  <div className="text-[11px] text-muted-foreground truncate">{referrer.email}</div>
+                </div>
+                <Button size="sm" onClick={() => setChatPeer({ id: referrer.user_id, name: referrer.business_name || referrer.display_name || referrer.email })} className="bg-orange-500 hover:bg-orange-600">
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setChatPeer({ id: referrer.user_id, name: referrer.display_name || referrer.email })}>
-                <MessageCircle className="h-4 w-4" />
-              </Button>
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                {referrer.business_phone && <div className="bg-white/60 rounded px-2 py-1"><span className="font-semibold">📞</span> {referrer.business_phone}</div>}
+                {referrer.business_location && <div className="bg-white/60 rounded px-2 py-1"><span className="font-semibold">📍</span> {referrer.business_location}</div>}
+                {referrer.business_website && <a href={referrer.business_website} target="_blank" rel="noopener noreferrer" className="bg-white/60 rounded px-2 py-1 col-span-2 truncate text-blue-600 underline">🌐 {referrer.business_website}</a>}
+                {referrer.business_slug && <a href={`/business/${referrer.business_slug}`} className="bg-orange-500 text-white rounded px-2 py-1 col-span-2 text-center font-semibold">View Business Page</a>}
+              </div>
+              <div className="text-[10px] text-muted-foreground">Joined {new Date(referrer.created_at).toLocaleDateString()}</div>
             </div>
           )}
           {members.length === 0 && !referrer && <p className="text-sm text-muted-foreground text-center py-6">No referrals yet. Share your link!</p>}
