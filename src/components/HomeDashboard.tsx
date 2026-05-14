@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, ArrowRight, Plus, Megaphone, ListChecks, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import WatchVideoAds from "@/components/WatchVideoAd";
 
 interface HomeDashboardProps {
   credits: number;
