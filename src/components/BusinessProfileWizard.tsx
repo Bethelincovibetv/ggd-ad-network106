@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Tag, Phone, FileText, Image as ImageIcon, Briefcase } from 'lucide-react';
+import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Phone, FileText, Image as ImageIcon, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
