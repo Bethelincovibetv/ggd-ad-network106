@@ -445,10 +445,38 @@ const SyndicateDashboard = () => {
       </div>
 
       {/* Request Matching */}
-      <Button variant="outline" className="w-full h-11 rounded-xl border-2 font-semibold" onClick={requestTaskMatching} disabled={requestingMatch}>
-        {requestingMatch ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+      <Button className="w-full h-14 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg" onClick={requestTaskMatching} disabled={requestingMatch}>
+        {requestingMatch ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <RefreshCw className="h-5 w-5 mr-2" />}
         Find Me a Task
       </Button>
+
+      {/* Account Credentials */}
+      <Card className="border-2 border-purple-200 dark:border-purple-900/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-purple-600" /> Account Credentials
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-2 bg-muted/40 rounded-xl p-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Login Email</p>
+              <p className="text-sm font-semibold truncate">{userEmail}</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-10 px-4 text-sm font-semibold rounded-lg" onClick={() => copyText(userEmail)}>
+              <Copy className="h-4 w-4 mr-1" /> Copy
+            </Button>
+          </div>
+          <Button onClick={sendPasswordReset} disabled={sendingReset}
+            className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-xl">
+            {sendingReset ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <KeyRound className="h-5 w-5 mr-2" />}
+            Reset / Change Password
+          </Button>
+          <p className="text-xs text-muted-foreground text-center leading-relaxed">
+            We'll email you a secure link to set a new password.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Tabbed Assignment View */}
       <Tabs defaultValue="pending" className="space-y-3">
