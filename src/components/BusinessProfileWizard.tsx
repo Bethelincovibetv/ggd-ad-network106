@@ -26,9 +26,10 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [form, setForm] = useState({
     business_name: '',
-    industry: '',
+    category_id: '',
     business_category: '',
     business_phone: '',
     business_description: '',
@@ -37,12 +38,22 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
 
   useEffect(() => {
     (async () => {
+      const { data: cats } = await (supabase.from('business_categories') as any)
+        .select('id, name').eq('is_active', true).order('sort_order');
+      setCategories(cats || []);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from('profiles')
-        .select('business_name, industry, business_category, business_phone, business_description, business_logo_url')
+        .select('business_name, business_category, business_phone, business_description, business_logo_url')
         .eq('user_id', user.id).maybeSingle();
-      if (data) setForm(f => ({ ...f, ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v ?? ''])) } as any));
+      const { data: bp } = await (supabase.from('business_profiles') as any)
+        .select('category_id').eq('user_id', user.id).maybeSingle();
+      if (data || bp) setForm(f => ({
+        ...f,
+        ...Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [k, v ?? ''])),
+        category_id: bp?.category_id || '',
+      } as any));
     })();
   }, []);
 
@@ -65,10 +76,12 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
   };
 
   const validateCurrent = (): boolean => {
-    const v = (form as any)[current.key === 'logo' ? 'business_logo_url' : current.key === 'name' ? 'business_name' : current.key === 'category' ? 'business_category' : current.key === 'phone' ? 'business_phone' : current.key === 'description' ? 'business_description' : 'industry'];
-    if (current.key === 'logo') return true; // optional
-    if (current.key === 'phone') return /^[+\d][\d\s-]{6,}$/.test((v || '').trim());
-    return (v || '').trim().length >= 2;
+    if (current.key === 'logo') return true;
+    if (current.key === 'name') return form.business_name.trim().length >= 2;
+    if (current.key === 'category') return !!form.category_id;
+    if (current.key === 'phone') return /^[+\d][\d\s-]{6,}$/.test(form.business_phone.trim());
+    if (current.key === 'description') return form.business_description.trim().length >= 2;
+    return true;
   };
 
   const next = () => {
@@ -82,12 +95,13 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
     const businessName = form.business_name.trim();
+    const categoryName = categories.find(c => c.id === form.category_id)?.name || '';
     const slugBase = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'business';
     const slug = `${slugBase}-${user.id.slice(0, 6)}`;
     const payload = {
       business_name: businessName,
-      industry: form.industry.trim(),
-      business_category: form.business_category.trim(),
+      industry: categoryName,
+      business_category: categoryName,
       business_phone: form.business_phone.trim(),
       business_description: form.business_description.trim(),
       business_logo_url: form.business_logo_url || null,
@@ -110,8 +124,12 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
         description: form.business_description.trim() || null,
         logo_url: form.business_logo_url || null,
         phone_number: form.business_phone.trim() || null,
+        category_id: form.category_id || null,
         is_directory_listed: true,
       } as any);
+    } else {
+      await (supabase.from('business_profiles') as any)
+        .update({ category_id: form.category_id || null }).eq('user_id', user.id);
     }
     setSaving(false);
     toast.success('🎉 Business storefront created! Your public site is live.');
@@ -122,17 +140,15 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     switch (current.key) {
       case 'name':
         return <Input autoFocus value={form.business_name} onChange={e => setForm(f => ({ ...f, business_name: e.target.value }))} placeholder="e.g. Bethel Stores" className="h-11" />;
-      case 'industry':
+      case 'category':
         return (
-          <Select value={form.industry} onValueChange={v => setForm(f => ({ ...f, industry: v }))}>
-            <SelectTrigger className="h-11"><SelectValue placeholder="Select your industry" /></SelectTrigger>
+          <Select value={form.category_id} onValueChange={v => setForm(f => ({ ...f, category_id: v }))}>
+            <SelectTrigger className="h-11"><SelectValue placeholder="Select your category" /></SelectTrigger>
             <SelectContent className="max-h-72">
-              {INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         );
-      case 'category':
-        return <Input autoFocus value={form.business_category} onChange={e => setForm(f => ({ ...f, business_category: e.target.value }))} placeholder="e.g. Online thrift store" className="h-11" />;
       case 'phone':
         return <Input autoFocus type="tel" inputMode="tel" value={form.business_phone} onChange={e => setForm(f => ({ ...f, business_phone: e.target.value }))} placeholder="e.g. +234 801 234 5678" className="h-11" />;
       case 'description':
