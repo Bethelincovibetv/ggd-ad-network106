@@ -155,6 +155,9 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
         </Card>
       </div>
 
+      {/* Watch & Earn (YouTube ads) */}
+      <WatchVideoAds />
+
       {/* Campaign performance */}
       <Card className="border-0 shadow-md">
         <CardContent className="p-4">
