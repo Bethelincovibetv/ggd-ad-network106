@@ -10,22 +10,13 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
 
-const INDUSTRIES = [
-  'Retail & E-commerce', 'Food & Beverage', 'Fashion & Apparel', 'Beauty & Cosmetics',
-  'Health & Wellness', 'Education & Training', 'Real Estate', 'Automotive',
-  'Technology & Software', 'Finance & Insurance', 'Travel & Tourism', 'Entertainment & Media',
-  'Construction', 'Agriculture', 'Logistics & Delivery', 'Professional Services',
-  'Crypto & Web3', 'Religious & Non-Profit', 'Events & Hospitality', 'Other',
-];
-
 interface BusinessProfileWizardProps {
   onComplete: () => void;
 }
 
 const STEPS = [
   { key: 'name', icon: Building2, color: 'from-orange-500 to-red-600', title: 'Business Name', desc: 'What is your business called? This is shown to customers.' },
-  { key: 'industry', icon: Briefcase, color: 'from-blue-500 to-indigo-600', title: 'Pick Your Industry', desc: 'Choose the industry your business belongs to.' },
-  { key: 'category', icon: Tag, color: 'from-purple-500 to-pink-600', title: 'Business Category', desc: 'A short label that describes what you sell or do.' },
+  { key: 'category', icon: Briefcase, color: 'from-blue-500 to-indigo-600', title: 'Pick Your Category', desc: 'Choose the industry/category your business belongs to.' },
   { key: 'phone', icon: Phone, color: 'from-emerald-500 to-teal-600', title: 'Contact Phone', desc: 'Customers and the GGD team can reach you here.' },
   { key: 'description', icon: FileText, color: 'from-amber-500 to-orange-600', title: 'Short Description', desc: 'In 1-3 sentences, tell people what your business is about.' },
   { key: 'logo', icon: ImageIcon, color: 'from-fuchsia-500 to-rose-600', title: 'Upload Your Logo', desc: 'Optional but recommended — gives your account a pro look.' },
