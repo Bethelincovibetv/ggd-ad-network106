@@ -375,6 +375,19 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               </Select>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="h-3 w-3" /> Target State
+              </Label>
+              <Select value={newAd.targetState} onValueChange={v => setNewAd({ ...newAd, targetState: v })}>
+                <SelectTrigger className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover rounded-xl max-h-72">
+                  <SelectItem value="all">🇳🇬 All Nigeria</SelectItem>
+                  {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Summary Card */}
             <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 via-red-500/5 to-pink-500/10 border border-orange-500/20 overflow-hidden">
               <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 px-4 py-2.5 border-b border-orange-500/10">
