@@ -3,28 +3,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw } from "lucide-react";
+import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const SyndicateDashboard = () => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [wallet, setWallet] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [requestingMatch, setRequestingMatch] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentHours, setAssignmentHours] = useState(24);
+  const [showWizard, setShowWizard] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setUserEmail(user.email || '');
 
     // Auto-release expired assignments so they return to the available pool
     await supabase.rpc('release_expired_syndicate_assignments' as any);
@@ -43,7 +50,23 @@ const SyndicateDashboard = () => {
     setWallet(walletRes.data);
     const h = Number(settingRes.data?.value);
     if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
+
+    // Show onboarding for newly approved syndicates (only once)
+    const seen = localStorage.getItem('ggd_syndicate_wizard_seen') === 'true';
+    if (profileRes.data && !seen) setShowWizard(true);
+
     setLoading(false);
+  };
+
+  const sendPasswordReset = async () => {
+    if (!userEmail) return;
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    setSendingReset(false);
+    if (error) toast.error("Could not send reset email");
+    else toast.success(`Password reset link sent to ${userEmail}`);
   };
 
   const uploadAvatar = async (file: File) => {
