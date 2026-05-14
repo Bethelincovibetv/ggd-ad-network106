@@ -46,6 +46,27 @@ export type Database = {
           },
         ]
       }
+      ad_watch_claims: {
+        Row: {
+          ad_id: string
+          claimed_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          ad_id: string
+          claimed_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          ad_id?: string
+          claimed_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_chat_messages: {
         Row: {
           created_at: string
@@ -75,6 +96,9 @@ export type Database = {
       }
       ads: {
         Row: {
+          ad_type: string
+          approved: boolean
+          budget_credits: number | null
           clicks: number | null
           created_at: string
           description: string | null
@@ -83,11 +107,19 @@ export type Database = {
           image_url: string | null
           impressions: number | null
           is_active: boolean | null
+          rejection_reason: string | null
+          reward_credits: number | null
+          target_state: string | null
           target_url: string
           title: string
           user_id: string
+          watch_duration_seconds: number | null
+          youtube_url: string | null
         }
         Insert: {
+          ad_type?: string
+          approved?: boolean
+          budget_credits?: number | null
           clicks?: number | null
           created_at?: string
           description?: string | null
@@ -96,11 +128,19 @@ export type Database = {
           image_url?: string | null
           impressions?: number | null
           is_active?: boolean | null
+          rejection_reason?: string | null
+          reward_credits?: number | null
+          target_state?: string | null
           target_url: string
           title: string
           user_id: string
+          watch_duration_seconds?: number | null
+          youtube_url?: string | null
         }
         Update: {
+          ad_type?: string
+          approved?: boolean
+          budget_credits?: number | null
           clicks?: number | null
           created_at?: string
           description?: string | null
@@ -109,9 +149,14 @@ export type Database = {
           image_url?: string | null
           impressions?: number | null
           is_active?: boolean | null
+          rejection_reason?: string | null
+          reward_credits?: number | null
+          target_state?: string | null
           target_url?: string
           title?: string
           user_id?: string
+          watch_duration_seconds?: number | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -727,6 +772,7 @@ export type Database = {
           referral_code: string | null
           referred_by: string | null
           referred_by_user_id: string | null
+          state: string | null
           user_id: string
         }
         Insert: {
@@ -751,6 +797,7 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           referred_by_user_id?: string | null
+          state?: string | null
           user_id: string
         }
         Update: {
@@ -775,6 +822,7 @@ export type Database = {
           referral_code?: string | null
           referred_by?: string | null
           referred_by_user_id?: string | null
+          state?: string | null
           user_id?: string
         }
         Relationships: []
