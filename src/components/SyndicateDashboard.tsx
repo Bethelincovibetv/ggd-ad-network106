@@ -18,6 +18,7 @@ const SyndicateDashboard = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [requestingMatch, setRequestingMatch] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [assignmentHours, setAssignmentHours] = useState(24);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -25,17 +26,23 @@ const SyndicateDashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, assignmentsRes, profileRes, walletRes] = await Promise.all([
+    // Auto-release expired assignments so they return to the available pool
+    await supabase.rpc('release_expired_syndicate_assignments' as any);
+
+    const [tasksRes, assignmentsRes, profileRes, walletRes, settingRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('status', 'active'),
       supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_assignment_hours').maybeSingle(),
     ]);
 
     setTasks(tasksRes.data || []);
     setMyAssignments(assignmentsRes.data || []);
     setProfile(profileRes.data);
     setWallet(walletRes.data);
+    const h = Number(settingRes.data?.value);
+    if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
     setLoading(false);
   };
 
@@ -110,6 +117,11 @@ const SyndicateDashboard = () => {
   const acceptTask = async (taskId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const hasPending = myAssignments.some(a => a.status === 'accepted' || a.status === 'assigned');
+    if (hasPending) {
+      toast.error("Finish your current task before claiming a new one");
+      return;
+    }
     const { error } = await supabase.from('syndicate_task_assignments').insert({ task_id: taskId, syndicate_user_id: user.id });
     if (error) {
       if (error.code === '23505') toast.info("Already accepted this task");
