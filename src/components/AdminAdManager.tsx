@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw } from "lucide-react";
+import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw, Check, X, MapPin, Youtube, Image as ImageIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface Ad {
@@ -24,6 +25,14 @@ interface Ad {
   expires_at: string | null;
   source?: string;
   owner_email?: string;
+  approved?: boolean;
+  rejection_reason?: string | null;
+  ad_type?: string;
+  target_state?: string | null;
+  youtube_url?: string | null;
+  watch_duration_seconds?: number | null;
+  reward_credits?: number | null;
+  budget_credits?: number | null;
 }
 
 const AdminAdManager = () => {
@@ -32,6 +41,7 @@ const AdminAdManager = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const fetchAds = async () => {
     setLoading(true);
@@ -94,6 +104,24 @@ const AdminAdManager = () => {
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, is_active: newStatus } : a));
   };
 
+  const approveAd = async (ad: Ad) => {
+    const { error } = await supabase.from('ads').update({ approved: true, is_active: true, rejection_reason: null }).eq('id', ad.id);
+    if (error) { toast.error('Approve failed'); return; }
+    toast.success('Ad approved & live');
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, approved: true, is_active: true, rejection_reason: null } : a));
+    if (selectedAd?.id === ad.id) setSelectedAd({ ...selectedAd, approved: true, is_active: true });
+  };
+
+  const rejectAd = async (ad: Ad, reason: string) => {
+    if (!reason.trim()) { toast.error('Provide a reason'); return; }
+    const { error } = await supabase.from('ads').update({ approved: false, is_active: false, rejection_reason: reason }).eq('id', ad.id);
+    if (error) { toast.error('Reject failed'); return; }
+    toast.success('Ad rejected');
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, approved: false, is_active: false, rejection_reason: reason } : a));
+    setRejectReason('');
+    if (selectedAd?.id === ad.id) setSelectedAd(null);
+  };
+
   const deleteAd = async (id: string) => {
     const { error } = await supabase.from('ads').delete().eq('id', id);
     if (error) {
@@ -115,6 +143,7 @@ const AdminAdManager = () => {
     const matchesFilter = filter === 'all' || 
       (filter === 'active' && ad.is_active) ||
       (filter === 'paused' && !ad.is_active) ||
+      (filter === 'pending' && !ad.approved && !ad.rejection_reason) ||
       (filter === 'api' && ad.source === 'api') ||
       (filter === 'direct' && ad.source === 'direct');
 
@@ -125,6 +154,7 @@ const AdminAdManager = () => {
     total: ads.length,
     active: ads.filter(a => a.is_active).length,
     paused: ads.filter(a => !a.is_active).length,
+    pending: ads.filter(a => !a.approved && !a.rejection_reason).length,
     api: ads.filter(a => a.source === 'api').length,
     direct: ads.filter(a => a.source === 'direct').length,
   };
@@ -132,11 +162,12 @@ const AdminAdManager = () => {
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
         {[
           { label: 'Total', value: stats.total, color: 'bg-primary/10 text-primary' },
           { label: 'Active', value: stats.active, color: 'bg-green-500/10 text-green-500' },
           { label: 'Paused', value: stats.paused, color: 'bg-yellow-500/10 text-yellow-500' },
+          { label: 'Pending', value: stats.pending, color: 'bg-orange-500/10 text-orange-500' },
           { label: 'API Ads', value: stats.api, color: 'bg-blue-500/10 text-blue-500' },
           { label: 'Direct', value: stats.direct, color: 'bg-purple-500/10 text-purple-500' },
         ].map(s => (
@@ -164,8 +195,9 @@ const AdminAdManager = () => {
       </div>
 
       <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList className="w-full grid grid-cols-5">
+        <TabsList className="w-full grid grid-cols-6">
           <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+          <TabsTrigger value="pending" className="text-xs">Pending</TabsTrigger>
           <TabsTrigger value="active" className="text-xs">Active</TabsTrigger>
           <TabsTrigger value="paused" className="text-xs">Paused</TabsTrigger>
           <TabsTrigger value="api" className="text-xs">API</TabsTrigger>
@@ -226,12 +258,25 @@ const AdminAdManager = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={ad.is_active ? 'default' : 'secondary'} className="text-[10px]">
-                      {ad.is_active ? 'Active' : 'Paused'}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={ad.is_active ? 'default' : 'secondary'} className="text-[10px] w-fit">
+                        {ad.is_active ? 'Live' : !ad.approved && !ad.rejection_reason ? 'Pending' : ad.rejection_reason ? 'Rejected' : 'Paused'}
+                      </Badge>
+                      {ad.ad_type === 'watch' && (
+                        <Badge variant="outline" className="text-[9px] w-fit"><Youtube className="h-2.5 w-2.5 mr-1 text-red-500" />Watch</Badge>
+                      )}
+                      {ad.target_state && (
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{ad.target_state}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {!ad.approved && !ad.rejection_reason && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-green-500" onClick={() => approveAd(ad)} title="Approve">
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedAd(ad)} title="View details">
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
@@ -261,9 +306,24 @@ const AdminAdManager = () => {
               {selectedAd.image_url && (
                 <img src={selectedAd.image_url} alt={selectedAd.title} className="w-full h-40 object-cover rounded-xl border border-border" />
               )}
+              {selectedAd.ad_type === 'watch' && selectedAd.youtube_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">YouTube Video</p>
+                  <a href={selectedAd.youtube_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline break-all">{selectedAd.youtube_url}</a>
+                  <p className="text-[10px] text-muted-foreground">Watch {selectedAd.watch_duration_seconds}s · Reward {selectedAd.reward_credits} credits · Budget {selectedAd.budget_credits} credits</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <h3 className="font-bold text-lg">{selectedAd.title}</h3>
                 {selectedAd.description && <p className="text-sm text-muted-foreground">{selectedAd.description}</p>}
+                {selectedAd.target_state && (
+                  <p className="text-xs flex items-center gap-1"><MapPin className="h-3 w-3 text-orange-500" /> Target: <span className="font-semibold">{selectedAd.target_state}</span></p>
+                )}
+                {selectedAd.rejection_reason && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2 text-xs text-destructive">
+                    <p className="font-bold">Rejected:</p> {selectedAd.rejection_reason}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-muted/50 rounded-lg p-2">
@@ -306,6 +366,11 @@ const AdminAdManager = () => {
                 </div>
               )}
               <div className="flex gap-2">
+                {!selectedAd.approved && !selectedAd.rejection_reason && (
+                  <Button size="sm" className="flex-1 text-xs bg-green-500 hover:bg-green-600 text-white" onClick={() => approveAd(selectedAd)}>
+                    <Check className="h-3 w-3 mr-1" /> Approve
+                  </Button>
+                )}
                 <Button 
                   size="sm" 
                   variant={selectedAd.is_active ? 'secondary' : 'default'}
@@ -318,6 +383,14 @@ const AdminAdManager = () => {
                   <Trash2 className="h-3 w-3 mr-1" /> Delete
                 </Button>
               </div>
+              {!selectedAd.approved && !selectedAd.rejection_reason && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <Textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Reason for rejection..." rows={2} className="text-xs" />
+                  <Button size="sm" variant="outline" className="w-full text-xs text-destructive border-destructive/30" onClick={() => rejectAd(selectedAd, rejectReason)}>
+                    <X className="h-3 w-3 mr-1" /> Reject with Reason
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
