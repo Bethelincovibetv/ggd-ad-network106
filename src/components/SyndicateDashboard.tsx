@@ -270,6 +270,19 @@ const SyndicateDashboard = () => {
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
 
+  if (showWizard && isEnabled('syndicate_onboarding_wizard')) {
+    return (
+      <SyndicateOnboardingWizard
+        initialBank={{
+          bank_name: profile?.bank_name,
+          account_number: profile?.account_number,
+          account_name: profile?.account_name,
+        }}
+        onComplete={() => { setShowWizard(false); fetchData(); }}
+      />
+    );
+  }
+
   const assignedTaskIds = myAssignments.map(a => a.task_id);
   const availableTasks = tasks.filter(t => !assignedTaskIds.includes(t.id));
 
