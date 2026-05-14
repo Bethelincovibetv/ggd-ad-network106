@@ -463,7 +463,7 @@ const SyndicateDashboard = () => {
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 {task.target_state && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {task.target_state}</span>}
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {task.deadline_hours || 24}h deadline</span>
+                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {assignmentHours}h after you accept</span>
               </div>
               <div className="flex justify-between items-center pt-1">
                 <span className="text-sm text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>
