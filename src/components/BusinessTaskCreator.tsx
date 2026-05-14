@@ -30,7 +30,7 @@ const BusinessTaskCreator = () => {
   const [platformPricing, setPlatformPricing] = useState<any[]>([]);
   const [form, setForm] = useState({
     title: '', description: '', share_link: '', max_syndicates: '10',
-    placements: [] as string[], target_state: '', deadline_hours: '24',
+    placements: [] as string[], target_state: '',
     approval_mode: 'manual' as 'manual' | 'auto',
   });
   const [flyerUrl, setFlyerUrl] = useState('');
@@ -127,7 +127,7 @@ const BusinessTaskCreator = () => {
       flyer_url: flyerUrl || null, share_link: form.share_link || null,
       placements: form.placements, target_state: form.target_state || null,
       max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
-      total_cost: totalCost, deadline_hours: parseInt(form.deadline_hours) || 24,
+      total_cost: totalCost,
       approval_mode: form.approval_mode,
     } as any);
     if (error) { toast.error("Failed to create task"); return; }
@@ -138,7 +138,7 @@ const BusinessTaskCreator = () => {
     }).eq('user_id', user.id);
 
     toast.success("Task created! Syndicates will be notified.");
-    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', deadline_hours: '24', approval_mode: 'manual' });
+    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', approval_mode: 'manual' });
     setFlyerUrl('');
     setIsCreating(false);
     fetchData();
@@ -324,7 +324,7 @@ const BusinessTaskCreator = () => {
             </div>
 
             <div className="flex items-center justify-between pt-1 border-t">
-              <span className="text-[10px] text-muted-foreground">₦{task.total_cost} • {task.deadline_hours || 24}h</span>
+              <span className="text-[10px] text-muted-foreground">₦{task.total_cost}</span>
               <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={(e) => { e.stopPropagation(); setOpenTask(task); }}>
                 <Eye className="h-3 w-3 mr-1" />View <ChevronRight className="h-3 w-3" />
               </Button>
@@ -418,7 +418,7 @@ const BusinessTaskCreator = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Max Syndicates</Label>
                 <Input type="number" value={form.max_syndicates} onChange={e => setForm({...form, max_syndicates: e.target.value})} className="mt-1" />
@@ -430,10 +430,6 @@ const BusinessTaskCreator = () => {
                   <option value="">All States</option>
                   {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-              </div>
-              <div>
-                <Label className="text-xs">Deadline (hrs)</Label>
-                <Input type="number" value={form.deadline_hours} onChange={e => setForm({...form, deadline_hours: e.target.value})} className="mt-1" />
               </div>
             </div>
 
