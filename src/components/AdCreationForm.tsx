@@ -425,6 +425,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
           </CardContent>
         </Card>
       )}
+      </>}
     </div>
   );
 };
