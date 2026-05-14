@@ -222,7 +222,7 @@ const BusinessStorefront = () => {
             <label className="flex items-center justify-center gap-2 h-9 rounded-md border border-dashed border-purple-300 cursor-pointer hover:bg-purple-50 transition text-xs">
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
               <span>{profile.hero_image_url ? 'Replace cover image' : 'Upload cover image from phone'}</span>
-              <input type="file" accept="image/*" capture="environment" className="hidden"
+              <input type="file" accept="image/*" className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0]; if (!file) return;
                   setUploading(true);
