@@ -211,7 +211,14 @@ const SyndicateDashboard = () => {
     // Find tasks that have expired assignments from other syndicates
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setRequestingMatch(false); return; }
-    
+
+    const hasPending = myAssignments.some(a => a.status === 'accepted' || a.status === 'assigned');
+    if (hasPending) {
+      toast.error("Finish your current task first");
+      setRequestingMatch(false);
+      return;
+    }
+
     const assignedIds = myAssignments.map(a => a.task_id);
     const availableForMatch = tasks.filter(t => !assignedIds.includes(t.id));
     
@@ -254,11 +261,11 @@ const SyndicateDashboard = () => {
     const task = assignment.syndicate_tasks;
     if (!task) return null;
 
-    // Check if deadline passed
-    const createdAt = new Date(assignment.created_at);
-    const deadlineMs = (task.deadline_hours || 24) * 60 * 60 * 1000;
-    const isExpired = Date.now() > createdAt.getTime() + deadlineMs && (assignment.status === 'accepted' || assignment.status === 'assigned');
-    const timeLeft = createdAt.getTime() + deadlineMs - Date.now();
+    // Check if per-syndicate deadline passed (starts when they accepted the task)
+    const acceptedAt = new Date(assignment.accepted_at || assignment.created_at);
+    const deadlineMs = assignmentHours * 60 * 60 * 1000;
+    const isExpired = Date.now() > acceptedAt.getTime() + deadlineMs && (assignment.status === 'accepted' || assignment.status === 'assigned');
+    const timeLeft = acceptedAt.getTime() + deadlineMs - Date.now();
     const hoursLeft = Math.max(0, Math.floor(timeLeft / (60 * 60 * 1000)));
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
