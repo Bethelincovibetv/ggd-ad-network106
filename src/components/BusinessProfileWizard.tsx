@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Phone, FileText, Image as ImageIcon, Briefcase } from 'lucide-react';
+import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Phone, FileText, Image as ImageIcon, Briefcase, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface BusinessProfileWizardProps {
@@ -17,6 +18,7 @@ interface BusinessProfileWizardProps {
 const STEPS = [
   { key: 'name', icon: Building2, color: 'from-orange-500 to-red-600', title: 'Business Name', desc: 'What is your business called? This is shown to customers.' },
   { key: 'category', icon: Briefcase, color: 'from-blue-500 to-indigo-600', title: 'Pick Your Category', desc: 'Choose the industry/category your business belongs to.' },
+  { key: 'state', icon: MapPin, color: 'from-pink-500 to-rose-600', title: 'Your State', desc: 'Where is your business located? Used to show you local ads & customers.' },
   { key: 'phone', icon: Phone, color: 'from-emerald-500 to-teal-600', title: 'Contact Phone', desc: 'Customers and the GGD team can reach you here.' },
   { key: 'description', icon: FileText, color: 'from-amber-500 to-orange-600', title: 'Short Description', desc: 'In 1-3 sentences, tell people what your business is about.' },
   { key: 'logo', icon: ImageIcon, color: 'from-fuchsia-500 to-rose-600', title: 'Upload Your Logo', desc: 'Optional but recommended — gives your account a pro look.' },
@@ -31,6 +33,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     business_name: '',
     category_id: '',
     business_category: '',
+    state: '',
     business_phone: '',
     business_description: '',
     business_logo_url: '',
@@ -45,7 +48,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from('profiles')
-        .select('business_name, business_category, business_phone, business_description, business_logo_url')
+        .select('business_name, business_category, business_phone, business_description, business_logo_url, state')
         .eq('user_id', user.id).maybeSingle();
       const { data: bp } = await (supabase.from('business_profiles') as any)
         .select('category_id').eq('user_id', user.id).maybeSingle();
@@ -79,6 +82,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     if (current.key === 'logo') return true;
     if (current.key === 'name') return form.business_name.trim().length >= 2;
     if (current.key === 'category') return !!form.category_id;
+    if (current.key === 'state') return !!form.state;
     if (current.key === 'phone') return /^[+\d][\d\s-]{6,}$/.test(form.business_phone.trim());
     if (current.key === 'description') return form.business_description.trim().length >= 2;
     return true;
@@ -102,6 +106,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       business_name: businessName,
       industry: categoryName,
       business_category: categoryName,
+      state: form.state || null,
       business_phone: form.business_phone.trim(),
       business_description: form.business_description.trim(),
       business_logo_url: form.business_logo_url || null,
@@ -146,6 +151,15 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
             <SelectTrigger className="h-11"><SelectValue placeholder="Select your category" /></SelectTrigger>
             <SelectContent className="max-h-72">
               {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        );
+      case 'state':
+        return (
+          <Select value={form.state} onValueChange={v => setForm(f => ({ ...f, state: v }))}>
+            <SelectTrigger className="h-11"><SelectValue placeholder="Select your state" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
         );
