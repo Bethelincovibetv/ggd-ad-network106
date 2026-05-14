@@ -1108,6 +1108,7 @@ export type Database = {
       }
       syndicate_task_assignments: {
         Row: {
+          accepted_at: string
           created_at: string
           id: string
           proof_url: string | null
@@ -1118,6 +1119,7 @@ export type Database = {
           task_id: string
         }
         Insert: {
+          accepted_at?: string
           created_at?: string
           id?: string
           proof_url?: string | null
@@ -1128,6 +1130,7 @@ export type Database = {
           task_id: string
         }
         Update: {
+          accepted_at?: string
           created_at?: string
           id?: string
           proof_url?: string | null
@@ -1153,7 +1156,6 @@ export type Database = {
           business_user_id: string
           cost_per_syndicate: number | null
           created_at: string
-          deadline_hours: number | null
           description: string | null
           flyer_url: string | null
           id: string
@@ -1171,7 +1173,6 @@ export type Database = {
           business_user_id: string
           cost_per_syndicate?: number | null
           created_at?: string
-          deadline_hours?: number | null
           description?: string | null
           flyer_url?: string | null
           id?: string
@@ -1189,7 +1190,6 @@ export type Database = {
           business_user_id?: string
           cost_per_syndicate?: number | null
           created_at?: string
-          deadline_hours?: number | null
           description?: string | null
           flyer_url?: string | null
           id?: string
@@ -1504,6 +1504,7 @@ export type Database = {
         Returns: boolean
       }
       is_feature_enabled: { Args: { _key: string }; Returns: boolean }
+      release_expired_syndicate_assignments: { Args: never; Returns: number }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
     }
     Enums: {
