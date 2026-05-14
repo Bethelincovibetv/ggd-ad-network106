@@ -87,7 +87,7 @@ const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
         <div className="relative flex items-center gap-4">
           <img src={gggCoin} alt="GGG" className="h-16 w-16 drop-shadow-lg" />
           <div>
-            <p className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">GoodGift Gram · GGG</p>
+            <p className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">GoodGift Gram (GGG) — currency</p>
             <p className="text-4xl font-black leading-tight">{credits.toLocaleString()}</p>
             <p className="text-[11px] opacity-80">₦{exchangeRate} = 1 GGG credit</p>
           </div>
