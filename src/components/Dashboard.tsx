@@ -268,7 +268,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
     const { error } = await supabase.from('ads').insert({
       user_id: user.id, title: newAd.title, description: newAd.description || '',
-      image_url: newAd.image_url || null, target_url: newAd.target_url, is_active: newAd.is_active,
+      image_url: newAd.image_url || null, target_url: newAd.target_url,
+      is_active: false, approved: isAdmin ? true : false,
       expires_at: expiresAt.toISOString(),
     });
     if (error) { toast.error("Failed to create ad"); return; }
