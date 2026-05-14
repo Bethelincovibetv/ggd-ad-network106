@@ -3,28 +3,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw } from "lucide-react";
+import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const SyndicateDashboard = () => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [wallet, setWallet] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [requestingMatch, setRequestingMatch] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentHours, setAssignmentHours] = useState(24);
+  const [showWizard, setShowWizard] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setUserEmail(user.email || '');
 
     // Auto-release expired assignments so they return to the available pool
     await supabase.rpc('release_expired_syndicate_assignments' as any);
@@ -43,7 +50,23 @@ const SyndicateDashboard = () => {
     setWallet(walletRes.data);
     const h = Number(settingRes.data?.value);
     if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
+
+    // Show onboarding for newly approved syndicates (only once)
+    const seen = localStorage.getItem('ggd_syndicate_wizard_seen') === 'true';
+    if (profileRes.data && !seen) setShowWizard(true);
+
     setLoading(false);
+  };
+
+  const sendPasswordReset = async () => {
+    if (!userEmail) return;
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    setSendingReset(false);
+    if (error) toast.error("Could not send reset email");
+    else toast.success(`Password reset link sent to ${userEmail}`);
   };
 
   const uploadAvatar = async (file: File) => {
@@ -247,6 +270,19 @@ const SyndicateDashboard = () => {
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
 
+  if (showWizard && isEnabled('syndicate_onboarding_wizard')) {
+    return (
+      <SyndicateOnboardingWizard
+        initialBank={{
+          bank_name: profile?.bank_name,
+          account_number: profile?.account_number,
+          account_name: profile?.account_name,
+        }}
+        onComplete={() => { setShowWizard(false); fetchData(); }}
+      />
+    );
+  }
+
   const assignedTaskIds = myAssignments.map(a => a.task_id);
   const availableTasks = tasks.filter(t => !assignedTaskIds.includes(t.id));
 
@@ -409,10 +445,38 @@ const SyndicateDashboard = () => {
       </div>
 
       {/* Request Matching */}
-      <Button variant="outline" className="w-full h-11 rounded-xl border-2 font-semibold" onClick={requestTaskMatching} disabled={requestingMatch}>
-        {requestingMatch ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+      <Button className="w-full h-14 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg" onClick={requestTaskMatching} disabled={requestingMatch}>
+        {requestingMatch ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <RefreshCw className="h-5 w-5 mr-2" />}
         Find Me a Task
       </Button>
+
+      {/* Account Credentials */}
+      <Card className="border-2 border-purple-200 dark:border-purple-900/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-purple-600" /> Account Credentials
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-2 bg-muted/40 rounded-xl p-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Login Email</p>
+              <p className="text-sm font-semibold truncate">{userEmail}</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-10 px-4 text-sm font-semibold rounded-lg" onClick={() => copyText(userEmail)}>
+              <Copy className="h-4 w-4 mr-1" /> Copy
+            </Button>
+          </div>
+          <Button onClick={sendPasswordReset} disabled={sendingReset}
+            className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-xl">
+            {sendingReset ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <KeyRound className="h-5 w-5 mr-2" />}
+            Reset / Change Password
+          </Button>
+          <p className="text-xs text-muted-foreground text-center leading-relaxed">
+            We'll email you a secure link to set a new password.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Tabbed Assignment View */}
       <Tabs defaultValue="pending" className="space-y-3">

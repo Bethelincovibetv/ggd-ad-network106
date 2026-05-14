@@ -87,43 +87,57 @@ const SyndicateWallet = () => {
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
 
   return (
-    <div className="space-y-4">
-      <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-        <CardContent className="p-4 text-center">
-          <Wallet className="h-8 w-8 mx-auto mb-2 text-green-600" />
-          <p className="text-xs text-muted-foreground">Available Balance</p>
-          <p className="text-3xl font-bold text-green-700">₦{wallet?.balance || 0}</p>
+    <div className="space-y-5 max-w-2xl mx-auto">
+      <Card className="border-2 border-green-200 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 text-white shadow-xl overflow-hidden relative">
+        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <CardContent className="p-6 text-center relative">
+          <Wallet className="h-10 w-10 mx-auto mb-2 text-white" />
+          <p className="text-sm uppercase tracking-wider opacity-90 font-semibold">Available Balance</p>
+          <p className="text-5xl font-black mt-1">₦{(wallet?.balance || 0).toLocaleString()}</p>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="bg-white/15 backdrop-blur rounded-xl p-3">
+              <p className="text-[11px] opacity-90">Total Earned</p>
+              <p className="text-lg font-bold">₦{(wallet?.total_earned || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur rounded-xl p-3">
+              <p className="text-[11px] opacity-90">Withdrawals</p>
+              <p className="text-lg font-bold">{withdrawals.length}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Bank Details */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Bank Details</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <Card className="border-2">
+        <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">🏦 Bank Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
           <div>
-            <Label className="text-xs">Bank Name</Label>
-            <Input value={bankForm.bank_name} onChange={e => setBankForm({...bankForm, bank_name: e.target.value})} className="mt-1" placeholder="e.g. GTBank" />
+            <Label className="text-sm font-semibold">Bank Name</Label>
+            <Input value={bankForm.bank_name} onChange={e => setBankForm({...bankForm, bank_name: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="e.g. GTBank" />
           </div>
           <div>
-            <Label className="text-xs">Account Number</Label>
-            <Input value={bankForm.account_number} onChange={e => setBankForm({...bankForm, account_number: e.target.value})} className="mt-1" placeholder="0123456789" />
+            <Label className="text-sm font-semibold">Account Number</Label>
+            <Input value={bankForm.account_number} onChange={e => setBankForm({...bankForm, account_number: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="0123456789" inputMode="numeric" />
           </div>
           <div>
-            <Label className="text-xs">Account Name</Label>
-            <Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} className="mt-1" placeholder="Your full name" />
+            <Label className="text-sm font-semibold">Account Name</Label>
+            <Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="Your full name" />
           </div>
-          <Button onClick={saveBankDetails} size="sm" className="w-full text-xs">Save Bank Details</Button>
+          <Button onClick={saveBankDetails} className="w-full h-12 text-base font-bold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+            Save Bank Details
+          </Button>
         </CardContent>
       </Card>
 
       {/* Withdrawal */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Request Withdrawal</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <Input type="number" placeholder="Amount (₦)" value={amount} onChange={e => setAmount(e.target.value)} />
-          <p className="text-[10px] text-muted-foreground">Withdrawals are processed every Saturday</p>
-          <Button onClick={requestWithdrawal} disabled={submitting} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs">
-            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownCircle className="h-4 w-4 mr-2" />}
+      <Card className="border-2">
+        <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
+          <p className="text-sm text-muted-foreground text-center">Withdrawals are processed every Saturday</p>
+          <Button onClick={requestWithdrawal} disabled={submitting} className="w-full h-14 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-base font-bold rounded-xl shadow-lg">
+            {submitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ArrowDownCircle className="h-5 w-5 mr-2" />}
             Request Withdrawal
           </Button>
         </CardContent>
@@ -132,21 +146,21 @@ const SyndicateWallet = () => {
       {/* History */}
       {withdrawals.length > 0 && (
         <>
-          <h3 className="font-bold text-sm text-foreground">Withdrawal History</h3>
-          <div className="space-y-2">
+          <h3 className="font-bold text-lg text-foreground">📜 Withdrawal History</h3>
+          <div className="space-y-3">
             {withdrawals.map(w => (
-              <Card key={w.id}>
-                <CardContent className="p-3 flex items-center justify-between">
+              <Card key={w.id} className="border">
+                <CardContent className="p-4 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-foreground">₦{w.amount}</p>
-                    <p className="text-[10px] text-muted-foreground">{w.bank_name} - {w.account_number}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
+                    <p className="text-lg font-bold text-foreground">₦{Number(w.amount).toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{w.bank_name} • {w.account_number}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
                   </div>
-                  <Badge className={
+                  <Badge className={`text-sm px-3 py-1.5 ${
                     w.status === 'completed' ? 'bg-green-500' :
                     w.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
-                  }>
-                    {w.status === 'completed' ? <CheckCircle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                  }`}>
+                    {w.status === 'completed' ? <CheckCircle className="h-4 w-4 mr-1" /> : <Clock className="h-4 w-4 mr-1" />}
                     {w.status}
                   </Badge>
                 </CardContent>
