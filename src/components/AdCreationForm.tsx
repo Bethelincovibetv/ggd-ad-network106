@@ -5,8 +5,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp } from "lucide-react";
+import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins } from "lucide-react";
 import { toast } from "sonner";
+import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 
 interface AdCreationFormProps {
   onAdCreated: (adData: any) => void;
@@ -20,7 +21,13 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
     imageUrl: '',
     targetUrl: '',
     durationDays: 7,
-    isActive: true
+    isActive: true,
+    targetState: 'all',
+    adType: 'banner' as 'banner' | 'watch',
+    youtubeUrl: '',
+    watchDurationSeconds: 30,
+    rewardCredits: 5,
+    budgetCredits: 500,
   });
   const [step, setStep] = useState(1);
 
@@ -39,6 +46,13 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
   };
 
   const createAd = () => {
+    if (newAd.adType === 'watch') {
+      if (!newAd.title.trim() || !newAd.youtubeUrl.trim()) { toast.error("Title and YouTube URL are required"); return; }
+      if (newAd.watchDurationSeconds < 5) { toast.error("Minimum watch duration is 5 seconds"); return; }
+      if (newAd.rewardCredits < 1 || newAd.budgetCredits < newAd.rewardCredits) { toast.error("Reward and budget must be valid"); return; }
+      onAdCreated(newAd);
+      return;
+    }
     if (!newAd.title.trim() || !newAd.description.trim() || !newAd.targetUrl.trim()) {
       toast.error("Please fill in all required fields");
       return;
@@ -67,6 +81,90 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
 
   return (
     <div className="space-y-4">
+      {/* Ad Type Selector */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setNewAd({ ...newAd, adType: 'banner' })}
+          className={`flex items-center gap-2 p-3 rounded-2xl border-2 transition-all ${newAd.adType === 'banner' ? 'border-orange-500 bg-orange-500/10' : 'border-border bg-muted/30'}`}
+        >
+          <ImageIcon className="h-5 w-5 text-orange-500" />
+          <div className="text-left">
+            <p className="text-xs font-bold text-foreground">Banner Ad</p>
+            <p className="text-[9px] text-muted-foreground">Image + link</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setNewAd({ ...newAd, adType: 'watch' })}
+          className={`flex items-center gap-2 p-3 rounded-2xl border-2 transition-all ${newAd.adType === 'watch' ? 'border-red-500 bg-red-500/10' : 'border-border bg-muted/30'}`}
+        >
+          <Youtube className="h-5 w-5 text-red-500" />
+          <div className="text-left">
+            <p className="text-xs font-bold text-foreground">Watch & Earn</p>
+            <p className="text-[9px] text-muted-foreground">YouTube reward</p>
+          </div>
+        </button>
+      </div>
+
+      {/* Watch Video Ad Flow */}
+      {newAd.adType === 'watch' && (
+        <Card className="border-0 shadow-lg bg-card/80 overflow-hidden">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
+                <Youtube className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">YouTube Watch Ad</h4>
+                <p className="text-[10px] text-muted-foreground">Pay viewers to watch your video</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Campaign Title</Label>
+              <Input value={newAd.title} onChange={e => setNewAd({ ...newAd, title: e.target.value })} placeholder="e.g. Watch our new product video" className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">YouTube URL</Label>
+              <Input value={newAd.youtubeUrl} onChange={e => setNewAd({ ...newAd, youtubeUrl: e.target.value })} placeholder="https://youtube.com/watch?v=..." className="h-11 rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />Watch (seconds)</Label>
+                <Input type="number" min={5} value={newAd.watchDurationSeconds} onChange={e => setNewAd({ ...newAd, watchDurationSeconds: parseInt(e.target.value) || 0 })} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" />Reward / view</Label>
+                <Input type="number" min={1} value={newAd.rewardCredits} onChange={e => setNewAd({ ...newAd, rewardCredits: parseInt(e.target.value) || 0 })} className="h-11 rounded-xl" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total Budget (credits)</Label>
+              <Input type="number" min={newAd.rewardCredits} value={newAd.budgetCredits} onChange={e => setNewAd({ ...newAd, budgetCredits: parseInt(e.target.value) || 0 })} className="h-11 rounded-xl" />
+              <p className="text-[10px] text-muted-foreground">≈ {Math.floor(newAd.budgetCredits / Math.max(newAd.rewardCredits, 1))} viewers can earn</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />Target State</Label>
+              <Select value={newAd.targetState} onValueChange={v => setNewAd({ ...newAd, targetState: v })}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">All Nigeria</SelectItem>
+                  {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl">Cancel</Button>
+              <Button onClick={createAd} className="flex-1 h-12 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold">
+                <Youtube className="h-4 w-4 mr-2" /> Submit for Review
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">Watch ads need admin approval before going live.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {newAd.adType === 'banner' && <>
       {/* Hero Header */}
       <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-orange-600 via-red-500 to-pink-600 p-5">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIi8+PC9zdmc+')] opacity-50" />
@@ -277,6 +375,19 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               </Select>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="h-3 w-3" /> Target State
+              </Label>
+              <Select value={newAd.targetState} onValueChange={v => setNewAd({ ...newAd, targetState: v })}>
+                <SelectTrigger className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover rounded-xl max-h-72">
+                  <SelectItem value="all">🇳🇬 All Nigeria</SelectItem>
+                  {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Summary Card */}
             <div className="rounded-2xl bg-gradient-to-br from-orange-500/10 via-red-500/5 to-pink-500/10 border border-orange-500/20 overflow-hidden">
               <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 px-4 py-2.5 border-b border-orange-500/10">
@@ -327,6 +438,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
           </CardContent>
         </Card>
       )}
+      </>}
     </div>
   );
 };

@@ -268,7 +268,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
     const { error } = await supabase.from('ads').insert({
       user_id: user.id, title: newAd.title, description: newAd.description || '',
-      image_url: newAd.image_url || null, target_url: newAd.target_url, is_active: newAd.is_active,
+      image_url: newAd.image_url || null, target_url: newAd.target_url,
+      is_active: false, approved: isAdmin ? true : false,
       expires_at: expiresAt.toISOString(),
     });
     if (error) { toast.error("Failed to create ad"); return; }
@@ -779,7 +780,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             <div className="px-3 sm:px-4 py-2.5 flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <SidebarTrigger className="flex-shrink-0" />
+                  <SidebarTrigger className="flex-shrink-0 h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-6 [&_svg]:w-6 [&_svg]:text-white" />
                   <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
                   <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
                     GGD AD NETWORK
