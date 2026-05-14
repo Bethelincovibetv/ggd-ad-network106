@@ -18,6 +18,7 @@ const SyndicateDashboard = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [requestingMatch, setRequestingMatch] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [assignmentHours, setAssignmentHours] = useState(24);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -25,17 +26,23 @@ const SyndicateDashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, assignmentsRes, profileRes, walletRes] = await Promise.all([
+    // Auto-release expired assignments so they return to the available pool
+    await supabase.rpc('release_expired_syndicate_assignments' as any);
+
+    const [tasksRes, assignmentsRes, profileRes, walletRes, settingRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('status', 'active'),
       supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_assignment_hours').maybeSingle(),
     ]);
 
     setTasks(tasksRes.data || []);
     setMyAssignments(assignmentsRes.data || []);
     setProfile(profileRes.data);
     setWallet(walletRes.data);
+    const h = Number(settingRes.data?.value);
+    if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
     setLoading(false);
   };
 
@@ -110,6 +117,11 @@ const SyndicateDashboard = () => {
   const acceptTask = async (taskId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const hasPending = myAssignments.some(a => a.status === 'accepted' || a.status === 'assigned');
+    if (hasPending) {
+      toast.error("Finish your current task before claiming a new one");
+      return;
+    }
     const { error } = await supabase.from('syndicate_task_assignments').insert({ task_id: taskId, syndicate_user_id: user.id });
     if (error) {
       if (error.code === '23505') toast.info("Already accepted this task");
@@ -199,7 +211,14 @@ const SyndicateDashboard = () => {
     // Find tasks that have expired assignments from other syndicates
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setRequestingMatch(false); return; }
-    
+
+    const hasPending = myAssignments.some(a => a.status === 'accepted' || a.status === 'assigned');
+    if (hasPending) {
+      toast.error("Finish your current task first");
+      setRequestingMatch(false);
+      return;
+    }
+
     const assignedIds = myAssignments.map(a => a.task_id);
     const availableForMatch = tasks.filter(t => !assignedIds.includes(t.id));
     
@@ -242,11 +261,11 @@ const SyndicateDashboard = () => {
     const task = assignment.syndicate_tasks;
     if (!task) return null;
 
-    // Check if deadline passed
-    const createdAt = new Date(assignment.created_at);
-    const deadlineMs = (task.deadline_hours || 24) * 60 * 60 * 1000;
-    const isExpired = Date.now() > createdAt.getTime() + deadlineMs && (assignment.status === 'accepted' || assignment.status === 'assigned');
-    const timeLeft = createdAt.getTime() + deadlineMs - Date.now();
+    // Check if per-syndicate deadline passed (starts when they accepted the task)
+    const acceptedAt = new Date(assignment.accepted_at || assignment.created_at);
+    const deadlineMs = assignmentHours * 60 * 60 * 1000;
+    const isExpired = Date.now() > acceptedAt.getTime() + deadlineMs && (assignment.status === 'accepted' || assignment.status === 'assigned');
+    const timeLeft = acceptedAt.getTime() + deadlineMs - Date.now();
     const hoursLeft = Math.max(0, Math.floor(timeLeft / (60 * 60 * 1000)));
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
@@ -444,7 +463,7 @@ const SyndicateDashboard = () => {
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 {task.target_state && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {task.target_state}</span>}
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {task.deadline_hours || 24}h deadline</span>
+                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {assignmentHours}h after you accept</span>
               </div>
               <div className="flex justify-between items-center pt-1">
                 <span className="text-sm text-green-600 font-bold">₦{task.cost_per_syndicate}/task</span>

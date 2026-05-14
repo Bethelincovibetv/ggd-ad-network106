@@ -302,7 +302,7 @@ const AdminSyndicateManager = () => {
                       <div className="flex gap-1 mt-2 flex-wrap">
                         {(task.placements || []).map((p: string) => <Badge key={p} className="text-[8px] bg-purple-100 text-purple-700 border-0 rounded-full">{p.replace(/_/g,' ')}</Badge>)}
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1.5 font-medium">₦{task.total_cost} · {task.max_syndicates} slots · {task.deadline_hours || 24}h</p>
+                      <p className="text-[10px] text-muted-foreground mt-1.5 font-medium">₦{task.total_cost} · {task.max_syndicates} slots</p>
                     </div>
                     <Button size="sm" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] h-9 rounded-xl shadow-sm px-4" onClick={() => viewTaskSubmissions(task.id)}>
                       <Eye className="h-3 w-3 mr-1" />View
