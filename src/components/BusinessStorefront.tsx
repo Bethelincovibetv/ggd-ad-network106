@@ -208,30 +208,55 @@ const BusinessStorefront = () => {
           );
         })()}
 
-        {/* AI Hero Generator */}
+        {/* Cover Image: Upload from phone, AI generator (toggleable) */}
         <Card className="border-purple-500/30 bg-gradient-to-r from-purple-500/5 to-pink-500/5">
           <CardContent className="p-3 space-y-2">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">AI Hero Banner</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Site Cover Image</p>
             </div>
             {profile.hero_image_url && <img src={profile.hero_image_url} alt="Hero" className="w-full h-24 object-cover rounded-lg" />}
-            <p className="text-[11px] text-muted-foreground">Generate a stunning AI banner tailored to your business — boosts SEO & engagement.</p>
-            <Button size="sm" disabled={generatingHero} className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-              onClick={async () => {
-                setGeneratingHero(true);
-                const cat = categories.find(c => c.id === profile.category_id)?.name;
-                const { data, error } = await supabase.functions.invoke('generate-business-hero', {
-                  body: { businessName: profile.business_name, category: cat, description: profile.description },
-                });
-                setGeneratingHero(false);
-                if (error || (data as any)?.error) { toast.error('Generation failed'); return; }
-                setProfile((p: any) => ({ ...p, hero_image_url: (data as any).url }));
-                toast.success('AI hero banner generated! ✨');
-              }}>
-              {generatingHero ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-              {profile.hero_image_url ? 'Regenerate AI Banner' : 'Generate AI Banner'}
-            </Button>
+            <p className="text-[11px] text-muted-foreground">Upload your own cover photo from your phone, or generate one with AI.</p>
+
+            {/* Upload from phone */}
+            <label className="flex items-center justify-center gap-2 h-9 rounded-md border border-dashed border-purple-300 cursor-pointer hover:bg-purple-50 transition text-xs">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              <span>{profile.hero_image_url ? 'Replace cover image' : 'Upload cover image from phone'}</span>
+              <input type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  setUploading(true);
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) { setUploading(false); return; }
+                  const ext = file.name.split('.').pop();
+                  const path = `${user.id}/hero_${Date.now()}.${ext}`;
+                  const { error } = await supabase.storage.from('business-logos').upload(path, file, { upsert: true });
+                  if (error) { setUploading(false); toast.error('Upload failed'); return; }
+                  const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(path);
+                  await (supabase.from('business_profiles') as any).update({ hero_image_url: publicUrl }).eq('user_id', user.id);
+                  setProfile((p: any) => ({ ...p, hero_image_url: publicUrl }));
+                  setUploading(false);
+                  toast.success('Cover image uploaded!');
+                }} />
+            </label>
+
+            {isEnabled('ai_hero_generator') && (
+              <Button size="sm" disabled={generatingHero} className="w-full h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                onClick={async () => {
+                  setGeneratingHero(true);
+                  const cat = categories.find(c => c.id === profile.category_id)?.name;
+                  const { data, error } = await supabase.functions.invoke('generate-business-hero', {
+                    body: { businessName: profile.business_name, category: cat, description: profile.description },
+                  });
+                  setGeneratingHero(false);
+                  if (error || (data as any)?.error) { toast.error('Generation failed'); return; }
+                  setProfile((p: any) => ({ ...p, hero_image_url: (data as any).url }));
+                  toast.success('AI hero banner generated! ✨');
+                }}>
+                {generatingHero ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                {profile.hero_image_url ? 'Regenerate with AI' : 'Generate with AI'}
+              </Button>
+            )}
           </CardContent>
         </Card>
 
