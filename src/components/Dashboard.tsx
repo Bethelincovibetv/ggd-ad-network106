@@ -401,6 +401,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   }
 
   if (showWizard && profileSetupComplete !== true) {
+    // Allow admin to switch off the wizard
+    if (!isEnabled('setup_wizard')) {
+      // Skip wizard entirely
+    } else {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 pb-20">
         <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">
@@ -416,6 +420,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         </div>
       </div>
     );
+    }
   }
 
   const renderContent = () => {
