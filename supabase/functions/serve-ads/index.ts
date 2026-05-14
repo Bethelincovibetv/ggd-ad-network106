@@ -49,8 +49,10 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString()
     const { data: ads, error } = await supabase
       .from('ads')
-      .select('id, title, description, image_url, target_url')
+      .select('id, title, description, image_url, target_url, target_state, ad_type, approved')
       .eq('is_active', true)
+      .eq('approved', true)
+      .eq('ad_type', 'banner')
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .limit(20)
 
