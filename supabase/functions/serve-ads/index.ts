@@ -56,7 +56,15 @@ Deno.serve(async (req) => {
 
     if (error) throw error
 
-    return new Response(JSON.stringify({ ads: ads || [] }), {
+    const list = (ads && ads.length > 0) ? ads : [{
+      id: 'fallback',
+      title: 'Promote Your Business on GGD Ad Network',
+      description: 'Reach thousands of Nigerians daily. Create your first ad in seconds.',
+      image_url: null,
+      target_url: 'https://ggdadnetwork.com',
+    }]
+
+    return new Response(JSON.stringify({ ads: list }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
