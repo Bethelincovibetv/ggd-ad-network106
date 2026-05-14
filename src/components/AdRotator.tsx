@@ -48,22 +48,33 @@ const AdRotator = () => {
       }
     }
 
-    const { error } = await supabase.from('ads').insert({
+    const isWatch = adData.adType === 'watch';
+    const insertPayload: any = {
       user_id: user.id,
       title: adData.title,
-      description: adData.description,
-      target_url: adData.targetUrl,
+      description: adData.description || (isWatch ? 'Watch and earn credits' : ''),
+      target_url: isWatch ? (adData.youtubeUrl || '') : adData.targetUrl,
       image_url: imageUrl,
-      is_active: true,
-      expires_at: endDate.toISOString(),
-    });
+      is_active: false,
+      approved: false,
+      ad_type: isWatch ? 'watch' : 'banner',
+      target_state: adData.targetState && adData.targetState !== 'all' ? adData.targetState : null,
+      expires_at: isWatch ? null : endDate.toISOString(),
+    };
+    if (isWatch) {
+      insertPayload.youtube_url = adData.youtubeUrl;
+      insertPayload.watch_duration_seconds = adData.watchDurationSeconds;
+      insertPayload.reward_credits = adData.rewardCredits;
+      insertPayload.budget_credits = adData.budgetCredits;
+    }
+    const { error } = await supabase.from('ads').insert(insertPayload);
 
     if (error) {
       toast.error("Failed to create ad");
       return;
     }
 
-    toast.success(`Ad created! Payment of $${amount.toFixed(2)} processed.`);
+    toast.success(isWatch ? 'Watch ad submitted for admin approval!' : `Ad submitted for review. Payment of $${amount.toFixed(2)} processed.`);
     setIsCreating(false);
     fetchAds();
   };
