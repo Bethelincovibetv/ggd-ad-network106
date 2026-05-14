@@ -5,7 +5,7 @@ import defaultAdImg from "@/assets/default-ad.jpg";
 
 const DEFAULT_AD = {
   title: 'Promote Your Business',
-  description: 'Reach thousands on GoodGift Gram',
+  description: 'Reach thousands on GGD Ad Network',
   image_url: defaultAdImg,
   target_url: '/',
 };

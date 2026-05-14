@@ -73,7 +73,7 @@ const AboutPage = () => {
       <div className="text-center py-4 border-t border-border">
         <p className="text-xs text-muted-foreground">Powered by</p>
         <p className="text-sm font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-          GoodGift Gram
+          Goodgift Digital
         </p>
         <p className="text-[10px] text-muted-foreground mt-1">© {new Date().getFullYear()} All rights reserved.</p>
       </div>

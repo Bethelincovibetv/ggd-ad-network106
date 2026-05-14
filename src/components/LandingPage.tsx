@@ -393,7 +393,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <footer className="border-t border-[#333] py-8">
         <div className="container mx-auto px-4 text-center text-gray-500 text-sm space-y-2">
           <p>© {new Date().getFullYear()} GGD Ad Network. All rights reserved.</p>
-          <p className="text-xs">Powered by <span className="text-[#e67e22] font-semibold">GoodGift Gram</span></p>
+          <p className="text-xs">Powered by <span className="text-[#e67e22] font-semibold">Goodgift Digital</span></p>
         </div>
       </footer>
 

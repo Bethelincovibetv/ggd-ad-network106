@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!task) return new Response('Campaign no longer available', { status: 404 });
 
-    let creatorName = 'GoodGift Gram';
+    let creatorName = 'GGD Ad Network';
     if (task.creator_id) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     const image = task.flyer_url || FALLBACK_IMG;
     const title = `${task.title} — by ${creatorName}`;
     const description = task.description ||
-      `Promoted by ${creatorName} on GoodGift Gram. Tap to view.`;
+      `Promoted by ${creatorName} on GGD Ad Network. Tap to view.`;
 
     const html = `<!doctype html>
 <html lang="en"><head>
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 <meta name="description" content="${escapeHtml(description)}" />
 <link rel="canonical" href="${escapeHtml(previewUrl)}" />
 <meta property="og:type" content="website" />
-<meta property="og:site_name" content="GoodGift Gram" />
+<meta property="og:site_name" content="GGD Ad Network" />
 <meta property="og:title" content="${escapeHtml(title)}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
 <meta property="og:image" content="${escapeHtml(image)}" />
