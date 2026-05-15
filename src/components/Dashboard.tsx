@@ -587,7 +587,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                         </div>
                       </div>
 
-                      {!premium.autoConvertAds && (
+                      {!premium.autoConvertAds && isEnabled('tasks') && (
                         <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
                           onClick={() => convertAdToTask(ad)}>
                           <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
