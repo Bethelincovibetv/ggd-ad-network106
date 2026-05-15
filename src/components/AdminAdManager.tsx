@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw, Check, X, MapPin, Youtube, Image as ImageIcon } from "lucide-react";
+import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw, Check, X, MapPin, Youtube, Image as ImageIcon, CalendarPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -42,6 +42,26 @@ const AdminAdManager = () => {
   const [filter, setFilter] = useState('all');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [extendDays, setExtendDays] = useState('7');
+  const [extending, setExtending] = useState(false);
+
+  const extendAdDuration = async () => {
+    if (!selectedAd) return;
+    const days = parseInt(extendDays);
+    if (!days || days < 1) { toast.error('Enter a valid number of days'); return; }
+    setExtending(true);
+    const base = selectedAd.expires_at && new Date(selectedAd.expires_at) > new Date()
+      ? new Date(selectedAd.expires_at)
+      : new Date();
+    base.setDate(base.getDate() + days);
+    const newExpiry = base.toISOString();
+    const { error } = await supabase.from('ads').update({ expires_at: newExpiry, is_active: true }).eq('id', selectedAd.id);
+    setExtending(false);
+    if (error) { toast.error('Failed to extend duration'); return; }
+    toast.success(`Extended by ${days} day${days > 1 ? 's' : ''}`);
+    setSelectedAd({ ...selectedAd, expires_at: newExpiry, is_active: true });
+    fetchAds();
+  };
 
   const fetchAds = async () => {
     setLoading(true);
