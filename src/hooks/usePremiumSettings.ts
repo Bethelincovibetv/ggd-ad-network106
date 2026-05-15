@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PremiumTier {
-  tier: 1 | 2 | 3;
+  tier: 0 | 1 | 2 | 3 | 4;
   days: number;
   credits: number;
   label: string;
@@ -14,6 +14,7 @@ export interface PremiumSettings {
   exchangeRate: number;
   autoConvertAds: boolean;
   tiers: PremiumTier[];
+  businessContact: string;
   loading: boolean;
 }
 
@@ -23,10 +24,13 @@ const DEFAULTS: Omit<PremiumSettings, 'loading'> = {
   exchangeRate: 100,
   autoConvertAds: false,
   tiers: [
+    { tier: 0, days: 3, credits: 0, label: 'Free Premium' },
     { tier: 1, days: 7, credits: 50, label: 'Starter' },
     { tier: 2, days: 15, credits: 120, label: 'Growth' },
     { tier: 3, days: 30, credits: 250, label: 'Pro' },
+    { tier: 4, days: 30, credits: 0, label: 'Business / White-Label' },
   ],
+  businessContact: '',
 };
 
 export const usePremiumSettings = (): PremiumSettings => {
@@ -44,10 +48,13 @@ export const usePremiumSettings = (): PremiumSettings => {
         freeAdDays: num('ad_duration_free_days', 3),
         exchangeRate: num('credit_exchange_rate', 100),
         autoConvertAds: (map['auto_convert_ads_to_tasks'] ?? 'false') === 'true',
+        businessContact: map['premium_business_contact'] || '',
         tiers: [
+          { tier: 0, days: num('premium_tier0_days', 3), credits: 0, label: map['premium_tier0_label'] || 'Free Premium' },
           { tier: 1, days: num('premium_tier1_days', 7), credits: num('premium_tier1_credits', 50), label: 'Starter' },
           { tier: 2, days: num('premium_tier2_days', 15), credits: num('premium_tier2_credits', 120), label: 'Growth' },
           { tier: 3, days: num('premium_tier3_days', 30), credits: num('premium_tier3_credits', 250), label: 'Pro' },
+          { tier: 4, days: num('premium_tier3_days', 30), credits: 0, label: map['premium_tier4_label'] || 'Business / White-Label' },
         ],
       });
     })();
