@@ -3,14 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck } from "lucide-react";
+import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck, Home, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
+import SyndicateWallet from "@/components/SyndicateWallet";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
-const SyndicateDashboard = () => {
+interface SyndicateDashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
