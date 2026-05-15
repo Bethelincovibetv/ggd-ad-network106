@@ -163,10 +163,15 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+    const { data: roles } = await supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id);
     const userRoles = (roles || []).map(r => r.role);
     setIsAdmin(userRoles.includes('admin'));
     setIsPremium(userRoles.includes('premium'));
+    const premRow: any = (roles || []).find((r: any) => r.role === 'premium');
+    if (premRow) {
+      setCurrentTier(premRow.premium_tier ?? 0);
+      setPremiumExpiresAt(premRow.premium_expires_at ?? null);
+    }
     // Every registered user is a business by default
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
