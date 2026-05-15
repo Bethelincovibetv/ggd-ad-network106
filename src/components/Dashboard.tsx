@@ -651,7 +651,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <UserProfilePage />;
 
       case 'smart-links':
-        return <LinkShortener />;
+        return isEnabled('link_shortener') ? <LinkShortener /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'referrals':
         return <ReferralsPage />;
