@@ -3,14 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck } from "lucide-react";
+import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck, Home, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
+import SyndicateWallet from "@/components/SyndicateWallet";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
-const SyndicateDashboard = () => {
+interface SyndicateDashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -380,6 +385,17 @@ const SyndicateDashboard = () => {
 
   return (
     <div className="space-y-4">
+      {onNavigate && (
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="outline" size="sm" className="h-10 px-3 rounded-xl font-semibold" onClick={() => onNavigate('ads')}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Main App
+          </Button>
+          <Button variant="ghost" size="sm" className="h-10 px-3 rounded-xl text-purple-600 font-semibold" onClick={() => onNavigate('ads')}>
+            <Home className="h-4 w-4 mr-1" /> Home
+          </Button>
+        </div>
+      )}
+
       <YouTubeEmbed section="syndicate" />
 
       {/* Hero Profile */}
@@ -545,6 +561,14 @@ const SyndicateDashboard = () => {
             <p className="text-xs mt-1">Check back soon or request task matching above</p>
           </div>
         )}
+      </div>
+
+      {/* Wallet Management — bank details, earnings, withdrawals */}
+      <div className="pt-2">
+        <h3 className="font-bold text-base text-foreground flex items-center gap-2 mb-2">
+          <Wallet className="h-5 w-5 text-purple-600" /> My Wallet
+        </h3>
+        <SyndicateWallet />
       </div>
     </div>
   );

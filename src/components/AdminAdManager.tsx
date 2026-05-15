@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw, Check, X, MapPin, Youtube, Image as ImageIcon } from "lucide-react";
+import { Search, Trash2, Pause, Play, Eye, Globe, Monitor, RefreshCw, Check, X, MapPin, Youtube, Image as ImageIcon, CalendarPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -42,6 +42,26 @@ const AdminAdManager = () => {
   const [filter, setFilter] = useState('all');
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [extendDays, setExtendDays] = useState('7');
+  const [extending, setExtending] = useState(false);
+
+  const extendAdDuration = async () => {
+    if (!selectedAd) return;
+    const days = parseInt(extendDays);
+    if (!days || days < 1) { toast.error('Enter a valid number of days'); return; }
+    setExtending(true);
+    const base = selectedAd.expires_at && new Date(selectedAd.expires_at) > new Date()
+      ? new Date(selectedAd.expires_at)
+      : new Date();
+    base.setDate(base.getDate() + days);
+    const newExpiry = base.toISOString();
+    const { error } = await supabase.from('ads').update({ expires_at: newExpiry, is_active: true }).eq('id', selectedAd.id);
+    setExtending(false);
+    if (error) { toast.error('Failed to extend duration'); return; }
+    toast.success(`Extended by ${days} day${days > 1 ? 's' : ''}`);
+    setSelectedAd({ ...selectedAd, expires_at: newExpiry, is_active: true });
+    fetchAds();
+  };
 
   const fetchAds = async () => {
     setLoading(true);
@@ -365,6 +385,16 @@ const AdminAdManager = () => {
                   <p className="text-xs font-medium">{new Date(selectedAd.expires_at).toLocaleString()}</p>
                 </div>
               )}
+              <div className="bg-muted/50 rounded-lg p-2 space-y-2">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1"><CalendarPlus className="h-3 w-3" /> Manually Extend Ad Duration</p>
+                <div className="flex gap-2">
+                  <Input type="number" min={1} value={extendDays} onChange={e => setExtendDays(e.target.value)} className="h-8 text-xs" placeholder="Days" />
+                  <Button size="sm" className="text-xs" onClick={extendAdDuration} disabled={extending}>
+                    {extending ? '...' : 'Extend'}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Adds days on top of current expiry (or starts from today if expired) and reactivates the ad.</p>
+              </div>
               <div className="flex gap-2">
                 {!selectedAd.approved && !selectedAd.rejection_reason && (
                   <Button size="sm" className="flex-1 text-xs bg-green-500 hover:bg-green-600 text-white" onClick={() => approveAd(selectedAd)}>
