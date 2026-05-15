@@ -264,9 +264,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const createAd = async () => {
     if (!newAd.title.trim() || !newAd.target_url.trim()) { toast.error("Title and target URL are required"); return; }
     const duration = parseInt(newAd.duration);
-    const maxFreeDays = premium.freeAdDays;
-    if (duration > maxFreeDays && !effectivePremium) {
-      toast.error(`Free users can run ads up to ${maxFreeDays} days. Upgrade for longer campaigns.`);
+    if (duration > maxAdDays && !isAdmin) {
+      toast.error(`Your plan allows ads up to ${maxAdDays} days. Upgrade for longer campaigns.`);
       setActiveTab('premium');
       return;
     }
