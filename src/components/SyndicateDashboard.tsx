@@ -385,6 +385,17 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
 
   return (
     <div className="space-y-4">
+      {onNavigate && (
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="outline" size="sm" className="h-10 px-3 rounded-xl font-semibold" onClick={() => onNavigate('ads')}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Main App
+          </Button>
+          <Button variant="ghost" size="sm" className="h-10 px-3 rounded-xl text-purple-600 font-semibold" onClick={() => onNavigate('ads')}>
+            <Home className="h-4 w-4 mr-1" /> Home
+          </Button>
+        </div>
+      )}
+
       <YouTubeEmbed section="syndicate" />
 
       {/* Hero Profile */}
