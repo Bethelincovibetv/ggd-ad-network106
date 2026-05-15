@@ -5,6 +5,7 @@ import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, ArrowRight, Plu
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import WatchVideoAds from "@/components/WatchVideoAd";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface HomeDashboardProps {
   credits: number;
@@ -13,6 +14,7 @@ interface HomeDashboardProps {
 }
 
 const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavigate }) => {
+  const { isEnabled } = useFeatureToggles();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ impressions: 0, clicks: 0, shareClicks: 0, spent: 0 });
   const [bannerCampaigns, setBannerCampaigns] = useState<any[]>([]);
@@ -165,13 +167,15 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
             <TrendingUp className="h-4 w-4 text-orange-500" />Campaign Performance
           </h2>
           <Tabs defaultValue="banner">
-            <TabsList className="w-full grid grid-cols-3 h-9 mb-3">
+            <TabsList className={`w-full grid ${isEnabled('tasks') ? 'grid-cols-3' : 'grid-cols-2'} h-9 mb-3`}>
               <TabsTrigger value="banner" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
                 <Megaphone className="h-3 w-3" />Banner Ads
               </TabsTrigger>
-              <TabsTrigger value="task" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white">
-                <ListChecks className="h-3 w-3" />Normal Tasks
-              </TabsTrigger>
+              {isEnabled('tasks') && (
+                <TabsTrigger value="task" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-600 data-[state=active]:text-white">
+                  <ListChecks className="h-3 w-3" />Normal Tasks
+                </TabsTrigger>
+              )}
               <TabsTrigger value="syndicate" className="text-[10px] gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
                 <Users className="h-3 w-3" />Syndicate
               </TabsTrigger>
@@ -184,14 +188,16 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
               </div>
               {renderList(bannerCampaigns, 'No banner ad campaigns yet. Create your first banner!', 'bg-blue-500/20', 'text-blue-600')}
             </TabsContent>
-            <TabsContent value="task" className="mt-0">
-              <div className="flex justify-end mb-2">
-                <Button size="sm" variant="ghost" className="text-xs h-7 text-orange-600" onClick={() => onNavigate('tasks')}>
-                  <Plus className="h-3 w-3 mr-1" />New Task
-                </Button>
-              </div>
-              {renderList(taskCampaigns, 'No normal task campaigns yet.', 'bg-orange-500/20', 'text-orange-600')}
-            </TabsContent>
+            {isEnabled('tasks') && (
+              <TabsContent value="task" className="mt-0">
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" variant="ghost" className="text-xs h-7 text-orange-600" onClick={() => onNavigate('tasks')}>
+                    <Plus className="h-3 w-3 mr-1" />New Task
+                  </Button>
+                </div>
+                {renderList(taskCampaigns, 'No normal task campaigns yet.', 'bg-orange-500/20', 'text-orange-600')}
+              </TabsContent>
+            )}
             <TabsContent value="syndicate" className="mt-0">
               <div className="flex justify-end mb-2">
                 <Button size="sm" variant="ghost" className="text-xs h-7 text-purple-600" onClick={() => onNavigate('business-tasks')}>
