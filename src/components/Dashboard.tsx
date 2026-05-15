@@ -665,7 +665,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <BusinessDirectory isBusiness={isBusiness} />;
 
       case 'syndicate':
-        return isEnabled('syndicate') ? <SyndicateDashboard /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('syndicate') ? <SyndicateDashboard onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'syndicate-join':
         return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
