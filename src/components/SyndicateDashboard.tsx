@@ -562,6 +562,14 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
           </div>
         )}
       </div>
+
+      {/* Wallet Management — bank details, earnings, withdrawals */}
+      <div className="pt-2">
+        <h3 className="font-bold text-base text-foreground flex items-center gap-2 mb-2">
+          <Wallet className="h-5 w-5 text-purple-600" /> My Wallet
+        </h3>
+        <SyndicateWallet />
+      </div>
     </div>
   );
 };
