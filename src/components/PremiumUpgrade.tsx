@@ -240,8 +240,40 @@ const PremiumUpgrade: React.FC<PremiumUpgradeProps> = ({ onUpgraded, credits, is
         })}
       </div>
 
+      {/* Business / White-Label */}
+      <Card className="border-2 border-slate-700 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg ring-2 ring-amber-400/40">
+              <Building2 className="h-6 w-6 text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-black">{businessTier.label}</h3>
+              <p className="text-[11px] text-white/60">Custom branding • Dedicated support • Tailored billing</p>
+            </div>
+          </div>
+          <ul className="space-y-1">
+            {['White-label deployment', 'Priority enterprise support', 'Custom contract & onboarding', 'Monthly billing'].map(p => (
+              <li key={p} className="flex items-center gap-1.5 text-xs text-white/90">
+                <Check className="h-3 w-3 text-amber-400" />{p}
+              </li>
+            ))}
+          </ul>
+          <Button
+            onClick={() => {
+              const link = settings.businessContact;
+              if (link) window.open(link, '_blank');
+              else toast.info('Contact admin support to activate the Business plan.');
+            }}
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold"
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />Contact Support
+          </Button>
+        </CardContent>
+      </Card>
+
       <p className="text-[10px] text-muted-foreground text-center">
-        Free users get {settings.freeAdDays}-day ads. Admin can disable premium gating from settings.
+        All paid plans renew every month. Free Premium is included for every user.
       </p>
     </div>
   );
