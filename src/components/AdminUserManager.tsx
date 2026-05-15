@@ -371,6 +371,36 @@ const AdminUserManager = () => {
 
                   <TabsContent value="roles" className="space-y-2 pt-3">
                     <p className="text-[11px] text-muted-foreground">Toggle roles assigned to this user.</p>
+
+                    <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-3 space-y-2">
+                      <p className="text-xs font-bold flex items-center gap-1"><Crown className="h-3.5 w-3.5 text-amber-600" />Subscribe to Plan (auto 1-month)</p>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[
+                          { tier: 0, label: 'Free' },
+                          { tier: 1, label: 'Tier 1' },
+                          { tier: 2, label: 'Tier 2' },
+                          { tier: 3, label: 'Tier 3' },
+                          { tier: 4, label: 'Business' },
+                        ].map(p => (
+                          <Button
+                            key={p.tier}
+                            size="sm"
+                            variant="outline"
+                            className="text-[10px] h-9 rounded-lg font-bold"
+                            onClick={async () => {
+                              const { error } = await supabase.rpc('admin_subscribe_user', { _user_id: selectedUser.user_id, _tier: p.tier });
+                              if (error) { toast.error(error.message); return; }
+                              toast.success(`Subscribed to ${p.label} (1 month)`);
+                              loadAll();
+                            }}
+                          >
+                            {p.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Plans automatically expire after 1 month. Re-subscribe to extend.</p>
+                    </div>
+
                     {['admin', 'premium', 'business', 'syndicate', 'co_owner'].map(role => {
                       const has = selectedUser.roles.includes(role);
                       return (
