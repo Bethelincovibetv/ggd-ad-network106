@@ -114,6 +114,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [newKeyDomain, setNewKeyDomain] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [currentTier, setCurrentTier] = useState<number>(0);
+  const [premiumExpiresAt, setPremiumExpiresAt] = useState<string | null>(null);
   const [isBusiness, setIsBusiness] = useState(false);
   const [isSyndicate, setIsSyndicate] = useState(false);
   const [credits, setCredits] = useState(0);
@@ -140,8 +142,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const premium = usePremiumSettings();
-  // Effective premium: master toggle off OR user has premium role OR admin
-  const effectivePremium = !premium.enabled || isPremium || isAdmin;
+  // Premium subscription is considered active if not expired
+  const subscriptionActive = !premiumExpiresAt || new Date(premiumExpiresAt) > new Date();
+  const effectiveTier = subscriptionActive ? currentTier : 0;
+  const maxAdDays = (premium.tiers.find(t => t.tier === effectiveTier)?.days) || premium.freeAdDays;
+  // Effective premium (paid): master toggle off, admin, or active paid tier (1-4)
+  const effectivePremium = !premium.enabled || isAdmin || (subscriptionActive && currentTier >= 1);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
