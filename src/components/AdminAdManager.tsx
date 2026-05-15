@@ -385,6 +385,16 @@ const AdminAdManager = () => {
                   <p className="text-xs font-medium">{new Date(selectedAd.expires_at).toLocaleString()}</p>
                 </div>
               )}
+              <div className="bg-muted/50 rounded-lg p-2 space-y-2">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1"><CalendarPlus className="h-3 w-3" /> Manually Extend Ad Duration</p>
+                <div className="flex gap-2">
+                  <Input type="number" min={1} value={extendDays} onChange={e => setExtendDays(e.target.value)} className="h-8 text-xs" placeholder="Days" />
+                  <Button size="sm" className="text-xs" onClick={extendAdDuration} disabled={extending}>
+                    {extending ? '...' : 'Extend'}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Adds days on top of current expiry (or starts from today if expired) and reactivates the ad.</p>
+              </div>
               <div className="flex gap-2">
                 {!selectedAd.approved && !selectedAd.rejection_reason && (
                   <Button size="sm" className="flex-1 text-xs bg-green-500 hover:bg-green-600 text-white" onClick={() => approveAd(selectedAd)}>
