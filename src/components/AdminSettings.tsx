@@ -48,7 +48,8 @@ const AdminSettings = () => {
       'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
       'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
       'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
-      'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days'];
+      'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
+      'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact'];
     for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
     toast.success('All settings saved!');
   };
@@ -196,12 +197,19 @@ const AdminSettings = () => {
               onChange={e => setSettings(p => ({ ...p, auto_convert_ads_to_tasks: e.target.checked ? 'true' : 'false' }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <SettingField label="Free Premium — Ad Days (auto-given to every user)" {...field('premium_tier0_days')} type="number" placeholder="3" />
+            </div>
             <SettingField label="Tier 1 Price ₦" {...field('premium_tier1_price')} type="number" placeholder="1000" />
             <SettingField label="Tier 1 Days" {...field('premium_tier1_days')} type="number" placeholder="3" />
             <SettingField label="Tier 2 Price ₦" {...field('premium_tier2_price')} type="number" placeholder="3000" />
             <SettingField label="Tier 2 Days" {...field('premium_tier2_days')} type="number" placeholder="15" />
             <SettingField label="Tier 3 Price ₦" {...field('premium_tier3_price')} type="number" placeholder="5000" />
             <SettingField label="Tier 3 Days" {...field('premium_tier3_days')} type="number" placeholder="30" />
+            <div className="col-span-2">
+              <SettingField label="Business Plan — Support Contact Link" {...field('premium_business_contact')} placeholder="https://wa.me/234..." />
+              <p className="text-[10px] text-muted-foreground mt-1">All paid plans automatically expire after 1 month. Admin can subscribe any user from User Management.</p>
+            </div>
           </div>
         </CardContent>
       </Card>
