@@ -456,6 +456,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   <Input placeholder="Ad Title *" value={newAd.title} onChange={e => setNewAd({ ...newAd, title: e.target.value })} />
                   <Textarea placeholder="Description (optional)" value={newAd.description} onChange={e => setNewAd({ ...newAd, description: e.target.value })} rows={2} />
                   <Input placeholder="Target URL * (https://...)" value={newAd.target_url} onChange={e => setNewAd({ ...newAd, target_url: e.target.value })} />
+                  {(isEnabled('ad_duration_settings') || isAdmin) && (
                   <div>
                     <Label className="text-xs font-medium">Duration</Label>
                     <Select value={newAd.duration} onValueChange={v => setNewAd({ ...newAd, duration: v })}>
@@ -469,6 +470,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">Banner Image</Label>
                     <input type="file" id="newAdImageUpload" accept="image/*" onChange={handleNewAdImageUpload} className="hidden" />
