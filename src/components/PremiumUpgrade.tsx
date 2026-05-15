@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Crown, Check, Zap, Loader2, Star, Rocket, Gem, CreditCard, Lock } from "lucide-react";
+import { Crown, Check, Zap, Loader2, Star, Rocket, Gem, CreditCard, Lock, Gift, Building2, MessageCircle, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
@@ -13,26 +13,36 @@ interface PremiumUpgradeProps {
 }
 
 const TIER_META = [
-  { tier: 1 as const, label: 'Starter', icon: Star, gradient: 'from-blue-500 to-cyan-500', perks: ['Longer ad campaigns', 'Standard support'] },
-  { tier: 2 as const, label: 'Growth', icon: Rocket, gradient: 'from-purple-500 to-pink-500', perks: ['Extended ad duration', 'API key access', 'Priority support'], popular: true },
-  { tier: 3 as const, label: 'Pro', icon: Gem, gradient: 'from-amber-500 to-orange-600', perks: ['Maximum ad duration (30 days)', 'Unlimited API keys', 'VIP support', 'Premium badge'] },
+  { tier: 1 as const, label: 'Starter', icon: Star, gradient: 'from-blue-500 to-cyan-500', perks: ['Longer ad campaigns', 'Standard support', 'Monthly subscription'] },
+  { tier: 2 as const, label: 'Growth', icon: Rocket, gradient: 'from-purple-500 to-pink-500', perks: ['Extended ad duration', 'API key access', 'Priority support', 'Monthly subscription'], popular: true },
+  { tier: 3 as const, label: 'Pro', icon: Gem, gradient: 'from-amber-500 to-orange-600', perks: ['Maximum ad duration', 'Unlimited API keys', 'VIP support', 'Monthly subscription'] },
 ];
 
 const PremiumUpgrade: React.FC<PremiumUpgradeProps> = ({ onUpgraded, credits, isPremium }) => {
   const settings = usePremiumSettings();
   const [loading, setLoading] = useState<string>('');
   const [currentTier, setCurrentTier] = useState<number | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('user_roles').select('premium_tier').eq('user_id', user.id).eq('role', 'premium').maybeSingle();
-      if (data?.premium_tier) setCurrentTier(data.premium_tier);
+      const { data } = await supabase.from('user_roles').select('premium_tier, premium_expires_at').eq('user_id', user.id).eq('role', 'premium').maybeSingle();
+      if (data) {
+        setCurrentTier(data.premium_tier ?? 0);
+        setExpiresAt((data as any).premium_expires_at ?? null);
+      }
     })();
   }, [isPremium]);
 
   if (settings.loading) return null;
+
+  const freeTier = settings.tiers.find(t => t.tier === 0)!;
+  const businessTier = settings.tiers.find(t => t.tier === 4)!;
+  const expiryLabel = expiresAt ? new Date(expiresAt).toLocaleDateString() : '—';
+  const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
+  const effectiveTier = isExpired ? 0 : (currentTier ?? 0);
 
   // Master toggle OFF: everyone gets all features free
   if (!settings.enabled) {
@@ -120,15 +130,40 @@ const PremiumUpgrade: React.FC<PremiumUpgradeProps> = ({ onUpgraded, credits, is
         <Crown className="h-7 w-7 mb-2 drop-shadow" />
         <h2 className="text-lg font-black">Choose Your Premium Tier</h2>
         <p className="text-[11px] opacity-90 mt-0.5">
-          Free users can run {settings.freeAdDays}-day ads. Upgrade for longer campaigns and pro features.
+          Every plan is monthly. Free Premium gives you {freeTier.days}-day ads at no cost.
         </p>
-        {currentTier && (
+        {currentTier !== null && (
           <div className="mt-3 inline-flex items-center gap-1 bg-white/20 backdrop-blur rounded-full px-3 py-1">
             <Check className="h-3 w-3" />
-            <span className="text-[11px] font-bold">Current: Tier {currentTier}</span>
+            <span className="text-[11px] font-bold">
+              Current: {effectiveTier === 0 ? freeTier.label : effectiveTier === 4 ? businessTier.label : `Tier ${effectiveTier}`}
+              {expiresAt ? ` • renews ${expiryLabel}` : ''}
+            </span>
           </div>
         )}
       </div>
+
+      {/* Free Premium tier card — every user */}
+      <Card className="border-2 border-emerald-400 overflow-hidden">
+        <div className="bg-emerald-500 p-1.5 text-center">
+          <span className="text-[10px] font-black text-white uppercase tracking-wider">✓ Always Free • Active</span>
+        </div>
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
+              <Gift className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-black">{freeTier.label}</h3>
+              <p className="text-[11px] text-muted-foreground">{freeTier.days}-day ad campaigns • Renews monthly</p>
+            </div>
+            <div className="text-right">
+              <p className="text-base font-black text-emerald-600">FREE</p>
+              <p className="text-[9px] text-muted-foreground uppercase font-semibold">forever</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tier cards */}
       <div className="space-y-3">
@@ -205,8 +240,40 @@ const PremiumUpgrade: React.FC<PremiumUpgradeProps> = ({ onUpgraded, credits, is
         })}
       </div>
 
+      {/* Business / White-Label */}
+      <Card className="border-2 border-slate-700 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg ring-2 ring-amber-400/40">
+              <Building2 className="h-6 w-6 text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-black">{businessTier.label}</h3>
+              <p className="text-[11px] text-white/60">Custom branding • Dedicated support • Tailored billing</p>
+            </div>
+          </div>
+          <ul className="space-y-1">
+            {['White-label deployment', 'Priority enterprise support', 'Custom contract & onboarding', 'Monthly billing'].map(p => (
+              <li key={p} className="flex items-center gap-1.5 text-xs text-white/90">
+                <Check className="h-3 w-3 text-amber-400" />{p}
+              </li>
+            ))}
+          </ul>
+          <Button
+            onClick={() => {
+              const link = settings.businessContact;
+              if (link) window.open(link, '_blank');
+              else toast.info('Contact admin support to activate the Business plan.');
+            }}
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold"
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />Contact Support
+          </Button>
+        </CardContent>
+      </Card>
+
       <p className="text-[10px] text-muted-foreground text-center">
-        Free users get {settings.freeAdDays}-day ads. Admin can disable premium gating from settings.
+        All paid plans renew every month. Free Premium is included for every user.
       </p>
     </div>
   );

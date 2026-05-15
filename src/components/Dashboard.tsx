@@ -114,6 +114,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [newKeyDomain, setNewKeyDomain] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [currentTier, setCurrentTier] = useState<number>(0);
+  const [premiumExpiresAt, setPremiumExpiresAt] = useState<string | null>(null);
   const [isBusiness, setIsBusiness] = useState(false);
   const [isSyndicate, setIsSyndicate] = useState(false);
   const [credits, setCredits] = useState(0);
@@ -140,8 +142,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const premium = usePremiumSettings();
-  // Effective premium: master toggle off OR user has premium role OR admin
-  const effectivePremium = !premium.enabled || isPremium || isAdmin;
+  // Premium subscription is considered active if not expired
+  const subscriptionActive = !premiumExpiresAt || new Date(premiumExpiresAt) > new Date();
+  const effectiveTier = subscriptionActive ? currentTier : 0;
+  const maxAdDays = (premium.tiers.find(t => t.tier === effectiveTier)?.days) || premium.freeAdDays;
+  // Effective premium (paid): master toggle off, admin, or active paid tier (1-4)
+  const effectivePremium = !premium.enabled || isAdmin || (subscriptionActive && currentTier >= 1);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
@@ -157,10 +163,15 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+    const { data: roles } = await supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id);
     const userRoles = (roles || []).map(r => r.role);
     setIsAdmin(userRoles.includes('admin'));
     setIsPremium(userRoles.includes('premium'));
+    const premRow: any = (roles || []).find((r: any) => r.role === 'premium');
+    if (premRow) {
+      setCurrentTier(premRow.premium_tier ?? 0);
+      setPremiumExpiresAt(premRow.premium_expires_at ?? null);
+    }
     // Every registered user is a business by default
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
@@ -253,9 +264,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const createAd = async () => {
     if (!newAd.title.trim() || !newAd.target_url.trim()) { toast.error("Title and target URL are required"); return; }
     const duration = parseInt(newAd.duration);
-    const maxFreeDays = premium.freeAdDays;
-    if (duration > maxFreeDays && !effectivePremium) {
-      toast.error(`Free users can run ads up to ${maxFreeDays} days. Upgrade for longer campaigns.`);
+    if (duration > maxAdDays && !isAdmin) {
+      toast.error(`Your plan allows ads up to ${maxAdDays} days. Upgrade for longer campaigns.`);
       setActiveTab('premium');
       return;
     }

@@ -1435,6 +1435,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          premium_expires_at: string | null
           premium_tier: number | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -1442,6 +1443,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          premium_expires_at?: string | null
           premium_tier?: number | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -1449,6 +1451,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          premium_expires_at?: string | null
           premium_tier?: number | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -1496,6 +1499,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_subscribe_user: {
+        Args: { _tier: number; _user_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
