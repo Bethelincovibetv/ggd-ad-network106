@@ -25,7 +25,7 @@ const setLink = (rel: string, href: string) => {
 };
 
 const UserProfilePublicPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, slug } = useParams<{ id?: string; slug?: string }>();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [syndicate, setSyndicate] = useState<any>(null);
@@ -34,12 +34,23 @@ const UserProfilePublicPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id && !slug) return;
     (async () => {
+      // Resolve user_id from slug when using /b/:slug route
+      let resolvedId = id;
+      if (!resolvedId && slug) {
+        const { data: bySlug } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('business_slug', slug)
+          .maybeSingle();
+        resolvedId = bySlug?.user_id;
+      }
+      if (!resolvedId) { setLoading(false); return; }
       const [p, s, b, toggle] = await Promise.all([
-        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', id).maybeSingle(),
-        supabase.from('syndicate_profiles').select('*').eq('user_id', id).maybeSingle(),
-        supabase.from('business_profiles').select('id, business_name, logo_url, hero_image_url, description, is_directory_listed').eq('user_id', id).maybeSingle(),
+        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', resolvedId).maybeSingle(),
+        supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
+        supabase.from('business_profiles').select('id, business_name, logo_url, hero_image_url, description, is_directory_listed').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
       ]);
       setProfile(p.data);
@@ -48,7 +59,7 @@ const UserProfilePublicPage: React.FC = () => {
       setSitesEnabled(toggle.data?.is_enabled !== false);
       setLoading(false);
     })();
-  }, [id]);
+  }, [id, slug]);
 
   // SEO meta tags
   useEffect(() => {

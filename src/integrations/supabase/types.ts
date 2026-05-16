@@ -1503,6 +1503,10 @@ export type Database = {
         Args: { _tier: number; _user_id: string }
         Returns: undefined
       }
+      generate_business_slug: {
+        Args: { _name: string; _user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

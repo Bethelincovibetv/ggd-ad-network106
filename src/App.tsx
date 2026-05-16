@@ -26,6 +26,7 @@ const App = () => (
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/business/:id" element={<BusinessDetailPage />} />
           <Route path="/user/:id" element={<UserProfilePublicPage />} />
+          <Route path="/b/:slug" element={<UserProfilePublicPage />} />
           <Route path="/r/:slug" element={<RedirectPage />} />
           <Route path="/s/:slug" element={<SharePreviewPage />} />
           <Route path="/syndicate-register" element={<SyndicateRegister />} />
