@@ -93,7 +93,7 @@ const BusinessStorefront = () => {
       }).eq('user_id', user.id);
     }
     if (error) toast.error("Save failed");
-    else toast.success("Business profile updated! 🎉");
+    else { toast.success("Business profile updated! 🎉"); fetchAll(); }
     setSaving(false);
   };
 
