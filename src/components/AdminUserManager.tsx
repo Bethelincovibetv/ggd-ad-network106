@@ -30,8 +30,8 @@ const AdminUserManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [creditAmounts, setCreditAmounts] = useState<Record<string, string>>({});
-  const [walletAmounts, setWalletAmounts] = useState<Record<string, string>>({});
   const [wallets, setWallets] = useState<Record<string, any>>({});
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [businessProfiles, setBusinessProfiles] = useState<Record<string, any>>({});
   const [syndicateProfiles, setSyndicateProfiles] = useState<Record<string, any>>({});
   const [shortLinkCounts, setShortLinkCounts] = useState<Record<string, number>>({});
@@ -44,7 +44,7 @@ const AdminUserManager = () => {
 
   const loadAll = async () => {
     setLoading(true);
-    const [profilesRes, rolesRes, walletsRes, bpRes, spRes, slRes, adsRes, tasksRes] = await Promise.all([
+    const [profilesRes, rolesRes, walletsRes, bpRes, spRes, slRes, adsRes, tasksRes, rateRes] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('user_roles').select('*'),
       supabase.from('task_wallets').select('*'),
@@ -53,7 +53,10 @@ const AdminUserManager = () => {
       supabase.from('short_links').select('user_id'),
       supabase.from('ads').select('user_id'),
       supabase.from('syndicate_tasks').select('business_user_id'),
+      supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
     ]);
+    const r = parseInt((rateRes as any)?.data?.value || '') || 100;
+    setExchangeRate(r);
 
     const enriched = (profilesRes.data || []).map(p => ({
       ...p,
@@ -230,7 +233,7 @@ const AdminUserManager = () => {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-xs font-bold text-foreground">{user.credits}<span className="text-[9px] text-muted-foreground"> cr</span></p>
-                  <p className="text-[10px] text-muted-foreground">₦{(wallet?.balance || 0).toLocaleString()}</p>
+                  <p className="text-[10px] text-muted-foreground">≈ ₦{(user.credits * exchangeRate).toLocaleString()}</p>
                   <ChevronRight className="h-4 w-4 text-muted-foreground inline mt-0.5" />
                 </div>
               </CardContent>
@@ -269,13 +272,10 @@ const AdminUserManager = () => {
                     <p className="text-[9px] uppercase opacity-80">Credits</p>
                     <p className="text-base font-bold">{selectedUser.credits}</p>
                   </div>
-                  <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-                    <p className="text-[9px] uppercase opacity-80">Wallet</p>
-                    <p className="text-base font-bold">₦{(sw?.balance || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-                    <p className="text-[9px] uppercase opacity-80">Earned</p>
-                    <p className="text-base font-bold">₦{(sw?.total_earned || 0).toLocaleString()}</p>
+                  <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur col-span-2">
+                    <p className="text-[9px] uppercase opacity-80">≈ Naira value</p>
+                    <p className="text-base font-bold">₦{(selectedUser.credits * exchangeRate).toLocaleString()}</p>
+                    <p className="text-[9px] opacity-70">Rate: ₦{exchangeRate}/credit</p>
                   </div>
                 </div>
               </div>
@@ -412,17 +412,12 @@ const AdminUserManager = () => {
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardContent className="p-3 space-y-2">
-                        <p className="text-xs font-semibold flex items-center gap-1"><Wallet className="h-3 w-3" />Naira wallet (₦{(sw?.balance || 0).toLocaleString()})</p>
-                        <div className="flex gap-2">
-                          <Input type="number" placeholder="₦ Amount"
-                            value={walletAmounts[selectedUser.user_id] || ''}
-                            onChange={e => setWalletAmounts(prev => ({ ...prev, [selectedUser.user_id]: e.target.value }))}
-                            className="h-9 text-sm flex-1" />
-                          <Button size="sm" variant="outline" onClick={() => adjustWallet(selectedUser.user_id, true)}><Plus className="h-3 w-3" /></Button>
-                          <Button size="sm" variant="destructive" onClick={() => adjustWallet(selectedUser.user_id, false)}><Minus className="h-3 w-3" /></Button>
-                        </div>
+                    <Card className="bg-orange-50 border-orange-200">
+                      <CardContent className="p-3">
+                        <p className="text-[11px] text-orange-800">
+                          <Wallet className="h-3 w-3 inline mr-1" />
+                          Funds are unified into GGG credits. Adjust credits above — naira value is computed at ₦{exchangeRate}/credit.
+                        </p>
                       </CardContent>
                     </Card>
                   </TabsContent>
