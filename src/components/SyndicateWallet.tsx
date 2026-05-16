@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const SyndicateWallet = () => {
-  const [wallet, setWallet] = useState<any>(null);
+  const [credits, setCredits] = useState<number>(0);
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,13 +24,16 @@ const SyndicateWallet = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [walletRes, withdrawalsRes, profileRes] = await Promise.all([
-      supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+    const [profRes, withdrawalsRes, profileRes, rateRes] = await Promise.all([
+      supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('withdrawal_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
     ]);
 
-    setWallet(walletRes.data);
+    setCredits(Number(profRes.data?.credits || 0));
+    const r = parseInt(rateRes.data?.value || '') || 100;
+    setExchangeRate(r);
     setWithdrawals(withdrawalsRes.data || []);
     if (profileRes.data) {
       setProfile(profileRes.data);
@@ -61,7 +65,8 @@ const SyndicateWallet = () => {
   const requestWithdrawal = async () => {
     const withdrawAmount = parseInt(amount);
     if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter valid amount"); return; }
-    if (!wallet || wallet.balance < withdrawAmount) { toast.error("Insufficient balance"); return; }
+    const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
+    if (credits < creditsNeeded) { toast.error(`Need ${creditsNeeded} GGG credits, you have ${credits}`); return; }
     if (!bankForm.bank_name || !bankForm.account_number) { toast.error("Set bank details first"); return; }
 
     setSubmitting(true);
@@ -75,10 +80,10 @@ const SyndicateWallet = () => {
 
     if (error) { toast.error("Failed to submit"); setSubmitting(false); return; }
 
-    // Deduct from wallet
-    await supabase.from('task_wallets').update({ balance: wallet.balance - withdrawAmount }).eq('user_id', user.id);
+    // Deduct equivalent GGG credits
+    await supabase.from('profiles').update({ credits: credits - creditsNeeded }).eq('user_id', user.id);
 
-    toast.success("Withdrawal request submitted! Processed every Saturday.");
+    toast.success(`Submitted! ${creditsNeeded} GGG credits held (≈₦${withdrawAmount}). Processed every Saturday.`);
     setAmount('');
     setSubmitting(false);
     fetchData();
@@ -93,12 +98,13 @@ const SyndicateWallet = () => {
         <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
         <CardContent className="p-6 text-center relative">
           <Wallet className="h-10 w-10 mx-auto mb-2 text-white" />
-          <p className="text-sm uppercase tracking-wider opacity-90 font-semibold">Available Balance</p>
-          <p className="text-5xl font-black mt-1">₦{(wallet?.balance || 0).toLocaleString()}</p>
+          <p className="text-sm uppercase tracking-wider opacity-90 font-semibold">GGG Credits</p>
+          <p className="text-5xl font-black mt-1">{credits.toLocaleString()}</p>
+          <p className="text-sm opacity-90 mt-1">≈ ₦{(credits * exchangeRate).toLocaleString()} <span className="opacity-70 text-xs">(₦{exchangeRate}/credit)</span></p>
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p className="text-[11px] opacity-90">Total Earned</p>
-              <p className="text-lg font-bold">₦{(wallet?.total_earned || 0).toLocaleString()}</p>
+              <p className="text-[11px] opacity-90">Tasks Done</p>
+              <p className="text-lg font-bold">{profile?.tasks_completed || 0}</p>
             </div>
             <div className="bg-white/15 backdrop-blur rounded-xl p-3">
               <p className="text-[11px] opacity-90">Withdrawals</p>
@@ -135,6 +141,11 @@ const SyndicateWallet = () => {
         <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
+          {parseInt(amount) > 0 && (
+            <p className="text-xs text-center text-muted-foreground">
+              ≈ <strong>{Math.ceil(parseInt(amount) / exchangeRate)} GGG credits</strong> will be deducted
+            </p>
+          )}
           <p className="text-sm text-muted-foreground text-center">Withdrawals are processed every Saturday</p>
           <Button onClick={requestWithdrawal} disabled={submitting} className="w-full h-14 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-base font-bold rounded-xl shadow-lg">
             {submitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ArrowDownCircle className="h-5 w-5 mr-2" />}

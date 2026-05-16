@@ -40,6 +40,8 @@ const BusinessTaskCreator = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [bannerCostPerDay, setBannerCostPerDay] = useState<number>(50);
   const [converting, setConverting] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [credits, setCredits] = useState<number>(0);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -47,21 +49,25 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, walletRes, pricingRes, assignmentsRes] = await Promise.all([
+    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('syndicate_task_assignments').select('*'),
+      supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
     ]);
 
     const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
     if (setting?.value) setBannerCostPerDay(parseInt(setting.value) || 50);
+    const r = parseInt(rateRes.data?.value || '');
+    if (r > 0) setExchangeRate(r);
 
     const myTaskIds = new Set((tasksRes.data || []).map(t => t.id));
     const myAssignments = (assignmentsRes.data || []).filter(a => myTaskIds.has(a.task_id));
 
     setTasks(tasksRes.data || []);
-    setWallet(walletRes.data);
+    setCredits(Number(profileRes.data?.credits || 0));
+    setWallet({ balance: Number(profileRes.data?.credits || 0) * (r || 100) });
     setPlatformPricing(pricingRes.data || []);
     setAllAssignments(myAssignments);
 
@@ -111,8 +117,9 @@ const BusinessTaskCreator = () => {
     if (form.placements.length === 0) { toast.error("Select at least one placement"); return; }
 
     const totalCost = calculateTotalCost();
-    if (!wallet || wallet.balance < totalCost) {
-      toast.error(`Insufficient wallet balance. Need ₦${totalCost}, have ₦${wallet?.balance || 0}`);
+    const creditsRequired = Math.ceil(totalCost / exchangeRate);
+    if (credits < creditsRequired) {
+      toast.error(`Need ${creditsRequired} GGG credits (₦${totalCost.toLocaleString()}). You have ${credits}.`);
       return;
     }
 
@@ -132,12 +139,9 @@ const BusinessTaskCreator = () => {
     } as any);
     if (error) { toast.error("Failed to create task"); return; }
 
-    await supabase.from('task_wallets').update({
-      balance: wallet.balance - totalCost,
-      total_spent: (wallet.total_spent || 0) + totalCost,
-    }).eq('user_id', user.id);
+    await supabase.from('profiles').update({ credits: credits - creditsRequired }).eq('user_id', user.id);
 
-    toast.success("Task created! Syndicates will be notified.");
+    toast.success(`Task created! ${creditsRequired} GGG credits debited.`);
     setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', approval_mode: 'manual' });
     setFlyerUrl('');
     setIsCreating(false);
@@ -160,13 +164,11 @@ const BusinessTaskCreator = () => {
       if (assignment) {
         const task = tasks.find(t => t.id === assignment.task_id);
         const payout = task?.cost_per_syndicate || 50;
-        const { data: synWallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-        if (synWallet) {
-          await supabase.from('task_wallets').update({
-            balance: (synWallet.balance || 0) + payout,
-            total_earned: (synWallet.total_earned || 0) + payout,
-          }).eq('user_id', assignment.syndicate_user_id);
-        }
+        const payoutCredits = Math.floor(Number(payout) / exchangeRate);
+        const { data: synProf } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+        await supabase.from('profiles').update({
+          credits: Number(synProf?.credits || 0) + payoutCredits,
+        }).eq('user_id', assignment.syndicate_user_id);
         const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
         if (synProfile) {
           await supabase.from('syndicate_profiles').update({
@@ -177,7 +179,7 @@ const BusinessTaskCreator = () => {
         await supabase.from('notifications').insert({
           user_id: assignment.syndicate_user_id,
           title: '💰 Task Approved!',
-          message: `Your task submission was approved! ₦${payout} credited to your wallet.`,
+          message: `Approved! ${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`,
           type: 'credit',
         });
       }
@@ -344,8 +346,9 @@ const BusinessTaskCreator = () => {
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider opacity-90">
             <Briefcase className="h-3.5 w-3.5" /> Business Console
           </div>
-          <p className="text-[11px] mt-3 opacity-80">Task wallet balance</p>
-          <p className="text-4xl font-black mt-0.5">₦{wallet?.balance?.toLocaleString() || 0}</p>
+          <p className="text-[11px] mt-3 opacity-80">GGG Credits</p>
+          <p className="text-4xl font-black mt-0.5">{credits.toLocaleString()} <span className="text-sm font-semibold opacity-80">cr</span></p>
+          <p className="text-[11px] opacity-80 mt-0.5">≈ ₦{(credits * exchangeRate).toLocaleString()}</p>
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
               <Hourglass className="h-3 w-3 mx-auto opacity-80" />
@@ -455,7 +458,10 @@ const BusinessTaskCreator = () => {
 
             <Card className="bg-orange-50 border-orange-200">
               <CardContent className="p-3">
-                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} × placements)</p>
+                <p className="text-xs text-orange-800">
+                  Total Cost: <strong>{Math.ceil(totalCostPreview / exchangeRate)} GGG credits</strong>
+                  <span className="opacity-70"> (≈ ₦{totalCostPreview.toLocaleString()})</span>
+                </p>
               </CardContent>
             </Card>
 

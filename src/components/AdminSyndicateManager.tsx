@@ -49,7 +49,6 @@ const AdminSyndicateManager = () => {
     await supabase.from('syndicate_applications').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', app.id);
     await supabase.from('syndicate_profiles').insert({ user_id: app.user_id, verified_platforms: platforms, state: app.state || null });
     await supabase.from('user_roles').insert({ user_id: app.user_id, role: 'syndicate' });
-    await supabase.from('task_wallets').insert({ user_id: app.user_id });
     await supabase.from('notifications').insert({
       user_id: app.user_id, title: '🎉 Syndicate Approved!',
       message: `Approved for: ${platforms.join(', ')}. Start earning now!`, type: 'success',
@@ -72,14 +71,17 @@ const AdminSyndicateManager = () => {
     const withdrawal = withdrawals.find(w => w.id === id);
     await supabase.from('withdrawal_requests').update({ status: approve ? 'completed' : 'rejected', processed_at: new Date().toISOString() }).eq('id', id);
     if (!approve && withdrawal) {
-      const { data: wallet } = await supabase.from('task_wallets').select('*').eq('user_id', withdrawal.user_id).maybeSingle();
-      if (wallet) await supabase.from('task_wallets').update({ balance: wallet.balance + withdrawal.amount }).eq('user_id', withdrawal.user_id);
+      const { data: rateRow } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
+      const rate = parseInt(rateRow?.value || '') || 100;
+      const refundCredits = Math.ceil(Number(withdrawal.amount) / rate);
+      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', withdrawal.user_id).maybeSingle();
+      await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + refundCredits }).eq('user_id', withdrawal.user_id);
     }
     if (withdrawal) {
       await supabase.from('notifications').insert({
         user_id: withdrawal.user_id,
         title: approve ? '💰 Withdrawal Processed' : '❌ Withdrawal Rejected',
-        message: approve ? `₦${withdrawal.amount} sent to your bank.` : `₦${withdrawal.amount} refunded to wallet.`,
+        message: approve ? `₦${withdrawal.amount} sent to your bank.` : `Equivalent GGG credits refunded for ₦${withdrawal.amount}.`,
         type: approve ? 'credit' : 'warning',
       });
     }
@@ -106,12 +108,11 @@ const AdminSyndicateManager = () => {
     if (approve && assignment) {
       const task = allTasks.find(t => t.id === assignment.task_id);
       const payout = task?.cost_per_syndicate || 50;
-      const { data: wallet } = await supabase.from('task_wallets').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-      if (wallet) {
-        await supabase.from('task_wallets').update({
-          balance: (wallet.balance || 0) + payout, total_earned: (wallet.total_earned || 0) + payout,
-        }).eq('user_id', assignment.syndicate_user_id);
-      }
+      const { data: rateRow } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
+      const rate = parseInt(rateRow?.value || '') || 100;
+      const payoutCredits = Math.floor(Number(payout) / rate);
+      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
+      await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + payoutCredits }).eq('user_id', assignment.syndicate_user_id);
       const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
       if (synProfile) {
         await supabase.from('syndicate_profiles').update({
@@ -120,7 +121,7 @@ const AdminSyndicateManager = () => {
       }
       await supabase.from('notifications').insert({
         user_id: assignment.syndicate_user_id, title: '💰 Task Approved by Admin!',
-        message: `₦${payout} credited to your wallet.`, type: 'credit',
+        message: `${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`, type: 'credit',
       });
     }
     toast.success(approve ? "Approved & paid!" : "Rejected");

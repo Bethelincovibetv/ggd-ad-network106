@@ -24,7 +24,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BusinessTaskCreator from "@/components/BusinessTaskCreator";
 import SyndicateDashboard from "@/components/SyndicateDashboard";
 import SyndicateWallet from "@/components/SyndicateWallet";
-import TaskWalletFunding from "@/components/TaskWalletFunding";
 import UpgradePage from "@/components/UpgradePage";
 import PremiumUpgrade from "@/components/PremiumUpgrade";
 import CreditFunding from "@/components/CreditFunding";
@@ -685,7 +684,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'task-wallet':
-        return <TaskWalletFunding />;
+        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
 
       case 'upgrade':
         return <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />;

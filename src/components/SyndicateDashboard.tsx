@@ -29,6 +29,8 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const [assignmentHours, setAssignmentHours] = useState(24);
   const [showWizard, setShowWizard] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [credits, setCredits] = useState<number>(0);
   const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchData(); }, []);
@@ -41,18 +43,23 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     // Auto-release expired assignments so they return to the available pool
     await supabase.rpc('release_expired_syndicate_assignments' as any);
 
-    const [tasksRes, assignmentsRes, profileRes, walletRes, settingRes] = await Promise.all([
+    const [tasksRes, assignmentsRes, profileRes, profCreditsRes, settingRes, rateRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('status', 'active'),
       supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-      supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'syndicate_assignment_hours').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
     ]);
 
     setTasks(tasksRes.data || []);
     setMyAssignments(assignmentsRes.data || []);
     setProfile(profileRes.data);
-    setWallet(walletRes.data);
+    const c = Number(profCreditsRes.data?.credits || 0);
+    setCredits(c);
+    const r = parseInt(rateRes.data?.value || '') || 100;
+    setExchangeRate(r);
+    setWallet({ balance: c * r });
     const h = Number(settingRes.data?.value);
     if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
 
@@ -196,20 +203,14 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
 
     if (autoApprove) {
       const payout = Number(task?.cost_per_syndicate || 50);
+      const payoutCredits = Math.floor(payout / exchangeRate);
       await supabase.from('syndicate_task_assignments').update({
         proof_url: publicUrl, status: 'approved',
         submitted_at: new Date().toISOString(), reviewed_at: new Date().toISOString(),
       }).eq('id', assignmentId);
 
-      const { data: synWallet } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
-      if (synWallet) {
-        await supabase.from('task_wallets').update({
-          balance: (synWallet.balance || 0) + payout,
-          total_earned: (synWallet.total_earned || 0) + payout,
-        }).eq('user_id', user.id);
-      } else {
-        await supabase.from('task_wallets').insert({ user_id: user.id, balance: payout, total_earned: payout });
-      }
+      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+      await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + payoutCredits }).eq('user_id', user.id);
       const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle();
       if (synProfile) {
         await supabase.from('syndicate_profiles').update({
@@ -220,10 +221,10 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       await supabase.from('notifications').insert({
         user_id: user.id,
         title: '⚡ Auto-Approved!',
-        message: `Your proof was instantly approved. ₦${payout} credited to your wallet.`,
+        message: `Instantly approved. ${payoutCredits} GGG credits (≈₦${payout}) credited.`,
         type: 'credit',
       });
-      toast.success(`Auto-approved! ₦${payout} credited instantly.`);
+      toast.success(`Auto-approved! ${payoutCredits} GGG credits credited.`);
     } else {
       await supabase.from('syndicate_task_assignments').update({
         proof_url: publicUrl, status: 'submitted', submitted_at: new Date().toISOString(),
