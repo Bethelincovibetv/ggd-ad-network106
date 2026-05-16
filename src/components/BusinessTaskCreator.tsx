@@ -346,8 +346,9 @@ const BusinessTaskCreator = () => {
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider opacity-90">
             <Briefcase className="h-3.5 w-3.5" /> Business Console
           </div>
-          <p className="text-[11px] mt-3 opacity-80">Task wallet balance</p>
-          <p className="text-4xl font-black mt-0.5">₦{wallet?.balance?.toLocaleString() || 0}</p>
+          <p className="text-[11px] mt-3 opacity-80">GGG Credits</p>
+          <p className="text-4xl font-black mt-0.5">{credits.toLocaleString()} <span className="text-sm font-semibold opacity-80">cr</span></p>
+          <p className="text-[11px] opacity-80 mt-0.5">≈ ₦{(credits * exchangeRate).toLocaleString()}</p>
           <div className="grid grid-cols-3 gap-2 mt-4">
             <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
               <Hourglass className="h-3 w-3 mx-auto opacity-80" />
@@ -457,7 +458,10 @@ const BusinessTaskCreator = () => {
 
             <Card className="bg-orange-50 border-orange-200">
               <CardContent className="p-3">
-                <p className="text-xs text-orange-800">Total Cost: <strong>₦{totalCostPreview}</strong> ({form.max_syndicates} × placements)</p>
+                <p className="text-xs text-orange-800">
+                  Total Cost: <strong>{Math.ceil(totalCostPreview / exchangeRate)} GGG credits</strong>
+                  <span className="opacity-70"> (≈ ₦{totalCostPreview.toLocaleString()})</span>
+                </p>
               </CardContent>
             </Card>
 
