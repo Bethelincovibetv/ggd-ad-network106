@@ -228,19 +228,10 @@ const UserProfilePage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mt-4 relative">
-            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-              <p className="text-[9px] uppercase opacity-80">Credits</p>
-              <p className="text-base font-bold">{profile?.credits ?? 0}</p>
-            </div>
-            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-              <p className="text-[9px] uppercase opacity-80">Wallet</p>
-              <p className="text-base font-bold">₦{(wallet?.balance ?? 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-              <p className="text-[9px] uppercase opacity-80">Earned</p>
-              <p className="text-base font-bold">₦{(wallet?.total_earned ?? 0).toLocaleString()}</p>
-            </div>
+          <div className="bg-white/15 rounded-lg p-3 text-center backdrop-blur mt-4">
+            <p className="text-[9px] uppercase opacity-80">GGG Credits Wallet</p>
+            <p className="text-2xl font-black">{profile?.credits ?? 0}</p>
+            <p className="text-[10px] opacity-80">Single unified wallet · Naira value via admin rate</p>
           </div>
         </div>
       </Card>
