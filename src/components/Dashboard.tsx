@@ -34,6 +34,7 @@ import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
+import PremiumRenewalBanner from "@/components/PremiumRenewalBanner";
 
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
@@ -817,6 +818,19 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           </header>
 
           <main className="flex-1 px-3 sm:px-4 py-4 pb-24 md:pb-6 max-w-5xl w-full mx-auto">
+            {isPremium && (
+              <PremiumRenewalBanner
+                expiresAt={premiumExpiresAt}
+                currentTier={currentTier}
+                onRenew={async () => {
+                  const { error } = await supabase.rpc('self_upgrade_premium', { _tier: currentTier });
+                  if (error) { toast.error(error.message || 'Renewal failed'); return; }
+                  toast.success('🎉 Subscription renewed for another month!');
+                  initDashboard();
+                }}
+                onUpgrade={() => handleTabChange('premium')}
+              />
+            )}
             {renderContent()}
           </main>
 
