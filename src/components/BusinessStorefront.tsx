@@ -30,12 +30,13 @@ const BusinessStorefront = () => {
   const fetchAll = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [profRes, catRes, listRes] = await Promise.all([
+    const [profRes, catRes, listRes, slugRes] = await Promise.all([
       (supabase.from('business_profiles') as any).select('*').eq('user_id', user.id).single(),
       (supabase.from('business_categories') as any).select('*').eq('is_active', true).order('sort_order'),
       (supabase.from('business_listings') as any).select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('business_slug').eq('user_id', user.id).maybeSingle(),
     ]);
-    setProfile(profRes.data);
+    setProfile({ ...(profRes.data || {}), business_slug: (slugRes as any)?.data?.business_slug });
     setCategories(catRes.data || []);
     setListings(listRes.data || []);
     setLoading(false);
@@ -179,7 +180,10 @@ const BusinessStorefront = () => {
 
         {/* Your public site */}
         {profile.user_id && (() => {
-          const siteUrl = `${window.location.origin}/user/${profile.user_id}`;
+          const slug = profile.business_slug;
+          const siteUrl = slug
+            ? `${window.location.origin}/b/${slug}`
+            : `${window.location.origin}/user/${profile.user_id}`;
           return (
             <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-red-500/5">
               <CardContent className="p-3 space-y-2">
