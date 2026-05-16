@@ -123,24 +123,7 @@ const AdminUserManager = () => {
     loadAll();
   };
 
-  const adjustWallet = async (userId: string, add: boolean) => {
-    const amount = parseFloat(walletAmounts[userId] || '0');
-    if (!amount || amount <= 0) return;
-    const wallet = wallets[userId];
-    if (!wallet) {
-      await supabase.from('task_wallets').insert({ user_id: userId, balance: add ? amount : 0 });
-      toast.success(add ? `Funded ₦${amount}` : 'No wallet to debit');
-      loadAll(); return;
-    }
-    const newBalance = add ? (wallet.balance || 0) + amount : (wallet.balance || 0) - amount;
-    if (newBalance < 0) { toast.error("Cannot go below ₦0"); return; }
-    const updates: any = { balance: newBalance };
-    if (add) updates.total_funded = (wallet.total_funded || 0) + amount;
-    await supabase.from('task_wallets').update(updates).eq('id', wallet.id);
-    toast.success(add ? `Funded ₦${amount}` : `Debited ₦${amount}`);
-    setWalletAmounts(prev => ({ ...prev, [userId]: '' }));
-    loadAll();
-  };
+  // Funds are now unified into GGG credits — admin only adjusts credits.
 
   const saveProfile = async () => {
     if (!selectedUser) return;
