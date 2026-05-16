@@ -5,7 +5,6 @@ import { Wallet, CreditCard, Send, Coins, TrendingUp, Banknote } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
-import TaskWalletFunding from "@/components/TaskWalletFunding";
 
 interface WalletHubProps {
   credits: number;
@@ -14,16 +13,17 @@ interface WalletHubProps {
 }
 
 const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
-  const [nairaBalance, setNairaBalance] = useState<number>(0);
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('task_wallets').select('balance').eq('user_id', user.id).maybeSingle();
-      setNairaBalance(Number(data?.balance || 0));
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
+      const v = parseInt(data?.value || '');
+      if (v > 0) setExchangeRate(v);
     })();
   }, []);
+
+  const nairaEquivalent = credits * exchangeRate;
 
   return (
     <div className="space-y-4">
@@ -35,40 +35,31 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5 opacity-90" />
-              <span className="text-xs font-semibold uppercase tracking-wider opacity-80">My Wallet</span>
+              <span className="text-xs font-semibold uppercase tracking-wider opacity-80">GGG Wallet</span>
             </div>
             <TrendingUp className="h-4 w-4 opacity-70" />
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bg-white/15 backdrop-blur rounded-2xl p-3">
-              <div className="flex items-center gap-1.5 opacity-80">
-                <Coins className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">GGG Credits</span>
-              </div>
-              <p className="text-2xl font-black mt-1">{credits.toLocaleString()}</p>
+          <div className="mt-4 bg-white/15 backdrop-blur rounded-2xl p-4">
+            <div className="flex items-center gap-1.5 opacity-80">
+              <Coins className="h-4 w-4" />
+              <span className="text-[11px] font-bold uppercase tracking-wider">GGG Credits</span>
             </div>
-            <div className="bg-white/15 backdrop-blur rounded-2xl p-3">
-              <div className="flex items-center gap-1.5 opacity-80">
-                <Banknote className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Naira Wallet</span>
-              </div>
-              <p className="text-2xl font-black mt-1">₦{nairaBalance.toLocaleString()}</p>
-            </div>
+            <p className="text-4xl font-black mt-1">{credits.toLocaleString()}</p>
+            <p className="text-xs opacity-90 mt-1 flex items-center gap-1">
+              <Banknote className="h-3 w-3" /> ≈ ₦{nairaEquivalent.toLocaleString()} <span className="opacity-70">· ₦{exchangeRate}/credit</span>
+            </p>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="buy" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-11 rounded-2xl bg-secondary/80 p-1">
+        <TabsList className="w-full grid grid-cols-2 h-11 rounded-2xl bg-secondary/80 p-1">
           <TabsTrigger value="buy" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
-            <CreditCard className="h-3.5 w-3.5" />GGG Credits
+            <CreditCard className="h-3.5 w-3.5" />Fund Credits
           </TabsTrigger>
           <TabsTrigger value="transfer" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
             <Send className="h-3.5 w-3.5" />Transfer
-          </TabsTrigger>
-          <TabsTrigger value="naira" className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold">
-            <Banknote className="h-3.5 w-3.5" />Naira Wallet
           </TabsTrigger>
         </TabsList>
         <TabsContent value="buy" className="mt-4">
@@ -76,9 +67,6 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
         </TabsContent>
         <TabsContent value="transfer" className="mt-4">
           <CreditTransfer credits={credits} onCreditsUpdate={onCreditsUpdate} isPremium={isPremium} />
-        </TabsContent>
-        <TabsContent value="naira" className="mt-4">
-          <TaskWalletFunding />
         </TabsContent>
       </Tabs>
     </div>
