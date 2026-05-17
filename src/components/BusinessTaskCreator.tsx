@@ -172,7 +172,8 @@ const BusinessTaskCreator = () => {
       const assignment = allAssignments.find(s => s.id === assignmentId);
       if (assignment) {
         const task = tasks.find(t => t.id === assignment.task_id);
-        const payout = task?.cost_per_syndicate || 50;
+        const explicit = Number((task as any)?.payout_amount || 0);
+        const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (payoutPct / 100);
         const payoutCredits = Math.floor(Number(payout) / exchangeRate);
         const { data: synProf } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
         await supabase.from('profiles').update({
