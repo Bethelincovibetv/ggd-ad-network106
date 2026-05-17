@@ -5,6 +5,7 @@ import { Globe, Zap, BarChart3, Code, Shield, Users, Smartphone, Star, MessageCi
 import { useNavigate } from 'react-router-dom';
 import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import GlobalSearchBar from "@/components/GlobalSearchBar";
 import ggdLogo from '@/assets/ggd-logo.png';
 import businessImg from '@/assets/landing-business.jpg';
 import syndicateImg from '@/assets/landing-syndicate.jpg';
@@ -50,6 +51,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
   const [sampleAds, setSampleAds] = useState<any[]>([]);
   const [currentAdIdx, setCurrentAdIdx] = useState(0);
+  const [searchEnabled, setSearchEnabled] = useState(true);
 
   const impressions = useCountUp(liveStats.impressions || 100, 2500);
   const campaigns = useCountUp(liveStats.campaigns || 1, 2000);
@@ -58,6 +60,8 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
       .then(({ data }) => { if (data?.value) setWaGroupLink(data.value); });
+    supabase.from('app_settings').select('value').eq('key', 'landing_search_enabled').maybeSingle()
+      .then(({ data }) => { if (data?.value === 'false') setSearchEnabled(false); });
 
     // Fetch live stats
     const fetchStats = async () => {
@@ -154,6 +158,11 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
         <div className="container mx-auto px-4 pt-10 pb-16 relative z-10">
           <div className="text-center space-y-6">
+            {searchEnabled && (
+              <div className="max-w-md mx-auto pt-2">
+                <GlobalSearchBar />
+              </div>
+            )}
             {/* Logo with glow animation */}
             <div className="flex justify-center animate-scale-in">
               <div className="relative">
