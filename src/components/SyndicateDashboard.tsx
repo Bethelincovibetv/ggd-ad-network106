@@ -305,7 +305,15 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   }
 
   const assignedTaskIds = myAssignments.map(a => a.task_id);
-  const availableTasks = tasks.filter(t => !assignedTaskIds.includes(t.id));
+  const myUserId = profile?.user_id;
+  const availableTasks = tasks.filter(t => {
+    if (assignedTaskIds.includes(t.id)) return false;
+    if (myUserId && t.business_user_id === myUserId) return false; // can't perform own
+    if (t.target_state && profile?.state && t.target_state !== profile.state) return false;
+    const count = assignmentCounts[t.id] || 0;
+    if (count >= (t.max_syndicates || 0)) return false;
+    return true;
+  });
 
   // Categorize assignments
   const pendingAssignments = myAssignments.filter(a => a.status === 'accepted' || a.status === 'assigned');
