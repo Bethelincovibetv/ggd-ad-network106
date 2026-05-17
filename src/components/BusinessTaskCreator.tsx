@@ -42,6 +42,8 @@ const BusinessTaskCreator = () => {
   const [converting, setConverting] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [credits, setCredits] = useState<number>(0);
+  const [loginBonusCredits, setLoginBonusCredits] = useState<number>(0);
+  const [payoutPct, setPayoutPct] = useState<number>(70);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -49,24 +51,28 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes] = await Promise.all([
+    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes, pctRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('credits, login_bonus_credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('syndicate_task_assignments').select('*'),
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
     ]);
 
     const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
     if (setting?.value) setBannerCostPerDay(parseInt(setting.value) || 50);
     const r = parseInt(rateRes.data?.value || '');
     if (r > 0) setExchangeRate(r);
+    const pct = parseInt(pctRes.data?.value || '') || 70;
+    setPayoutPct(pct);
 
     const myTaskIds = new Set((tasksRes.data || []).map(t => t.id));
     const myAssignments = (assignmentsRes.data || []).filter(a => myTaskIds.has(a.task_id));
 
     setTasks(tasksRes.data || []);
     setCredits(Number(profileRes.data?.credits || 0));
+    setLoginBonusCredits(Number((profileRes.data as any)?.login_bonus_credits || 0));
     setWallet({ balance: Number(profileRes.data?.credits || 0) * (r || 100) });
     setPlatformPricing(pricingRes.data || []);
     setAllAssignments(myAssignments);
@@ -118,8 +124,9 @@ const BusinessTaskCreator = () => {
 
     const totalCost = calculateTotalCost();
     const creditsRequired = Math.ceil(totalCost / exchangeRate);
-    if (credits < creditsRequired) {
-      toast.error(`Need ${creditsRequired} GGG credits (₦${totalCost.toLocaleString()}). You have ${credits}.`);
+    const eligible = Math.max(0, credits - loginBonusCredits);
+    if (eligible < creditsRequired) {
+      toast.error(`Need ${creditsRequired} eligible GGG credits (₦${totalCost.toLocaleString()}). You have ${eligible} eligible (${loginBonusCredits} are login bonus and cannot fund tasks).`);
       return;
     }
 
@@ -128,6 +135,7 @@ const BusinessTaskCreator = () => {
 
     const maxSyndicates = parseInt(form.max_syndicates) || 10;
     const costPerSyndicate = totalCost / maxSyndicates;
+    const payoutAmount = costPerSyndicate * (payoutPct / 100);
 
     const { error } = await supabase.from('syndicate_tasks').insert({
       business_user_id: user.id, title: form.title, description: form.description,
@@ -136,6 +144,7 @@ const BusinessTaskCreator = () => {
       max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
       total_cost: totalCost,
       approval_mode: form.approval_mode,
+      payout_amount: payoutAmount,
     } as any);
     if (error) { toast.error("Failed to create task"); return; }
 
@@ -163,7 +172,8 @@ const BusinessTaskCreator = () => {
       const assignment = allAssignments.find(s => s.id === assignmentId);
       if (assignment) {
         const task = tasks.find(t => t.id === assignment.task_id);
-        const payout = task?.cost_per_syndicate || 50;
+        const explicit = Number((task as any)?.payout_amount || 0);
+        const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (payoutPct / 100);
         const payoutCredits = Math.floor(Number(payout) / exchangeRate);
         const { data: synProf } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
         await supabase.from('profiles').update({

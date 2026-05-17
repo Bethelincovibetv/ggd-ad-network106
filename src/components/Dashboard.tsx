@@ -176,7 +176,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
-    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete').eq('user_id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits').eq('user_id', user.id).single();
     // Admins and existing complete profiles bypass the wizard.
     setProfileSetupComplete(userRoles.includes('admin') ? true : !!(profile as any)?.profile_setup_complete);
     const { data: settings } = await supabase.from('app_settings').select('*');
@@ -203,9 +203,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       if (currentCredits === 0 && profile.last_credit_date !== new Date().toISOString().split('T')[0] && !userRoles.includes('admin')) {
         const newCredits = loginCreditsAmount;
         const today = new Date().toISOString().split('T')[0];
-        await supabase.from('profiles').update({ credits: newCredits, last_credit_date: today }).eq('user_id', user.id);
+        const newLoginBonus = Number((profile as any).login_bonus_credits || 0) + newCredits;
+        await supabase.from('profiles').update({ credits: newCredits, last_credit_date: today, login_bonus_credits: newLoginBonus } as any).eq('user_id', user.id);
         setCredits(newCredits);
-        toast.success(`🎉 You received ${loginCreditsAmount} free credits!`);
+        toast.success(`🎉 You received ${loginCreditsAmount} free credits! (Bonus credits cannot be used to fund syndicate tasks.)`);
       } else {
         setCredits(currentCredits);
       }

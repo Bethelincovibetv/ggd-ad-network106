@@ -107,9 +107,14 @@ const AdminSyndicateManager = () => {
     await supabase.from('syndicate_task_assignments').update({ status, reviewed_at: new Date().toISOString() }).eq('id', assignmentId);
     if (approve && assignment) {
       const task = allTasks.find(t => t.id === assignment.task_id);
-      const payout = task?.cost_per_syndicate || 50;
-      const { data: rateRow } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
+      const [{ data: rateRow }, { data: pctRow }] = await Promise.all([
+        supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
+        supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
+      ]);
       const rate = parseInt(rateRow?.value || '') || 100;
+      const pct = parseInt(pctRow?.value || '') || 70;
+      const explicit = Number((task as any)?.payout_amount || 0);
+      const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (pct / 100);
       const payoutCredits = Math.floor(Number(payout) / rate);
       const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
       await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + payoutCredits }).eq('user_id', assignment.syndicate_user_id);

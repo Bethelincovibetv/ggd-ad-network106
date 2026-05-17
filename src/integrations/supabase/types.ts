@@ -768,6 +768,7 @@ export type Database = {
           industry: string | null
           is_banned: boolean | null
           last_credit_date: string | null
+          login_bonus_credits: number
           profile_setup_complete: boolean
           referral_code: string | null
           referred_by: string | null
@@ -793,6 +794,7 @@ export type Database = {
           industry?: string | null
           is_banned?: boolean | null
           last_credit_date?: string | null
+          login_bonus_credits?: number
           profile_setup_complete?: boolean
           referral_code?: string | null
           referred_by?: string | null
@@ -818,6 +820,7 @@ export type Database = {
           industry?: string | null
           is_banned?: boolean | null
           last_credit_date?: string | null
+          login_bonus_credits?: number
           profile_setup_complete?: boolean
           referral_code?: string | null
           referred_by?: string | null
@@ -1070,6 +1073,7 @@ export type Database = {
           account_number: string | null
           avatar_url: string | null
           bank_name: string | null
+          bank_pin_hash: string | null
           created_at: string
           id: string
           ranking_score: number | null
@@ -1077,12 +1081,14 @@ export type Database = {
           tasks_completed: number | null
           user_id: string
           verified_platforms: string[] | null
+          withdraw_pin_hash: string | null
         }
         Insert: {
           account_name?: string | null
           account_number?: string | null
           avatar_url?: string | null
           bank_name?: string | null
+          bank_pin_hash?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
@@ -1090,12 +1096,14 @@ export type Database = {
           tasks_completed?: number | null
           user_id: string
           verified_platforms?: string[] | null
+          withdraw_pin_hash?: string | null
         }
         Update: {
           account_name?: string | null
           account_number?: string | null
           avatar_url?: string | null
           bank_name?: string | null
+          bank_pin_hash?: string | null
           created_at?: string
           id?: string
           ranking_score?: number | null
@@ -1103,6 +1111,7 @@ export type Database = {
           tasks_completed?: number | null
           user_id?: string
           verified_platforms?: string[] | null
+          withdraw_pin_hash?: string | null
         }
         Relationships: []
       }
@@ -1161,6 +1170,7 @@ export type Database = {
           id: string
           locations: string | null
           max_syndicates: number | null
+          payout_amount: number | null
           placements: string[] | null
           share_link: string | null
           status: string | null
@@ -1178,6 +1188,7 @@ export type Database = {
           id?: string
           locations?: string | null
           max_syndicates?: number | null
+          payout_amount?: number | null
           placements?: string[] | null
           share_link?: string | null
           status?: string | null
@@ -1195,6 +1206,7 @@ export type Database = {
           id?: string
           locations?: string | null
           max_syndicates?: number | null
+          payout_amount?: number | null
           placements?: string[] | null
           share_link?: string | null
           status?: string | null

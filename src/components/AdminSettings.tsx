@@ -49,7 +49,8 @@ const AdminSettings = () => {
       'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
       'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
       'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
-      'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact'];
+      'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact',
+      'syndicate_payout_percentage', 'landing_search_enabled'];
     for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
     toast.success('All settings saved!');
   };
@@ -116,6 +117,17 @@ const AdminSettings = () => {
           </div>
           <div className="col-span-2">
             <SettingField label="Referral % (earned from referred user's credits)" {...field('referral_percentage')} type="number" placeholder="2" />
+          </div>
+          <div className="col-span-2">
+            <SettingField label="Syndicate Payout % (rest kept by admin)" {...field('syndicate_payout_percentage')} type="number" placeholder="70" />
+          </div>
+          <div className="col-span-2 flex items-center justify-between bg-secondary/30 rounded-xl p-3">
+            <div>
+              <Label className="text-xs font-semibold">Landing-page search bar</Label>
+              <p className="text-[10px] text-muted-foreground">Show global search on the public landing page</p>
+            </div>
+            <input type="checkbox" className="h-5 w-5 accent-orange-500" checked={settings.landing_search_enabled !== 'false'}
+              onChange={e => setSettings(p => ({ ...p, landing_search_enabled: e.target.checked ? 'true' : 'false' }))} />
           </div>
         </CardContent>
       </Card>

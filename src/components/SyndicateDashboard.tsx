@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, KeyRound, ShieldCheck, Home, ArrowLeft } from "lucide-react";
+import { Users, Download, Upload, Loader2, CheckCircle, Copy, ExternalLink, Wallet, Award, Clock, XCircle, MapPin, Camera, RefreshCw, Mail, ShieldCheck, Home, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -28,8 +28,9 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [assignmentHours, setAssignmentHours] = useState(24);
   const [showWizard, setShowWizard] = useState(false);
-  const [sendingReset, setSendingReset] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [payoutPct, setPayoutPct] = useState<number>(70);
+  const [assignmentCounts, setAssignmentCounts] = useState<Record<string, number>>({});
   const [credits, setCredits] = useState<number>(0);
   const { isEnabled } = useFeatureToggles();
 
@@ -43,13 +44,15 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     // Auto-release expired assignments so they return to the available pool
     await supabase.rpc('release_expired_syndicate_assignments' as any);
 
-    const [tasksRes, assignmentsRes, profileRes, profCreditsRes, settingRes, rateRes] = await Promise.all([
+    const [tasksRes, assignmentsRes, profileRes, profCreditsRes, settingRes, rateRes, payoutRes, allAssignRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('status', 'active'),
       supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'syndicate_assignment_hours').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
+      supabase.from('syndicate_task_assignments').select('task_id,status'),
     ]);
 
     setTasks(tasksRes.data || []);
@@ -59,6 +62,13 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     setCredits(c);
     const r = parseInt(rateRes.data?.value || '') || 100;
     setExchangeRate(r);
+    const pct = parseInt(payoutRes.data?.value || '') || 70;
+    setPayoutPct(pct);
+    const counts: Record<string, number> = {};
+    (allAssignRes.data || []).forEach((a: any) => {
+      if (a.status !== 'rejected' && a.status !== 'expired') counts[a.task_id] = (counts[a.task_id] || 0) + 1;
+    });
+    setAssignmentCounts(counts);
     setWallet({ balance: c * r });
     const h = Number(settingRes.data?.value);
     if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
@@ -68,17 +78,6 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     if (profileRes.data && !seen) setShowWizard(true);
 
     setLoading(false);
-  };
-
-  const sendPasswordReset = async () => {
-    if (!userEmail) return;
-    setSendingReset(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-      redirectTo: `${window.location.origin}/`,
-    });
-    setSendingReset(false);
-    if (error) toast.error("Could not send reset email");
-    else toast.success(`Password reset link sent to ${userEmail}`);
   };
 
   const uploadAvatar = async (file: File) => {
@@ -152,6 +151,21 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const acceptTask = async (taskId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const task = tasks.find(t => t.id === taskId);
+    if (task?.business_user_id === user.id) {
+      toast.error("You can't perform a task you created");
+      return;
+    }
+    if (task?.target_state && profile?.state && task.target_state !== profile.state) {
+      toast.error(`This task is for ${task.target_state} only`);
+      return;
+    }
+    const currentCount = assignmentCounts[taskId] || 0;
+    if (task && currentCount >= (task.max_syndicates || 0)) {
+      toast.error("This task is full");
+      fetchData();
+      return;
+    }
     const hasPending = myAssignments.some(a => a.status === 'accepted' || a.status === 'assigned');
     if (hasPending) {
       toast.error("Finish your current task before claiming a new one");
@@ -202,7 +216,8 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     const autoApprove = (task as any)?.approval_mode === 'auto';
 
     if (autoApprove) {
-      const payout = Number(task?.cost_per_syndicate || 50);
+      const explicit = Number((task as any)?.payout_amount || 0);
+      const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (payoutPct / 100);
       const payoutCredits = Math.floor(payout / exchangeRate);
       await supabase.from('syndicate_task_assignments').update({
         proof_url: publicUrl, status: 'approved',
@@ -290,7 +305,15 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   }
 
   const assignedTaskIds = myAssignments.map(a => a.task_id);
-  const availableTasks = tasks.filter(t => !assignedTaskIds.includes(t.id));
+  const myUserId = profile?.user_id;
+  const availableTasks = tasks.filter(t => {
+    if (assignedTaskIds.includes(t.id)) return false;
+    if (myUserId && t.business_user_id === myUserId) return false; // can't perform own
+    if (t.target_state && profile?.state && t.target_state !== profile.state) return false;
+    const count = assignmentCounts[t.id] || 0;
+    if (count >= (t.max_syndicates || 0)) return false;
+    return true;
+  });
 
   // Categorize assignments
   const pendingAssignments = myAssignments.filter(a => a.status === 'accepted' || a.status === 'assigned');
@@ -484,13 +507,8 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
               <Copy className="h-4 w-4 mr-1" /> Copy
             </Button>
           </div>
-          <Button onClick={sendPasswordReset} disabled={sendingReset}
-            className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-xl">
-            {sendingReset ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <KeyRound className="h-5 w-5 mr-2" />}
-            Reset / Change Password
-          </Button>
           <p className="text-xs text-muted-foreground text-center leading-relaxed">
-            We'll email you a secure link to set a new password.
+            Manage your password from your main account profile.
           </p>
         </CardContent>
       </Card>

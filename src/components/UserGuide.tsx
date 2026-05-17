@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import SyndicateGuide from "@/components/SyndicateGuide";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen, ChevronDown, Wallet, CreditCard, Share2, Crown,
   Megaphone, Store, Users, Gift, Smartphone, Sparkles, Image as ImageIcon,
@@ -347,6 +350,16 @@ Once installed, GGD behaves like a native app with offline support.`,
 
 const UserGuide = () => {
   const [query, setQuery] = useState('');
+  const [isSyndicate, setIsSyndicate] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+      if ((data || []).some((r: any) => r.role === 'syndicate')) setIsSyndicate(true);
+    })();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -359,7 +372,7 @@ const UserGuide = () => {
     );
   }, [query]);
 
-  return (
+  const generalGuide = (
     <div className="space-y-4">
       <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-xl">
         <img src={guideHero} alt="GGD Ad Network Guide" className="w-full h-40 object-cover" loading="lazy" />
@@ -418,6 +431,19 @@ const UserGuide = () => {
         </div>
       )}
     </div>
+  );
+
+  if (!isSyndicate) return generalGuide;
+
+  return (
+    <Tabs defaultValue="general" className="space-y-4">
+      <TabsList className="grid grid-cols-2 w-full h-12 rounded-xl">
+        <TabsTrigger value="general" className="text-sm font-bold">General Guide</TabsTrigger>
+        <TabsTrigger value="syndicate" className="text-sm font-bold">Syndicate Guide</TabsTrigger>
+      </TabsList>
+      <TabsContent value="general">{generalGuide}</TabsContent>
+      <TabsContent value="syndicate"><SyndicateGuide /></TabsContent>
+    </Tabs>
   );
 };
 

@@ -4,9 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, ArrowDownCircle, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownCircle, Clock, CheckCircle, Loader2, ShieldCheck, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+async function sha256Hex(s: string): Promise<string> {
+  const buf = new TextEncoder().encode(s);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const SyndicateWallet = () => {
   const [credits, setCredits] = useState<number>(0);
@@ -17,6 +23,10 @@ const SyndicateWallet = () => {
   const [submitting, setSubmitting] = useState(false);
   const [amount, setAmount] = useState('');
   const [bankForm, setBankForm] = useState({ bank_name: '', account_number: '', account_name: '' });
+  const [withdrawPin, setWithdrawPin] = useState('');
+  const [bankPin, setBankPin] = useState('');
+  const [newWithdrawPin, setNewWithdrawPin] = useState('');
+  const [newBankPin, setNewBankPin] = useState('');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -53,6 +63,13 @@ const SyndicateWallet = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // If account already saved and bank PIN exists, require it
+    if (profile?.account_number && profile?.bank_pin_hash) {
+      if (!bankPin) { toast.error("Enter your Bank-Change PIN"); return; }
+      const hash = await sha256Hex(bankPin);
+      if (hash !== profile.bank_pin_hash) { toast.error("Incorrect Bank PIN"); return; }
+    }
+
     await supabase.from('syndicate_profiles').update({
       bank_name: bankForm.bank_name,
       account_number: bankForm.account_number,
@@ -60,6 +77,30 @@ const SyndicateWallet = () => {
     }).eq('user_id', user.id);
 
     toast.success("Bank details saved!");
+    setBankPin('');
+    fetchData();
+  };
+
+  const saveWithdrawPin = async () => {
+    if (newWithdrawPin.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const hash = await sha256Hex(newWithdrawPin);
+    await supabase.from('syndicate_profiles').update({ withdraw_pin_hash: hash } as any).eq('user_id', user.id);
+    toast.success("Withdrawal PIN saved");
+    setNewWithdrawPin('');
+    fetchData();
+  };
+
+  const saveBankPin = async () => {
+    if (newBankPin.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const hash = await sha256Hex(newBankPin);
+    await supabase.from('syndicate_profiles').update({ bank_pin_hash: hash } as any).eq('user_id', user.id);
+    toast.success("Bank-change PIN saved");
+    setNewBankPin('');
+    fetchData();
   };
 
   const requestWithdrawal = async () => {
@@ -68,6 +109,12 @@ const SyndicateWallet = () => {
     const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
     if (credits < creditsNeeded) { toast.error(`Need ${creditsNeeded} GGG credits, you have ${credits}`); return; }
     if (!bankForm.bank_name || !bankForm.account_number) { toast.error("Set bank details first"); return; }
+
+    if (profile?.withdraw_pin_hash) {
+      if (!withdrawPin) { toast.error("Enter your Withdrawal PIN"); return; }
+      const hash = await sha256Hex(withdrawPin);
+      if (hash !== profile.withdraw_pin_hash) { toast.error("Incorrect Withdrawal PIN"); return; }
+    }
 
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -85,6 +132,7 @@ const SyndicateWallet = () => {
 
     toast.success(`Submitted! ${creditsNeeded} GGG credits held (≈₦${withdrawAmount}). Processed every Saturday.`);
     setAmount('');
+    setWithdrawPin('');
     setSubmitting(false);
     fetchData();
   };
@@ -130,9 +178,40 @@ const SyndicateWallet = () => {
             <Label className="text-sm font-semibold">Account Name</Label>
             <Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="Your full name" />
           </div>
+          {profile?.account_number && profile?.bank_pin_hash && (
+            <div>
+              <Label className="text-sm font-semibold flex items-center gap-1"><KeyRound className="h-4 w-4" /> Bank-Change PIN</Label>
+              <Input type="password" inputMode="numeric" value={bankPin} onChange={e => setBankPin(e.target.value)} className="mt-1.5 h-12 text-base" placeholder="Enter PIN to change bank details" />
+            </div>
+          )}
           <Button onClick={saveBankDetails} className="w-full h-12 text-base font-bold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
             Save Bank Details
           </Button>
+          <p className="text-xs text-muted-foreground text-center">Once saved, this becomes your official withdrawal account.</p>
+        </CardContent>
+      </Card>
+
+      {/* Security PINs */}
+      <Card className="border-2 border-orange-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-orange-600" /> Security PINs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-semibold">{profile?.withdraw_pin_hash ? 'Change' : 'Set'} Withdrawal PIN</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input type="password" inputMode="numeric" value={newWithdrawPin} onChange={e => setNewWithdrawPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
+              <Button onClick={saveWithdrawPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">{profile?.bank_pin_hash ? 'Change' : 'Set'} Bank-Change PIN</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input type="password" inputMode="numeric" value={newBankPin} onChange={e => setNewBankPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
+              <Button onClick={saveBankPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">PINs protect your withdrawals and bank-detail changes. Keep them secret.</p>
         </CardContent>
       </Card>
 
@@ -141,6 +220,9 @@ const SyndicateWallet = () => {
         <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
+          {profile?.withdraw_pin_hash && (
+            <Input type="password" inputMode="numeric" placeholder="Withdrawal PIN" className="h-12 text-base text-center" value={withdrawPin} onChange={e => setWithdrawPin(e.target.value)} />
+          )}
           {parseInt(amount) > 0 && (
             <p className="text-xs text-center text-muted-foreground">
               ≈ <strong>{Math.ceil(parseInt(amount) / exchangeRate)} GGG credits</strong> will be deducted
