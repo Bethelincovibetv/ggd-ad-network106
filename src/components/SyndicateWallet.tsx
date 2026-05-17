@@ -178,9 +178,40 @@ const SyndicateWallet = () => {
             <Label className="text-sm font-semibold">Account Name</Label>
             <Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="Your full name" />
           </div>
+          {profile?.account_number && profile?.bank_pin_hash && (
+            <div>
+              <Label className="text-sm font-semibold flex items-center gap-1"><KeyRound className="h-4 w-4" /> Bank-Change PIN</Label>
+              <Input type="password" inputMode="numeric" value={bankPin} onChange={e => setBankPin(e.target.value)} className="mt-1.5 h-12 text-base" placeholder="Enter PIN to change bank details" />
+            </div>
+          )}
           <Button onClick={saveBankDetails} className="w-full h-12 text-base font-bold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
             Save Bank Details
           </Button>
+          <p className="text-xs text-muted-foreground text-center">Once saved, this becomes your official withdrawal account.</p>
+        </CardContent>
+      </Card>
+
+      {/* Security PINs */}
+      <Card className="border-2 border-orange-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-orange-600" /> Security PINs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-semibold">{profile?.withdraw_pin_hash ? 'Change' : 'Set'} Withdrawal PIN</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input type="password" inputMode="numeric" value={newWithdrawPin} onChange={e => setNewWithdrawPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
+              <Button onClick={saveWithdrawPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">{profile?.bank_pin_hash ? 'Change' : 'Set'} Bank-Change PIN</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input type="password" inputMode="numeric" value={newBankPin} onChange={e => setNewBankPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
+              <Button onClick={saveBankPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">PINs protect your withdrawals and bank-detail changes. Keep them secret.</p>
         </CardContent>
       </Card>
 
@@ -189,6 +220,9 @@ const SyndicateWallet = () => {
         <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
+          {profile?.withdraw_pin_hash && (
+            <Input type="password" inputMode="numeric" placeholder="Withdrawal PIN" className="h-12 text-base text-center" value={withdrawPin} onChange={e => setWithdrawPin(e.target.value)} />
+          )}
           {parseInt(amount) > 0 && (
             <p className="text-xs text-center text-muted-foreground">
               ≈ <strong>{Math.ceil(parseInt(amount) / exchangeRate)} GGG credits</strong> will be deducted
