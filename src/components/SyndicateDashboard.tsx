@@ -499,13 +499,8 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
               <Copy className="h-4 w-4 mr-1" /> Copy
             </Button>
           </div>
-          <Button onClick={sendPasswordReset} disabled={sendingReset}
-            className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-xl">
-            {sendingReset ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <KeyRound className="h-5 w-5 mr-2" />}
-            Reset / Change Password
-          </Button>
           <p className="text-xs text-muted-foreground text-center leading-relaxed">
-            We'll email you a secure link to set a new password.
+            Manage your password from your main account profile.
           </p>
         </CardContent>
       </Card>
