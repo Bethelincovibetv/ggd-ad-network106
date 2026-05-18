@@ -3,7 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -436,14 +435,17 @@ const UserGuide = () => {
   if (!isSyndicate) return generalGuide;
 
   return (
-    <Tabs defaultValue="general" className="space-y-4">
-      <TabsList className="grid grid-cols-2 w-full h-12 rounded-xl">
-        <TabsTrigger value="general" className="text-sm font-bold">General Guide</TabsTrigger>
-        <TabsTrigger value="syndicate" className="text-sm font-bold">Syndicate Guide</TabsTrigger>
-      </TabsList>
-      <TabsContent value="general">{generalGuide}</TabsContent>
-      <TabsContent value="syndicate"><SyndicateGuide /></TabsContent>
-    </Tabs>
+    <div className="space-y-8">
+      {generalGuide}
+      <div className="pt-2">
+        <div className="flex items-center gap-2 mb-3">
+          <Briefcase className="h-5 w-5 text-emerald-500" />
+          <h2 className="text-lg font-black text-foreground">Syndicate Guide</h2>
+          <Badge variant="secondary" className="text-[10px]">For Syndicates</Badge>
+        </div>
+        <SyndicateGuide />
+      </div>
+    </div>
   );
 };
 

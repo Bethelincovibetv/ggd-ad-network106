@@ -27,7 +27,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { businessName, category, description } = body;
 
-    const prompt = `Cinematic, vibrant hero banner for a business called "${businessName}"${category ? ` in the ${category} industry` : ''}. ${description || ''}. Modern, professional, eye-catching marketing photo, no text, 16:9 wide composition, premium brand quality.`;
+    const prompt = `Ultra-premium, award-winning hero banner for "${businessName}"${category ? `, a ${category} business` : ''}. ${description || ''}.
+
+Style: cinematic editorial photography, magazine-cover quality, dramatic studio lighting with soft rim light and golden-hour glow, shallow depth of field, rich saturated colors, glossy luxurious finish, contemporary high-end brand aesthetic inspired by Apple, Nike and Vogue campaigns.
+
+Composition: 16:9 ultra-wide cinematic banner, hero subject placed using rule-of-thirds with clean negative space on the right for future text overlay, layered foreground/midground/background depth, subtle bokeh, professional color grading (teal & orange or moody cinematic palette appropriate to the industry).
+
+Quality: hyper-detailed, sharp focus, 8K, photoreal, professional product/lifestyle photography, NO text, NO logos, NO watermarks, NO writing of any kind, NO low-quality or amateur look.`;
 
     const aiKey = Deno.env.get('LOVABLE_API_KEY');
     const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
