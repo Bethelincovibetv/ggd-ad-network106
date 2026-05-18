@@ -222,8 +222,12 @@ const SyndicateWallet = () => {
         <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
-          {profile?.withdraw_pin_hash && (
+          {profile?.withdraw_pin_hash ? (
             <Input type="password" inputMode="numeric" placeholder="Withdrawal PIN" className="h-12 text-base text-center" value={withdrawPin} onChange={e => setWithdrawPin(e.target.value)} />
+          ) : (
+            <div className="rounded-xl border border-orange-300 bg-orange-50 text-orange-800 text-xs p-3 text-center">
+              ⚠️ You must set a Withdrawal PIN above before you can request a withdrawal.
+            </div>
           )}
           {parseInt(amount) > 0 && (
             <p className="text-xs text-center text-muted-foreground">
