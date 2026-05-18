@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe, MessageCircle, Crown, Star, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
+import AdDisplayPreview from '@/components/AdDisplayPreview';
 
 const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
   let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
@@ -255,6 +256,12 @@ const UserProfilePublicPage: React.FC = () => {
             Joined {new Date(profile.created_at).toLocaleDateString()} · GGD Ad Network
           </p>
         )}
+
+        {/* Sponsored ad slot — shown on every public profile */}
+        <div className="pt-2">
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-wide mb-2">Sponsored</p>
+          <AdDisplayPreview />
+        </div>
       </article>
     </div>
   );
