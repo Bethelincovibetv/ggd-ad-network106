@@ -110,11 +110,13 @@ const SyndicateWallet = () => {
     if (credits < creditsNeeded) { toast.error(`Need ${creditsNeeded} GGG credits, you have ${credits}`); return; }
     if (!bankForm.bank_name || !bankForm.account_number) { toast.error("Set bank details first"); return; }
 
-    if (profile?.withdraw_pin_hash) {
-      if (!withdrawPin) { toast.error("Enter your Withdrawal PIN"); return; }
-      const hash = await sha256Hex(withdrawPin);
-      if (hash !== profile.withdraw_pin_hash) { toast.error("Incorrect Withdrawal PIN"); return; }
+    if (!profile?.withdraw_pin_hash) {
+      toast.error("Set your Withdrawal PIN below before requesting a withdrawal");
+      return;
     }
+    if (!withdrawPin) { toast.error("Enter your Withdrawal PIN"); return; }
+    const hash = await sha256Hex(withdrawPin);
+    if (hash !== profile.withdraw_pin_hash) { toast.error("Incorrect Withdrawal PIN"); return; }
 
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
