@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, ArrowLeft, MapPin, Star, Crown, MessageCircle, Loader2, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ggdLogo from '@/assets/ggd-logo.png';
+import AdDisplayPreview from '@/components/AdDisplayPreview';
 
 const BusinessDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -165,6 +166,12 @@ const BusinessDetailPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Sponsored ad slot — shown on every business site */}
+        <div className="pt-2">
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-wide mb-2">Sponsored</p>
+          <AdDisplayPreview />
+        </div>
       </div>
     </div>
   );
