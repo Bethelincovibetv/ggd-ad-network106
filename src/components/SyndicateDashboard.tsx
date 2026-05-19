@@ -179,8 +179,17 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     }
     const { error } = await supabase.from('syndicate_task_assignments').insert({ task_id: taskId, syndicate_user_id: user.id });
     if (error) {
-      if (error.code === '23505') toast.info("Already accepted this task");
-      else toast.error("Failed to accept task");
+      const msg = (error.message || '').toLowerCase();
+      if (error.code === '23505' && msg.includes('uniq_syndicate_one_active_task')) {
+        toast.error("You already have an active task. Finish it first.");
+      } else if (error.code === '23505') {
+        toast.info("Already accepted this task");
+      } else if (error.code === '23514' || msg.includes('capacity')) {
+        toast.error("This task was just claimed by another syndicate");
+      } else {
+        toast.error("Failed to accept task");
+      }
+      fetchData();
       return;
     }
     toast.success("Task accepted! Complete it to earn.");
