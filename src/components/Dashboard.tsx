@@ -676,13 +676,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <BusinessDirectory isBusiness={isBusiness} />;
 
       case 'syndicate':
-        return isEnabled('syndicate') ? <SyndicateDashboard onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isSyndicate && !isAdmin) return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
+        return <SyndicateDashboard onNavigate={handleTabChange} />;
 
       case 'syndicate-join':
         return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
 
       case 'syndicate-wallet':
-        return isEnabled('syndicate') ? <SyndicateWallet /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isSyndicate && !isAdmin) return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
+        return <SyndicateWallet />;
 
       case 'task-wallet':
         return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
