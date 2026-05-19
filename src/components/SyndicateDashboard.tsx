@@ -160,6 +160,12 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       toast.error(`This task is for ${task.target_state} only`);
       return;
     }
+    const myPlatforms: string[] = profile?.verified_platforms || [];
+    const taskPlatforms: string[] = task?.placements || [];
+    if (taskPlatforms.length > 0 && !taskPlatforms.some(p => myPlatforms.includes(p))) {
+      toast.error("You're not approved for this task's platform");
+      return;
+    }
     const currentCount = assignmentCounts[taskId] || 0;
     if (task && currentCount >= (task.max_syndicates || 0)) {
       toast.error("This task is full");
