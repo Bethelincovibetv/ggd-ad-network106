@@ -160,6 +160,12 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       toast.error(`This task is for ${task.target_state} only`);
       return;
     }
+    const myPlatforms: string[] = profile?.verified_platforms || [];
+    const taskPlatforms: string[] = task?.placements || [];
+    if (taskPlatforms.length > 0 && !taskPlatforms.some(p => myPlatforms.includes(p))) {
+      toast.error("You're not approved for this task's platform");
+      return;
+    }
     const currentCount = assignmentCounts[taskId] || 0;
     if (task && currentCount >= (task.max_syndicates || 0)) {
       toast.error("This task is full");
@@ -310,6 +316,9 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     if (assignedTaskIds.includes(t.id)) return false;
     if (myUserId && t.business_user_id === myUserId) return false; // can't perform own
     if (t.target_state && profile?.state && t.target_state !== profile.state) return false;
+    const myPlatforms: string[] = profile?.verified_platforms || [];
+    const taskPlatforms: string[] = t.placements || [];
+    if (taskPlatforms.length > 0 && !taskPlatforms.some((p: string) => myPlatforms.includes(p))) return false;
     const count = assignmentCounts[t.id] || 0;
     if (count >= (t.max_syndicates || 0)) return false;
     return true;
