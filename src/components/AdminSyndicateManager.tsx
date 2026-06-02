@@ -341,6 +341,21 @@ const AdminSyndicateManager = () => {
                       {s.account_name && <p className="text-[10px] text-muted-foreground">{s.account_name}</p>}
                     </div>
                   )}
+                  {(s.is_suspended || s.wallet_frozen) && (
+                    <div className="flex flex-wrap gap-1">
+                      {s.is_suspended && <Badge className="bg-red-100 text-red-700 border-0 text-[10px]"><Ban className="h-3 w-3 mr-0.5" />Suspended{s.suspended_reason ? `: ${s.suspended_reason}` : ''}</Badge>}
+                      {s.wallet_frozen && <Badge className="bg-blue-100 text-blue-700 border-0 text-[10px]"><Snowflake className="h-3 w-3 mr-0.5" />Wallet frozen</Badge>}
+                      {(s.failed_streak || 0) > 0 && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Streak: {s.failed_streak} fails</Badge>}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleSuspend(s)}>
+                      {s.is_suspended ? <><Sun className="h-3.5 w-3.5 mr-1" />Unsuspend</> : <><Ban className="h-3.5 w-3.5 mr-1" />Suspend</>}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleFreezeWallet(s)}>
+                      {s.wallet_frozen ? <><Sun className="h-3.5 w-3.5 mr-1" />Unfreeze</> : <><Snowflake className="h-3.5 w-3.5 mr-1" />Freeze Wallet</>}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
