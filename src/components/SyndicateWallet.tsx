@@ -116,6 +116,14 @@ const SyndicateWallet = () => {
   const requestWithdrawal = async () => {
     if (profile?.wallet_frozen) { toast.error("Your wallet is frozen by admin. Contact support."); return; }
     if (profile?.is_suspended) { toast.error("Account suspended. Withdrawals are disabled."); return; }
+    if (profile?.bank_changed_at) {
+      const hoursSince = (Date.now() - new Date(profile.bank_changed_at).getTime()) / 36e5;
+      if (hoursSince < cooldownHours) {
+        const remaining = Math.ceil(cooldownHours - hoursSince);
+        toast.error(`Bank changed recently. Try again in ${remaining}h.`);
+        return;
+      }
+    }
     const withdrawAmount = parseInt(amount);
     if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter valid amount"); return; }
     const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
