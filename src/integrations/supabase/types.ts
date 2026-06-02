@@ -1075,12 +1075,16 @@ export type Database = {
           bank_name: string | null
           bank_pin_hash: string | null
           created_at: string
+          failed_streak: number
           id: string
+          is_suspended: boolean
           ranking_score: number | null
           state: string | null
+          suspended_reason: string | null
           tasks_completed: number | null
           user_id: string
           verified_platforms: string[] | null
+          wallet_frozen: boolean
           withdraw_pin_hash: string | null
         }
         Insert: {
@@ -1090,12 +1094,16 @@ export type Database = {
           bank_name?: string | null
           bank_pin_hash?: string | null
           created_at?: string
+          failed_streak?: number
           id?: string
+          is_suspended?: boolean
           ranking_score?: number | null
           state?: string | null
+          suspended_reason?: string | null
           tasks_completed?: number | null
           user_id: string
           verified_platforms?: string[] | null
+          wallet_frozen?: boolean
           withdraw_pin_hash?: string | null
         }
         Update: {
@@ -1105,12 +1113,16 @@ export type Database = {
           bank_name?: string | null
           bank_pin_hash?: string | null
           created_at?: string
+          failed_streak?: number
           id?: string
+          is_suspended?: boolean
           ranking_score?: number | null
           state?: string | null
+          suspended_reason?: string | null
           tasks_completed?: number | null
           user_id?: string
           verified_platforms?: string[] | null
+          wallet_frozen?: boolean
           withdraw_pin_hash?: string | null
         }
         Relationships: []
@@ -1121,6 +1133,8 @@ export type Database = {
           created_at: string
           id: string
           proof_url: string | null
+          reassigned_by_admin: boolean
+          rejection_reason: string | null
           reviewed_at: string | null
           status: string | null
           submitted_at: string | null
@@ -1132,6 +1146,8 @@ export type Database = {
           created_at?: string
           id?: string
           proof_url?: string | null
+          reassigned_by_admin?: boolean
+          rejection_reason?: string | null
           reviewed_at?: string | null
           status?: string | null
           submitted_at?: string | null
@@ -1143,6 +1159,8 @@ export type Database = {
           created_at?: string
           id?: string
           proof_url?: string | null
+          reassigned_by_admin?: boolean
+          rejection_reason?: string | null
           reviewed_at?: string | null
           status?: string | null
           submitted_at?: string | null
