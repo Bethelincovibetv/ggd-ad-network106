@@ -154,6 +154,14 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const acceptTask = async (taskId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    if (paused) {
+      toast.error("Syndicate tasks are temporarily paused by admin");
+      return;
+    }
+    if (profile?.is_suspended) {
+      toast.error(`Account suspended${profile?.suspended_reason ? `: ${profile.suspended_reason}` : ''}`);
+      return;
+    }
     const task = tasks.find(t => t.id === taskId);
     if (task?.business_user_id === user.id) {
       toast.error("You can't perform a task you created");
