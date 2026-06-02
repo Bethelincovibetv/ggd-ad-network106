@@ -182,8 +182,15 @@ const SyndicateWallet = () => {
               <p className="text-lg font-bold">{profile?.tasks_completed || 0}</p>
             </div>
             <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p className="text-[11px] opacity-90">Withdrawals</p>
-              <p className="text-lg font-bold">{withdrawals.length}</p>
+              <p className="text-[11px] opacity-90">Success Rate</p>
+              <p className="text-lg font-bold">
+                {(() => {
+                  const a = Number(profile?.approved_count || 0);
+                  const r = Number(profile?.rejected_count || 0);
+                  const t = a + r;
+                  return t === 0 ? '—' : `${Math.round((a / t) * 100)}%`;
+                })()}
+              </p>
             </div>
           </div>
         </CardContent>
