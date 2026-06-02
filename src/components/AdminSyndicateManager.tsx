@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2 } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2, Ban, Snowflake, Sun, PauseCircle, PlayCircle, RotateCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
@@ -23,17 +24,19 @@ const AdminSyndicateManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewingTaskSubs, setViewingTaskSubs] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes] = await Promise.all([
+    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes] = await Promise.all([
       supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
       supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
     ]);
     const profileMap: Record<string, any> = {};
     (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
@@ -42,7 +45,59 @@ const AdminSyndicateManager = () => {
     setWithdrawals((withdrawalsRes.data || []).map((w: any) => ({ ...w, _profile: profileMap[w.user_id] })));
     setAllTasks(tasksRes.data || []);
     setPlatformPricing(pricingRes.data || []);
+    setPaused((pausedRes.data?.value || 'false') === 'true');
     setLoading(false);
+  };
+
+  const togglePauseAll = async (next: boolean) => {
+    await supabase.from('app_settings').upsert({ key: 'syndicate_paused', value: next ? 'true' : 'false' }, { onConflict: 'key' });
+    setPaused(next);
+    toast.success(next ? "All syndicate tasks paused" : "Syndicate tasks resumed");
+  };
+
+  const toggleSuspend = async (s: any) => {
+    const next = !s.is_suspended;
+    let reason: string | null = null;
+    if (next) {
+      reason = window.prompt("Reason for suspension?", "Policy violation") || 'Suspended by admin';
+    }
+    await supabase.from('syndicate_profiles').update({
+      is_suspended: next,
+      suspended_reason: next ? reason : null,
+      failed_streak: next ? s.failed_streak : 0,
+    } as any).eq('user_id', s.user_id);
+    await supabase.from('notifications').insert({
+      user_id: s.user_id,
+      title: next ? '🚫 Account Suspended' : '✅ Account Reinstated',
+      message: next ? `Your syndicate account was suspended: ${reason}` : 'Your syndicate account is active again.',
+      type: next ? 'warning' : 'success',
+    });
+    toast.success(next ? "Syndicate suspended" : "Suspension lifted");
+    fetchData();
+  };
+
+  const toggleFreezeWallet = async (s: any) => {
+    const next = !s.wallet_frozen;
+    await supabase.from('syndicate_profiles').update({ wallet_frozen: next } as any).eq('user_id', s.user_id);
+    await supabase.from('notifications').insert({
+      user_id: s.user_id,
+      title: next ? '🧊 Wallet Frozen' : '🔥 Wallet Unfrozen',
+      message: next ? 'Withdrawals are temporarily disabled on your account.' : 'You can request withdrawals again.',
+      type: next ? 'warning' : 'success',
+    });
+    toast.success(next ? "Wallet frozen" : "Wallet unfrozen");
+    fetchData();
+  };
+
+  const forceReassign = async (assignmentId: string) => {
+    if (!window.confirm("Release this task back to the pool? The syndicate will be notified.")) return;
+    await supabase.from('syndicate_task_assignments').update({
+      status: 'reassigned',
+      reassigned_by_admin: true,
+      reviewed_at: new Date().toISOString(),
+    } as any).eq('id', assignmentId);
+    toast.success("Task released for reassignment");
+    if (viewingTaskSubs) viewTaskSubmissions(viewingTaskSubs);
   };
 
   const approveApplication = async (app: any, platforms: string[]) => {
@@ -104,7 +159,16 @@ const AdminSyndicateManager = () => {
   const adminReviewAssignment = async (assignmentId: string, approve: boolean) => {
     const assignment = taskAssignments.find(a => a.id === assignmentId);
     const status = approve ? 'approved' : 'rejected';
-    await supabase.from('syndicate_task_assignments').update({ status, reviewed_at: new Date().toISOString() }).eq('id', assignmentId);
+    let reason: string | null = null;
+    if (!approve) {
+      reason = window.prompt("Why is this proof rejected? (shown to the syndicate)", "Proof unclear or invalid");
+      if (reason === null) return; // cancelled
+    }
+    await supabase.from('syndicate_task_assignments').update({
+      status,
+      rejection_reason: approve ? null : reason,
+      reviewed_at: new Date().toISOString(),
+    } as any).eq('id', assignmentId);
     if (approve && assignment) {
       const task = allTasks.find(t => t.id === assignment.task_id);
       const [{ data: rateRow }, { data: pctRow }] = await Promise.all([
@@ -127,6 +191,13 @@ const AdminSyndicateManager = () => {
       await supabase.from('notifications').insert({
         user_id: assignment.syndicate_user_id, title: '💰 Task Approved by Admin!',
         message: `${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`, type: 'credit',
+      });
+    } else if (!approve && assignment) {
+      await supabase.from('notifications').insert({
+        user_id: assignment.syndicate_user_id,
+        title: '❌ Proof Rejected',
+        message: `Reason: ${reason}`,
+        type: 'warning',
       });
     }
     toast.success(approve ? "Approved & paid!" : "Rejected");
