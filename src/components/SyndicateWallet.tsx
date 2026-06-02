@@ -104,6 +104,8 @@ const SyndicateWallet = () => {
   };
 
   const requestWithdrawal = async () => {
+    if (profile?.wallet_frozen) { toast.error("Your wallet is frozen by admin. Contact support."); return; }
+    if (profile?.is_suspended) { toast.error("Account suspended. Withdrawals are disabled."); return; }
     const withdrawAmount = parseInt(amount);
     if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter valid amount"); return; }
     const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
