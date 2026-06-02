@@ -451,6 +451,17 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
 
       <YouTubeEmbed section="syndicate" />
 
+      {paused && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 text-center font-semibold">
+          ⏸️ Syndicate tasks are temporarily paused by admin. New claims are disabled.
+        </div>
+      )}
+      {profile?.is_suspended && (
+        <div className="rounded-xl border border-red-300 bg-red-50 text-red-900 text-xs p-3 text-center font-semibold">
+          🚫 Your account is suspended{profile?.suspended_reason ? `: ${profile.suspended_reason}` : ''}. Contact support.
+        </div>
+      )}
+
       {/* Hero Profile */}
       <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 text-white p-5 relative">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
