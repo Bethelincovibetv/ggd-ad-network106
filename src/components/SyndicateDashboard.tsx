@@ -32,6 +32,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const [payoutPct, setPayoutPct] = useState<number>(70);
   const [assignmentCounts, setAssignmentCounts] = useState<Record<string, number>>({});
   const [credits, setCredits] = useState<number>(0);
+  const [paused, setPaused] = useState<boolean>(false);
   const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchData(); }, []);
@@ -44,7 +45,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     // Auto-release expired assignments so they return to the available pool
     await supabase.rpc('release_expired_syndicate_assignments' as any);
 
-    const [tasksRes, assignmentsRes, profileRes, profCreditsRes, settingRes, rateRes, payoutRes, allAssignRes] = await Promise.all([
+    const [tasksRes, assignmentsRes, profileRes, profCreditsRes, settingRes, rateRes, payoutRes, allAssignRes, pausedRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('status', 'active'),
       supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
@@ -53,6 +54,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
       supabase.from('syndicate_task_assignments').select('task_id,status'),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
     ]);
 
     setTasks(tasksRes.data || []);
@@ -69,6 +71,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       if (a.status !== 'rejected' && a.status !== 'expired') counts[a.task_id] = (counts[a.task_id] || 0) + 1;
     });
     setAssignmentCounts(counts);
+    setPaused((pausedRes.data?.value || 'false') === 'true');
     setWallet({ balance: c * r });
     const h = Number(settingRes.data?.value);
     if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
@@ -151,6 +154,14 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
   const acceptTask = async (taskId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    if (paused) {
+      toast.error("Syndicate tasks are temporarily paused by admin");
+      return;
+    }
+    if (profile?.is_suspended) {
+      toast.error(`Account suspended${profile?.suspended_reason ? `: ${profile.suspended_reason}` : ''}`);
+      return;
+    }
     const task = tasks.find(t => t.id === taskId);
     if (task?.business_user_id === user.id) {
       toast.error("You can't perform a task you created");
@@ -439,6 +450,17 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       )}
 
       <YouTubeEmbed section="syndicate" />
+
+      {paused && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-xs p-3 text-center font-semibold">
+          ⏸️ Syndicate tasks are temporarily paused by admin. New claims are disabled.
+        </div>
+      )}
+      {profile?.is_suspended && (
+        <div className="rounded-xl border border-red-300 bg-red-50 text-red-900 text-xs p-3 text-center font-semibold">
+          🚫 Your account is suspended{profile?.suspended_reason ? `: ${profile.suspended_reason}` : ''}. Contact support.
+        </div>
+      )}
 
       {/* Hero Profile */}
       <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600 text-white p-5 relative">

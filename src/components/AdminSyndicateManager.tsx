@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2 } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2, Ban, Snowflake, Sun, PauseCircle, PlayCircle, RotateCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
@@ -23,17 +24,19 @@ const AdminSyndicateManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewingTaskSubs, setViewingTaskSubs] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes] = await Promise.all([
+    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes] = await Promise.all([
       supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
       supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
     ]);
     const profileMap: Record<string, any> = {};
     (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
@@ -42,7 +45,59 @@ const AdminSyndicateManager = () => {
     setWithdrawals((withdrawalsRes.data || []).map((w: any) => ({ ...w, _profile: profileMap[w.user_id] })));
     setAllTasks(tasksRes.data || []);
     setPlatformPricing(pricingRes.data || []);
+    setPaused((pausedRes.data?.value || 'false') === 'true');
     setLoading(false);
+  };
+
+  const togglePauseAll = async (next: boolean) => {
+    await supabase.from('app_settings').upsert({ key: 'syndicate_paused', value: next ? 'true' : 'false' }, { onConflict: 'key' });
+    setPaused(next);
+    toast.success(next ? "All syndicate tasks paused" : "Syndicate tasks resumed");
+  };
+
+  const toggleSuspend = async (s: any) => {
+    const next = !s.is_suspended;
+    let reason: string | null = null;
+    if (next) {
+      reason = window.prompt("Reason for suspension?", "Policy violation") || 'Suspended by admin';
+    }
+    await supabase.from('syndicate_profiles').update({
+      is_suspended: next,
+      suspended_reason: next ? reason : null,
+      failed_streak: next ? s.failed_streak : 0,
+    } as any).eq('user_id', s.user_id);
+    await supabase.from('notifications').insert({
+      user_id: s.user_id,
+      title: next ? '🚫 Account Suspended' : '✅ Account Reinstated',
+      message: next ? `Your syndicate account was suspended: ${reason}` : 'Your syndicate account is active again.',
+      type: next ? 'warning' : 'success',
+    });
+    toast.success(next ? "Syndicate suspended" : "Suspension lifted");
+    fetchData();
+  };
+
+  const toggleFreezeWallet = async (s: any) => {
+    const next = !s.wallet_frozen;
+    await supabase.from('syndicate_profiles').update({ wallet_frozen: next } as any).eq('user_id', s.user_id);
+    await supabase.from('notifications').insert({
+      user_id: s.user_id,
+      title: next ? '🧊 Wallet Frozen' : '🔥 Wallet Unfrozen',
+      message: next ? 'Withdrawals are temporarily disabled on your account.' : 'You can request withdrawals again.',
+      type: next ? 'warning' : 'success',
+    });
+    toast.success(next ? "Wallet frozen" : "Wallet unfrozen");
+    fetchData();
+  };
+
+  const forceReassign = async (assignmentId: string) => {
+    if (!window.confirm("Release this task back to the pool? The syndicate will be notified.")) return;
+    await supabase.from('syndicate_task_assignments').update({
+      status: 'reassigned',
+      reassigned_by_admin: true,
+      reviewed_at: new Date().toISOString(),
+    } as any).eq('id', assignmentId);
+    toast.success("Task released for reassignment");
+    if (viewingTaskSubs) viewTaskSubmissions(viewingTaskSubs);
   };
 
   const approveApplication = async (app: any, platforms: string[]) => {
@@ -104,7 +159,16 @@ const AdminSyndicateManager = () => {
   const adminReviewAssignment = async (assignmentId: string, approve: boolean) => {
     const assignment = taskAssignments.find(a => a.id === assignmentId);
     const status = approve ? 'approved' : 'rejected';
-    await supabase.from('syndicate_task_assignments').update({ status, reviewed_at: new Date().toISOString() }).eq('id', assignmentId);
+    let reason: string | null = null;
+    if (!approve) {
+      reason = window.prompt("Why is this proof rejected? (shown to the syndicate)", "Proof unclear or invalid");
+      if (reason === null) return; // cancelled
+    }
+    await supabase.from('syndicate_task_assignments').update({
+      status,
+      rejection_reason: approve ? null : reason,
+      reviewed_at: new Date().toISOString(),
+    } as any).eq('id', assignmentId);
     if (approve && assignment) {
       const task = allTasks.find(t => t.id === assignment.task_id);
       const [{ data: rateRow }, { data: pctRow }] = await Promise.all([
@@ -128,6 +192,13 @@ const AdminSyndicateManager = () => {
         user_id: assignment.syndicate_user_id, title: '💰 Task Approved by Admin!',
         message: `${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`, type: 'credit',
       });
+    } else if (!approve && assignment) {
+      await supabase.from('notifications').insert({
+        user_id: assignment.syndicate_user_id,
+        title: '❌ Proof Rejected',
+        message: `Reason: ${reason}`,
+        type: 'warning',
+      });
     }
     toast.success(approve ? "Approved & paid!" : "Rejected");
     viewTaskSubmissions(viewingTaskSubs!);
@@ -145,6 +216,20 @@ const AdminSyndicateManager = () => {
 
   return (
     <div className="space-y-5">
+      {/* Pause-All Control */}
+      <Card className="border-2 border-amber-200 bg-amber-50">
+        <CardContent className="p-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {paused ? <PauseCircle className="h-5 w-5 text-amber-600 flex-shrink-0" /> : <PlayCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground">{paused ? 'All syndicate tasks PAUSED' : 'Syndicate tasks live'}</p>
+              <p className="text-[10px] text-muted-foreground">Toggle to halt all new claims globally</p>
+            </div>
+          </div>
+          <Switch checked={paused} onCheckedChange={togglePauseAll} />
+        </CardContent>
+      </Card>
+
       {/* Hero Stats */}
       <div className="rounded-2xl bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-500 p-5 text-white relative overflow-hidden">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
@@ -256,6 +341,21 @@ const AdminSyndicateManager = () => {
                       {s.account_name && <p className="text-[10px] text-muted-foreground">{s.account_name}</p>}
                     </div>
                   )}
+                  {(s.is_suspended || s.wallet_frozen) && (
+                    <div className="flex flex-wrap gap-1">
+                      {s.is_suspended && <Badge className="bg-red-100 text-red-700 border-0 text-[10px]"><Ban className="h-3 w-3 mr-0.5" />Suspended{s.suspended_reason ? `: ${s.suspended_reason}` : ''}</Badge>}
+                      {s.wallet_frozen && <Badge className="bg-blue-100 text-blue-700 border-0 text-[10px]"><Snowflake className="h-3 w-3 mr-0.5" />Wallet frozen</Badge>}
+                      {(s.failed_streak || 0) > 0 && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Streak: {s.failed_streak} fails</Badge>}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleSuspend(s)}>
+                      {s.is_suspended ? <><Sun className="h-3.5 w-3.5 mr-1" />Unsuspend</> : <><Ban className="h-3.5 w-3.5 mr-1" />Suspend</>}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleFreezeWallet(s)}>
+                      {s.wallet_frozen ? <><Sun className="h-3.5 w-3.5 mr-1" />Unfreeze</> : <><Snowflake className="h-3.5 w-3.5 mr-1" />Freeze Wallet</>}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -291,6 +391,16 @@ const AdminSyndicateManager = () => {
                         <Button size="sm" variant="destructive" className="flex-1 text-xs rounded-xl h-10" onClick={() => adminReviewAssignment(a.id, false)}>
                           <XCircle className="h-3.5 w-3.5 mr-1" />Reject
                         </Button>
+                      </div>
+                    )}
+                    {(a.status === 'accepted' || a.status === 'assigned') && (
+                      <Button size="sm" variant="outline" className="w-full text-xs rounded-xl h-10" onClick={() => forceReassign(a.id)}>
+                        <RotateCw className="h-3.5 w-3.5 mr-1" />Force Reassign (release to pool)
+                      </Button>
+                    )}
+                    {a.status === 'rejected' && a.rejection_reason && (
+                      <div className="rounded-xl bg-red-50 border border-red-200 p-2 text-[11px] text-red-800">
+                        <strong>Rejection reason:</strong> {a.rejection_reason}
                       </div>
                     )}
                   </CardContent>
