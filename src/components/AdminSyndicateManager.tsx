@@ -393,6 +393,16 @@ const AdminSyndicateManager = () => {
                         </Button>
                       </div>
                     )}
+                    {(a.status === 'accepted' || a.status === 'assigned') && (
+                      <Button size="sm" variant="outline" className="w-full text-xs rounded-xl h-10" onClick={() => forceReassign(a.id)}>
+                        <RotateCw className="h-3.5 w-3.5 mr-1" />Force Reassign (release to pool)
+                      </Button>
+                    )}
+                    {a.status === 'rejected' && a.rejection_reason && (
+                      <div className="rounded-xl bg-red-50 border border-red-200 p-2 text-[11px] text-red-800">
+                        <strong>Rejection reason:</strong> {a.rejection_reason}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
