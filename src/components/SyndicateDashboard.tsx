@@ -227,6 +227,27 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
     setUploading(assignmentId);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setUploading(null); return; }
+
+    // Compute SHA-256 of the file to dedupe identical proof images
+    let proofHash = '';
+    try {
+      const buf = await file.arrayBuffer();
+      const h = await crypto.subtle.digest('SHA-256', buf);
+      proofHash = Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
+      const { data: dupe } = await supabase
+        .from('syndicate_task_assignments')
+        .select('id,syndicate_user_id')
+        .eq('proof_hash', proofHash)
+        .in('status', ['submitted','approved'])
+        .limit(1)
+        .maybeSingle();
+      if (dupe && dupe.id !== assignmentId) {
+        toast.error("This exact proof has already been submitted. Use a new screenshot.");
+        setUploading(null);
+        return;
+      }
+    } catch {/* ignore hash failures */}
+
     const { data: userProfile } = await supabase.from('profiles').select('display_name, email').eq('user_id', user.id).maybeSingle();
     const userName = userProfile?.display_name || userProfile?.email?.split('@')[0] || 'unknown';
     const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -246,9 +267,9 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (payoutPct / 100);
       const payoutCredits = Math.floor(payout / exchangeRate);
       await supabase.from('syndicate_task_assignments').update({
-        proof_url: publicUrl, status: 'approved',
+        proof_url: publicUrl, proof_hash: proofHash || null, status: 'approved',
         submitted_at: new Date().toISOString(), reviewed_at: new Date().toISOString(),
-      }).eq('id', assignmentId);
+      } as any).eq('id', assignmentId);
 
       const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
       await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + payoutCredits }).eq('user_id', user.id);
@@ -268,8 +289,8 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
       toast.success(`Auto-approved! ${payoutCredits} GGG credits credited.`);
     } else {
       await supabase.from('syndicate_task_assignments').update({
-        proof_url: publicUrl, status: 'submitted', submitted_at: new Date().toISOString(),
-      }).eq('id', assignmentId);
+        proof_url: publicUrl, proof_hash: proofHash || null, status: 'submitted', submitted_at: new Date().toISOString(),
+      } as any).eq('id', assignmentId);
       toast.success("Proof submitted! Waiting for review.");
     }
     setUploading(null);
