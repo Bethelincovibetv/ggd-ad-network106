@@ -145,6 +145,11 @@ const SyndicateWallet = () => {
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
+      {profile?.wallet_frozen && (
+        <div className="rounded-xl border border-red-300 bg-red-50 text-red-900 text-xs p-3 text-center font-semibold">
+          🧊 Wallet frozen by admin — withdrawals are disabled.
+        </div>
+      )}
       <Card className="border-2 border-green-200 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 text-white shadow-xl overflow-hidden relative">
         <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
