@@ -1071,7 +1071,9 @@ export type Database = {
         Row: {
           account_name: string | null
           account_number: string | null
+          approved_count: number
           avatar_url: string | null
+          bank_changed_at: string | null
           bank_name: string | null
           bank_pin_hash: string | null
           created_at: string
@@ -1079,6 +1081,7 @@ export type Database = {
           id: string
           is_suspended: boolean
           ranking_score: number | null
+          rejected_count: number
           state: string | null
           suspended_reason: string | null
           tasks_completed: number | null
@@ -1090,7 +1093,9 @@ export type Database = {
         Insert: {
           account_name?: string | null
           account_number?: string | null
+          approved_count?: number
           avatar_url?: string | null
+          bank_changed_at?: string | null
           bank_name?: string | null
           bank_pin_hash?: string | null
           created_at?: string
@@ -1098,6 +1103,7 @@ export type Database = {
           id?: string
           is_suspended?: boolean
           ranking_score?: number | null
+          rejected_count?: number
           state?: string | null
           suspended_reason?: string | null
           tasks_completed?: number | null
@@ -1109,7 +1115,9 @@ export type Database = {
         Update: {
           account_name?: string | null
           account_number?: string | null
+          approved_count?: number
           avatar_url?: string | null
+          bank_changed_at?: string | null
           bank_name?: string | null
           bank_pin_hash?: string | null
           created_at?: string
@@ -1117,6 +1125,7 @@ export type Database = {
           id?: string
           is_suspended?: boolean
           ranking_score?: number | null
+          rejected_count?: number
           state?: string | null
           suspended_reason?: string | null
           tasks_completed?: number | null
@@ -1132,6 +1141,8 @@ export type Database = {
           accepted_at: string
           created_at: string
           id: string
+          proof_hash: string | null
+          proof_link: string | null
           proof_url: string | null
           reassigned_by_admin: boolean
           rejection_reason: string | null
@@ -1145,6 +1156,8 @@ export type Database = {
           accepted_at?: string
           created_at?: string
           id?: string
+          proof_hash?: string | null
+          proof_link?: string | null
           proof_url?: string | null
           reassigned_by_admin?: boolean
           rejection_reason?: string | null
@@ -1158,6 +1171,8 @@ export type Database = {
           accepted_at?: string
           created_at?: string
           id?: string
+          proof_hash?: string | null
+          proof_link?: string | null
           proof_url?: string | null
           reassigned_by_admin?: boolean
           rejection_reason?: string | null

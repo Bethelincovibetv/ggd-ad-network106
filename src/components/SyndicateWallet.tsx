@@ -17,6 +17,7 @@ async function sha256Hex(s: string): Promise<string> {
 const SyndicateWallet = () => {
   const [credits, setCredits] = useState<number>(0);
   const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [cooldownHours, setCooldownHours] = useState<number>(48);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,16 +35,19 @@ const SyndicateWallet = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [profRes, withdrawalsRes, profileRes, rateRes] = await Promise.all([
+    const [profRes, withdrawalsRes, profileRes, rateRes, cdRes] = await Promise.all([
       supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('withdrawal_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'syndicate_withdraw_cooldown_hours').maybeSingle(),
     ]);
 
     setCredits(Number(profRes.data?.credits || 0));
     const r = parseInt(rateRes.data?.value || '') || 100;
     setExchangeRate(r);
+    const cd = parseInt(cdRes.data?.value || '') || 48;
+    setCooldownHours(cd);
     setWithdrawals(withdrawalsRes.data || []);
     if (profileRes.data) {
       setProfile(profileRes.data);
@@ -70,13 +74,19 @@ const SyndicateWallet = () => {
       if (hash !== profile.bank_pin_hash) { toast.error("Incorrect Bank PIN"); return; }
     }
 
+    const changed =
+      bankForm.bank_name !== (profile?.bank_name || '') ||
+      bankForm.account_number !== (profile?.account_number || '') ||
+      bankForm.account_name !== (profile?.account_name || '');
     await supabase.from('syndicate_profiles').update({
       bank_name: bankForm.bank_name,
       account_number: bankForm.account_number,
       account_name: bankForm.account_name,
-    }).eq('user_id', user.id);
+      ...(changed ? { bank_changed_at: new Date().toISOString() } : {}),
+    } as any).eq('user_id', user.id);
 
     toast.success("Bank details saved!");
+    if (changed) toast.info(`Withdrawals locked for ${cooldownHours}h after a bank change.`);
     setBankPin('');
     fetchData();
   };
@@ -106,6 +116,14 @@ const SyndicateWallet = () => {
   const requestWithdrawal = async () => {
     if (profile?.wallet_frozen) { toast.error("Your wallet is frozen by admin. Contact support."); return; }
     if (profile?.is_suspended) { toast.error("Account suspended. Withdrawals are disabled."); return; }
+    if (profile?.bank_changed_at) {
+      const hoursSince = (Date.now() - new Date(profile.bank_changed_at).getTime()) / 36e5;
+      if (hoursSince < cooldownHours) {
+        const remaining = Math.ceil(cooldownHours - hoursSince);
+        toast.error(`Bank changed recently. Try again in ${remaining}h.`);
+        return;
+      }
+    }
     const withdrawAmount = parseInt(amount);
     if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter valid amount"); return; }
     const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
@@ -164,8 +182,15 @@ const SyndicateWallet = () => {
               <p className="text-lg font-bold">{profile?.tasks_completed || 0}</p>
             </div>
             <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p className="text-[11px] opacity-90">Withdrawals</p>
-              <p className="text-lg font-bold">{withdrawals.length}</p>
+              <p className="text-[11px] opacity-90">Success Rate</p>
+              <p className="text-lg font-bold">
+                {(() => {
+                  const a = Number(profile?.approved_count || 0);
+                  const r = Number(profile?.rejected_count || 0);
+                  const t = a + r;
+                  return t === 0 ? '—' : `${Math.round((a / t) * 100)}%`;
+                })()}
+              </p>
             </div>
           </div>
         </CardContent>
