@@ -216,6 +216,20 @@ const AdminSyndicateManager = () => {
 
   return (
     <div className="space-y-5">
+      {/* Pause-All Control */}
+      <Card className="border-2 border-amber-200 bg-amber-50">
+        <CardContent className="p-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {paused ? <PauseCircle className="h-5 w-5 text-amber-600 flex-shrink-0" /> : <PlayCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground">{paused ? 'All syndicate tasks PAUSED' : 'Syndicate tasks live'}</p>
+              <p className="text-[10px] text-muted-foreground">Toggle to halt all new claims globally</p>
+            </div>
+          </div>
+          <Switch checked={paused} onCheckedChange={togglePauseAll} />
+        </CardContent>
+      </Card>
+
       {/* Hero Stats */}
       <div className="rounded-2xl bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-500 p-5 text-white relative overflow-hidden">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
