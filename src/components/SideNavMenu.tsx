@@ -141,6 +141,15 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {emails.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Emails</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>{renderItems(emails)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         <SidebarGroup>
           {!collapsed && <SidebarGroupLabel>Help</SidebarGroupLabel>}
           <SidebarGroupContent>
