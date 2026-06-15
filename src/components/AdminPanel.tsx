@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen, Video } from "lucide-react";
+import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen, Video, Mail } from "lucide-react";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
@@ -12,6 +12,7 @@ import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
+import AdminEmailManager from "@/components/AdminEmailManager";
 
 const tabBase = "flex flex-col items-center justify-center gap-1 h-16 rounded-xl text-[10px] font-semibold text-white border-0 transition-all data-[state=active]:scale-105 data-[state=active]:shadow-lg data-[state=inactive]:opacity-70";
 
@@ -62,9 +63,12 @@ const AdminPanel = () => {
 
         <TabsContent value="more">
           <Tabs defaultValue="syndicate" className="space-y-4">
-            <TabsList className="w-full grid grid-cols-6 gap-2 bg-transparent p-0 h-auto">
+            <TabsList className="w-full grid grid-cols-7 gap-2 bg-transparent p-0 h-auto">
               <TabsTrigger value="syndicate" className={`${tabBase} bg-gradient-to-br from-cyan-500 to-blue-600`}>
                 <Briefcase className="h-5 w-5" /><span>Syndicate</span>
+              </TabsTrigger>
+              <TabsTrigger value="email" className={`${tabBase} bg-gradient-to-br from-orange-500 to-red-600`}>
+                <Mail className="h-5 w-5" /><span>Email</span>
               </TabsTrigger>
               <TabsTrigger value="slides" className={`${tabBase} bg-gradient-to-br from-violet-500 to-purple-600`}>
                 <Image className="h-5 w-5" /><span>Slides</span>
@@ -83,6 +87,7 @@ const AdminPanel = () => {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="syndicate"><AdminSyndicateManager /></TabsContent>
+            <TabsContent value="email"><AdminEmailManager /></TabsContent>
             <TabsContent value="slides"><SlideManager /></TabsContent>
             <TabsContent value="tasks"><TaskManager /></TabsContent>
             <TabsContent value="api"><AdminApiManager /></TabsContent>

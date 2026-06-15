@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, Mail, Bell, MousePointerClick
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -67,6 +67,12 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
     ...(isEnabled('promotional_content') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
+  ];
+
+  const emails = [
+    { id: 'email-prefs', icon: Bell, label: 'Email Preferences' },
+    ...(isEnabled('email_campaigns') ? [{ id: 'email-campaigns', icon: Mail, label: 'Email Campaigns' }] : []),
+    ...(isEnabled('email_capture_pages') ? [{ id: 'email-capture', icon: MousePointerClick, label: 'Lead Capture Pages' }] : []),
   ];
 
   const help = [
@@ -134,6 +140,15 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             <SidebarMenu>{renderItems(discover)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {emails.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Emails</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>{renderItems(emails)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           {!collapsed && <SidebarGroupLabel>Help</SidebarGroupLabel>}
