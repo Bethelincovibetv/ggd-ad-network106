@@ -68,12 +68,12 @@ const UserEmailCampaigns = () => {
     if (!subject.trim()) return toast.error('Enter a subject first');
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-business-hero', {
-        body: { businessName: 'Email Promotion', context: `Design a beautiful, professional promotional email about: "${subject}". Return ONLY a single HTML document with inline CSS, dark theme, orange (#e67e22) accent gradients, max 600px container, hero header, body section, and an orange CTA button. No markdown, no commentary.` },
+      const { data, error } = await supabase.functions.invoke('generate-email-design', {
+        body: { subject, businessName: 'GGD Ad Network', callToAction: 'Learn More', ctaUrl: '#', tone: 'modern premium persuasive' },
       });
       if (error) throw error;
-      const html = (data as any)?.html || (data as any)?.content || '';
-      if (html) setBodyHtml(html.replace(/```html|```/g, '').trim());
+      const html = (data as any)?.html || '';
+      if (html) setBodyHtml(html);
       else toast.error('AI returned empty');
     } catch (e: any) { toast.error('AI failed: ' + e.message); }
     finally { setGenerating(false); }
