@@ -19,7 +19,7 @@ const BusinessStorefront = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [newListing, setNewListing] = useState({ title: '', description: '', price: '', image_url: '' });
+  const [newListing, setNewListing] = useState<any>({ title: '', description: '', long_description: '', price: '', image_url: '', video_url: '', listing_type: 'product' });
   const [addingListing, setAddingListing] = useState(false);
   const [uploadingListingImg, setUploadingListingImg] = useState(false);
   const [generatingHero, setGeneratingHero] = useState(false);
@@ -119,12 +119,15 @@ const BusinessStorefront = () => {
       user_id: user.id,
       title: newListing.title,
       description: newListing.description || null,
+      long_description: newListing.long_description || null,
+      video_url: newListing.video_url || null,
+      listing_type: newListing.listing_type || 'product',
       price: parseFloat(newListing.price) || 0,
       image_url: newListing.image_url || null,
     });
     if (error) { toast.error("Failed to add listing"); return; }
     toast.success("Listing added! 🎉");
-    setNewListing({ title: '', description: '', price: '', image_url: '' });
+    setNewListing({ title: '', description: '', long_description: '', price: '', image_url: '', video_url: '', listing_type: 'product' });
     setAddingListing(false);
     fetchAll();
   };
