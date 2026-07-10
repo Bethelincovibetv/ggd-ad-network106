@@ -252,27 +252,36 @@ export type Database = {
       }
       business_categories: {
         Row: {
+          banner_url: string | null
           created_at: string
+          description: string | null
           icon: string | null
           id: string
           is_active: boolean | null
           name: string
+          slug: string | null
           sort_order: number | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           name: string
+          slug?: string | null
           sort_order?: number | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
+          slug?: string | null
           sort_order?: number | null
         }
         Relationships: []
@@ -282,40 +291,52 @@ export type Database = {
           business_profile_id: string
           created_at: string
           description: string | null
+          extra_images: Json | null
           featured_until: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
           is_featured: boolean | null
+          listing_type: string | null
+          long_description: string | null
           price: number | null
           title: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
           business_profile_id: string
           created_at?: string
           description?: string | null
+          extra_images?: Json | null
           featured_until?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_featured?: boolean | null
+          listing_type?: string | null
+          long_description?: string | null
           price?: number | null
           title: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
           business_profile_id?: string
           created_at?: string
           description?: string | null
+          extra_images?: Json | null
           featured_until?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_featured?: boolean | null
+          listing_type?: string | null
+          long_description?: string | null
           price?: number | null
           title?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: [
           {

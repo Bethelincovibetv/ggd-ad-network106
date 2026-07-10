@@ -19,7 +19,7 @@ const BusinessStorefront = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [newListing, setNewListing] = useState({ title: '', description: '', price: '', image_url: '' });
+  const [newListing, setNewListing] = useState<any>({ title: '', description: '', long_description: '', price: '', image_url: '', video_url: '', listing_type: 'product' });
   const [addingListing, setAddingListing] = useState(false);
   const [uploadingListingImg, setUploadingListingImg] = useState(false);
   const [generatingHero, setGeneratingHero] = useState(false);
@@ -119,12 +119,15 @@ const BusinessStorefront = () => {
       user_id: user.id,
       title: newListing.title,
       description: newListing.description || null,
+      long_description: newListing.long_description || null,
+      video_url: newListing.video_url || null,
+      listing_type: newListing.listing_type || 'product',
       price: parseFloat(newListing.price) || 0,
       image_url: newListing.image_url || null,
     });
     if (error) { toast.error("Failed to add listing"); return; }
     toast.success("Listing added! 🎉");
-    setNewListing({ title: '', description: '', price: '', image_url: '' });
+    setNewListing({ title: '', description: '', long_description: '', price: '', image_url: '', video_url: '', listing_type: 'product' });
     setAddingListing(false);
     fetchAll();
   };
@@ -355,9 +358,21 @@ const BusinessStorefront = () => {
         {addingListing && (
           <Card className="border-orange-200">
             <CardContent className="p-4 space-y-3">
+              <Select value={newListing.listing_type} onValueChange={(v: string) => setNewListing({ ...newListing, listing_type: v })}>
+                <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">Product</SelectItem>
+                  <SelectItem value="service">Service</SelectItem>
+                </SelectContent>
+              </Select>
               <Input placeholder="Product/Service name *" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} />
-              <Textarea placeholder="Description" value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })} rows={2} />
+              <Textarea placeholder="Short description (shown on card)" value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })} rows={2} />
+              <Textarea placeholder="Full details (shown on product page)" value={newListing.long_description} onChange={e => setNewListing({ ...newListing, long_description: e.target.value })} rows={4} />
               <Input placeholder="Price (₦)" type="number" value={newListing.price} onChange={e => setNewListing({ ...newListing, price: e.target.value })} />
+              <div>
+                <Label className="text-xs">Video URL (YouTube link or direct .mp4)</Label>
+                <Input placeholder="https://youtube.com/watch?v=... or https://.../video.mp4" value={newListing.video_url} onChange={e => setNewListing({ ...newListing, video_url: e.target.value })} className="mt-1" />
+              </div>
               <input type="file" id="listingImgUpload" accept="image/*" onChange={e => e.target.files?.[0] && uploadListingImage(e.target.files[0])} className="hidden" />
               <Button variant="outline" className="w-full text-xs" disabled={uploadingListingImg}
                 onClick={() => document.getElementById('listingImgUpload')?.click()}>

@@ -114,10 +114,19 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition ${selectedCategory === 'all' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow' : 'bg-secondary text-foreground'}`}
             >All</button>
             {categories.map(c => (
-              <button key={c.id} onClick={() => setSelectedCategory(c.id)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition ${selectedCategory === c.id ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow' : 'bg-secondary text-foreground'}`}>
-                {c.name}
-              </button>
+              <div key={c.id} className="flex-shrink-0 flex items-center">
+                <button onClick={() => setSelectedCategory(c.id)}
+                  className={`px-3 py-1.5 rounded-l-full text-xs font-bold transition ${selectedCategory === c.id ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow' : 'bg-secondary text-foreground'}`}>
+                  {c.name}
+                </button>
+                {c.slug && (
+                  <button onClick={() => navigate(`/industry/${c.slug}`)}
+                    title={`Open ${c.name} page`}
+                    className={`px-2 py-1.5 rounded-r-full text-[10px] font-bold border-l ${selectedCategory === c.id ? 'bg-gradient-to-r from-red-500 to-red-600 text-white border-white/30' : 'bg-secondary text-orange-600 border-background'}`}>
+                    →
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>
