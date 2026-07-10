@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe,
   MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown,
-  ShoppingBag, Share2, Mail,
+  ShoppingBag, Share2, Mail, Play,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -154,7 +154,7 @@ const UserProfilePublicPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
       <header className="bg-card/90 backdrop-blur border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 text-xs">
+          <Button variant="ghost" size="sm" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')} className="gap-1 text-xs">
             <ArrowLeft className="h-4 w-4" />Back
           </Button>
           <div className="flex items-center gap-2">
