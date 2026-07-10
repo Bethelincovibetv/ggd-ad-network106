@@ -269,28 +269,39 @@ const UserProfilePublicPage: React.FC = () => {
             {featured.length > 0 && (
               <div className="mb-4 space-y-3">
                 {featured.map(listing => (
-                  <Card key={listing.id} className="overflow-hidden border-2 border-amber-300 shadow-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+                  <Card key={listing.id} className="overflow-hidden border-2 border-amber-300 shadow-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 cursor-pointer hover:shadow-2xl transition active:scale-[0.99]"
+                    onClick={() => navigate(`/product/${listing.id}`)}>
                     <CardContent className="p-0">
                       <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 px-3 py-1.5 flex items-center gap-1">
                         <Crown className="h-3.5 w-3.5 text-white" />
                         <span className="text-[11px] font-black text-white tracking-wide">FEATURED OFFER</span>
                       </div>
                       {listing.image_url && (
-                        <img src={listing.image_url} alt={listing.title} className="w-full h-48 object-cover" />
+                        <div className="relative">
+                          <img src={listing.image_url} alt={listing.title} className="w-full h-48 object-cover" />
+                          {listing.video_url && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <div className="h-14 w-14 rounded-full bg-white/90 grid place-items-center shadow-lg">
+                                <Play className="h-6 w-6 text-orange-600 ml-0.5" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <div className="p-4">
-                        <h3 className="font-black text-base text-foreground">{listing.title}</h3>
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-black text-base text-foreground">{listing.title}</h3>
+                          <Badge variant="secondary" className="text-[9px] shrink-0">{listing.listing_type === 'service' ? 'Service' : 'Product'}</Badge>
+                        </div>
                         {listing.description && <p className="text-sm text-muted-foreground mt-1">{listing.description}</p>}
                         <div className="flex items-center justify-between mt-3">
                           {listing.price > 0 ? (
                             <p className="text-xl font-black text-orange-600">₦{Number(listing.price).toLocaleString()}</p>
                           ) : <span />}
-                          {waPhone && (
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1 h-10"
-                              onClick={() => window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hi, I'm interested in "${listing.title}"`)}`, '_blank')}>
-                              <MessageCircle className="h-4 w-4" />Order
-                            </Button>
-                          )}
+                          <Button size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white gap-1 h-10"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
+                            View Details
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -302,26 +313,35 @@ const UserProfilePublicPage: React.FC = () => {
             {rest.length > 0 && (
               <div className="grid grid-cols-2 gap-3">
                 {rest.map(listing => (
-                  <Card key={listing.id} className="overflow-hidden border shadow-sm hover:shadow-lg transition-shadow">
+                  <Card key={listing.id} className="overflow-hidden border shadow-sm hover:shadow-lg transition-shadow cursor-pointer active:scale-[0.98]"
+                    onClick={() => navigate(`/product/${listing.id}`)}>
                     <CardContent className="p-0">
-                      {listing.image_url ? (
-                        <img src={listing.image_url} alt={listing.title} className="w-full aspect-square object-cover" />
-                      ) : (
-                        <div className="w-full aspect-square bg-muted flex items-center justify-center">
-                          <Store className="h-8 w-8 text-muted-foreground/30" />
-                        </div>
-                      )}
+                      <div className="relative">
+                        {listing.image_url ? (
+                          <img src={listing.image_url} alt={listing.title} className="w-full aspect-square object-cover" />
+                        ) : (
+                          <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                            <Store className="h-8 w-8 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        {listing.video_url && (
+                          <div className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/70 grid place-items-center">
+                            <Play className="h-3.5 w-3.5 text-white ml-0.5" />
+                          </div>
+                        )}
+                        <Badge className="absolute top-1.5 left-1.5 text-[8px] px-1.5 py-0 h-4">
+                          {listing.listing_type === 'service' ? 'Service' : 'Product'}
+                        </Badge>
+                      </div>
                       <div className="p-2.5">
                         <h3 className="font-bold text-xs text-foreground line-clamp-2 min-h-[2rem]">{listing.title}</h3>
                         {listing.price > 0 && (
                           <p className="text-sm font-black text-orange-600 mt-1">₦{Number(listing.price).toLocaleString()}</p>
                         )}
-                        {waPhone && (
-                          <Button size="sm" variant="outline" className="w-full mt-2 h-8 text-[10px] gap-1"
-                            onClick={() => window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hi, I'm interested in "${listing.title}"`)}`, '_blank')}>
-                            <MessageCircle className="h-3 w-3" />Enquire
-                          </Button>
-                        )}
+                        <Button size="sm" className="w-full mt-2 h-8 text-[10px] bg-gradient-to-r from-orange-500 to-red-600 text-white"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
+                          View Details
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
