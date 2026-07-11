@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star } from "lucide-react";
+import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star, Sparkles, Play, Package, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import directoryHero from "@/assets/directory-hero.jpg";
@@ -18,6 +18,7 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
   const navigate = useNavigate();
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -28,13 +29,21 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [bizRes, catRes, costRes] = await Promise.all([
+    const [bizRes, catRes, costRes, listRes] = await Promise.all([
       (supabase.from('business_profiles') as any).select('*').eq('is_directory_listed', true),
       (supabase.from('business_categories') as any).select('*').eq('is_active', true).order('sort_order'),
       supabase.from('app_settings').select('value').eq('key', 'directory_listing_cost').maybeSingle(),
+      (supabase.from('business_listings') as any)
+        .select('*, business_profiles!inner(id, business_name, logo_url, category_id, is_directory_listed)')
+        .eq('is_active', true)
+        .eq('business_profiles.is_directory_listed', true)
+        .order('is_featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(60),
     ]);
     setBusinesses(bizRes.data || []);
     setCategories(catRes.data || []);
+    setListings(listRes.data || []);
     if (costRes.data?.value) setDirectoryCost(parseInt(costRes.data.value));
     checkOwnListing();
     setLoading(false);
@@ -78,6 +87,14 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
     const matchesCategory = selectedCategory === 'all' || b.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const filteredListings = listings.filter(l => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery || l.title?.toLowerCase().includes(q) || l.description?.toLowerCase().includes(q);
+    const matchesCategory = selectedCategory === 'all' || l.business_profiles?.category_id === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+  const featuredListings = filteredListings.filter(l => l.is_featured);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
