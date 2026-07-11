@@ -149,6 +149,38 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
         </div>
       )}
 
+      {/* Featured Products & Services */}
+      {featuredListings.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 grid place-items-center shadow-md">
+              <Sparkles className="h-4 w-4 text-white" strokeWidth={2.6} />
+            </div>
+            <p className="text-sm font-black">Featured</p>
+            <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] rounded-full">Sponsored</Badge>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+            {featuredListings.slice(0, 12).map(l => (
+              <button key={l.id} onClick={() => navigate(`/product/${l.id}`)}
+                className="flex-shrink-0 w-40 text-left rounded-2xl overflow-hidden shadow-lg bg-card border-2 border-amber-300 active:scale-[0.97] transition">
+                <div className="relative h-28 bg-gradient-to-br from-orange-500 to-red-500">
+                  {l.image_url && <img src={l.image_url} alt={l.title} className="w-full h-full object-cover" loading="lazy" />}
+                  {l.video_url && <div className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 grid place-items-center"><Play className="h-3 w-3 text-white" fill="white" /></div>}
+                  <div className="absolute top-1 left-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Sparkles className="h-2 w-2" /> FEATURED
+                  </div>
+                </div>
+                <div className="p-2">
+                  <p className="text-[11px] font-black line-clamp-1">{l.title}</p>
+                  <p className="text-[9px] text-muted-foreground line-clamp-1">{l.business_profiles?.business_name}</p>
+                  {l.price && <p className="text-[11px] font-black text-orange-600 mt-0.5">₦{Number(l.price).toLocaleString()}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Subscribe CTA */}
       {isBusiness && !isListed && (
         <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
@@ -254,6 +286,40 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
           </div>
         )}
       </div>
+
+      {/* All Products & Services */}
+      {filteredListings.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center gap-2 px-1">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center shadow-md">
+              <Package className="h-4 w-4 text-white" strokeWidth={2.6} />
+            </div>
+            <p className="text-sm font-black">Products & Services</p>
+            <span className="text-[10px] text-muted-foreground">({filteredListings.length})</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {filteredListings.map(l => (
+              <button key={l.id} onClick={() => navigate(`/product/${l.id}`)}
+                className="text-left rounded-2xl overflow-hidden shadow-md bg-card active:scale-[0.97] transition">
+                <div className="relative aspect-[4/3] bg-gradient-to-br from-orange-400 to-red-500">
+                  {l.image_url && <img src={l.image_url} alt={l.title} className="w-full h-full object-cover" loading="lazy" />}
+                  {l.video_url && <div className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 grid place-items-center"><Play className="h-3.5 w-3.5 text-white" fill="white" /></div>}
+                  <div className="absolute bottom-1 left-1">
+                    <Badge className={`text-[8px] font-bold border-0 rounded-full px-1.5 ${l.listing_type === 'service' ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                      {l.listing_type === 'service' ? 'Service' : 'Product'}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-2">
+                  <p className="text-[11px] font-black line-clamp-1">{l.title}</p>
+                  <p className="text-[9px] text-muted-foreground line-clamp-1">{l.business_profiles?.business_name}</p>
+                  {l.price && <p className="text-[11px] font-black text-orange-600 mt-0.5">₦{Number(l.price).toLocaleString()}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
