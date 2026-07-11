@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Store, Plus, Trash2, Crown, MessageCircle, ShoppingBag, Copy, Share2, Sparkles } from "lucide-react";
+import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown, ShoppingBag, Copy, Share2, Sparkles, Pencil, Eye, TrendingUp, Package, Megaphone, Mail, Users, Zap, BarChart3, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -23,6 +23,9 @@ const BusinessStorefront = () => {
   const [addingListing, setAddingListing] = useState(false);
   const [uploadingListingImg, setUploadingListingImg] = useState(false);
   const [generatingHero, setGeneratingHero] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editListing, setEditListing] = useState<any>(null);
+  const [savingListing, setSavingListing] = useState(false);
   const { isEnabled } = useFeatureToggles();
 
   useEffect(() => { fetchAll(); }, []);
@@ -139,6 +142,53 @@ const BusinessStorefront = () => {
     fetchAll();
   };
 
+  const startEdit = (l: any) => {
+    setEditingId(l.id);
+    setEditListing({
+      title: l.title || '',
+      description: l.description || '',
+      long_description: l.long_description || '',
+      video_url: l.video_url || '',
+      listing_type: l.listing_type || 'product',
+      price: l.price?.toString() || '',
+      image_url: l.image_url || '',
+    });
+  };
+
+  const saveEditListing = async () => {
+    if (!editingId || !editListing) return;
+    if (!editListing.title.trim()) { toast.error("Title is required"); return; }
+    setSavingListing(true);
+    const { error } = await (supabase.from('business_listings') as any).update({
+      title: editListing.title,
+      description: editListing.description || null,
+      long_description: editListing.long_description || null,
+      video_url: editListing.video_url || null,
+      listing_type: editListing.listing_type || 'product',
+      price: parseFloat(editListing.price) || 0,
+      image_url: editListing.image_url || null,
+    }).eq('id', editingId);
+    setSavingListing(false);
+    if (error) { toast.error("Save failed"); return; }
+    toast.success("Listing updated! ✨");
+    setEditingId(null);
+    setEditListing(null);
+    fetchAll();
+  };
+
+  const uploadEditListingImage = async (file: File) => {
+    setUploadingListingImg(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploadingListingImg(false); return; }
+    const ext = file.name.split('.').pop();
+    const fileName = `${user.id}/listing_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('business-logos').upload(fileName, file, { upsert: true });
+    if (error) { toast.error("Upload failed"); setUploadingListingImg(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(fileName);
+    setEditListing((p: any) => ({ ...p, image_url: publicUrl }));
+    setUploadingListingImg(false);
+  };
+
   const featureListing = async (listing: any) => {
     const cost = 10;
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,13 +206,154 @@ const BusinessStorefront = () => {
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   if (!profile) return <div className="text-center py-8 text-muted-foreground">No business profile found.</div>;
 
+  const slug = profile.business_slug;
+  const siteUrl = slug
+    ? `${window.location.origin}/b/${slug}`
+    : profile.user_id ? `${window.location.origin}/user/${profile.user_id}` : '';
+  const featuredCount = listings.filter((l: any) => l.is_featured).length;
+  const productCount = listings.filter((l: any) => (l.listing_type || 'product') === 'product').length;
+  const serviceCount = listings.filter((l: any) => l.listing_type === 'service').length;
+
+  const scrollToTools = () => document.getElementById('bm-tools')?.scrollIntoView({ behavior: 'smooth' });
+
   return (
-    <Tabs defaultValue="profile" className="space-y-4">
-      <TabsList className="w-full grid grid-cols-3">
-        <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
-        <TabsTrigger value="listings" className="text-xs">Listings</TabsTrigger>
-        {isEnabled('paystack_payments') && <TabsTrigger value="payments" className="text-xs">Payments</TabsTrigger>}
+    <Tabs defaultValue="overview" className="space-y-4">
+      <TabsList className="w-full grid grid-cols-4 h-11">
+        <TabsTrigger value="overview" className="text-xs font-semibold">Overview</TabsTrigger>
+        <TabsTrigger value="profile" className="text-xs font-semibold">Profile</TabsTrigger>
+        <TabsTrigger value="listings" className="text-xs font-semibold">Listings</TabsTrigger>
+        {isEnabled('paystack_payments') ? <TabsTrigger value="payments" className="text-xs font-semibold">Pay</TabsTrigger> : <TabsTrigger value="tools" className="text-xs font-semibold">Tools</TabsTrigger>}
       </TabsList>
+
+      {/* Overview Tab — Business Dashboard */}
+      <TabsContent value="overview" className="space-y-4">
+        {/* Hero card with business identity */}
+        <Card className="overflow-hidden border-0 shadow-xl">
+          <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white relative">
+            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+            <div className="flex items-center gap-4 relative">
+              {profile.logo_url ? (
+                <img src={profile.logo_url} alt={profile.business_name} className="h-16 w-16 rounded-2xl object-cover border-4 border-white/40 shadow-lg" />
+              ) : (
+                <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center">
+                  <Store className="h-8 w-8" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-black truncate">{profile.business_name || 'Your Business'}</p>
+                <p className="text-[11px] opacity-90 truncate">{profile.description || 'Complete your profile to shine'}</p>
+              </div>
+            </div>
+            {siteUrl && (
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <Button size="sm" className="h-10 bg-white text-orange-600 hover:bg-white/90 font-bold text-xs" onClick={() => window.open(siteUrl, '_blank')}>
+                  <Eye className="h-3.5 w-3.5 mr-1" />Visit
+                </Button>
+                <Button size="sm" className="h-10 bg-white/20 text-white hover:bg-white/30 font-bold text-xs backdrop-blur" onClick={() => { navigator.clipboard.writeText(siteUrl); toast.success('Link copied!'); }}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />Copy
+                </Button>
+                <Button size="sm" className="h-10 bg-white/20 text-white hover:bg-white/30 font-bold text-xs backdrop-blur" onClick={() => {
+                  const text = `Check out my business: ${profile.business_name} — ${siteUrl}`;
+                  if ((navigator as any).share) (navigator as any).share({ title: profile.business_name, text, url: siteUrl });
+                  else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                }}>
+                  <Share2 className="h-3.5 w-3.5 mr-1" />Share
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-2">
+          <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/30">
+            <CardContent className="p-3 text-center">
+              <Package className="h-5 w-5 mx-auto text-blue-600 mb-1" />
+              <p className="text-lg font-black text-foreground">{productCount}</p>
+              <p className="text-[9px] uppercase text-muted-foreground font-semibold">Products</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30">
+            <CardContent className="p-3 text-center">
+              <Zap className="h-5 w-5 mx-auto text-purple-600 mb-1" />
+              <p className="text-lg font-black text-foreground">{serviceCount}</p>
+              <p className="text-[9px] uppercase text-muted-foreground font-semibold">Services</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-yellow-400/20 to-orange-400/20 border-yellow-400/40">
+            <CardContent className="p-3 text-center">
+              <Crown className="h-5 w-5 mx-auto text-yellow-600 mb-1" />
+              <p className="text-lg font-black text-foreground">{featuredCount}</p>
+              <p className="text-[9px] uppercase text-muted-foreground font-semibold">Featured</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Business Tools Grid — all in one place */}
+        <Card id="bm-tools">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-orange-500" />Business Tools</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-2">
+            {[
+              { icon: Megaphone, label: 'Create Ad', color: 'from-orange-500 to-red-500', event: 'nav-create-ad' },
+              { icon: Package, label: 'Add Listing', color: 'from-blue-500 to-cyan-500', action: () => { setAddingListing(true); const el = document.querySelector('[value="listings"]') as HTMLElement; el?.click(); } },
+              { icon: Mail, label: 'Email Campaign', color: 'from-purple-500 to-pink-500', event: 'nav-email-campaigns' },
+              { icon: Users, label: 'Lead Pages', color: 'from-emerald-500 to-teal-500', event: 'nav-lead-pages' },
+              { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', event: 'nav-analytics' },
+              { icon: Wallet, label: 'Wallet', color: 'from-amber-500 to-orange-500', event: 'nav-wallet' },
+            ].map((t, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if ((t as any).action) (t as any).action();
+                  else window.dispatchEvent(new CustomEvent((t as any).event));
+                }}
+                className="group flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted border border-border/50 hover:border-orange-400 active:scale-95 transition"
+              >
+                <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${t.color} grid place-items-center shadow-lg`}>
+                  <t.icon className="h-5 w-5 text-white" />
+                </div>
+                <p className="text-[10px] font-bold text-foreground text-center leading-tight">{t.label}</p>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Recent listings preview */}
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">Recent Listings</CardTitle>
+            <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => (document.querySelector('[value="listings"]') as HTMLElement)?.click()}>
+              View all →
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {listings.length === 0 ? (
+              <div className="text-center py-6">
+                <ShoppingBag className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-xs text-muted-foreground mb-3">Add your first product or service</p>
+                <Button size="sm" className="h-10 px-6 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold" onClick={() => { setAddingListing(true); (document.querySelector('[value="listings"]') as HTMLElement)?.click(); }}>
+                  <Plus className="h-4 w-4 mr-1" />Add Listing
+                </Button>
+              </div>
+            ) : (
+              listings.slice(0, 3).map((l: any) => (
+                <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
+                  {l.image_url ? <img src={l.image_url} className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-muted grid place-items-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate">{l.title}</p>
+                    {l.price > 0 && <p className="text-[10px] text-orange-600 font-semibold">₦{Number(l.price).toLocaleString()}</p>}
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { startEdit(l); (document.querySelector('[value="listings"]') as HTMLElement)?.click(); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
 
       {/* Profile Tab */}
       <TabsContent value="profile" className="space-y-4">
@@ -349,40 +540,41 @@ const BusinessStorefront = () => {
       {/* Listings Tab */}
       <TabsContent value="listings" className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-sm font-bold text-foreground">My Products & Services</h3>
-          <Button size="sm" onClick={() => setAddingListing(true)} className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
-            <Plus className="h-3 w-3 mr-1" />Add Listing
+          <h3 className="text-base font-black text-foreground">My Products & Services</h3>
+          <Button onClick={() => { setAddingListing(true); setEditingId(null); }} className="h-11 px-4 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold shadow-lg">
+            <Plus className="h-4 w-4 mr-1" />Add
           </Button>
         </div>
 
         {addingListing && (
           <Card className="border-orange-200">
             <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-bold text-orange-600 uppercase tracking-wider">New Listing</p>
               <Select value={newListing.listing_type} onValueChange={(v: string) => setNewListing({ ...newListing, listing_type: v })}>
-                <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="product">Product</SelectItem>
                   <SelectItem value="service">Service</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="Product/Service name *" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} />
+              <Input className="h-11" placeholder="Product/Service name *" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} />
               <Textarea placeholder="Short description (shown on card)" value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })} rows={2} />
               <Textarea placeholder="Full details (shown on product page)" value={newListing.long_description} onChange={e => setNewListing({ ...newListing, long_description: e.target.value })} rows={4} />
-              <Input placeholder="Price (₦)" type="number" value={newListing.price} onChange={e => setNewListing({ ...newListing, price: e.target.value })} />
+              <Input className="h-11" placeholder="Price (₦)" type="number" value={newListing.price} onChange={e => setNewListing({ ...newListing, price: e.target.value })} />
               <div>
                 <Label className="text-xs">Video URL (YouTube link or direct .mp4)</Label>
-                <Input placeholder="https://youtube.com/watch?v=... or https://.../video.mp4" value={newListing.video_url} onChange={e => setNewListing({ ...newListing, video_url: e.target.value })} className="mt-1" />
+                <Input className="h-11 mt-1" placeholder="https://youtube.com/watch?v=... or https://.../video.mp4" value={newListing.video_url} onChange={e => setNewListing({ ...newListing, video_url: e.target.value })} />
               </div>
               <input type="file" id="listingImgUpload" accept="image/*" onChange={e => e.target.files?.[0] && uploadListingImage(e.target.files[0])} className="hidden" />
-              <Button variant="outline" className="w-full text-xs" disabled={uploadingListingImg}
+              <Button variant="outline" className="w-full h-11 text-xs font-bold" disabled={uploadingListingImg}
                 onClick={() => document.getElementById('listingImgUpload')?.click()}>
                 {uploadingListingImg ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 Upload Image
               </Button>
               {newListing.image_url && <img src={newListing.image_url} alt="Preview" className="w-full rounded-lg" />}
               <div className="flex gap-2">
-                <Button onClick={addListing} className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">Add Listing</Button>
-                <Button onClick={() => setAddingListing(false)} variant="outline" className="flex-1 text-xs">Cancel</Button>
+                <Button onClick={addListing} className="flex-1 h-12 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold shadow-lg">Save Listing</Button>
+                <Button onClick={() => setAddingListing(false)} variant="outline" className="flex-1 h-12 font-bold">Cancel</Button>
               </div>
             </CardContent>
           </Card>
@@ -395,36 +587,112 @@ const BusinessStorefront = () => {
           </div>
         )}
 
-        {listings.map(l => (
-          <Card key={l.id} className={l.is_featured ? 'border-yellow-300' : ''}>
+        {listings.map(l => editingId === l.id ? (
+          <Card key={l.id} className="border-blue-300 ring-2 ring-blue-200">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Editing Listing</p>
+              <Select value={editListing.listing_type} onValueChange={(v: string) => setEditListing({ ...editListing, listing_type: v })}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">Product</SelectItem>
+                  <SelectItem value="service">Service</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input className="h-11" placeholder="Title *" value={editListing.title} onChange={e => setEditListing({ ...editListing, title: e.target.value })} />
+              <Textarea placeholder="Short description" value={editListing.description} onChange={e => setEditListing({ ...editListing, description: e.target.value })} rows={2} />
+              <Textarea placeholder="Full details" value={editListing.long_description} onChange={e => setEditListing({ ...editListing, long_description: e.target.value })} rows={4} />
+              <Input className="h-11" placeholder="Price (₦)" type="number" value={editListing.price} onChange={e => setEditListing({ ...editListing, price: e.target.value })} />
+              <Input className="h-11" placeholder="Video URL (optional)" value={editListing.video_url} onChange={e => setEditListing({ ...editListing, video_url: e.target.value })} />
+              <input type="file" id={`editImg_${l.id}`} accept="image/*" onChange={e => e.target.files?.[0] && uploadEditListingImage(e.target.files[0])} className="hidden" />
+              <Button variant="outline" className="w-full h-11 text-xs font-bold" disabled={uploadingListingImg}
+                onClick={() => document.getElementById(`editImg_${l.id}`)?.click()}>
+                {uploadingListingImg ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                {editListing.image_url ? 'Replace Image' : 'Upload Image'}
+              </Button>
+              {editListing.image_url && <img src={editListing.image_url} alt="Preview" className="w-full rounded-lg" />}
+              <div className="flex gap-2">
+                <Button onClick={saveEditListing} disabled={savingListing} className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold shadow-lg">
+                  {savingListing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Changes
+                </Button>
+                <Button onClick={() => { setEditingId(null); setEditListing(null); }} variant="outline" className="flex-1 h-12 font-bold">Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card key={l.id} className={l.is_featured ? 'border-yellow-300 bg-gradient-to-br from-yellow-50/50 to-transparent' : ''}>
             <CardContent className="p-3">
               <div className="flex gap-3">
-                {l.image_url && <img src={l.image_url} alt={l.title} className="h-16 w-16 rounded-xl object-cover flex-shrink-0" />}
+                {l.image_url ? (
+                  <img src={l.image_url} alt={l.title} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+                ) : (
+                  <div className="h-20 w-20 rounded-xl bg-muted grid place-items-center flex-shrink-0">
+                    <Package className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-bold text-xs text-foreground">{l.title}</h4>
-                      {l.is_featured && <Badge className="bg-yellow-400 text-yellow-900 text-[8px]"><Crown className="h-2 w-2 mr-0.5" />Featured</Badge>}
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-foreground truncate">{l.title}</h4>
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">{l.listing_type === 'service' ? 'Service' : 'Product'}</Badge>
+                        {l.is_featured && <Badge className="bg-yellow-400 text-yellow-900 text-[9px] h-4 px-1.5"><Crown className="h-2.5 w-2.5 mr-0.5" />Featured</Badge>}
+                      </div>
                     </div>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteListing(l.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
                   </div>
-                  {l.description && <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{l.description}</p>}
-                  <div className="flex items-center justify-between mt-1">
-                    {l.price > 0 && <span className="text-xs font-bold text-orange-600">₦{Number(l.price).toLocaleString()}</span>}
-                    {!l.is_featured && (
-                      <Button size="sm" variant="outline" className="h-6 text-[9px] gap-1" onClick={() => featureListing(l)}>
-                        <Crown className="h-2.5 w-2.5" />Feature (10cr)
-                      </Button>
-                    )}
-                  </div>
+                  {l.description && <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{l.description}</p>}
+                  {l.price > 0 && <p className="text-sm font-black text-orange-600 mt-1">₦{Number(l.price).toLocaleString()}</p>}
                 </div>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-3">
+                <Button size="sm" variant="outline" className="h-10 text-[11px] font-bold" onClick={() => startEdit(l)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />Edit
+                </Button>
+                {!l.is_featured ? (
+                  <Button size="sm" variant="outline" className="h-10 text-[11px] font-bold border-yellow-400 text-yellow-700 hover:bg-yellow-50" onClick={() => featureListing(l)}>
+                    <Crown className="h-3.5 w-3.5 mr-1" />Feature
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-10 text-[11px] font-bold" disabled>
+                    <Crown className="h-3.5 w-3.5 mr-1" />Active
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="h-10 text-[11px] font-bold text-destructive hover:bg-destructive/10" onClick={() => deleteListing(l.id)}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </TabsContent>
+
+      {/* Tools Tab (when payments feature off) */}
+      {!isEnabled('paystack_payments') && (
+        <TabsContent value="tools" className="space-y-3">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">All Business Tools</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2">
+              {[
+                { icon: Megaphone, label: 'Create Advert', color: 'from-orange-500 to-red-500', event: 'nav-create-ad' },
+                { icon: Mail, label: 'Email Campaigns', color: 'from-purple-500 to-pink-500', event: 'nav-email-campaigns' },
+                { icon: Users, label: 'Lead Capture Pages', color: 'from-emerald-500 to-teal-500', event: 'nav-lead-pages' },
+                { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', event: 'nav-analytics' },
+                { icon: Wallet, label: 'My Wallet', color: 'from-amber-500 to-orange-500', event: 'nav-wallet' },
+                { icon: Globe, label: 'Visit My Site', color: 'from-cyan-500 to-blue-500', action: () => siteUrl && window.open(siteUrl, '_blank') },
+              ].map((t, i) => (
+                <button key={i}
+                  onClick={() => (t as any).action ? (t as any).action() : window.dispatchEvent(new CustomEvent((t as any).event))}
+                  className="flex items-center gap-2 p-3 rounded-xl bg-muted/40 border border-border/50 hover:border-orange-400 active:scale-95 transition">
+                  <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${t.color} grid place-items-center shadow-md flex-shrink-0`}>
+                    <t.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <p className="text-xs font-bold text-foreground text-left">{t.label}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      )}
 
       {/* Payments Tab */}
       {isEnabled('paystack_payments') && (
