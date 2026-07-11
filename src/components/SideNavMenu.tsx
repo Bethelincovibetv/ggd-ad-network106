@@ -80,9 +80,34 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     { id: 'about', icon: Info, label: 'About' },
   ];
 
+  const iconGrad: Record<string, string> = {
+    ads: 'from-orange-400 to-red-500',
+    feed: 'from-pink-400 to-fuchsia-500',
+    tasks: 'from-emerald-400 to-teal-500',
+    profile: 'from-sky-400 to-blue-500',
+    'smart-links': 'from-cyan-400 to-blue-500',
+    wallet: 'from-blue-500 to-indigo-600',
+    premium: 'from-amber-400 to-yellow-500',
+    'business-tasks': 'from-purple-500 to-indigo-600',
+    'my-business': 'from-indigo-400 to-blue-500',
+    upgrade: 'from-rose-400 to-red-500',
+    syndicate: 'from-violet-500 to-purple-600',
+    'syndicate-join': 'from-violet-500 to-purple-600',
+    marketplace: 'from-emerald-400 to-green-600',
+    directory: 'from-orange-400 to-amber-500',
+    promo: 'from-pink-500 to-rose-500',
+    'api-keys': 'from-slate-500 to-gray-700',
+    'email-prefs': 'from-yellow-400 to-orange-500',
+    'email-campaigns': 'from-fuchsia-500 to-pink-500',
+    'email-capture': 'from-teal-400 to-cyan-500',
+    guide: 'from-indigo-400 to-purple-500',
+    about: 'from-slate-400 to-slate-600',
+  };
+
   const renderItems = (items: { id: string; icon: any; label: string }[]) =>
     items.map(item => {
       const active = activeTab === item.id;
+      const grad = iconGrad[item.id] ?? 'from-orange-400 to-red-500';
       return (
         <SidebarMenuItem key={item.id}>
           <SidebarMenuButton
@@ -92,9 +117,14 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             onClick={() => handleSelect(item.id)}
             className="h-12"
           >
-            <button className={`w-full flex items-center gap-3 px-3 ${active ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-500 hover:to-red-600 hover:text-white shadow-md shadow-orange-500/20' : 'hover:bg-orange-50'}`}>
-              <item.icon className="h-5 w-5 flex-shrink-0" strokeWidth={active ? 2.5 : 2.2} />
-              {!collapsed && <span className="text-[15px] font-semibold">{item.label}</span>}
+            <button className={`w-full flex items-center gap-3 px-2 ${active ? 'bg-gradient-to-r from-orange-500/15 to-red-500/10 text-foreground' : 'hover:bg-orange-50'}`}>
+              <span className={`relative inline-grid place-items-center h-9 w-9 rounded-xl bg-gradient-to-br ${grad} flex-shrink-0
+                shadow-[0_4px_10px_-3px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.18)]
+                ${active ? 'ring-2 ring-orange-400/70' : ''}`}>
+                <span className="absolute inset-x-1 top-0.5 h-2 rounded-full bg-white/35 blur-[1.5px]" />
+                <item.icon className="h-5 w-5 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" strokeWidth={2.6} />
+              </span>
+              {!collapsed && <span className={`text-[15px] ${active ? 'font-black' : 'font-semibold'}`}>{item.label}</span>}
             </button>
           </SidebarMenuButton>
         </SidebarMenuItem>

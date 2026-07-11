@@ -15,14 +15,14 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
   const navigate = useNavigate();
   const { isEnabled } = useFeatureToggles();
   const items = [
-    { id: 'ads',      icon: LayoutDashboard, label: 'Home',    color: 'text-orange-500' },
-    ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Feed', color: 'text-pink-500' }] : []),
-    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: Activity, label: 'Tasks', color: 'text-emerald-500' }] : []),
-    { id: 'wallet',   icon: Wallet,          label: 'Wallet',  color: 'text-blue-500' },
+    { id: 'ads',      icon: LayoutDashboard, label: 'Home',   grad: 'from-orange-400 via-orange-500 to-red-500' },
+    ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Feed', grad: 'from-pink-400 via-fuchsia-500 to-purple-500' }] : []),
+    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: Activity, label: 'Tasks', grad: 'from-emerald-400 via-green-500 to-teal-500' }] : []),
+    { id: 'wallet',   icon: Wallet, label: 'Wallet', grad: 'from-sky-400 via-blue-500 to-indigo-500' },
     ...(isSyndicate
-      ? [{ id: 'syndicate', icon: Users, label: 'Crew', color: 'text-purple-500' }]
-      : [{ id: 'my-business', icon: Store, label: 'My Biz', color: 'text-indigo-500' }]),
-    ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin', color: 'text-rose-500' }] : []),
+      ? [{ id: 'syndicate', icon: Users, label: 'Crew', grad: 'from-violet-400 via-purple-500 to-indigo-600' }]
+      : [{ id: 'my-business', icon: Store, label: 'My Biz', grad: 'from-indigo-400 via-blue-500 to-cyan-500' }]),
+    ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin', grad: 'from-rose-500 via-pink-500 to-fuchsia-600' }] : []),
   ];
 
   const handleClick = (id: string) => {
@@ -36,26 +36,17 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
       <div className="flex items-stretch justify-around px-1.5 pt-2 pb-2">
         {items.map(item => {
           const active = activeTab === item.id;
-          if (item.id === 'admin') {
-            return (
-              <button key={item.id} onClick={() => handleClick(item.id)}
-                className="relative flex flex-col items-center gap-1 py-2 px-3 rounded-2xl overflow-hidden text-white shadow-lg flex-1 max-w-[80px] active:scale-95 transition">
-                <div className="absolute inset-0 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500" />
-                <Shield className="h-6 w-6 relative drop-shadow" strokeWidth={2.4} />
-                <span className="text-[11px] font-bold leading-none relative flex items-center gap-0.5">
-                  Admin <Sparkles className="h-3 w-3 text-yellow-200" />
-                </span>
-              </button>
-            );
-          }
           return (
             <button key={item.id} onClick={() => handleClick(item.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl transition-all flex-1 max-w-[80px] active:scale-95
-                ${active
-                  ? 'bg-gradient-to-br from-orange-500/15 to-red-500/10 ' + item.color + ' shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'}`}>
-              <item.icon className={`h-6 w-6 ${active ? '' : ''}`} strokeWidth={active ? 2.6 : 2.2} />
-              <span className={`text-[11px] leading-none ${active ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+              className={`flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 max-w-[80px] active:scale-90 ${active ? 'scale-105' : ''}`}>
+              <span className={`relative inline-grid place-items-center h-11 w-11 rounded-2xl bg-gradient-to-br ${item.grad}
+                shadow-[0_6px_14px_-4px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-3px_6px_rgba(0,0,0,0.18)]
+                ${active ? 'ring-2 ring-white ring-offset-2 ring-offset-card' : ''}`}>
+                <span className="absolute inset-x-1 top-0.5 h-3 rounded-full bg-white/35 blur-[2px]" />
+                <item.icon className="h-6 w-6 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" strokeWidth={2.6} />
+                {item.id === 'admin' && <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-yellow-300 drop-shadow" />}
+              </span>
+              <span className={`text-[10px] leading-none ${active ? 'font-black text-foreground' : 'font-semibold text-muted-foreground'}`}>{item.label}</span>
             </button>
           );
         })}
