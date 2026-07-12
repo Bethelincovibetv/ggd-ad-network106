@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown, ShoppingBag, Copy, Share2, Sparkles, Pencil, Eye, TrendingUp, Package, Megaphone, Mail, Users, Zap, BarChart3, Wallet } from "lucide-react";
+import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown, ShoppingBag, Copy, Share2, Sparkles, Pencil, Eye, TrendingUp, Package, Megaphone, Mail, Users, Zap, BarChart3, Wallet, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -296,18 +296,19 @@ const BusinessStorefront = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-3 gap-2">
             {[
-              { icon: Megaphone, label: 'Create Ad', color: 'from-orange-500 to-red-500', event: 'nav-create-ad' },
+              { icon: Megaphone, label: 'Create Ad', color: 'from-orange-500 to-red-500', tab: 'ads-create' },
               { icon: Package, label: 'Add Listing', color: 'from-blue-500 to-cyan-500', action: () => { setAddingListing(true); const el = document.querySelector('[value="listings"]') as HTMLElement; el?.click(); } },
-              { icon: Mail, label: 'Email Campaign', color: 'from-purple-500 to-pink-500', event: 'nav-email-campaigns' },
-              { icon: Users, label: 'Lead Pages', color: 'from-emerald-500 to-teal-500', event: 'nav-lead-pages' },
-              { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', event: 'nav-analytics' },
-              { icon: Wallet, label: 'Wallet', color: 'from-amber-500 to-orange-500', event: 'nav-wallet' },
-            ].map((t, i) => (
+              { icon: Mail, label: 'Email Campaign', color: 'from-purple-500 to-pink-500', tab: 'email-campaigns' },
+              { icon: Users, label: 'Lead Pages', color: 'from-emerald-500 to-teal-500', tab: 'email-capture' },
+              ...(isEnabled('link_shortener') ? [{ icon: Link2, label: 'Smart Links', color: 'from-cyan-500 to-blue-500', tab: 'smart-links' }] : []),
+              { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', tab: 'ads' },
+              { icon: Wallet, label: 'Wallet', color: 'from-amber-500 to-orange-500', tab: 'wallet' },
+            ].map((t: any, i) => (
               <button
                 key={i}
                 onClick={() => {
-                  if ((t as any).action) (t as any).action();
-                  else window.dispatchEvent(new CustomEvent((t as any).event));
+                  if (t.action) t.action();
+                  else window.dispatchEvent(new CustomEvent('ggd-nav', { detail: t.tab }));
                 }}
                 className="group flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted border border-border/50 hover:border-orange-400 active:scale-95 transition"
               >
@@ -673,15 +674,16 @@ const BusinessStorefront = () => {
             <CardHeader className="pb-2"><CardTitle className="text-sm">All Business Tools</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               {[
-                { icon: Megaphone, label: 'Create Advert', color: 'from-orange-500 to-red-500', event: 'nav-create-ad' },
-                { icon: Mail, label: 'Email Campaigns', color: 'from-purple-500 to-pink-500', event: 'nav-email-campaigns' },
-                { icon: Users, label: 'Lead Capture Pages', color: 'from-emerald-500 to-teal-500', event: 'nav-lead-pages' },
-                { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', event: 'nav-analytics' },
-                { icon: Wallet, label: 'My Wallet', color: 'from-amber-500 to-orange-500', event: 'nav-wallet' },
-                { icon: Globe, label: 'Visit My Site', color: 'from-cyan-500 to-blue-500', action: () => siteUrl && window.open(siteUrl, '_blank') },
-              ].map((t, i) => (
+                { icon: Megaphone, label: 'Create Advert', color: 'from-orange-500 to-red-500', tab: 'ads-create' },
+                { icon: Mail, label: 'Email Campaigns', color: 'from-purple-500 to-pink-500', tab: 'email-campaigns' },
+                { icon: Users, label: 'Lead Capture Pages', color: 'from-emerald-500 to-teal-500', tab: 'email-capture' },
+                ...(isEnabled('link_shortener') ? [{ icon: Link2, label: 'Smart Links', color: 'from-cyan-500 to-blue-500', tab: 'smart-links' }] : []),
+                { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', tab: 'ads' },
+                { icon: Wallet, label: 'My Wallet', color: 'from-amber-500 to-orange-500', tab: 'wallet' },
+                { icon: Globe, label: 'Visit My Site', color: 'from-emerald-500 to-teal-500', action: () => siteUrl && window.open(siteUrl, '_blank') },
+              ].map((t: any, i) => (
                 <button key={i}
-                  onClick={() => (t as any).action ? (t as any).action() : window.dispatchEvent(new CustomEvent((t as any).event))}
+                  onClick={() => t.action ? t.action() : window.dispatchEvent(new CustomEvent('ggd-nav', { detail: t.tab }))}
                   className="flex items-center gap-2 p-3 rounded-xl bg-muted/40 border border-border/50 hover:border-orange-400 active:scale-95 transition">
                   <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${t.color} grid place-items-center shadow-md flex-shrink-0`}>
                     <t.icon className="h-5 w-5 text-white" />

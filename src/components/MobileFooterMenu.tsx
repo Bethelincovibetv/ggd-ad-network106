@@ -19,7 +19,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Feed', grad: 'from-pink-400 via-fuchsia-500 to-purple-500' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: Activity, label: 'Tasks', grad: 'from-emerald-400 via-green-500 to-teal-500' }] : []),
     { id: 'wallet',   icon: Wallet, label: 'Wallet', grad: 'from-sky-400 via-blue-500 to-indigo-500' },
-    ...(isSyndicate
+    ...(isSyndicate && isEnabled('syndicate')
       ? [{ id: 'syndicate', icon: Users, label: 'Crew', grad: 'from-violet-400 via-purple-500 to-indigo-600' }]
       : [{ id: 'my-business', icon: Store, label: 'My Biz', grad: 'from-indigo-400 via-blue-500 to-cyan-500' }]),
     ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin', grad: 'from-rose-500 via-pink-500 to-fuchsia-600' }] : []),

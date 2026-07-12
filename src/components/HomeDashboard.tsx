@@ -210,30 +210,41 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
         </CardContent>
       </Card>
 
-      {/* Live activity feed */}
-      <Card className="border-0 shadow-md">
-        <CardContent className="p-4">
-          <h2 className="text-sm font-black flex items-center gap-2 mb-3">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            <Activity className="h-4 w-4 text-purple-500" />Live Activity
-          </h2>
-          {activity.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">Waiting for live events…</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {activity.map((a, i) => (
-                <li key={i} className="flex items-start justify-between gap-2 text-xs animate-fade-in">
-                  <span className="text-foreground">{a.text}</span>
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0">{new Date(a.ts).toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Live activity feed — collapsed, gated by toggle */}
+      {isEnabled('live_activity') && (
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-0">
+            <details className="group">
+              <summary className="cursor-pointer list-none p-4 flex items-center justify-between">
+                <h2 className="text-sm font-black flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                  <Activity className="h-4 w-4 text-purple-500" />Live Activity
+                  <span className="text-[10px] text-muted-foreground font-normal">({activity.length})</span>
+                </h2>
+                <span className="text-[10px] text-muted-foreground group-open:hidden">Tap to open ▾</span>
+                <span className="text-[10px] text-muted-foreground hidden group-open:inline">Tap to close ▴</span>
+              </summary>
+              <div className="px-4 pb-4">
+                {activity.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3 text-center">Waiting for live events…</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {activity.map((a, i) => (
+                      <li key={i} className="flex items-start justify-between gap-2 text-xs animate-fade-in">
+                        <span className="text-foreground">{a.text}</span>
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0">{new Date(a.ts).toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </details>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

@@ -584,24 +584,31 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-1.5 mt-2.5 pt-2.5 border-t border-border/30">
-                        <div className="text-center">
-                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Views</p>
-                          <p className="text-[12px] font-black text-foreground">{ad.impressions}</p>
+                      <details className="mt-2.5 pt-2.5 border-t border-border/30 group">
+                        <summary className="cursor-pointer list-none flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                          <span>Analytics</span>
+                          <span className="text-orange-500 group-open:hidden">Show ▾</span>
+                          <span className="text-orange-500 hidden group-open:inline">Hide ▴</span>
+                        </summary>
+                        <div className="grid grid-cols-4 gap-1.5 mt-2">
+                          <div className="text-center">
+                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Views</p>
+                            <p className="text-[12px] font-black text-foreground">{ad.impressions}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Clicks</p>
+                            <p className="text-[12px] font-black text-blue-500">{ad.clicks}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">CTR</p>
+                            <p className="text-[12px] font-black text-purple-500">{ctr}%</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Days</p>
+                            <p className="text-[12px] font-black text-orange-500">{remaining ?? '∞'}</p>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Clicks</p>
-                          <p className="text-[12px] font-black text-blue-500">{ad.clicks}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">CTR</p>
-                          <p className="text-[12px] font-black text-purple-500">{ctr}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Days</p>
-                          <p className="text-[12px] font-black text-orange-500">{remaining ?? '∞'}</p>
-                        </div>
-                      </div>
+                      </details>
 
                       {!premium.autoConvertAds && isEnabled('tasks') && (
                         <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
