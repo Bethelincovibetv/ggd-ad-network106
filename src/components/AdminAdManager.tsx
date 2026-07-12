@@ -159,11 +159,12 @@ const AdminAdManager = () => {
       ad.description?.toLowerCase().includes(search.toLowerCase()) ||
       ad.owner_email?.toLowerCase().includes(search.toLowerCase()) ||
       ad.target_url.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesFilter = filter === 'all' || 
-      (filter === 'active' && ad.is_active) ||
-      (filter === 'paused' && !ad.is_active) ||
+    const isExpired = !!ad.expires_at && new Date(ad.expires_at) < new Date();
+    const matchesFilter = filter === 'all' ||
+      (filter === 'active' && ad.is_active && !isExpired) ||
+      (filter === 'paused' && !ad.is_active && !isExpired) ||
       (filter === 'pending' && !ad.approved && !ad.rejection_reason) ||
+      (filter === 'expired' && isExpired) ||
       (filter === 'api' && ad.source === 'api') ||
       (filter === 'direct' && ad.source === 'direct');
 
@@ -172,9 +173,10 @@ const AdminAdManager = () => {
 
   const stats = {
     total: ads.length,
-    active: ads.filter(a => a.is_active).length,
+    active: ads.filter(a => a.is_active && (!a.expires_at || new Date(a.expires_at) > new Date())).length,
     paused: ads.filter(a => !a.is_active).length,
     pending: ads.filter(a => !a.approved && !a.rejection_reason).length,
+    expired: ads.filter(a => a.expires_at && new Date(a.expires_at) < new Date()).length,
     api: ads.filter(a => a.source === 'api').length,
     direct: ads.filter(a => a.source === 'direct').length,
   };
@@ -182,12 +184,13 @@ const AdminAdManager = () => {
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
         {[
           { label: 'Total', value: stats.total, color: 'bg-primary/10 text-primary' },
           { label: 'Active', value: stats.active, color: 'bg-green-500/10 text-green-500' },
           { label: 'Paused', value: stats.paused, color: 'bg-yellow-500/10 text-yellow-500' },
           { label: 'Pending', value: stats.pending, color: 'bg-orange-500/10 text-orange-500' },
+          { label: 'Expired', value: stats.expired, color: 'bg-red-500/10 text-red-500' },
           { label: 'API Ads', value: stats.api, color: 'bg-blue-500/10 text-blue-500' },
           { label: 'Direct', value: stats.direct, color: 'bg-purple-500/10 text-purple-500' },
         ].map(s => (
@@ -215,11 +218,12 @@ const AdminAdManager = () => {
       </div>
 
       <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList className="w-full grid grid-cols-6">
+        <TabsList className="w-full grid grid-cols-7">
           <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
           <TabsTrigger value="pending" className="text-xs">Pending</TabsTrigger>
           <TabsTrigger value="active" className="text-xs">Active</TabsTrigger>
           <TabsTrigger value="paused" className="text-xs">Paused</TabsTrigger>
+          <TabsTrigger value="expired" className="text-xs">Expired</TabsTrigger>
           <TabsTrigger value="api" className="text-xs">API</TabsTrigger>
           <TabsTrigger value="direct" className="text-xs">Direct</TabsTrigger>
         </TabsList>
@@ -279,9 +283,21 @@ const AdminAdManager = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant={ad.is_active ? 'default' : 'secondary'} className="text-[10px] w-fit">
-                        {ad.is_active ? 'Live' : !ad.approved && !ad.rejection_reason ? 'Pending' : ad.rejection_reason ? 'Rejected' : 'Paused'}
-                      </Badge>
+                      {(() => {
+                        const isExp = !!ad.expires_at && new Date(ad.expires_at) < new Date();
+                        const label = isExp ? 'Expired' : ad.is_active ? 'Live' : !ad.approved && !ad.rejection_reason ? 'Pending' : ad.rejection_reason ? 'Rejected' : 'Paused';
+                        return (
+                          <Badge variant={isExp ? 'destructive' : ad.is_active ? 'default' : 'secondary'} className="text-[10px] w-fit">
+                            {label}
+                          </Badge>
+                        );
+                      })()}
+                      {ad.expires_at && (() => {
+                        const ms = new Date(ad.expires_at).getTime() - Date.now();
+                        if (ms < 0) return <span className="text-[9px] text-red-500 font-semibold">Ended {Math.abs(Math.floor(ms / 86400000))}d ago</span>;
+                        const days = Math.ceil(ms / 86400000);
+                        return <span className={`text-[9px] font-semibold ${days <= 2 ? 'text-orange-500' : 'text-muted-foreground'}`}>Expires in {days}d</span>;
+                      })()}
                       {ad.ad_type === 'watch' && (
                         <Badge variant="outline" className="text-[9px] w-fit"><Youtube className="h-2.5 w-2.5 mr-1 text-red-500" />Watch</Badge>
                       )}

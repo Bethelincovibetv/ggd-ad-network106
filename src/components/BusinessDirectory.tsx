@@ -9,6 +9,7 @@ import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, C
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import directoryHero from "@/assets/directory-hero.jpg";
+import SlideCarousel from "@/components/SlideCarousel";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -100,6 +101,9 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
 
   return (
     <div className="space-y-5">
+      {/* Slider images (from admin-managed slides) */}
+      <SlideCarousel />
+
       {/* Hero with background image */}
       <div className="relative rounded-2xl overflow-hidden p-5 text-white shadow-xl">
         <img src={directoryHero} alt="" className="absolute inset-0 w-full h-full object-cover" />

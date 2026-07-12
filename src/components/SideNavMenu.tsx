@@ -46,7 +46,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
     { id: 'profile', icon: User, label: 'My Profile' },
-    ...(isEnabled('link_shortener') ? [{ id: 'smart-links', icon: Link2, label: 'Smart Links' }] : []),
     { id: 'wallet', icon: Wallet, label: 'Wallet' },
     ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'Premium' }] : []),
   ];
