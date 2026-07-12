@@ -50,7 +50,7 @@ const AdminSettings = () => {
       'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
       'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
       'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact',
-      'syndicate_payout_percentage', 'landing_search_enabled'];
+      'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template'];
     for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
     toast.success('All settings saved!');
   };
@@ -222,6 +222,33 @@ const AdminSettings = () => {
               <SettingField label="Business Plan — Support Contact Link" {...field('premium_business_contact')} placeholder="https://wa.me/234..." />
               <p className="text-[10px] text-muted-foreground mt-1">All paid plans automatically expire after 1 month. Admin can subscribe any user from User Management.</p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ad Display Template */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-500 to-red-600 p-3 flex items-center gap-2 text-white">
+          <Image className="h-4 w-4" /><h4 className="text-sm font-bold">Ad Display Template</h4>
+        </div>
+        <CardContent className="p-4 space-y-2">
+          <p className="text-[11px] text-muted-foreground">Choose the default look for banner ads shown across the app.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: 'classic', label: 'Classic', desc: 'Compact clean card' },
+              { key: 'creative', label: 'Creative', desc: 'Bold gradient overlay' },
+              { key: 'interactive', label: 'Interactive', desc: 'Zoom hover + CTA' },
+            ].map(t => {
+              const active = (settings.ad_display_template || 'classic') === t.key;
+              return (
+                <button key={t.key} type="button"
+                  onClick={() => setSettings(p => ({ ...p, ad_display_template: t.key }))}
+                  className={`p-3 rounded-xl border-2 text-left transition ${active ? 'border-orange-500 bg-orange-500/10' : 'border-border bg-secondary/30'}`}>
+                  <p className="text-xs font-black">{t.label}</p>
+                  <p className="text-[9px] text-muted-foreground">{t.desc}</p>
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
