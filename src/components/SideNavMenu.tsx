@@ -64,18 +64,18 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const discover = [
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
-    ...(isEnabled('promotional_content') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
+    ...(isEnabled('promotional_content') && isEnabled('referral_system') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
   const emails = [
-    { id: 'email-prefs', icon: Bell, label: 'Email Preferences' },
+    ...(isEnabled('email_preferences') ? [{ id: 'email-prefs', icon: Bell, label: 'Email Preferences' }] : []),
     ...(isEnabled('email_campaigns') ? [{ id: 'email-campaigns', icon: Mail, label: 'Email Campaigns' }] : []),
     ...(isEnabled('email_capture_pages') ? [{ id: 'email-capture', icon: MousePointerClick, label: 'Lead Capture Pages' }] : []),
   ];
 
   const help = [
-    { id: 'guide', icon: BookOpen, label: 'Guide' },
+    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
     { id: 'about', icon: Info, label: 'About' },
   ];
 
