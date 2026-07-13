@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 const UserProfilePage = () => {
+  const { isEnabled } = useFeatureToggles();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -293,8 +295,8 @@ const UserProfilePage = () => {
               {profile?.business_slug && (
                 <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-lg p-2.5">
                   <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Your professional site</p>
-                  <a href={`/user/${authUser.id}`} target="_blank" rel="noreferrer" className="text-xs font-mono break-all text-orange-600 hover:underline">
-                    {`${window.location.origin}/user/${authUser.id}`}
+                  <a href={`/b/${profile.business_slug}`} target="_blank" rel="noreferrer" className="text-xs break-all text-orange-600 hover:underline font-semibold">
+                    {`${window.location.origin}/b/${profile.business_slug}`}
                   </a>
                 </div>
               )}
@@ -315,7 +317,7 @@ const UserProfilePage = () => {
           </Card>
 
           {/* Referral share card */}
-          {profile?.referral_code && (
+          {profile?.referral_code && isEnabled('referral_system') && (
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-1.5"><Users className="h-4 w-4 text-orange-500" />Refer & earn</CardTitle></CardHeader>
               <CardContent className="space-y-3">
