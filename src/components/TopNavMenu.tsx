@@ -21,8 +21,8 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     { id: 'premium', icon: Crown, label: 'Premium' },
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
-    { id: 'promo', icon: Share2, label: 'Promote' },
-    { id: 'referrals', icon: Gift, label: 'Referrals' },
+    ...(isEnabled('promotional_content') && isEnabled('referral_system') ? [{ id: 'promo', icon: Share2, label: 'Promote' }] : []),
+    ...(isEnabled('referral_system') ? [{ id: 'referrals', icon: Gift, label: 'Referrals' }] : []),
     ...(isBusiness ? [{ id: 'business-tasks', icon: Briefcase, label: 'Tasks' }, { id: 'my-business', icon: Store, label: 'My Biz' }] : []),
     ...(isEnabled('syndicate') ? (isSyndicate
       ? [{ id: 'syndicate', icon: Users, label: 'Open Syndicate' }]
@@ -31,7 +31,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     ...(isSyndicate && isEnabled('syndicate') ? [{ id: 'syndicate-wallet', icon: Wallet, label: 'Earnings' }] : []),
     ...(isBusiness ? [{ id: 'task-wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API' }] : []),
-    { id: 'guide', icon: BookOpen, label: 'Guide' },
+    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
     { id: 'about', icon: Info, label: 'About' },
   ];
 
