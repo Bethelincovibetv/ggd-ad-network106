@@ -7,7 +7,24 @@ const SlideCarousel = () => {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    supabase.from('slides').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setSlides(data || []));
+    (async () => {
+      const [slidesRes, bizRes] = await Promise.all([
+        supabase.from('slides').select('*').eq('is_active', true).order('sort_order'),
+        (supabase.from('business_profiles') as any)
+          .select('id, business_name, hero_image_url, user_id')
+          .not('hero_image_url', 'is', null)
+          .eq('is_directory_listed', true)
+          .order('created_at', { ascending: false })
+          .limit(8),
+      ]);
+      const bizSlides = (bizRes.data || []).map((b: any) => ({
+        id: `biz-${b.id}`,
+        image_url: b.hero_image_url,
+        title: b.business_name,
+        link_url: `/user/${b.user_id}`,
+      }));
+      setSlides([...(slidesRes.data || []), ...bizSlides]);
+    })();
   }, []);
 
   const list = slides.length > 0 ? slides : [{ id: 'default', image_url: defaultSlide, link_url: null, title: 'GGD Ad Network' }];
