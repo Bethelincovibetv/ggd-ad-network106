@@ -34,6 +34,7 @@ const UserProfilePublicPage: React.FC = () => {
   const [category, setCategory] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [sitesEnabled, setSitesEnabled] = useState(true);
+  const [premiumTier, setPremiumTier] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,16 +47,21 @@ const UserProfilePublicPage: React.FC = () => {
         resolvedId = bySlug?.user_id;
       }
       if (!resolvedId) { setLoading(false); return; }
-      const [p, s, b, toggle] = await Promise.all([
+      const [p, s, b, toggle, roleRow] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
         (supabase.from('business_profiles') as any).select('*').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
+        (supabase.from('user_roles') as any).select('premium_tier, premium_expires_at').eq('user_id', resolvedId).eq('role', 'premium').maybeSingle(),
       ]);
       setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
       setSitesEnabled(toggle.data?.is_enabled !== false);
+      const tier = (roleRow as any)?.data?.premium_tier ?? 0;
+      const exp = (roleRow as any)?.data?.premium_expires_at;
+      const active = !exp || new Date(exp) > new Date();
+      setPremiumTier(active ? Number(tier) || 0 : 0);
       if (b.data?.category_id) {
         const { data: cat } = await (supabase.from('business_categories') as any).select('*').eq('id', b.data.category_id).single();
         setCategory(cat);
@@ -177,16 +183,27 @@ const UserProfilePublicPage: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl animate-pulse" />
             <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-            <Badge className="absolute top-3 right-3 bg-amber-400 text-amber-950 gap-1 font-bold text-[10px]">
-              <Sparkles className="h-3 w-3" />VERIFIED
-            </Badge>
+            {premiumTier >= 1 ? (
+              <Badge className="absolute top-3 right-3 bg-[#1DA1F2] text-white gap-1 font-bold text-[10px] shadow-lg" title="Verified premium business">
+                <CheckCircle className="h-3 w-3 fill-white text-[#1DA1F2]" />VERIFIED
+              </Badge>
+            ) : (
+              <Badge className="absolute top-3 right-3 bg-amber-400 text-amber-950 gap-1 font-bold text-[10px]">
+                <Sparkles className="h-3 w-3" />TRUSTED
+              </Badge>
+            )}
           </div>
           <div className="px-5 pb-5 -mt-14 relative">
             <Avatar className="h-24 w-24 border-4 border-card shadow-xl ring-2 ring-orange-400/40 animate-scale-in">
               <AvatarImage src={logoImage || ''} />
               <AvatarFallback className="bg-orange-500 text-white text-2xl font-black">{initials}</AvatarFallback>
             </Avatar>
-            <h1 className="text-2xl font-black mt-3 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">{name}</h1>
+            <h1 className="text-2xl font-black mt-3 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent inline-flex items-center gap-1.5">
+              {name}
+              {premiumTier >= 1 && (
+                <CheckCircle className="h-5 w-5 fill-[#1DA1F2] text-white shrink-0" aria-label="Verified" />
+              )}
+            </h1>
             {catName && <p className="text-sm text-orange-600 font-semibold">{catName}</p>}
             {address && (
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">

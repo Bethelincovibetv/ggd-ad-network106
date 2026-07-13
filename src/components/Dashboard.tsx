@@ -646,9 +646,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('marketing_apps') ? <MarketingAppsMarketplace /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'promo':
-        return isEnabled('promotional_content') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('promotional_content') && isEnabled('referral_system') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'guide':
+        if (!isEnabled('quick_guide')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
         if (isSyndicate) return <SyndicateGuide />;
         return <UserGuide />;
 
@@ -677,7 +678,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('link_shortener') ? <LinkShortener /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'referrals':
-        return <ReferralsPage />;
+        return isEnabled('referral_system') ? <ReferralsPage /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'my-business':
         return <BusinessStorefront />;
