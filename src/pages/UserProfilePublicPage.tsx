@@ -34,6 +34,7 @@ const UserProfilePublicPage: React.FC = () => {
   const [category, setCategory] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
   const [sitesEnabled, setSitesEnabled] = useState(true);
+  const [premiumTier, setPremiumTier] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,16 +47,21 @@ const UserProfilePublicPage: React.FC = () => {
         resolvedId = bySlug?.user_id;
       }
       if (!resolvedId) { setLoading(false); return; }
-      const [p, s, b, toggle] = await Promise.all([
+      const [p, s, b, toggle, roleRow] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
         (supabase.from('business_profiles') as any).select('*').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
+        (supabase.from('user_roles') as any).select('premium_tier, premium_expires_at').eq('user_id', resolvedId).eq('role', 'premium').maybeSingle(),
       ]);
       setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
       setSitesEnabled(toggle.data?.is_enabled !== false);
+      const tier = (roleRow as any)?.data?.premium_tier ?? 0;
+      const exp = (roleRow as any)?.data?.premium_expires_at;
+      const active = !exp || new Date(exp) > new Date();
+      setPremiumTier(active ? Number(tier) || 0 : 0);
       if (b.data?.category_id) {
         const { data: cat } = await (supabase.from('business_categories') as any).select('*').eq('id', b.data.category_id).single();
         setCategory(cat);
