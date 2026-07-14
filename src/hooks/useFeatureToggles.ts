@@ -16,9 +16,11 @@ const loadCached = (): Record<string, boolean> | null => {
   return null;
 };
 
-const fetchToggles = () => {
+const fetchToggles = (): Promise<Record<string, boolean>> => {
   if (inflight) return inflight;
-  inflight = supabase.from('feature_toggles').select('feature_key, is_enabled').then(({ data }) => {
+  inflight = Promise.resolve(
+    supabase.from('feature_toggles').select('feature_key, is_enabled')
+  ).then(({ data }) => {
     const map: Record<string, boolean> = {};
     (data || []).forEach((f: any) => { map[f.feature_key] = f.is_enabled; });
     cache = map;
