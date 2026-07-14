@@ -1,22 +1,57 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+const CACHE_KEY = 'ggd_feature_toggles_v1';
+
+let cache: Record<string, boolean> | null = null;
+let inflight: Promise<Record<string, boolean>> | null = null;
+const listeners = new Set<(m: Record<string, boolean>) => void>();
+
+const loadCached = (): Record<string, boolean> | null => {
+  if (cache) return cache;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
+    if (raw) { cache = JSON.parse(raw); return cache; }
+  } catch {}
+  return null;
+};
+
+const fetchToggles = () => {
+  if (inflight) return inflight;
+  inflight = supabase.from('feature_toggles').select('feature_key, is_enabled').then(({ data }) => {
+    const map: Record<string, boolean> = {};
+    (data || []).forEach((f: any) => { map[f.feature_key] = f.is_enabled; });
+    cache = map;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(map)); } catch {}
+    listeners.forEach(l => l(map));
+    return map;
+  });
+  return inflight;
+};
+
 export const useFeatureToggles = () => {
-  const [features, setFeatures] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
+  const initial = loadCached();
+  const [features, setFeatures] = useState<Record<string, boolean>>(initial || {});
+  const [loading, setLoading] = useState(!initial);
+  const [hydrated, setHydrated] = useState(!!initial);
 
   useEffect(() => {
-    const fetchFeatures = async () => {
-      const { data } = await supabase.from('feature_toggles').select('feature_key, is_enabled');
-      const map: Record<string, boolean> = {};
-      (data || []).forEach(f => { map[f.feature_key] = f.is_enabled; });
-      setFeatures(map);
+    const onUpdate = (m: Record<string, boolean>) => {
+      setFeatures(m);
       setLoading(false);
+      setHydrated(true);
     };
-    fetchFeatures();
+    listeners.add(onUpdate);
+    fetchToggles().then(onUpdate);
+    return () => { listeners.delete(onUpdate); };
   }, []);
 
-  const isEnabled = (key: string) => features[key] !== false; // default true if not found
+  // Before we have any data (no cache + no fetch response), default DISABLED
+  // so admin-disabled features never flash on during the loading state.
+  const isEnabled = (key: string) => {
+    if (!hydrated && !initial) return false;
+    return features[key] !== false;
+  };
 
   return { features, isEnabled, loading };
 };
