@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown, ShoppingBag, Copy, Share2, Sparkles, Pencil, Eye, TrendingUp, Package, Megaphone, Mail, Users, Zap, BarChart3, Wallet, Link2 } from "lucide-react";
+import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown, ShoppingBag, Copy, Share2, Sparkles, Pencil, Eye, TrendingUp, Package, Megaphone, Mail, Users, Zap, BarChart3, Wallet, Link2, HandCoins } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -303,6 +303,7 @@ const BusinessStorefront = () => {
               ...(isEnabled('link_shortener') ? [{ icon: Link2, label: 'Smart Links', color: 'from-cyan-500 to-blue-500', tab: 'smart-links' }] : []),
               { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', tab: 'ads' },
               { icon: Wallet, label: 'Wallet', color: 'from-amber-500 to-orange-500', tab: 'wallet' },
+              ...(isEnabled('syndicate') && isEnabled('business_pays_syndicate') ? [{ icon: HandCoins, label: 'Pay Crew', color: 'from-green-500 to-emerald-600', tab: 'syndicate-payouts' }] : []),
             ].map((t: any, i) => (
               <button
                 key={i}

@@ -49,6 +49,10 @@ import SyndicateGuide from "@/components/SyndicateGuide";
 import UserProfilePage from "@/components/UserProfilePage";
 import LinkShortener from "@/components/LinkShortener";
 import ReferralsPage from "@/components/ReferralsPage";
+import CampaignAnalytics from "@/components/CampaignAnalytics";
+import SyndicatePayouts from "@/components/SyndicatePayouts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart2 } from "lucide-react";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -124,6 +128,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [activeTab, setActiveTab] = useState('ads');
+  const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
+  const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
   const scrollToBannerForm = () => {
     setTimeout(() => {
       document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -440,6 +446,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'ads':
+        if (analyticsAdId) {
+          return <CampaignAnalytics adId={analyticsAdId} onBack={() => setAnalyticsAdId(null)} />;
+        }
         return (
           <div className="space-y-4">
             {/* Slider directly under the search bar */}
@@ -454,6 +463,23 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>
             </div>
+
+            {/* Category filter tabs — default Active */}
+            {ads.length > 0 && (
+              <Tabs value={adsFilter} onValueChange={v => setAdsFilter(v as any)}>
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="active" className="text-xs">
+                    Active ({ads.filter(a => a.is_active && !isExpired(a)).length})
+                  </TabsTrigger>
+                  <TabsTrigger value="expired" className="text-xs">
+                    Expired ({ads.filter(a => isExpired(a)).length})
+                  </TabsTrigger>
+                  <TabsTrigger value="inactive" className="text-xs">
+                    Inactive ({ads.filter(a => !a.is_active && !isExpired(a)).length})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
 
             {isCreating && (
               <Card id="banner-form" className="border-orange-200">
@@ -550,7 +576,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             )}
 
             <div className="space-y-2.5">
-              {ads.map(ad => {
+              {ads
+                .filter(ad => {
+                  const exp = isExpired(ad);
+                  if (adsFilter === 'expired') return exp;
+                  if (adsFilter === 'active') return ad.is_active && !exp;
+                  return !ad.is_active && !exp;
+                })
+                .map(ad => {
                 const expired = isExpired(ad);
                 const remaining = daysLeft(ad);
                 const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : '0.0';
@@ -584,31 +617,22 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                         </div>
                       </div>
 
-                      <details className="mt-2.5 pt-2.5 border-t border-border/30 group">
-                        <summary className="cursor-pointer list-none flex items-center justify-between text-[10px] font-bold text-muted-foreground">
-                          <span>Analytics</span>
-                          <span className="text-orange-500 group-open:hidden">Show ▾</span>
-                          <span className="text-orange-500 hidden group-open:inline">Hide ▴</span>
-                        </summary>
-                        <div className="grid grid-cols-4 gap-1.5 mt-2">
-                          <div className="text-center">
-                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Views</p>
-                            <p className="text-[12px] font-black text-foreground">{ad.impressions}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Clicks</p>
-                            <p className="text-[12px] font-black text-blue-500">{ad.clicks}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">CTR</p>
-                            <p className="text-[12px] font-black text-purple-500">{ctr}%</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-wider">Days</p>
-                            <p className="text-[12px] font-black text-orange-500">{remaining ?? '∞'}</p>
-                          </div>
+                      <div className="mt-2.5 pt-2.5 border-t border-border/30 flex items-center justify-between gap-2">
+                        <div className="flex gap-3 text-[10px] text-muted-foreground">
+                          <span><b className="text-foreground">{ad.impressions}</b> views</span>
+                          <span><b className="text-blue-500">{ad.clicks}</b> clicks</span>
+                          <span><b className="text-purple-500">{ctr}%</b> CTR</span>
+                          {remaining !== null && <span><b className="text-orange-500">{remaining}d</b> left</span>}
                         </div>
-                      </details>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px] rounded-full border-orange-500/40 text-orange-600 hover:bg-orange-500/10"
+                          onClick={() => setAnalyticsAdId(ad.id)}
+                        >
+                          <BarChart2 className="h-3 w-3 mr-1" /> Analytics
+                        </Button>
+                      </div>
 
                       {!premium.autoConvertAds && isEnabled('tasks') && (
                         <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
@@ -792,6 +816,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'email-capture':
         return <UserEmailCapturePages />;
+
+      case 'syndicate-payouts':
+        return <SyndicatePayouts />;
 
       case 'support':
         return <SupportPage userEmail={userEmail} />;

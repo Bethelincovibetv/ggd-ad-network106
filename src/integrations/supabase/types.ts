@@ -1457,6 +1457,10 @@ export type Database = {
           accepted_at: string
           created_at: string
           id: string
+          paid_at: string | null
+          paid_by: string | null
+          payment_note: string | null
+          payout_amount: number | null
           proof_hash: string | null
           proof_link: string | null
           proof_url: string | null
@@ -1472,6 +1476,10 @@ export type Database = {
           accepted_at?: string
           created_at?: string
           id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_note?: string | null
+          payout_amount?: number | null
           proof_hash?: string | null
           proof_link?: string | null
           proof_url?: string | null
@@ -1487,6 +1495,10 @@ export type Database = {
           accepted_at?: string
           created_at?: string
           id?: string
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_note?: string | null
+          payout_amount?: number | null
           proof_hash?: string | null
           proof_link?: string | null
           proof_url?: string | null
