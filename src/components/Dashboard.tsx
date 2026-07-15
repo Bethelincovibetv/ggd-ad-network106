@@ -51,6 +51,7 @@ import LinkShortener from "@/components/LinkShortener";
 import ReferralsPage from "@/components/ReferralsPage";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
 import SyndicatePayouts from "@/components/SyndicatePayouts";
+import GGDInbox from "@/components/GGDInbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart2 } from "lucide-react";
 
@@ -706,6 +707,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'my-business':
         return <BusinessStorefront />;
+
+      case 'inbox':
+        return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'directory':
         return <BusinessDirectory isBusiness={isBusiness} />;
