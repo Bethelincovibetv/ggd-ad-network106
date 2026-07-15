@@ -242,7 +242,7 @@ const UserProfilePublicPage: React.FC = () => {
                   </Button>
                 )}
                 {waPhone && (
-                  <Button className="justify-start gap-2 text-xs h-11 bg-green-600 hover:bg-green-700 text-white" onClick={() => window.open(`https://wa.me/${waPhone}`, '_blank')}>
+                  <Button className="justify-start gap-2 text-xs h-11 bg-green-600 hover:bg-green-700 text-white" onClick={() => brandedWa && window.open(brandedWa, '_blank')}>
                     <MessageCircle className="h-4 w-4" />WhatsApp
                   </Button>
                 )}
