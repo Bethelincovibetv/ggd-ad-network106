@@ -16,9 +16,7 @@ interface FeaturedBiz {
   business_slug: string | null;
   business_logo_url: string | null;
   business_category: string | null;
-  business_state: string | null;
-  business_city: string | null;
-  verified?: boolean;
+  business_location: string | null;
   products: { id: string; title: string; image_url: string | null }[];
 }
 
@@ -37,7 +35,7 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
       // Pull up to 8 businesses with a logo + business_name
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, business_name, business_slug, business_logo_url, business_category, business_state, business_city")
+        .select("user_id, business_name, business_slug, business_logo_url, business_category, business_location")
         .not("business_name", "is", null)
         .not("business_logo_url", "is", null)
         .order("updated_at", { ascending: false })
@@ -112,10 +110,10 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
                   </div>
                 </div>
 
-                {(biz.business_city || biz.business_state) && (
+                {biz.business_location && (
                   <div className="flex items-center gap-1 mt-2 text-[11px] text-gray-400">
                     <MapPin className="h-3 w-3" />
-                    {[biz.business_city, biz.business_state, "NG"].filter(Boolean).join(", ")}
+                    {biz.business_location}, NG
                   </div>
                 )}
 
