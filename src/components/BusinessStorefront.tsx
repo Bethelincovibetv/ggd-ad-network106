@@ -11,6 +11,7 @@ import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown,
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import CollapsibleCampaigns from "@/components/CollapsibleCampaigns";
 
 const BusinessStorefront = () => {
   const [profile, setProfile] = useState<any>(null);
