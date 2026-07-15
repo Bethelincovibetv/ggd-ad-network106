@@ -137,7 +137,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {waPhone && (
             <Button className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 text-sm font-bold"
-              onClick={() => window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hi, I'm interested in "${listing.title}"`)}`, '_blank')}>
+              onClick={() => window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello, I saw your ad for ${listing.title} and got your contact from GGD Ad Network.`)}`, '_blank')}>
               <MessageCircle className="h-5 w-5" />Order on WhatsApp
             </Button>
           )}
