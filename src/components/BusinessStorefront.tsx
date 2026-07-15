@@ -11,6 +11,7 @@ import { Save, Upload, Loader2, Globe, ExternalLink, Store, Plus, Trash2, Crown,
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import CollapsibleCampaigns from "@/components/CollapsibleCampaigns";
 
 const BusinessStorefront = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -319,6 +320,19 @@ const BusinessStorefront = () => {
                 <p className="text-[10px] font-bold text-foreground text-center leading-tight">{t.label}</p>
               </button>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* Campaign Performance — collapsible accordion (space-optimized) */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4 text-orange-500" />
+              Campaign Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CollapsibleCampaigns />
           </CardContent>
         </Card>
 

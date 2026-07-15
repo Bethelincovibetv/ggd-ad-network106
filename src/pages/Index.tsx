@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AuthForm from "@/components/AuthForm";
 import LandingPage from "@/components/LandingPage";
 import Dashboard from "@/components/Dashboard";
+import FeaturedStorefronts from "@/components/FeaturedStorefronts";
 
 const Index = () => {
   const [session, setSession] = useState<any>(null);
@@ -49,7 +50,12 @@ const Index = () => {
     );
   }
 
-  return <LandingPage onGetStarted={() => setShowAuth(true)} />;
+  return (
+    <>
+      <LandingPage onGetStarted={() => setShowAuth(true)} />
+      <FeaturedStorefronts onRequireAuth={() => setShowAuth(true)} />
+    </>
+  );
 };
 
 export default Index;

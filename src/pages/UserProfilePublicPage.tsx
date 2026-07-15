@@ -142,9 +142,10 @@ const UserProfilePublicPage: React.FC = () => {
   const address = business?.address || profile.business_location;
   const catName = category?.name || profile.business_category;
   const waPhone = (phone || '').replace(/[^\d]/g, '');
+  const brandedWa = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello, I saw your ad and got your contact from GGD Ad Network.`)}` : null;
 
   const socials = [
-    { key: 'whatsapp', href: business?.whatsapp_link || (waPhone ? `https://wa.me/${waPhone}` : null), icon: MessageCircle, label: 'WhatsApp', color: 'bg-green-500 hover:bg-green-600' },
+    { key: 'whatsapp', href: business?.whatsapp_link || brandedWa, icon: MessageCircle, label: 'WhatsApp', color: 'bg-green-500 hover:bg-green-600' },
     { key: 'whatsapp_group', href: business?.whatsapp_group_link, icon: Users, label: 'WA Group', color: 'bg-green-600 hover:bg-green-700' },
     { key: 'website', href: website, icon: Globe, label: 'Website', color: 'bg-blue-500 hover:bg-blue-600' },
     { key: 'facebook', href: business?.facebook_url, icon: Facebook, label: 'Facebook', color: 'bg-blue-600 hover:bg-blue-700' },
@@ -241,7 +242,7 @@ const UserProfilePublicPage: React.FC = () => {
                   </Button>
                 )}
                 {waPhone && (
-                  <Button className="justify-start gap-2 text-xs h-11 bg-green-600 hover:bg-green-700 text-white" onClick={() => window.open(`https://wa.me/${waPhone}`, '_blank')}>
+                  <Button className="justify-start gap-2 text-xs h-11 bg-green-600 hover:bg-green-700 text-white" onClick={() => brandedWa && window.open(brandedWa, '_blank')}>
                     <MessageCircle className="h-4 w-4" />WhatsApp
                   </Button>
                 )}

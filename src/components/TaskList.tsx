@@ -56,7 +56,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const fetchTasks = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: tasksData } = await supabase.from('tasks').select('*').eq('is_active', true).order('created_at', { ascending: false });
+    // Self-task visibility exclusion — a user must never see tasks they created
+    // themselves when browsing available campaigns as a Syndicate.
+    const { data: tasksData } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('is_active', true)
+      .neq('creator_id', user.id)
+      .order('created_at', { ascending: false });
     setTasks(tasksData || []);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     setCompletions((comps || []).map(c => c.task_id));

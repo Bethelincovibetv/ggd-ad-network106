@@ -971,6 +971,51 @@ export type Database = {
         }
         Relationships: []
       }
+      p2p_messages: {
+        Row: {
+          action_payload: Json | null
+          action_type: string | null
+          assignment_id: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_read: boolean
+          kind: string
+          message: string | null
+          receiver_id: string
+          sender_id: string
+          task_id: string | null
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type?: string | null
+          assignment_id?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_read?: boolean
+          kind?: string
+          message?: string | null
+          receiver_id: string
+          sender_id: string
+          task_id?: string | null
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string | null
+          assignment_id?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_read?: boolean
+          kind?: string
+          message?: string | null
+          receiver_id?: string
+          sender_id?: string
+          task_id?: string | null
+        }
+        Relationships: []
+      }
       platform_pricing: {
         Row: {
           created_at: string | null
@@ -1091,6 +1136,7 @@ export type Database = {
           referred_by_user_id: string | null
           state: string | null
           user_id: string
+          whatsapp_number: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1117,6 +1163,7 @@ export type Database = {
           referred_by_user_id?: string | null
           state?: string | null
           user_id: string
+          whatsapp_number?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1143,6 +1190,7 @@ export type Database = {
           referred_by_user_id?: string | null
           state?: string | null
           user_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: []
       }

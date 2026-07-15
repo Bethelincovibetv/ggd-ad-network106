@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, Mail, Bell, MousePointerClick
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, Mail, Bell, MousePointerClick, MessageCircle
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -47,6 +47,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
     { id: 'profile', icon: User, label: 'My Profile' },
     { id: 'wallet', icon: Wallet, label: 'Wallet' },
+    ...(isEnabled('p2p_chat') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'Premium' }] : []),
   ];
 
@@ -86,6 +87,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     profile: 'from-sky-400 to-blue-500',
     'smart-links': 'from-cyan-400 to-blue-500',
     wallet: 'from-blue-500 to-indigo-600',
+    inbox: 'from-teal-400 to-cyan-500',
     premium: 'from-amber-400 to-yellow-500',
     'business-tasks': 'from-purple-500 to-indigo-600',
     'my-business': 'from-indigo-400 to-blue-500',
