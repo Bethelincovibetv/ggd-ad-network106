@@ -318,11 +318,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
 
   const deleteAd = async (id: string) => {
-
     if (!confirm("Delete this ad?")) return;
     await supabase.from('ads').delete().eq('id', id);
     toast.success("Ad deleted!");
     fetchAds();
+  };
+
+  const republishAd = (ad: Ad) => {
+    setEditingAd(null);
+    setNewAd({
+      title: ad.title,
+      description: ad.description || '',
+      image_url: ad.image_url || '',
+      target_url: ad.target_url,
+      is_active: true,
+      duration: String(Math.min(7, maxAdDays)),
+    });
+    setIsCreating(true);
+    toast.info("Details loaded — edit, pick a new duration and pay to republish.");
+    scrollToBannerForm();
   };
 
   const convertAdToTask = async (ad: Ad) => {
