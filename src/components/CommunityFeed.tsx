@@ -110,9 +110,20 @@ const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; c
   );
 };
 
-const CommunityFeed = () => {
+interface CommunityFeedProps {
+  onNavigate?: (tab: string) => void;
+}
+
+const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
+  const { isEnabled } = useFeatureToggles();
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [taskPosts, setTaskPosts] = useState<any[]>([]);
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+  const [credits, setCredits] = useState(0);
+  const [shareTarget, setShareTarget] = useState<any | null>(null);
+  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -137,12 +148,65 @@ const CommunityFeed = () => {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug')
+        .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug, credits')
         .eq('user_id', user.id)
         .maybeSingle();
-      setMe({ id: user.id, profile: profile || undefined });
+      setMe({ id: user.id, profile: (profile as any) || undefined });
+      setCredits((profile as any)?.credits || 0);
     }
     await loadFeed(user?.id);
+    await loadTasks(user?.id);
+  };
+
+  // Credit Tasks are surfaced inside the community feed while remaining in the
+  // Task Feed. Reuses the existing tasks table / rules (no new task system).
+  const loadTasks = async (userId?: string) => {
+    if (!userId) { setTaskPosts([]); return; }
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('is_active', true)
+      .neq('creator_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    setTaskPosts(data || []);
+    const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', userId);
+    setCompletedTaskIds((comps || []).map((c: any) => c.task_id));
+  };
+
+  // Same share → verify → reward flow used by the Task Feed.
+  const startTaskVerification = async (task: any, platformKey: string) => {
+    const platform = FEED_SHARE_PLATFORMS.find(p => p.key === platformKey);
+    setShareTarget(null);
+    if (!platform) return;
+    const smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url || '';
+    const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
+    window.open(platform.build(text, smartUrl), '_blank', 'noopener,noreferrer');
+
+    setVerifyingTaskId(task.id);
+    toast.info('⏳ Sharing... Verifying in 15 seconds. Stay on the share page!', { duration: 15000 });
+    setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setVerifyingTaskId(null); return; }
+      const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
+      if (error) {
+        setVerifyingTaskId(null);
+        if (error.code === '23505') { toast.info('Already completed!'); return; }
+        toast.error('Failed to complete task');
+        return;
+      }
+      await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+      if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+        await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+      }
+      const updated = credits + (task.reward_credits || 0);
+      await supabase.from('profiles').update({ credits: updated }).eq('user_id', user.id);
+      setCredits(updated);
+      setCompletedTaskIds(prev => [...prev, task.id]);
+      setVerifyingTaskId(null);
+      toast.success(`🎉 Earned ${task.reward_credits} credits!`);
+      loadTasks(user.id);
+    }, 15000);
   };
 
   const loadFeed = async (userId?: string) => {
