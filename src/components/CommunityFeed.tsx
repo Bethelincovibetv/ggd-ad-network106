@@ -395,6 +395,40 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
       {/* Composer */}
       {me ? (
+        !composerOpen ? (
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardContent className="p-3 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Create</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={() => setComposerOpen(true)}
+                  className="flex items-center gap-3 rounded-2xl border border-border/60 hover:border-orange-500/50 p-3 text-left transition-colors"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0">
+                    <PenLine className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">Normal Post</p>
+                    <p className="text-[11px] text-muted-foreground">Share an update with the community</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => (onNavigate ? onNavigate('tasks') : toast.info('Open the Task Feed to create a credit task'))}
+                  className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Coins className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">Credit Task</p>
+                    <p className="text-[11px] text-muted-foreground">Pay users to share your link or YouTube video</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="border-0 shadow-sm overflow-hidden">
           <CardContent className="p-3 space-y-3">
             <div className="flex gap-2 items-start">
@@ -528,8 +562,12 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
               </Button>
             </div>
+            <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground" onClick={() => setComposerOpen(false)}>
+              Cancel
+            </Button>
           </CardContent>
         </Card>
+        )
       ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
