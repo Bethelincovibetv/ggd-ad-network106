@@ -937,6 +937,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                         {currentUserId === c.user_id && (
                           <button onClick={() => deleteComment(c.id)} className="hover:text-destructive">Delete</button>
                         )}
+                        <EmojiReactionBar targetType="comment" targetId={c.id} currentUserId={currentUserId} />
                       </div>
                     </div>
                   </div>
