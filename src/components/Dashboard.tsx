@@ -651,9 +651,18 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       </div>
 
                       {!premium.autoConvertAds && isEnabled('tasks') && (
+                        <>
                         <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
                           onClick={() => convertAdToTask(ad)}>
                           <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
+                        </Button>
+                        </>
+                      )}
+
+                      {expired && (
+                        <Button size="sm" className="w-full mt-2 text-[11px] h-8 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold"
+                          onClick={() => republishAd(ad)}>
+                          <RefreshCw className="h-3 w-3 mr-1" />Republish Campaign
                         </Button>
                       )}
                     </CardContent>
