@@ -351,6 +351,23 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
     return list;
   }, [posts, filterQuery, activeTag]);
 
+  const visibleTasks = useMemo(() => {
+    if (activeTag) return [];
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return taskPosts;
+    return taskPosts.filter(t =>
+      (t.title || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
+  }, [taskPosts, filterQuery, activeTag]);
+
+  // Merged chronological feed of community posts + credit task posts.
+  const feedItems = useMemo(() => {
+    const items: { kind: 'post' | 'task'; created_at: string; data: any }[] = [
+      ...visiblePosts.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })),
+      ...visibleTasks.map(t => ({ kind: 'task' as const, created_at: t.created_at, data: t })),
+    ];
+    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [visiblePosts, visibleTasks]);
+
   const myAvatar = me?.profile?.business_logo_url || me?.profile?.avatar_url;
   const myName = me?.profile?.business_name || me?.profile?.display_name || 'You';
   const activeTpl = findTemplate(templateId);
