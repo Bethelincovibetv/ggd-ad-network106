@@ -649,6 +649,7 @@ interface PostCardProps {
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
   onTagClick: (tag: string) => void;
+  onImageOpen: (url: string) => void;
 }
 
 interface TaskFeedCardProps {
@@ -699,13 +700,6 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
     </Card>
   );
 };
-
-interface UnusedPlaceholder {
-  onReact: (p: Post, r: Reaction) => void;
-  onDelete: (p: Post) => void;
-  onTagClick: (tag: string) => void;
-  onImageOpen: (url: string) => void;
-}
 
 const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen }) => {
   const [showComments, setShowComments] = useState(false);
