@@ -318,6 +318,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
 
   const deleteAd = async (id: string) => {
+
     if (!confirm("Delete this ad?")) return;
     await supabase.from('ads').delete().eq('id', id);
     toast.success("Ad deleted!");
