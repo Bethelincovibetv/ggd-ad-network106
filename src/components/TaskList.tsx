@@ -387,6 +387,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 {selectedTaskType === 'social' ? (
                   <><Crown className="h-4 w-4 text-purple-500" />Premium Social Task</>
+                ) : selectedTaskType === 'youtube' ? (
+                  <><Eye className="h-4 w-4 text-red-500" />YouTube Video Task</>
                 ) : (
                   <><ClipboardList className="h-4 w-4 text-orange-500" />Share Task</>
                 )}
@@ -464,13 +466,22 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Share Link</Label>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">
+                  {selectedTaskType === 'youtube' ? 'YouTube URL' : 'Share Link'}
+                </Label>
                 <div className="flex gap-1 mb-1">
                   <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Paste URL</button>
-                  <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                  {selectedTaskType !== 'youtube' && (
+                    <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                  )}
                 </div>
-                {shareLinkMode === 'manual' ? (
-                  <Input placeholder="https://..." value={newTask.share_url} onChange={e => setNewTask({ ...newTask, share_url: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30" />
+                {shareLinkMode === 'manual' || selectedTaskType === 'youtube' ? (
+                  <Input
+                    placeholder={selectedTaskType === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
+                    value={newTask.share_url}
+                    onChange={e => setNewTask({ ...newTask, share_url: e.target.value })}
+                    className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30"
+                  />
                 ) : myShortLinks.length > 0 ? (
                   <Select value={newTask.share_url} onValueChange={v => setNewTask({ ...newTask, share_url: v })}>
                     <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-sm"><SelectValue placeholder="Pick smart link" /></SelectTrigger>
