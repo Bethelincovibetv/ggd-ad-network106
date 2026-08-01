@@ -19,7 +19,7 @@ interface TaskListProps {
   onNavigate?: (tab: string) => void;
 }
 
-type TaskType = 'share' | 'social';
+type TaskType = 'share' | 'social' | 'youtube';
 
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
@@ -345,6 +345,29 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-500 transition-colors shrink-0" />
+            </CardContent>
+          </Card>
+
+          {/* YouTube Video Task — reuses the credit task system */}
+          <Card
+            className="border border-red-500/30 hover:border-red-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/10 overflow-hidden group"
+            onClick={() => setSelectedTaskType('youtube')}
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Eye className="h-6 w-6 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">▶️ YouTube Video Task</h4>
+                  <span className="text-[9px] font-bold bg-red-500/15 text-red-500 px-2 py-0.5 rounded-full">CREDITS</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Promote your YouTube video — users share & watch it to earn credits.</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-red-500 transition-colors shrink-0" />
             </CardContent>
           </Card>
 
