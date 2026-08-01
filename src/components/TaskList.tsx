@@ -91,6 +91,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
   const createTask = async () => {
     if (!newTask.title.trim()) { toast.error("Title required"); return; }
+    if (selectedTaskType === 'youtube' && !newTask.share_url.trim()) { toast.error("YouTube URL required"); return; }
     const rewardPerPerson = parseInt(newTask.reward_credits) || 5;
     const maxPeople = parseInt(newTask.max_completions) || 1;
     const totalCost = rewardPerPerson * maxPeople;
