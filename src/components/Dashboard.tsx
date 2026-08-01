@@ -810,7 +810,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'feed':
-        return <CommunityFeed />;
+        return <CommunityFeed onNavigate={handleTabChange} />;
 
       case 'email-prefs':
         return <UserEmailPreferences />;
