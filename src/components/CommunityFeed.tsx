@@ -579,25 +579,57 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       {/* Feed */}
       {loading ? (
         <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-orange-500" /></div>
-      ) : visiblePosts.length === 0 ? (
+      ) : feedItems.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-8 text-center text-muted-foreground text-sm">
             {filterQuery || activeTag ? 'No posts match your search.' : 'No posts yet. Be the first to share!'}
           </CardContent>
         </Card>
       ) : (
-        visiblePosts.map(p => (
+        feedItems.map(item => item.kind === 'post' ? (
           <PostCard
-            key={p.id}
-            post={p}
+            key={item.data.id}
+            post={item.data}
             currentUserId={me?.id || null}
             onReact={react}
             onDelete={deletePost}
             onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             onImageOpen={(url) => setLightboxUrl(url)}
           />
+        ) : (
+          <TaskFeedCard
+            key={`task-${item.data.id}`}
+            task={item.data}
+            completed={completedTaskIds.includes(item.data.id)}
+            verifying={verifyingTaskId === item.data.id}
+            onStart={(t) => setShareTarget(t)}
+          />
         ))
       )}
+
+      {/* Share platform picker for credit tasks opened from the feed */}
+      <Dialog open={!!shareTarget} onOpenChange={(o) => !o && setShareTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-bold text-foreground">Share to earn</p>
+              <p className="text-[11px] text-muted-foreground">{shareTarget?.title}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {FEED_SHARE_PLATFORMS.map(p => (
+                <Button
+                  key={p.key}
+                  variant="outline"
+                  className="h-11 rounded-xl text-xs font-bold"
+                  onClick={() => startTaskVerification(shareTarget, p.key)}
+                >
+                  <Share2 className="h-4 w-4 mr-1.5" />{p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Image lightbox */}
       <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
