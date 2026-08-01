@@ -53,7 +53,7 @@ import CampaignAnalytics from "@/components/CampaignAnalytics";
 import SyndicatePayouts from "@/components/SyndicatePayouts";
 import GGDInbox from "@/components/GGDInbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2 } from "lucide-react";
+import { BarChart2, RefreshCw } from "lucide-react";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
