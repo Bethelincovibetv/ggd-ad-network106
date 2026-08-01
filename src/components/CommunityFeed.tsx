@@ -11,9 +11,13 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
+  Coins, Gift, Youtube, Share2, ArrowRight, PenLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
+import EmojiReactionBar from '@/components/EmojiReactionBar';
+import { getOrCreateTaskShareUrl } from '@/lib/taskShare';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 type Reaction = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
@@ -73,6 +77,14 @@ const timeAgo = (iso: string) => {
   const d = Math.floor(h / 24); if (d < 30) return `${d}d`;
   return new Date(iso).toLocaleDateString();
 };
+
+// Share destinations reused for Credit Task posts inside the feed.
+const FEED_SHARE_PLATFORMS = [
+  { key: 'whatsapp', label: 'WhatsApp', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}` },
+  { key: 'facebook', label: 'Facebook', build: (_t: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
+  { key: 'telegram', label: 'Telegram', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
+  { key: 'twitter', label: 'X / Twitter', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+];
 
 // Render content with hashtags as clickable chips.
 const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; className?: string }> = ({ text, onTagClick, className }) => {
