@@ -649,6 +649,61 @@ interface PostCardProps {
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
   onTagClick: (tag: string) => void;
+}
+
+interface TaskFeedCardProps {
+  task: any;
+  completed: boolean;
+  verifying: boolean;
+  onStart: (task: any) => void;
+}
+
+const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying, onStart }) => {
+  const embed = task.share_url ? ytEmbed(task.share_url) : null;
+  const isYouTube = task.task_type === 'youtube' || !!embed;
+  return (
+    <Card className="border border-green-500/30 shadow-sm overflow-hidden rounded-xl">
+      <CardContent className="p-0">
+        <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+            {isYouTube ? <Youtube className="h-4 w-4 text-white" /> : <Gift className="h-4 w-4 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="font-bold text-[13px] truncate">{task.title}</p>
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">EARN CREDITS</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{timeAgo(task.created_at)} · +{task.reward_credits} credits</p>
+          </div>
+        </div>
+        {task.description && (
+          <p className="px-3 pb-2 text-[14px] whitespace-pre-wrap break-words leading-snug">{task.description}</p>
+        )}
+        {embed ? (
+          <div className="aspect-video bg-black">
+            <iframe src={embed} className="w-full h-full" allowFullScreen title={task.title} />
+          </div>
+        ) : task.flyer_url ? (
+          <img src={task.flyer_url} alt={task.title} className="w-full max-h-[420px] object-cover" />
+        ) : null}
+        <div className="p-3">
+          <Button
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 font-bold"
+            disabled={completed || verifying}
+            onClick={() => onStart(task)}
+          >
+            {completed ? '✅ Completed' : verifying ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Verifying…</> : <><Coins className="h-4 w-4 mr-1.5" />Do task & earn {task.reward_credits}</>}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+interface UnusedPlaceholder {
+  onReact: (p: Post, r: Reaction) => void;
+  onDelete: (p: Post) => void;
+  onTagClick: (tag: string) => void;
   onImageOpen: (url: string) => void;
 }
 
