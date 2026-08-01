@@ -19,7 +19,7 @@ interface TaskListProps {
   onNavigate?: (tab: string) => void;
 }
 
-type TaskType = 'share' | 'social';
+type TaskType = 'share' | 'social' | 'youtube';
 
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
@@ -91,6 +91,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
   const createTask = async () => {
     if (!newTask.title.trim()) { toast.error("Title required"); return; }
+    if (selectedTaskType === 'youtube' && !newTask.share_url.trim()) { toast.error("YouTube URL required"); return; }
     const rewardPerPerson = parseInt(newTask.reward_credits) || 5;
     const maxPeople = parseInt(newTask.max_completions) || 1;
     const totalCost = rewardPerPerson * maxPeople;
@@ -348,6 +349,29 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
             </CardContent>
           </Card>
 
+          {/* YouTube Video Task — reuses the credit task system */}
+          <Card
+            className="border border-red-500/30 hover:border-red-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/10 overflow-hidden group"
+            onClick={() => setSelectedTaskType('youtube')}
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Eye className="h-6 w-6 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">▶️ YouTube Video Task</h4>
+                  <span className="text-[9px] font-bold bg-red-500/15 text-red-500 px-2 py-0.5 rounded-full">CREDITS</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Promote your YouTube video — users share & watch it to earn credits.</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-red-500 transition-colors shrink-0" />
+            </CardContent>
+          </Card>
+
           <Button variant="ghost" onClick={() => setShowCreate(false)} className="w-full text-xs text-muted-foreground h-9 rounded-xl">Cancel</Button>
         </div>
       )}
@@ -364,6 +388,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 {selectedTaskType === 'social' ? (
                   <><Crown className="h-4 w-4 text-purple-500" />Premium Social Task</>
+                ) : selectedTaskType === 'youtube' ? (
+                  <><Eye className="h-4 w-4 text-red-500" />YouTube Video Task</>
                 ) : (
                   <><ClipboardList className="h-4 w-4 text-orange-500" />Share Task</>
                 )}
@@ -441,13 +467,22 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Share Link</Label>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">
+                  {selectedTaskType === 'youtube' ? 'YouTube URL' : 'Share Link'}
+                </Label>
                 <div className="flex gap-1 mb-1">
                   <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Paste URL</button>
-                  <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                  {selectedTaskType !== 'youtube' && (
+                    <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                  )}
                 </div>
-                {shareLinkMode === 'manual' ? (
-                  <Input placeholder="https://..." value={newTask.share_url} onChange={e => setNewTask({ ...newTask, share_url: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30" />
+                {shareLinkMode === 'manual' || selectedTaskType === 'youtube' ? (
+                  <Input
+                    placeholder={selectedTaskType === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
+                    value={newTask.share_url}
+                    onChange={e => setNewTask({ ...newTask, share_url: e.target.value })}
+                    className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30"
+                  />
                 ) : myShortLinks.length > 0 ? (
                   <Select value={newTask.share_url} onValueChange={v => setNewTask({ ...newTask, share_url: v })}>
                     <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-sm"><SelectValue placeholder="Pick smart link" /></SelectTrigger>

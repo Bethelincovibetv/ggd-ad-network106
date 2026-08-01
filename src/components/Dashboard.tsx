@@ -53,7 +53,7 @@ import CampaignAnalytics from "@/components/CampaignAnalytics";
 import SyndicatePayouts from "@/components/SyndicatePayouts";
 import GGDInbox from "@/components/GGDInbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2 } from "lucide-react";
+import { BarChart2, RefreshCw } from "lucide-react";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -322,6 +322,21 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     await supabase.from('ads').delete().eq('id', id);
     toast.success("Ad deleted!");
     fetchAds();
+  };
+
+  const republishAd = (ad: Ad) => {
+    setEditingAd(null);
+    setNewAd({
+      title: ad.title,
+      description: ad.description || '',
+      image_url: ad.image_url || '',
+      target_url: ad.target_url,
+      is_active: true,
+      duration: String(Math.min(7, maxAdDays)),
+    });
+    setIsCreating(true);
+    toast.info("Details loaded — edit, pick a new duration and pay to republish.");
+    scrollToBannerForm();
   };
 
   const convertAdToTask = async (ad: Ad) => {
@@ -636,9 +651,18 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       </div>
 
                       {!premium.autoConvertAds && isEnabled('tasks') && (
+                        <>
                         <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
                           onClick={() => convertAdToTask(ad)}>
                           <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
+                        </Button>
+                        </>
+                      )}
+
+                      {expired && (
+                        <Button size="sm" className="w-full mt-2 text-[11px] h-8 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold"
+                          onClick={() => republishAd(ad)}>
+                          <RefreshCw className="h-3 w-3 mr-1" />Republish Campaign
                         </Button>
                       )}
                     </CardContent>
@@ -810,7 +834,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'feed':
-        return <CommunityFeed />;
+        return <CommunityFeed onNavigate={handleTabChange} />;
 
       case 'email-prefs':
         return <UserEmailPreferences />;

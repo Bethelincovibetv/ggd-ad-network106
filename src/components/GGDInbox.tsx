@@ -11,6 +11,7 @@ import {
   CheckCircle2, Upload, Pin, Briefcase, Users, Globe,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import EmojiReactionBar from "@/components/EmojiReactionBar";
 
 type Kind = "text" | "proof" | "system" | "action";
 
@@ -414,7 +415,8 @@ const GGDInbox: React.FC = () => {
             }
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-orange-500 text-white rounded-br-sm" : "bg-background border rounded-bl-sm"}`}>
+                <div className={`max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                <div className={`rounded-2xl px-3 py-2 text-sm ${mine ? "bg-orange-500 text-white rounded-br-sm" : "bg-background border rounded-bl-sm"}`}>
                   {m.image_url && (
                     <a href={m.image_url} target="_blank" rel="noreferrer" className="block mb-1">
                       <img src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
@@ -435,6 +437,8 @@ const GGDInbox: React.FC = () => {
                   <p className={`text-[9px] mt-1 ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
+                </div>
+                <EmojiReactionBar targetType="message" targetId={m.id} currentUserId={me} className="mt-0.5" />
                 </div>
               </div>
             );

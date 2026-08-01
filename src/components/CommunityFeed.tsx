@@ -11,9 +11,13 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
+  Coins, Gift, Youtube, Share2, ArrowRight, PenLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
+import EmojiReactionBar from '@/components/EmojiReactionBar';
+import { getOrCreateTaskShareUrl } from '@/lib/taskShare';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 type Reaction = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
@@ -74,6 +78,14 @@ const timeAgo = (iso: string) => {
   return new Date(iso).toLocaleDateString();
 };
 
+// Share destinations reused for Credit Task posts inside the feed.
+const FEED_SHARE_PLATFORMS = [
+  { key: 'whatsapp', label: 'WhatsApp', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}` },
+  { key: 'facebook', label: 'Facebook', build: (_t: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
+  { key: 'telegram', label: 'Telegram', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
+  { key: 'twitter', label: 'X / Twitter', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+];
+
 // Render content with hashtags as clickable chips.
 const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; className?: string }> = ({ text, onTagClick, className }) => {
   const parts = text.split(/(#[\p{L}0-9_]{2,40})/gu);
@@ -98,9 +110,20 @@ const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; c
   );
 };
 
-const CommunityFeed = () => {
+interface CommunityFeedProps {
+  onNavigate?: (tab: string) => void;
+}
+
+const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
+  const { isEnabled } = useFeatureToggles();
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [taskPosts, setTaskPosts] = useState<any[]>([]);
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+  const [credits, setCredits] = useState(0);
+  const [shareTarget, setShareTarget] = useState<any | null>(null);
+  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -125,12 +148,65 @@ const CommunityFeed = () => {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug')
+        .select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug, credits')
         .eq('user_id', user.id)
         .maybeSingle();
-      setMe({ id: user.id, profile: profile || undefined });
+      setMe({ id: user.id, profile: (profile as any) || undefined });
+      setCredits((profile as any)?.credits || 0);
     }
     await loadFeed(user?.id);
+    await loadTasks(user?.id);
+  };
+
+  // Credit Tasks are surfaced inside the community feed while remaining in the
+  // Task Feed. Reuses the existing tasks table / rules (no new task system).
+  const loadTasks = async (userId?: string) => {
+    if (!userId) { setTaskPosts([]); return; }
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('is_active', true)
+      .neq('creator_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    setTaskPosts(data || []);
+    const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', userId);
+    setCompletedTaskIds((comps || []).map((c: any) => c.task_id));
+  };
+
+  // Same share → verify → reward flow used by the Task Feed.
+  const startTaskVerification = async (task: any, platformKey: string) => {
+    const platform = FEED_SHARE_PLATFORMS.find(p => p.key === platformKey);
+    setShareTarget(null);
+    if (!platform) return;
+    const smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url || '';
+    const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
+    window.open(platform.build(text, smartUrl), '_blank', 'noopener,noreferrer');
+
+    setVerifyingTaskId(task.id);
+    toast.info('⏳ Sharing... Verifying in 15 seconds. Stay on the share page!', { duration: 15000 });
+    setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setVerifyingTaskId(null); return; }
+      const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
+      if (error) {
+        setVerifyingTaskId(null);
+        if (error.code === '23505') { toast.info('Already completed!'); return; }
+        toast.error('Failed to complete task');
+        return;
+      }
+      await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+      if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+        await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+      }
+      const updated = credits + (task.reward_credits || 0);
+      await supabase.from('profiles').update({ credits: updated }).eq('user_id', user.id);
+      setCredits(updated);
+      setCompletedTaskIds(prev => [...prev, task.id]);
+      setVerifyingTaskId(null);
+      toast.success(`🎉 Earned ${task.reward_credits} credits!`);
+      loadTasks(user.id);
+    }, 15000);
   };
 
   const loadFeed = async (userId?: string) => {
@@ -275,6 +351,23 @@ const CommunityFeed = () => {
     return list;
   }, [posts, filterQuery, activeTag]);
 
+  const visibleTasks = useMemo(() => {
+    if (activeTag) return [];
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return taskPosts;
+    return taskPosts.filter(t =>
+      (t.title || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
+  }, [taskPosts, filterQuery, activeTag]);
+
+  // Merged chronological feed of community posts + credit task posts.
+  const feedItems = useMemo(() => {
+    const items: { kind: 'post' | 'task'; created_at: string; data: any }[] = [
+      ...visiblePosts.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })),
+      ...visibleTasks.map(t => ({ kind: 'task' as const, created_at: t.created_at, data: t })),
+    ];
+    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [visiblePosts, visibleTasks]);
+
   const myAvatar = me?.profile?.business_logo_url || me?.profile?.avatar_url;
   const myName = me?.profile?.business_name || me?.profile?.display_name || 'You';
   const activeTpl = findTemplate(templateId);
@@ -302,6 +395,40 @@ const CommunityFeed = () => {
 
       {/* Composer */}
       {me ? (
+        !composerOpen ? (
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardContent className="p-3 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Create</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={() => setComposerOpen(true)}
+                  className="flex items-center gap-3 rounded-2xl border border-border/60 hover:border-orange-500/50 p-3 text-left transition-colors"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0">
+                    <PenLine className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">Normal Post</p>
+                    <p className="text-[11px] text-muted-foreground">Share an update with the community</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => (onNavigate ? onNavigate('tasks') : toast.info('Open the Task Feed to create a credit task'))}
+                  className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Coins className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">Credit Task</p>
+                    <p className="text-[11px] text-muted-foreground">Pay users to share your link or YouTube video</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="border-0 shadow-sm overflow-hidden">
           <CardContent className="p-3 space-y-3">
             <div className="flex gap-2 items-start">
@@ -435,8 +562,12 @@ const CommunityFeed = () => {
                 {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
               </Button>
             </div>
+            <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground" onClick={() => setComposerOpen(false)}>
+              Cancel
+            </Button>
           </CardContent>
         </Card>
+        )
       ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 text-center text-sm text-muted-foreground">
@@ -448,25 +579,57 @@ const CommunityFeed = () => {
       {/* Feed */}
       {loading ? (
         <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-orange-500" /></div>
-      ) : visiblePosts.length === 0 ? (
+      ) : feedItems.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-8 text-center text-muted-foreground text-sm">
             {filterQuery || activeTag ? 'No posts match your search.' : 'No posts yet. Be the first to share!'}
           </CardContent>
         </Card>
       ) : (
-        visiblePosts.map(p => (
+        feedItems.map(item => item.kind === 'post' ? (
           <PostCard
-            key={p.id}
-            post={p}
+            key={item.data.id}
+            post={item.data}
             currentUserId={me?.id || null}
             onReact={react}
             onDelete={deletePost}
             onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             onImageOpen={(url) => setLightboxUrl(url)}
           />
+        ) : (
+          <TaskFeedCard
+            key={`task-${item.data.id}`}
+            task={item.data}
+            completed={completedTaskIds.includes(item.data.id)}
+            verifying={verifyingTaskId === item.data.id}
+            onStart={(t) => setShareTarget(t)}
+          />
         ))
       )}
+
+      {/* Share platform picker for credit tasks opened from the feed */}
+      <Dialog open={!!shareTarget} onOpenChange={(o) => !o && setShareTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-bold text-foreground">Share to earn</p>
+              <p className="text-[11px] text-muted-foreground">{shareTarget?.title}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {FEED_SHARE_PLATFORMS.map(p => (
+                <Button
+                  key={p.key}
+                  variant="outline"
+                  className="h-11 rounded-xl text-xs font-bold"
+                  onClick={() => startTaskVerification(shareTarget, p.key)}
+                >
+                  <Share2 className="h-4 w-4 mr-1.5" />{p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Image lightbox */}
       <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
@@ -488,6 +651,55 @@ interface PostCardProps {
   onTagClick: (tag: string) => void;
   onImageOpen: (url: string) => void;
 }
+
+interface TaskFeedCardProps {
+  task: any;
+  completed: boolean;
+  verifying: boolean;
+  onStart: (task: any) => void;
+}
+
+const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying, onStart }) => {
+  const embed = task.share_url ? ytEmbed(task.share_url) : null;
+  const isYouTube = task.task_type === 'youtube' || !!embed;
+  return (
+    <Card className="border border-green-500/30 shadow-sm overflow-hidden rounded-xl">
+      <CardContent className="p-0">
+        <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+            {isYouTube ? <Youtube className="h-4 w-4 text-white" /> : <Gift className="h-4 w-4 text-white" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="font-bold text-[13px] truncate">{task.title}</p>
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">EARN CREDITS</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">{timeAgo(task.created_at)} · +{task.reward_credits} credits</p>
+          </div>
+        </div>
+        {task.description && (
+          <p className="px-3 pb-2 text-[14px] whitespace-pre-wrap break-words leading-snug">{task.description}</p>
+        )}
+        {embed ? (
+          <div className="aspect-video bg-black">
+            <iframe src={embed} className="w-full h-full" allowFullScreen title={task.title} />
+          </div>
+        ) : task.flyer_url ? (
+          <img src={task.flyer_url} alt={task.title} className="w-full max-h-[420px] object-cover" />
+        ) : null}
+        <div className="p-3">
+          <Button
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 font-bold"
+            disabled={completed || verifying}
+            onClick={() => onStart(task)}
+          >
+            {completed ? '✅ Completed' : verifying ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Verifying…</> : <><Coins className="h-4 w-4 mr-1.5" />Do task & earn {task.reward_credits}</>}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen }) => {
   const [showComments, setShowComments] = useState(false);
@@ -725,6 +937,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                         {currentUserId === c.user_id && (
                           <button onClick={() => deleteComment(c.id)} className="hover:text-destructive">Delete</button>
                         )}
+                        <EmojiReactionBar targetType="comment" targetId={c.id} currentUserId={currentUserId} />
                       </div>
                     </div>
                   </div>
