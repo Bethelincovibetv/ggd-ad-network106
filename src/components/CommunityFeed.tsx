@@ -454,14 +454,45 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       (t.title || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
   }, [taskPosts, filterQuery, activeTag]);
 
-  // Merged chronological feed of community posts + credit task posts.
+  const visibleListings = useMemo(() => {
+    if (activeTag) return [];
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return featuredListings;
+    return featuredListings.filter(l =>
+      (l.title || '').toLowerCase().includes(q) ||
+      (l.description || '').toLowerCase().includes(q) ||
+      (l.business_name || '').toLowerCase().includes(q));
+  }, [featuredListings, filterQuery, activeTag]);
+
+  const visibleAds = useMemo(() => {
+    if (activeTag) return [];
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return bannerAds;
+    return bannerAds.filter(a =>
+      (a.title || '').toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q));
+  }, [bannerAds, filterQuery, activeTag]);
+
+  // Merged chronological feed: community posts + credit tasks + featured
+  // listings + sponsored banner adverts, filtered by the active feed tab.
   const feedItems = useMemo(() => {
-    const items: { kind: 'post' | 'task'; created_at: string; data: any }[] = [
-      ...visiblePosts.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })),
-      ...visibleTasks.map(t => ({ kind: 'task' as const, created_at: t.created_at, data: t })),
+    const wantPosts = feedFilter === 'all';
+    const wantTasks = feedFilter === 'all' || feedFilter === 'tasks' || feedFilter === 'promotions';
+    const wantListings =
+      feedFilter === 'all' || feedFilter === 'featured' || feedFilter === 'products' || feedFilter === 'promotions';
+    const wantAds = feedFilter === 'all' || feedFilter === 'sponsored' || feedFilter === 'ads';
+
+    const listings = feedFilter === 'products'
+      ? visibleListings.filter(l => (l.listing_type || 'product') === 'product')
+      : visibleListings;
+
+    const items: { kind: 'post' | 'task' | 'listing' | 'ad'; created_at: string; data: any }[] = [
+      ...(wantPosts ? visiblePosts.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })) : []),
+      ...(wantTasks ? visibleTasks.map(t => ({ kind: 'task' as const, created_at: t.created_at, data: t })) : []),
+      ...(wantListings ? listings.map(l => ({ kind: 'listing' as const, created_at: l.created_at, data: l })) : []),
+      ...(wantAds ? visibleAds.map(a => ({ kind: 'ad' as const, created_at: a.created_at, data: a })) : []),
     ];
     return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [visiblePosts, visibleTasks]);
+  }, [visiblePosts, visibleTasks, visibleListings, visibleAds, feedFilter]);
 
   const myAvatar = me?.profile?.business_logo_url || me?.profile?.avatar_url;
   const myName = me?.profile?.business_name || me?.profile?.display_name || 'You';
