@@ -287,10 +287,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + duration);
 
+    // Republished campaigns go live immediately once paid — they were
+    // already reviewed during their first run.
+    const goLiveNow = !!republishFrom?.approved;
+
     const { error } = await supabase.from('ads').insert({
       user_id: user.id, title: newAd.title, description: newAd.description || '',
       image_url: newAd.image_url || null, target_url: newAd.target_url,
-      is_active: false, approved: isAdmin ? true : false,
+      is_active: isAdmin || goLiveNow, approved: isAdmin || goLiveNow,
       expires_at: expiresAt.toISOString(),
     });
     if (error) { toast.error("Failed to create ad"); return; }
@@ -299,8 +303,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
       setCredits(newCredits);
     }
-    toast.success("Ad created!");
+    toast.success(goLiveNow ? "Campaign republished and live!" : "Ad created!");
     setNewAd({ title: '', description: '', image_url: '', target_url: '', is_active: true, duration: '7' });
+    setRepublishFrom(null);
     setIsCreating(false);
     fetchAds();
   };
@@ -326,6 +331,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
   const republishAd = (ad: Ad) => {
     setEditingAd(null);
+    setRepublishFrom({ approved: (ad as any).approved !== false });
     setNewAd({
       title: ad.title,
       description: ad.description || '',
@@ -335,7 +341,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       duration: String(Math.min(7, maxAdDays)),
     });
     setIsCreating(true);
-    toast.info("Details loaded — edit, pick a new duration and pay to republish.");
+    toast.info("Details loaded — pick a new duration and pay; the campaign goes live immediately.");
     scrollToBannerForm();
   };
 
