@@ -115,6 +115,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [republishFrom, setRepublishFrom] = useState<{ approved: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [newAd, setNewAd] = useState({ title: '', description: '', image_url: '', target_url: '', is_active: true, duration: '7' });
   const [uploadingImage, setUploadingImage] = useState(false);
