@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, MessageCircle, Phone, Globe, Store, ExternalLink, S
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
+import SeoHead from '@/components/SeoHead';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -66,6 +67,21 @@ const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
+      <SeoHead
+        type="product"
+        title={`${listing.title} — ${bizName}`}
+        description={listing.description || listing.long_description || `${isService ? 'Service' : 'Product'} by ${bizName} on GGD Ad Network.`}
+        image={listing.image_url}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': isService ? 'Service' : 'Product',
+          name: listing.title,
+          description: listing.description || undefined,
+          image: listing.image_url || undefined,
+          brand: bizName,
+          ...(listing.price != null ? { offers: { '@type': 'Offer', price: listing.price, priceCurrency: 'NGN' } } : {}),
+        }}
+      />
       <header className="bg-card/90 backdrop-blur border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={goBack} className="gap-1">
