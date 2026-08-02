@@ -886,7 +886,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
   );
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen, onPromote }) => {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -981,9 +981,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
             <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
           </div>
           {currentUserId === post.user_id && (
-            <button onClick={() => onDelete(post)} className="text-muted-foreground hover:text-destructive p-1.5">
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {onPromote && (
+                <button
+                  onClick={() => onPromote(post)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-500/10 hover:bg-green-500/20 px-2.5 h-8 rounded-full"
+                >
+                  <Megaphone className="h-3.5 w-3.5" /> Promote
+                </button>
+              )}
+              <button onClick={() => onDelete(post)} className="text-muted-foreground hover:text-destructive p-1.5">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
