@@ -239,6 +239,36 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
     setCompletedTaskIds((comps || []).map((c: any) => c.task_id));
   };
 
+  // Shared reward path — identical rules to the Task Feed engine.
+  const awardTask = async (task: any): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
+    if (error) {
+      if (error.code === '23505') { toast.info('Already completed!'); return false; }
+      toast.error('Failed to complete task');
+      return false;
+    }
+    await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+    if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+      await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+    }
+    const updated = credits + (task.reward_credits || 0);
+    await supabase.from('profiles').update({ credits: updated }).eq('user_id', user.id);
+    setCredits(updated);
+    setCompletedTaskIds(prev => [...prev, task.id]);
+    toast.success(`🎉 Earned ${task.reward_credits} credits!`);
+    return true;
+  };
+
+  // YouTube / website tasks complete natively in the feed once monitored
+  // requirements (watch duration, completion) are satisfied.
+  const completeInFeedTask = async (task: any) => {
+    setVerifyingTaskId(task.id);
+    await awardTask(task);
+    setVerifyingTaskId(null);
+  };
+
   // Same share → verify → reward flow used by the Task Feed.
   const startTaskVerification = async (task: any, platformKey: string) => {
     const platform = FEED_SHARE_PLATFORMS.find(p => p.key === platformKey);
