@@ -539,7 +539,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                   </div>
                 </button>
                 <button
-                  onClick={() => (onNavigate ? onNavigate('tasks') : toast.info('Open the Task Feed to create a credit task'))}
+                  onClick={() => { setTaskPrefill(null); setTaskComposerOpen(true); }}
                   className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors"
                 >
                   <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center shrink-0">
