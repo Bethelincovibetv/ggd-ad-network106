@@ -142,6 +142,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [taskPosts, setTaskPosts] = useState<any[]>([]);
+  const [featuredListings, setFeaturedListings] = useState<any[]>([]);
+  const [bannerAds, setBannerAds] = useState<any[]>([]);
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  const [taskComposerOpen, setTaskComposerOpen] = useState(false);
+  const [taskPrefill, setTaskPrefill] = useState<CreditTaskPrefill | null>(null);
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const [credits, setCredits] = useState(0);
   const [shareTarget, setShareTarget] = useState<any | null>(null);
@@ -179,6 +184,43 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
     }
     await loadFeed(user?.id);
     await loadTasks(user?.id);
+    await loadFeaturedListings();
+    await loadBannerAds();
+  };
+
+  // Existing Featured Listings surfaced as native feed posts.
+  const loadFeaturedListings = async () => {
+    const { data } = await supabase
+      .from('business_listings')
+      .select('*')
+      .eq('is_active', true)
+      .eq('is_featured', true)
+      .order('created_at', { ascending: false })
+      .limit(15);
+    const list = data || [];
+    const live = list.filter((l: any) => !l.featured_until || new Date(l.featured_until) > new Date());
+    const userIds = Array.from(new Set(live.map((l: any) => l.user_id)));
+    const { data: profs } = userIds.length
+      ? await supabase.from('profiles').select('user_id, business_name, display_name').in('user_id', userIds)
+      : { data: [] as any[] };
+    const map = new Map((profs || []).map((p: any) => [p.user_id, p]));
+    setFeaturedListings(live.map((l: any) => ({
+      ...l,
+      business_name: map.get(l.user_id)?.business_name || map.get(l.user_id)?.display_name || null,
+    })));
+  };
+
+  // Active, approved and unexpired Banner Adverts shown as sponsored posts.
+  const loadBannerAds = async () => {
+    const { data } = await supabase
+      .from('ads')
+      .select('*')
+      .eq('is_active', true)
+      .eq('approved', true)
+      .order('created_at', { ascending: false })
+      .limit(15);
+    const live = (data || []).filter((a: any) => !a.expires_at || new Date(a.expires_at) > new Date());
+    setBannerAds(live);
   };
 
   // Credit Tasks are surfaced inside the community feed while remaining in the
