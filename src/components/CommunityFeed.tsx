@@ -702,6 +702,23 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         </Card>
       )}
 
+      {/* Feed filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        {FEED_FILTERS.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFeedFilter(f.key)}
+            className={`shrink-0 px-3.5 h-9 rounded-full text-[12px] font-bold border transition-colors ${
+              feedFilter === f.key
+                ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white border-transparent'
+                : 'bg-muted/40 text-muted-foreground border-border/60 hover:border-orange-500/50'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {/* Feed */}
       {loading ? (
         <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-orange-500" /></div>
@@ -712,7 +729,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           </CardContent>
         </Card>
       ) : (
-        feedItems.map(item => item.kind === 'post' ? (
+        feedItems.map(item => item.kind === 'listing' ? (
+          <FeaturedListingCard key={`listing-${item.data.id}`} listing={item.data} />
+        ) : item.kind === 'ad' ? (
+          <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} />
+        ) : item.kind === 'post' ? (
           <PostCard
             key={item.data.id}
             post={item.data}
@@ -721,6 +742,16 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
             onDelete={deletePost}
             onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             onImageOpen={(url) => setLightboxUrl(url)}
+            onPromote={(p) => {
+              setTaskPrefill({
+                title: (p.content || 'Promote my post').slice(0, 80),
+                description: p.content || '',
+                url: p.link_url || p.video_url || '',
+                flyer_url: p.image_url || null,
+                goal: p.video_url ? 'youtube_views' : p.link_url ? 'website_visit' : 'share',
+              });
+              setTaskComposerOpen(true);
+            }}
           />
         ) : (
           <TaskFeedCard
@@ -729,9 +760,19 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
             completed={completedTaskIds.includes(item.data.id)}
             verifying={verifyingTaskId === item.data.id}
             onStart={(t) => setShareTarget(t)}
+            onNativeComplete={completeInFeedTask}
           />
         ))
       )}
+
+      {/* Inline Credit Task creation from the feed */}
+      <CreditTaskComposer
+        open={taskComposerOpen}
+        onClose={() => setTaskComposerOpen(false)}
+        credits={credits}
+        prefill={taskPrefill}
+        onCreated={(c) => { setCredits(c); loadAll(); }}
+      />
 
       {/* Share platform picker for credit tasks opened from the feed */}
       <Dialog open={!!shareTarget} onOpenChange={(o) => !o && setShareTarget(null)}>
