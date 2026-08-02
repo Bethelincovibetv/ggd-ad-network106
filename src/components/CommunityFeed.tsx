@@ -11,13 +11,36 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
-  Coins, Gift, Youtube, Share2, ArrowRight, PenLine,
+  Coins, Gift, Youtube, Share2, ArrowRight, PenLine, Megaphone, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
 import EmojiReactionBar from '@/components/EmojiReactionBar';
 import { getOrCreateTaskShareUrl } from '@/lib/taskShare';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import CreditTaskComposer, { type CreditTaskPrefill } from '@/components/feed/CreditTaskComposer';
+import SponsoredAdCard from '@/components/feed/SponsoredAdCard';
+import FeaturedListingCard from '@/components/feed/FeaturedListingCard';
+import YouTubeTaskPlayer, { youtubeId } from '@/components/feed/YouTubeTaskPlayer';
+import { isYouTubeGoal, findGoal } from '@/components/feed/creditTaskGoals';
+
+type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions';
+
+const FEED_FILTERS: { key: FeedFilter; label: string }[] = [
+  { key: 'all', label: 'All Posts' },
+  { key: 'tasks', label: 'Credit Tasks' },
+  { key: 'featured', label: 'Featured Listings' },
+  { key: 'products', label: 'Products' },
+  { key: 'sponsored', label: 'Sponsored Posts' },
+  { key: 'ads', label: 'Banner Adverts' },
+  { key: 'promotions', label: 'Business Promotions' },
+];
+
+/** Required watch seconds parsed from the task description, default 30s. */
+const requiredWatchSeconds = (task: any) => {
+  const m = String(task?.description || '').match(/at least (\d+) seconds/i);
+  return m ? parseInt(m[1]) : 30;
+};
 
 type Reaction = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 
