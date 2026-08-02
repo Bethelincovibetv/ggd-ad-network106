@@ -771,7 +771,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         onClose={() => setTaskComposerOpen(false)}
         credits={credits}
         prefill={taskPrefill}
-        onCreated={(c) => { setCredits(c); loadAll(); }}
+        onCreated={(c) => { setCredits(c); init(); }}
       />
 
       {/* Share platform picker for credit tasks opened from the feed */}
@@ -817,6 +817,8 @@ interface PostCardProps {
   onDelete: (p: Post) => void;
   onTagClick: (tag: string) => void;
   onImageOpen: (url: string) => void;
+  /** Convert this community post into a paid Credit Task. */
+  onPromote?: (post: Post) => void;
 }
 
 interface TaskFeedCardProps {
@@ -824,11 +826,16 @@ interface TaskFeedCardProps {
   completed: boolean;
   verifying: boolean;
   onStart: (task: any) => void;
+  /** Called when native in-feed requirements (watch duration) are met. */
+  onNativeComplete?: (task: any) => void;
 }
 
-const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying, onStart }) => {
-  const embed = task.share_url ? ytEmbed(task.share_url) : null;
-  const isYouTube = task.task_type === 'youtube' || !!embed;
+const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying, onStart, onNativeComplete }) => {
+  const vid = task.share_url ? youtubeId(task.share_url) : null;
+  const isYouTube = (isYouTubeGoal(task.task_type) || !!vid) && !!vid;
+  const goal = findGoal(task.task_type);
+  const needSecs = requiredWatchSeconds(task);
+  const [eligible, setEligible] = React.useState(false);
   return (
     <Card className="border border-green-500/30 shadow-sm overflow-hidden rounded-xl">
       <CardContent className="p-0">
@@ -841,26 +848,37 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
               <p className="font-bold text-[13px] truncate">{task.title}</p>
               <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">EARN CREDITS</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">{timeAgo(task.created_at)} · +{task.reward_credits} credits</p>
+            <p className="text-[11px] text-muted-foreground">
+              {timeAgo(task.created_at)} · +{task.reward_credits} credits{goal ? ` · ${goal.label}` : ''}
+            </p>
           </div>
         </div>
         {task.description && (
           <p className="px-3 pb-2 text-[14px] whitespace-pre-wrap break-words leading-snug">{task.description}</p>
         )}
-        {embed ? (
-          <div className="aspect-video bg-black">
-            <iframe src={embed} className="w-full h-full" allowFullScreen title={task.title} />
-          </div>
+        {isYouTube && vid ? (
+          <YouTubeTaskPlayer
+            videoId={vid}
+            requiredSeconds={needSecs}
+            disabled={completed}
+            onEligible={() => setEligible(true)}
+          />
         ) : task.flyer_url ? (
           <img src={task.flyer_url} alt={task.title} className="w-full max-h-[420px] object-cover" />
         ) : null}
         <div className="p-3">
           <Button
             className="w-full h-11 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 font-bold"
-            disabled={completed || verifying}
-            onClick={() => onStart(task)}
+            disabled={completed || verifying || (isYouTube && !eligible)}
+            onClick={() => (isYouTube ? onNativeComplete?.(task) : onStart(task))}
           >
-            {completed ? '✅ Completed' : verifying ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Verifying…</> : <><Coins className="h-4 w-4 mr-1.5" />Do task & earn {task.reward_credits}</>}
+            {completed
+              ? '✅ Completed'
+              : verifying
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Verifying…</>
+                : isYouTube && !eligible
+                  ? <><Youtube className="h-4 w-4 mr-1.5" />Watch {needSecs}s to unlock reward</>
+                  : <><Coins className="h-4 w-4 mr-1.5" />Claim {task.reward_credits} credits</>}
           </Button>
         </div>
       </CardContent>
