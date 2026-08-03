@@ -171,6 +171,18 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   useEffect(() => { init(); }, []);
 
+  // Global "Create" button hooks
+  useEffect(() => {
+    const openPost = () => setComposerOpen(true);
+    const openTask = () => { setTaskPrefill(null); setTaskComposerOpen(true); };
+    window.addEventListener('ggd-open-composer', openPost);
+    window.addEventListener('ggd-open-task-composer', openTask);
+    return () => {
+      window.removeEventListener('ggd-open-composer', openPost);
+      window.removeEventListener('ggd-open-task-composer', openTask);
+    };
+  }, []);
+
   const init = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
