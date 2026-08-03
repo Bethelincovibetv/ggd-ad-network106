@@ -52,6 +52,8 @@ import ReferralsPage from "@/components/ReferralsPage";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
 import SyndicatePayouts from "@/components/SyndicatePayouts";
 import GGDInbox from "@/components/GGDInbox";
+import CampaignsHub from "@/components/CampaignsHub";
+import CreateFab from "@/components/CreateFab";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart2, RefreshCw } from "lucide-react";
 
@@ -689,6 +691,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'tasks':
         return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
+      case 'campaigns':
+        return isEnabled('nav_campaigns') ? <CampaignsHub onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
       case 'fund-credits':
       case 'transfer':
       case 'task-wallet':
@@ -921,6 +926,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           </main>
 
           <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          <CreateFab onNavigate={handleTabChange} />
           <InstallPrompt />
         </div>
       </div>
