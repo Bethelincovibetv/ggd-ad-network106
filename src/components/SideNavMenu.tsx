@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send,
+  LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
   Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, Mail, Bell, MousePointerClick, MessageCircle
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -42,19 +42,20 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const navigate = useNavigate();
 
   const main = [
-    { id: 'ads', icon: LayoutDashboard, label: 'Home' },
+    ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home' }] : []),
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
-    { id: 'profile', icon: User, label: 'My Profile' },
-    { id: 'wallet', icon: Wallet, label: 'Wallet' },
-    ...(isEnabled('p2p_chat') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
+    ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'My Campaigns' }] : []),
+    ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
+    ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
+    ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'Premium' }] : []),
   ];
 
   const work = [
     ...(isEnabled('business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
-    { id: 'my-business', icon: Store, label: 'My Business' },
-    { id: 'upgrade', icon: Edit3, label: 'Business Details' },
+    ...(isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
+    ...(isEnabled('nav_business_details') ? [{ id: 'upgrade', icon: Edit3, label: 'Business Details' }] : []),
     ...(isEnabled('syndicate') ? (isSyndicate ? [
       { id: 'syndicate', icon: Users, label: 'Open Syndicate' },
     ] : [
@@ -76,12 +77,13 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const help = [
-    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
-    { id: 'about', icon: Info, label: 'About' },
+    ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
+    ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About' }] : []),
   ];
 
   const iconGrad: Record<string, string> = {
     ads: 'from-orange-400 to-red-500',
+    campaigns: 'from-amber-500 to-orange-600',
     feed: 'from-pink-400 to-fuchsia-500',
     tasks: 'from-emerald-400 to-teal-500',
     profile: 'from-sky-400 to-blue-500',
