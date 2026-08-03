@@ -34,6 +34,12 @@ const AdminFeatureToggles = () => {
 
   if (loading) return <div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>;
 
+  const groupOf = (key: string) =>
+    key.startsWith('nav_') ? 'Navigation Menu'
+      : key.startsWith('create_') ? 'Create Menu'
+      : 'Platform Features';
+  const groups = ['Platform Features', 'Create Menu', 'Navigation Menu'];
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -41,16 +47,25 @@ const AdminFeatureToggles = () => {
           <Settings2 className="h-4 w-4" />Feature Toggles
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {features.map(f => (
-          <div key={f.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-            <div className="min-w-0">
-              <Label className="text-xs font-medium">{f.feature_name}</Label>
-              {f.description && <p className="text-[10px] text-muted-foreground">{f.description}</p>}
+      <CardContent className="space-y-4">
+        {groups.map(g => {
+          const items = features.filter(f => groupOf(f.feature_key) === g);
+          if (items.length === 0) return null;
+          return (
+            <div key={g} className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">{g}</p>
+              {items.map(f => (
+                <div key={f.id} className="flex items-center justify-between gap-3 p-2 bg-muted/30 rounded-lg">
+                  <div className="min-w-0">
+                    <Label className="text-xs font-medium">{f.feature_name}</Label>
+                    {f.description && <p className="text-[10px] text-muted-foreground">{f.description}</p>}
+                  </div>
+                  <Switch checked={f.is_enabled} onCheckedChange={() => toggleFeature(f.id, f.is_enabled)} />
+                </div>
+              ))}
             </div>
-            <Switch checked={f.is_enabled} onCheckedChange={() => toggleFeature(f.id, f.is_enabled)} />
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
