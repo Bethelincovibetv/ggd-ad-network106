@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Activity, Shield, Users, Wallet, Sparkles, Store, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Activity, Shield, Users, Wallet, Sparkles, Store, MessageCircle, BarChart2 } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface MobileFooterMenuProps {
@@ -15,14 +15,17 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
   const navigate = useNavigate();
   const { isEnabled } = useFeatureToggles();
   const items = [
-    { id: 'ads',      icon: LayoutDashboard, label: 'Home',   grad: 'from-orange-400 via-orange-500 to-red-500' },
+    ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home', grad: 'from-orange-400 via-orange-500 to-red-500' }] : []),
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Feed', grad: 'from-pink-400 via-fuchsia-500 to-purple-500' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: Activity, label: 'Tasks', grad: 'from-emerald-400 via-green-500 to-teal-500' }] : []),
-    { id: 'wallet',   icon: Wallet, label: 'Wallet', grad: 'from-sky-400 via-blue-500 to-indigo-500' },
-    ...(isEnabled('p2p_chat') ? [{ id: 'inbox', icon: MessageCircle, label: 'Inbox', grad: 'from-teal-400 via-cyan-500 to-blue-500' }] : []),
+    ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Ads', grad: 'from-amber-400 via-orange-500 to-orange-600' }] : []),
+    ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', grad: 'from-sky-400 via-blue-500 to-indigo-500' }] : []),
+    ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'Inbox', grad: 'from-teal-400 via-cyan-500 to-blue-500' }] : []),
     ...(isSyndicate && isEnabled('syndicate')
       ? [{ id: 'syndicate', icon: Users, label: 'Crew', grad: 'from-violet-400 via-purple-500 to-indigo-600' }]
-      : [{ id: 'my-business', icon: Store, label: 'My Biz', grad: 'from-indigo-400 via-blue-500 to-cyan-500' }]),
+      : isEnabled('nav_my_business')
+        ? [{ id: 'my-business', icon: Store, label: 'My Biz', grad: 'from-indigo-400 via-blue-500 to-cyan-500' }]
+        : []),
     ...(isAdmin ? [{ id: 'admin', icon: Shield, label: 'Admin', grad: 'from-rose-500 via-pink-500 to-fuchsia-600' }] : []),
   ];
 
