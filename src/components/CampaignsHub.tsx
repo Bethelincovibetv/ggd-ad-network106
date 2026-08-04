@@ -245,7 +245,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
                         size="sm"
                         variant="outline"
                         className="h-10 text-sm font-bold"
-                        onClick={() => onNavigate?.(r.kind === "ad" ? "ads" : r.kind === "task" ? "tasks" : "business-tasks")}
+                        onClick={() => onNavigate?.(r.kind === "ad" ? "campaigns" : r.kind === "task" ? "tasks" : "business-tasks")}
                       >
                         Manage
                       </Button>
