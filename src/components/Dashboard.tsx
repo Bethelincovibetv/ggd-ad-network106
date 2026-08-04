@@ -497,6 +497,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           <div className="space-y-4">
             <CampaignsHub onNavigate={handleTabChange} />
 
+            {isEnabled('ads') && (<>
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>
@@ -698,6 +699,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                 </div>
               )}
             </div>
+            </>)}
           </div>
         );
 
