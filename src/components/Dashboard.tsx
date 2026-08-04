@@ -142,7 +142,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const startCreateAd = () => { setIsCreating(true); scrollToBannerForm(); };
   const handleTabChange = (tab: string) => {
     if (tab === 'ads-create') {
-      setActiveTab('ads');
+      setActiveTab('campaigns');
       startCreateAd();
       return;
     }
