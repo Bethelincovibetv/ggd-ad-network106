@@ -36,6 +36,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
   const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
 
@@ -56,17 +57,30 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const fetchTasks = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    // Self-task visibility exclusion — a user must never see tasks they created
-    // themselves when browsing available campaigns as a Syndicate.
-    const { data: tasksData } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('is_active', true)
-      .neq('creator_id', user.id)
-      .order('created_at', { ascending: false });
-    setTasks(tasksData || []);
+    setUid(user.id);
+    // Owner Mode: a user's own campaigns are shown with management tools,
+    // never with "do this task" actions.
+    const [{ data: othersData }, { data: mineData }] = await Promise.all([
+      supabase.from('tasks').select('*').eq('is_active', true).neq('creator_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').eq('creator_id', user.id).order('created_at', { ascending: false }),
+    ]);
+    setTasks([...(mineData || []), ...(othersData || [])]);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     setCompletions((comps || []).map(c => c.task_id));
+  };
+
+  const toggleTaskActive = async (task: any) => {
+    const { error } = await supabase.from('tasks').update({ is_active: !task.is_active }).eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(task.is_active ? 'Campaign paused' : 'Campaign resumed');
+    fetchTasks();
+  };
+
+  const deleteTask = async (task: any) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Campaign deleted');
+    fetchTasks();
   };
 
   const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
