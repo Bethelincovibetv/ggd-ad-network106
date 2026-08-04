@@ -107,7 +107,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
   const Metric = ({ icon: Icon, label, value, tint }: any) => (
     <div className="rounded-2xl border border-border/60 bg-card p-3.5">
       <div className="flex items-center gap-2">
-        <span className={`h-9 w-9 rounded-xl grid place-items-center ${tint}`}><Icon className="h-4.5 w-4.5 h-[18px] w-[18px]" /></span>
+        <span className={`h-9 w-9 rounded-xl grid place-items-center ${tint}`}><Icon className="h-[18px] w-[18px]" /></span>
         <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
       </div>
       <p className="text-2xl font-black mt-2 text-foreground">{value}</p>
