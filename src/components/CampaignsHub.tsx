@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2 } from "lucide-react";
+import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio } from "lucide-react";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
@@ -40,6 +40,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Status>("active");
   const [analyticsId, setAnalyticsId] = useState<string | null>(null);
+  const [balances, setBalances] = useState({ wallet: 0, credits: 0 });
 
   useEffect(() => { load(); }, []);
 
@@ -51,10 +52,16 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
     const now = Date.now();
     const out: Row[] = [];
 
-    const { data: ads } = await supabase
+    const [{ data: walletRow }, { data: profileRow }] = await Promise.all([
+      supabase.from("task_wallets").select("balance").eq("user_id", uid).maybeSingle(),
+      supabase.from("profiles").select("credits").eq("user_id", uid).maybeSingle(),
+    ]);
+    setBalances({ wallet: Number(walletRow?.balance || 0), credits: Number(profileRow?.credits || 0) });
+
+    const { data: ads } = isEnabled("ads") ? await supabase
       .from("ads")
       .select("id, title, created_at, is_active, expires_at, impressions, clicks, budget_credits")
-      .eq("user_id", uid);
+      .eq("user_id", uid) : { data: [] as any[] };
     (ads || []).forEach((a: any) => {
       const expired = a.expires_at && new Date(a.expires_at).getTime() < now;
       out.push({
@@ -138,11 +145,38 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
   const visible = rows.filter(r => r.status === filter);
   const count = (s: Status) => rows.filter(r => r.status === s).length;
 
+  const totalViews = rows.reduce((s, r) => s + (r.impressions || 0), 0);
+  const totalClicks = rows.reduce((s, r) => s + (r.clicks || 0), 0);
+  const totalSpend = rows.reduce((s, r) => s + (r.spend || 0), 0);
+  const ctr = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : "0.0";
+
+  const overview = [
+    { icon: Radio, label: "Active", value: count("active").toLocaleString(), tint: "bg-green-500/15 text-green-600" },
+    { icon: Eye, label: "Total Views", value: totalViews.toLocaleString(), tint: "bg-blue-500/15 text-blue-600" },
+    { icon: MousePointerClick, label: "Total Clicks", value: totalClicks.toLocaleString(), tint: "bg-emerald-500/15 text-emerald-600" },
+    { icon: Percent, label: "CTR", value: `${ctr}%`, tint: "bg-purple-500/15 text-purple-600" },
+    { icon: Coins, label: "Total Spend", value: totalSpend.toLocaleString(), tint: "bg-amber-500/15 text-amber-600" },
+    { icon: Wallet, label: "Wallet", value: balances.wallet.toLocaleString(), tint: "bg-indigo-500/15 text-indigo-600" },
+    { icon: Coins, label: "Credits", value: balances.credits.toLocaleString(), tint: "bg-orange-500/15 text-orange-600" },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 p-4 text-white">
         <h2 className="text-xl font-black">Campaign Manager</h2>
         <p className="text-sm text-white/85">Every campaign you run — adverts, credit tasks and social campaigns — in one place.</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {overview.map(o => (
+          <div key={o.label} className="rounded-2xl border border-border/60 bg-card p-3.5">
+            <div className="flex items-center gap-2">
+              <span className={`h-9 w-9 rounded-xl grid place-items-center ${o.tint}`}><o.icon className="h-[18px] w-[18px]" /></span>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{o.label}</span>
+            </div>
+            <p className="text-2xl font-black mt-2 text-foreground">{o.value}</p>
+          </div>
+        ))}
       </div>
 
       <Tabs value={filter} onValueChange={v => setFilter(v as Status)}>
@@ -211,7 +245,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
                         size="sm"
                         variant="outline"
                         className="h-10 text-sm font-bold"
-                        onClick={() => onNavigate?.(r.kind === "ad" ? "ads" : r.kind === "task" ? "tasks" : "business-tasks")}
+                        onClick={() => onNavigate?.(r.kind === "ad" ? "campaigns" : r.kind === "task" ? "tasks" : "business-tasks")}
                       >
                         Manage
                       </Button>

@@ -142,7 +142,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const startCreateAd = () => { setIsCreating(true); scrollToBannerForm(); };
   const handleTabChange = (tab: string) => {
     if (tab === 'ads-create') {
-      setActiveTab('ads');
+      setActiveTab('campaigns');
       startCreateAd();
       return;
     }
@@ -483,7 +483,21 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
             {/* Ad Display Preview */}
             {isEnabled('ads') && <AdDisplayPreview />}
+          </div>
+        );
 
+      case 'campaigns':
+        if (!isEnabled('nav_campaigns') && !isEnabled('ads')) {
+          return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        }
+        if (analyticsAdId) {
+          return <CampaignAnalytics adId={analyticsAdId} onBack={() => setAnalyticsAdId(null)} />;
+        }
+        return (
+          <div className="space-y-4">
+            <CampaignsHub onNavigate={handleTabChange} />
+
+            {isEnabled('ads') && (<>
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>
@@ -685,14 +699,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                 </div>
               )}
             </div>
+            </>)}
           </div>
         );
 
       case 'tasks':
         return isEnabled('tasks') ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
-
-      case 'campaigns':
-        return isEnabled('nav_campaigns') ? <CampaignsHub onNavigate={handleTabChange} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'fund-credits':
       case 'transfer':

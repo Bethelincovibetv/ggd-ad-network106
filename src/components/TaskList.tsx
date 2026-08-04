@@ -36,6 +36,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
   const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
 
@@ -56,17 +57,30 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const fetchTasks = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    // Self-task visibility exclusion — a user must never see tasks they created
-    // themselves when browsing available campaigns as a Syndicate.
-    const { data: tasksData } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('is_active', true)
-      .neq('creator_id', user.id)
-      .order('created_at', { ascending: false });
-    setTasks(tasksData || []);
+    setUid(user.id);
+    // Owner Mode: a user's own campaigns are shown with management tools,
+    // never with "do this task" actions.
+    const [{ data: othersData }, { data: mineData }] = await Promise.all([
+      supabase.from('tasks').select('*').eq('is_active', true).neq('creator_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').eq('creator_id', user.id).order('created_at', { ascending: false }),
+    ]);
+    setTasks([...(mineData || []), ...(othersData || [])]);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     setCompletions((comps || []).map(c => c.task_id));
+  };
+
+  const toggleTaskActive = async (task: any) => {
+    const { error } = await supabase.from('tasks').update({ is_active: !task.is_active }).eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(task.is_active ? 'Campaign paused' : 'Campaign resumed');
+    fetchTasks();
+  };
+
+  const deleteTask = async (task: any) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Campaign deleted');
+    fetchTasks();
   };
 
   const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -586,8 +600,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           const isPremium = task.task_type === 'social';
           const isVerifying = verifyingTaskId === task.id;
           const spotsLeft = task.max_completions ? task.max_completions - (task.completions_count || 0) : null;
+          const isOwner = !!uid && task.creator_id === uid;
           return (
-            <Card key={task.id} className={`transition-all ${completed ? 'opacity-60' : 'hover:shadow-md'} ${isPremium ? 'border-purple-500/20' : ''}`}>
+            <Card key={task.id} className={`transition-all ${completed && !isOwner ? 'opacity-60' : 'hover:shadow-md'} ${isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' : isPremium ? 'border-purple-500/20' : ''}`}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-2xl ${
@@ -605,6 +620,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-semibold text-foreground">{task.title}</p>
                       {isPremium && <span className="text-[8px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>}
+                      {isOwner && <span className="text-[8px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
+                      {isOwner && !task.is_active && <span className="text-[8px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
                     </div>
                     {task.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>}
                     <div className="flex items-center gap-2 mt-0.5">
@@ -619,7 +636,11 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       )}
                     </div>
                   </div>
-                  {isVerifying ? (
+                  {isOwner ? (
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                      {task.completions_count || 0}/{task.max_completions || '∞'} done
+                    </span>
+                  ) : isVerifying ? (
                     <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full">
                       <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
                       <span className="text-[10px] text-yellow-600 font-medium">Verifying...</span>
@@ -643,6 +664,22 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 )}
 
                 {/* Preview share page (everyone can preview) */}
+                {isOwner ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleTaskActive(task)}>
+                      {task.is_active ? 'Pause' : 'Resume'}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={async () => {
+                      const u = await getOrCreateTaskShareUrl(task.id);
+                      if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
+                    }}>
+                      <Eye className="h-3 w-3 mr-1" />View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl text-red-600 border-red-500/30" onClick={() => deleteTask(task)}>
+                      Delete
+                    </Button>
+                  </div>
+                ) : (
                 <Button
                   size="sm"
                   variant="outline"
@@ -654,6 +691,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 >
                   <Eye className="h-3 w-3 mr-1" />Preview Share Page
                 </Button>
+                )}
               </CardContent>
             </Card>
           );
