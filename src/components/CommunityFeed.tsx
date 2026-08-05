@@ -518,7 +518,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         <Input
           value={filterQuery}
           onChange={e => setFilterQuery(e.target.value)}
-          placeholder="Search posts, #hashtags, businesses…"
+          placeholder="Search posts, people, businesses, products, #hashtags…"
           className="pl-9 h-10 rounded-full bg-muted/40 border-0"
         />
         {activeTag && (
@@ -530,6 +530,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           </button>
         )}
       </div>
+
+      <CommunitySearchResults query={filterQuery} />
 
       {/* Composer */}
       {me ? (
