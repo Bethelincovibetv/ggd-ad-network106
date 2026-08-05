@@ -14,6 +14,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
+import BusinessGrowthDashboard from "@/components/BusinessGrowthDashboard";
 import SlideCarousel from "@/components/SlideCarousel";
 import TaskList from "@/components/TaskList";
 import SupportPage from "@/components/SupportPage";
@@ -857,6 +858,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'feed':
         return <CommunityFeed onNavigate={handleTabChange} />;
 
+      case 'growth':
+        return <BusinessGrowthDashboard onNavigate={handleTabChange} />;
+
       case 'syndicate-payouts':
         return <SyndicatePayouts />;
 
@@ -904,11 +908,11 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
                 </div>
               </div>
-              <GlobalSearchBar />
+              {activeTab !== 'feed' && <GlobalSearchBar />}
             </div>
           </header>
 
-          <main className="flex-1 px-3 sm:px-4 py-4 pb-24 md:pb-6 max-w-5xl w-full mx-auto">
+          <main className="flex-1 px-3 sm:px-4 py-4 pb-40 md:pb-24 max-w-5xl w-full mx-auto">
             {isPremium && (
               <PremiumRenewalBanner
                 expiresAt={premiumExpiresAt}
