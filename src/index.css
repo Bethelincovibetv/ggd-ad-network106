@@ -108,3 +108,7 @@ All colors MUST be HSL.
   0% { transform: scale(1.05) translate(0, 0); }
   100% { transform: scale(1.18) translate(-2%, -1%); }
 }
+
+/* Hide scrollbars on the floating bottom navigation */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

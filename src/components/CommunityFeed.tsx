@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import CommunitySearchResults from "@/components/CommunitySearchResults";
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -518,7 +519,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         <Input
           value={filterQuery}
           onChange={e => setFilterQuery(e.target.value)}
-          placeholder="Search posts, #hashtags, businesses…"
+          placeholder="Search posts, people, businesses, products, #hashtags…"
           className="pl-9 h-10 rounded-full bg-muted/40 border-0"
         />
         {activeTag && (
@@ -530,6 +531,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           </button>
         )}
       </div>
+
+      <CommunitySearchResults query={filterQuery} />
 
       {/* Composer */}
       {me ? (

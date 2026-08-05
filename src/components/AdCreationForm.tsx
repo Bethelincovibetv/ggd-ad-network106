@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import AICampaignAssistant from "@/components/AICampaignAssistant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -243,6 +244,13 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
                 className="rounded-2xl border-border/40 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background resize-none transition-colors"
               />
             </div>
+
+            <AICampaignAssistant
+              currentTitle={newAd.title}
+              currentDescription={newAd.description}
+              onApplyTitle={(v) => setNewAd(prev => ({ ...prev, title: v }))}
+              onApplyDescription={(v) => setNewAd(prev => ({ ...prev, description: v }))}
+            />
 
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-2">

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, Mail, Bell, MousePointerClick, MessageCircle
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -46,6 +46,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
     ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'My Campaigns' }] : []),
+    { id: 'growth', icon: Rocket, label: 'Business Growth' },
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
@@ -70,12 +71,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
-  const emails = [
-    ...(isEnabled('email_preferences') ? [{ id: 'email-prefs', icon: Bell, label: 'Email Preferences' }] : []),
-    ...(isEnabled('email_campaigns') ? [{ id: 'email-campaigns', icon: Mail, label: 'Email Campaigns' }] : []),
-    ...(isEnabled('email_capture_pages') ? [{ id: 'email-capture', icon: MousePointerClick, label: 'Lead Capture Pages' }] : []),
-  ];
-
   const help = [
     ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About' }] : []),
@@ -84,6 +79,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const iconGrad: Record<string, string> = {
     ads: 'from-orange-400 to-red-500',
     campaigns: 'from-amber-500 to-orange-600',
+    growth: 'from-emerald-500 to-green-600',
     feed: 'from-pink-400 to-fuchsia-500',
     tasks: 'from-emerald-400 to-teal-500',
     profile: 'from-sky-400 to-blue-500',
@@ -100,9 +96,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     directory: 'from-orange-400 to-amber-500',
     promo: 'from-pink-500 to-rose-500',
     'api-keys': 'from-slate-500 to-gray-700',
-    'email-prefs': 'from-yellow-400 to-orange-500',
-    'email-campaigns': 'from-fuchsia-500 to-pink-500',
-    'email-capture': 'from-teal-400 to-cyan-500',
     guide: 'from-indigo-400 to-purple-500',
     about: 'from-slate-400 to-slate-600',
   };
@@ -173,15 +166,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
             <SidebarMenu>{renderItems(discover)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {emails.length > 0 && (
-          <SidebarGroup>
-            {!collapsed && <SidebarGroupLabel>Emails</SidebarGroupLabel>}
-            <SidebarGroupContent>
-              <SidebarMenu>{renderItems(emails)}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
 
         <SidebarGroup>
           {!collapsed && <SidebarGroupLabel>Help</SidebarGroupLabel>}
