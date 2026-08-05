@@ -299,8 +299,7 @@ const BusinessStorefront = () => {
             {[
               { icon: Megaphone, label: 'Create Ad', color: 'from-orange-500 to-red-500', tab: 'ads-create' },
               { icon: Package, label: 'Add Listing', color: 'from-blue-500 to-cyan-500', action: () => { setAddingListing(true); const el = document.querySelector('[value="listings"]') as HTMLElement; el?.click(); } },
-              { icon: Mail, label: 'Email Campaign', color: 'from-purple-500 to-pink-500', tab: 'email-campaigns' },
-              { icon: Users, label: 'Lead Pages', color: 'from-emerald-500 to-teal-500', tab: 'email-capture' },
+              { icon: TrendingUp, label: 'Business Growth', color: 'from-emerald-500 to-green-600', tab: 'growth' },
               ...(isEnabled('link_shortener') ? [{ icon: Link2, label: 'Smart Links', color: 'from-cyan-500 to-blue-500', tab: 'smart-links' }] : []),
               { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', tab: 'ads' },
               { icon: Wallet, label: 'Wallet', color: 'from-amber-500 to-orange-500', tab: 'wallet' },
@@ -690,8 +689,7 @@ const BusinessStorefront = () => {
             <CardContent className="grid grid-cols-2 gap-2">
               {[
                 { icon: Megaphone, label: 'Create Advert', color: 'from-orange-500 to-red-500', tab: 'ads-create' },
-                { icon: Mail, label: 'Email Campaigns', color: 'from-purple-500 to-pink-500', tab: 'email-campaigns' },
-                { icon: Users, label: 'Lead Capture Pages', color: 'from-emerald-500 to-teal-500', tab: 'email-capture' },
+                { icon: TrendingUp, label: 'Business Growth', color: 'from-emerald-500 to-green-600', tab: 'growth' },
                 ...(isEnabled('link_shortener') ? [{ icon: Link2, label: 'Smart Links', color: 'from-cyan-500 to-blue-500', tab: 'smart-links' }] : []),
                 { icon: BarChart3, label: 'Analytics', color: 'from-indigo-500 to-blue-500', tab: 'ads' },
                 { icon: Wallet, label: 'My Wallet', color: 'from-amber-500 to-orange-500', tab: 'wallet' },
