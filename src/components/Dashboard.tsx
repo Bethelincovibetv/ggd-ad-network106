@@ -13,9 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
-import UserEmailPreferences from "@/components/UserEmailPreferences";
-import UserEmailCampaigns from "@/components/UserEmailCampaigns";
-import UserEmailCapturePages from "@/components/UserEmailCapturePages";
 import NotificationBell from "@/components/NotificationBell";
 import SlideCarousel from "@/components/SlideCarousel";
 import TaskList from "@/components/TaskList";
@@ -859,15 +856,6 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'feed':
         return <CommunityFeed onNavigate={handleTabChange} />;
-
-      case 'email-prefs':
-        return <UserEmailPreferences />;
-
-      case 'email-campaigns':
-        return <UserEmailCampaigns />;
-
-      case 'email-capture':
-        return <UserEmailCapturePages />;
 
       case 'syndicate-payouts':
         return <SyndicatePayouts />;
