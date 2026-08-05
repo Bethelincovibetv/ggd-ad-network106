@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen, Video, Mail } from "lucide-react";
+import { Users, Settings, TrendingUp, Image, ClipboardList, Briefcase, Key, Megaphone, Settings2, BookOpen, Video } from "lucide-react";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
@@ -12,8 +12,6 @@ import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
-import AdminEmailManager from "@/components/AdminEmailManager";
-
 const tabBase = "flex flex-col items-center justify-center gap-1 h-16 rounded-xl text-[10px] font-semibold text-white border-0 transition-all data-[state=active]:scale-105 data-[state=active]:shadow-lg data-[state=inactive]:opacity-70";
 
 const AdminPanel = () => {
