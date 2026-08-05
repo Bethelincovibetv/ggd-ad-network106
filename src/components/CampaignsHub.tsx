@@ -4,15 +4,17 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio } from "lucide-react";
+import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio, Pause, Play, Copy, Trash2, Share2, CalendarClock } from "lucide-react";
+import { toast } from "sonner";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 type Status = "active" | "expired" | "inactive";
+type Kind = "ad" | "task" | "syndicate";
 
 interface Row {
   id: string;
-  kind: "ad" | "task" | "syndicate";
+  kind: Kind;
   title: string;
   created_at: string;
   status: Status;
@@ -20,6 +22,12 @@ interface Row {
   clicks?: number;
   spend?: number;
   progress?: { done: number; total: number };
+  image_url?: string | null;
+  target_url?: string | null;
+  description?: string | null;
+  expires_at?: string | null;
+  is_active?: boolean;
+  budget?: number;
 }
 
 const kindMeta = {
@@ -39,6 +47,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Status>("active");
+  const [kindFilter, setKindFilter] = useState<Kind | "all">("all");
   const [analyticsId, setAnalyticsId] = useState<string | null>(null);
   const [balances, setBalances] = useState({ wallet: 0, credits: 0 });
 
@@ -60,7 +69,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
 
     const { data: ads } = isEnabled("ads") ? await supabase
       .from("ads")
-      .select("id, title, created_at, is_active, expires_at, impressions, clicks, budget_credits")
+      .select("id, title, description, image_url, target_url, created_at, is_active, expires_at, impressions, clicks, budget_credits")
       .eq("user_id", uid) : { data: [] as any[] };
     (ads || []).forEach((a: any) => {
       const expired = a.expires_at && new Date(a.expires_at).getTime() < now;
@@ -68,6 +77,12 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
         id: a.id,
         kind: "ad",
         title: a.title,
+        description: a.description,
+        image_url: a.image_url,
+        target_url: a.target_url,
+        expires_at: a.expires_at,
+        is_active: !!a.is_active,
+        budget: Number(a.budget_credits) || 0,
         created_at: a.created_at,
         status: expired ? "expired" : a.is_active ? "active" : "inactive",
         impressions: a.impressions || 0,
