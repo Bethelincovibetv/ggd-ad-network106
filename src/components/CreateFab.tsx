@@ -63,8 +63,10 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
       <button
         aria-label="Create"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-24 md:bottom-6 z-50 h-16 w-16 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white
-          shadow-[0_10px_24px_-6px_rgba(0,0,0,0.45)] grid place-items-center active:scale-95 transition-transform"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 7.25rem)' }}
+        className="fixed right-4 z-[60] h-16 w-16 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white
+          shadow-[0_14px_30px_-8px_rgba(0,0,0,0.5)] grid place-items-center active:scale-90 hover:scale-105
+          transition-transform duration-200 md:!bottom-6"
       >
         <Plus className="h-8 w-8" strokeWidth={3} />
       </button>
