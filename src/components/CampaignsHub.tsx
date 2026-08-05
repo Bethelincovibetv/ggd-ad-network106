@@ -157,8 +157,54 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
     return <CampaignAnalytics adId={analyticsId} onBack={() => setAnalyticsId(null)} />;
   }
 
-  const visible = rows.filter(r => r.status === filter);
+  const visible = rows.filter(r => r.status === filter && (kindFilter === "all" || r.kind === kindFilter));
   const count = (s: Status) => rows.filter(r => r.status === s).length;
+
+  const togglePause = async (r: Row) => {
+    if (r.kind !== "ad") return;
+    const { error } = await supabase.from("ads").update({ is_active: !r.is_active }).eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(r.is_active ? "Campaign paused" : "Campaign resumed");
+    load();
+  };
+
+  const duplicate = async (r: Row) => {
+    if (r.kind !== "ad") return;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const { error } = await supabase.from("ads").insert({
+      user_id: auth.user.id,
+      title: `${r.title} (copy)`,
+      description: r.description,
+      image_url: r.image_url,
+      target_url: r.target_url || "#",
+      ad_type: "banner",
+      is_active: false,
+      approved: false,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Campaign duplicated as a draft");
+    load();
+  };
+
+  const remove = async (r: Row) => {
+    const table = r.kind === "ad" ? "ads" : r.kind === "task" ? "tasks" : "syndicate_tasks";
+    const { error } = await supabase.from(table as any).delete().eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Campaign deleted");
+    load();
+  };
+
+  const share = async (r: Row) => {
+    const url = r.target_url || window.location.origin;
+    try {
+      if (navigator.share) await navigator.share({ title: r.title, url });
+      else { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
+    } catch { /* user cancelled */ }
+  };
+
+  const daysLeft = (r: Row) =>
+    r.expires_at ? Math.max(0, Math.ceil((new Date(r.expires_at).getTime() - Date.now()) / 864e5)) : null;
 
   const totalViews = rows.reduce((s, r) => s + (r.impressions || 0), 0);
   const totalClicks = rows.reduce((s, r) => s + (r.clicks || 0), 0);
@@ -202,6 +248,24 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
         </TabsList>
       </Tabs>
 
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {([
+          { id: "all", label: "All Campaigns" },
+          ...(isEnabled("ads") ? [{ id: "ad", label: "Banner Adverts" }] : []),
+          ...(isEnabled("tasks") ? [{ id: "task", label: "Earn Tasks" }] : []),
+          ...(isEnabled("syndicate") ? [{ id: "syndicate", label: "Syndicate Campaigns" }] : []),
+        ] as { id: Kind | "all"; label: string }[]).map(k => (
+          <button
+            key={k.id}
+            onClick={() => setKindFilter(k.id)}
+            className={`flex-shrink-0 px-4 h-10 rounded-full text-sm font-bold border transition
+              ${kindFilter === k.id ? "bg-gradient-to-r from-orange-500 to-red-600 text-white border-transparent" : "bg-card border-border text-muted-foreground"}`}
+          >
+            {k.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></div>
       ) : visible.length === 0 ? (
@@ -215,7 +279,11 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
               ? Math.min(100, Math.round((r.progress.done / r.progress.total) * 100))
               : null;
             return (
-              <Card key={`${r.kind}-${r.id}`} className="p-3">
+              <Card key={`${r.kind}-${r.id}`} className="p-3 overflow-hidden">
+                {r.kind === "ad" && r.image_url && (
+                  <img src={r.image_url} alt={`${r.title} banner preview`} loading="lazy"
+                    className="w-full h-32 object-cover rounded-xl mb-3" />
+                )}
                 <div className="flex items-start gap-3">
                   <span className={`h-11 w-11 rounded-xl grid place-items-center flex-shrink-0 ${meta.tint}`}>
                     <Icon className="h-5 w-5" />
@@ -245,16 +313,33 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
                         <>
                           <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{(r.impressions || 0).toLocaleString()}</span>
                           <span className="flex items-center gap-1"><MousePointerClick className="h-3.5 w-3.5" />{(r.clicks || 0).toLocaleString()}</span>
+                          <span className="flex items-center gap-1"><Percent className="h-3.5 w-3.5" />
+                            {r.impressions ? (((r.clicks || 0) / r.impressions) * 100).toFixed(1) : "0.0"}%
+                          </span>
+                          {daysLeft(r) !== null && (
+                            <span className="flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" />{daysLeft(r)}d left</span>
+                          )}
                         </>
                       )}
                       <span className="flex items-center gap-1"><Coins className="h-3.5 w-3.5" />{(r.spend || 0).toLocaleString()} credits</span>
                     </div>
 
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex flex-wrap gap-2 mt-3">
                       {r.kind === "ad" && (
-                        <Button size="sm" className="h-10 text-sm font-bold" onClick={() => setAnalyticsId(r.id)}>
-                          <BarChart2 className="h-4 w-4 mr-1" />Analytics
-                        </Button>
+                        <>
+                          <Button size="sm" className="h-10 text-sm font-bold" onClick={() => setAnalyticsId(r.id)}>
+                            <BarChart2 className="h-4 w-4 mr-1" />Analytics
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-10 text-sm font-bold" onClick={() => togglePause(r)}>
+                            {r.is_active ? <><Pause className="h-4 w-4 mr-1" />Pause</> : <><Play className="h-4 w-4 mr-1" />Resume</>}
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-10 text-sm font-bold" onClick={() => duplicate(r)}>
+                            <Copy className="h-4 w-4 mr-1" />Duplicate
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-10 text-sm font-bold" onClick={() => share(r)}>
+                            <Share2 className="h-4 w-4 mr-1" />Share
+                          </Button>
+                        </>
                       )}
                       <Button
                         size="sm"
@@ -263,6 +348,10 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
                         onClick={() => onNavigate?.(r.kind === "ad" ? "campaigns" : r.kind === "task" ? "tasks" : "business-tasks")}
                       >
                         Manage
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-10 text-sm font-bold text-red-600 border-red-200"
+                        onClick={() => { if (confirm(`Delete "${r.title}"? This cannot be undone.`)) remove(r); }}>
+                        <Trash2 className="h-4 w-4 mr-1" />Delete
                       </Button>
                     </div>
                   </div>
