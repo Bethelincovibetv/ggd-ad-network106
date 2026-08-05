@@ -35,14 +35,19 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border md:hidden"
-         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="flex items-stretch justify-around px-1.5 pt-2 pb-2">
+    <nav
+      className="fixed left-0 right-0 z-50 md:hidden pointer-events-none px-3"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+    >
+      <div className="pointer-events-auto mx-auto max-w-md flex items-stretch justify-around gap-1 px-2 py-2
+        rounded-[1.75rem] bg-card/90 backdrop-blur-xl border border-border
+        shadow-[0_12px_32px_-8px_rgba(0,0,0,0.35)] overflow-x-auto no-scrollbar
+        animate-in slide-in-from-bottom-4 duration-300">
         {items.map(item => {
           const active = activeTab === item.id;
           return (
             <button key={item.id} onClick={() => handleClick(item.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 max-w-[80px] active:scale-90 ${active ? 'scale-105' : ''}`}>
+              className={`flex flex-col items-center justify-center gap-1 py-1 px-1.5 rounded-2xl transition-all duration-200 flex-1 min-w-[58px] max-w-[80px] active:scale-90 ${active ? 'scale-105' : ''}`}>
               <span className={`relative inline-grid place-items-center h-11 w-11 rounded-2xl bg-gradient-to-br ${item.grad}
                 shadow-[0_6px_14px_-4px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-3px_6px_rgba(0,0,0,0.18)]
                 ${active ? 'ring-2 ring-white ring-offset-2 ring-offset-card' : ''}`}>
@@ -50,7 +55,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
                 <item.icon className="h-6 w-6 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" strokeWidth={2.6} />
                 {item.id === 'admin' && <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-yellow-300 drop-shadow" />}
               </span>
-              <span className={`text-[10px] leading-none ${active ? 'font-black text-foreground' : 'font-semibold text-muted-foreground'}`}>{item.label}</span>
+              <span className={`text-[11px] leading-none ${active ? 'font-black text-foreground' : 'font-semibold text-muted-foreground'}`}>{item.label}</span>
             </button>
           );
         })}
