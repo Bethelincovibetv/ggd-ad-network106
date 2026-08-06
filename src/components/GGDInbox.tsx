@@ -71,6 +71,8 @@ const tabTitles = {
 } as const;
 
 const GGDInbox: React.FC = () => {
+  const { isEnabled } = useFeatureToggles();
+  const globalChatEnabled = isEnabled("global_network_chat");
   const [me, setMe] = useState<string>("");
   const [tab, setTab] = useState<"business" | "syndicate" | "global">("business");
   const [threads, setThreads] = useState<Thread[]>([]);
