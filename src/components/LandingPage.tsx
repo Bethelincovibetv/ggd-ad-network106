@@ -120,7 +120,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+            <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
             <span className="font-black text-xl text-white">GGD</span>
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)} className="text-white p-2 border border-white/30 rounded-lg">
@@ -167,7 +167,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <div className="flex justify-center animate-scale-in">
               <div className="relative">
                 <div className="absolute inset-0 bg-[#e67e22]/30 blur-3xl rounded-full scale-150 animate-pulse" />
-                <img loading="lazy" src={ggdLogo} alt="GGD Ad Network" className="h-28 w-28 rounded-2xl relative z-10 shadow-2xl shadow-[#e67e22]/30 hover:scale-110 transition-transform duration-300" />
+                <img src={ggdLogo} alt="GGD Ad Network" className="h-28 w-28 rounded-2xl relative z-10 shadow-2xl shadow-[#e67e22]/30 hover:scale-110 transition-transform duration-300" />
               </div>
             </div>
 
@@ -231,7 +231,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             <Card className="overflow-hidden bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-500">
               {sampleAds[currentAdIdx]?.image_url && (
                 <div className="relative">
-                  <img loading="lazy" src={sampleAds[currentAdIdx].image_url} alt={sampleAds[currentAdIdx].title} className="w-full h-48 object-cover" />
+                  <img src={sampleAds[currentAdIdx].image_url} alt={sampleAds[currentAdIdx].title} className="w-full h-48 object-cover" />
                   <div className="absolute top-2 right-2 bg-[#e67e22] text-white px-2 py-1 rounded-full text-[10px] font-bold">LIVE AD</div>
                 </div>
               )}

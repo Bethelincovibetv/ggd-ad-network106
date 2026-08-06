@@ -90,7 +90,7 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 rounded-xl overflow-hidden bg-orange-500/10 flex-shrink-0">
                     {biz.business_logo_url ? (
-                      <img loading="lazy" src={biz.business_logo_url} alt={biz.business_name || ""} className="h-full w-full object-cover" />
+                      <img src={biz.business_logo_url} alt={biz.business_name || ""} className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
                         <Store className="h-6 w-6 text-orange-400" />
@@ -121,7 +121,7 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
                   {biz.products.slice(0, 3).map((p) => (
                     <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-gray-800">
                       {p.image_url ? (
-                        <img loading="lazy" src={p.image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                        <img src={p.image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center text-[9px] text-gray-500 text-center p-1">
                           {p.title}
