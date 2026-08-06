@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 type Kind = "text" | "proof" | "system" | "action";
 
@@ -493,16 +494,18 @@ const GGDInbox: React.FC = () => {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className="w-full grid grid-cols-3">
+        <TabsList className={`w-full grid ${globalChatEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
           <TabsTrigger value="business" className="text-xs">
             <Briefcase className="h-3 w-3 mr-1" /> {tabTitles.business}
           </TabsTrigger>
           <TabsTrigger value="syndicate" className="text-xs">
             <Users className="h-3 w-3 mr-1" /> {tabTitles.syndicate}
           </TabsTrigger>
-          <TabsTrigger value="global" className="text-xs">
-            <Globe className="h-3 w-3 mr-1" /> {tabTitles.global}
-          </TabsTrigger>
+          {globalChatEnabled && (
+            <TabsTrigger value="global" className="text-xs">
+              <Globe className="h-3 w-3 mr-1" /> {tabTitles.global}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value={tab} className="mt-3 space-y-2">
