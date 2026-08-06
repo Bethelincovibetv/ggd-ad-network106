@@ -34,6 +34,9 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
     else onTabChange(id);
   };
 
+  // Shrink items so every enabled destination stays visible on small screens.
+  const compact = items.length > 6;
+
   return (
     <nav
       className="fixed left-0 right-0 z-50 md:hidden pointer-events-none px-3"
@@ -47,15 +50,16 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
           const active = activeTab === item.id;
           return (
             <button key={item.id} onClick={() => handleClick(item.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-1 px-1.5 rounded-2xl transition-all duration-200 flex-1 min-w-[58px] max-w-[80px] active:scale-90 ${active ? 'scale-105' : ''}`}>
-              <span className={`relative inline-grid place-items-center h-11 w-11 rounded-2xl bg-gradient-to-br ${item.grad}
+              className={`flex flex-col items-center justify-center gap-1 py-1 rounded-2xl transition-all duration-200 flex-1 active:scale-90
+                ${compact ? 'px-0.5 min-w-[42px] max-w-[60px]' : 'px-1.5 min-w-[58px] max-w-[80px]'} ${active ? 'scale-105' : ''}`}>
+              <span className={`relative inline-grid place-items-center rounded-2xl bg-gradient-to-br ${compact ? 'h-9 w-9' : 'h-11 w-11'} ${item.grad}
                 shadow-[0_6px_14px_-4px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-3px_6px_rgba(0,0,0,0.18)]
                 ${active ? 'ring-2 ring-white ring-offset-2 ring-offset-card' : ''}`}>
                 <span className="absolute inset-x-1 top-0.5 h-3 rounded-full bg-white/35 blur-[2px]" />
-                <item.icon className="h-6 w-6 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]" strokeWidth={2.6} />
+                <item.icon className={`${compact ? 'h-5 w-5' : 'h-6 w-6'} text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]`} strokeWidth={2.6} />
                 {item.id === 'admin' && <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-yellow-300 drop-shadow" />}
               </span>
-              <span className={`text-[11px] leading-none ${active ? 'font-black text-foreground' : 'font-semibold text-muted-foreground'}`}>{item.label}</span>
+              <span className={`${compact ? 'text-[9px]' : 'text-[11px]'} leading-none truncate w-full text-center ${active ? 'font-black text-foreground' : 'font-semibold text-muted-foreground'}`}>{item.label}</span>
             </button>
           );
         })}
