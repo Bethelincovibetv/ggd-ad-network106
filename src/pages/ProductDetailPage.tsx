@@ -104,7 +104,7 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
           ) : activeImg ? (
-            <img src={activeImg} alt={listing.title} className="w-full aspect-square md:aspect-video object-cover" />
+            <img loading="lazy" src={activeImg} alt={listing.title} className="w-full aspect-square md:aspect-video object-cover" />
           ) : (
             <div className="w-full aspect-video bg-muted flex items-center justify-center">
               <Store className="h-16 w-16 text-muted-foreground/30" />
@@ -114,7 +114,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="flex gap-2 p-3 overflow-x-auto">
               {gallery.map((img: string, i: number) => (
                 <button key={i} onClick={() => setActiveImg(img)} className={`flex-shrink-0 h-16 w-16 rounded-lg overflow-hidden border-2 ${activeImg === img ? 'border-orange-500' : 'border-transparent'}`}>
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -170,7 +170,7 @@ const ProductDetailPage: React.FC = () => {
           <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-red-500/5">
             <CardContent className="p-4 flex items-center gap-3">
               {(profile?.business_logo_url || profile?.avatar_url) ? (
-                <img src={profile.business_logo_url || profile.avatar_url} alt={bizName} className="h-14 w-14 rounded-xl object-cover" />
+                <img loading="lazy" src={profile.business_logo_url || profile.avatar_url} alt={bizName} className="h-14 w-14 rounded-xl object-cover" />
               ) : (
                 <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
                   <Store className="h-7 w-7 text-white" />

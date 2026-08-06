@@ -33,7 +33,7 @@ const ReviewerPhotoUpload = ({
     <div className="flex items-center gap-3">
       {reviewerPhoto ? (
         <div className="relative">
-          <img 
+          <img loading="lazy" 
             src={reviewerPhoto} 
             alt={reviewerName || 'Reviewer'} 
             className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"

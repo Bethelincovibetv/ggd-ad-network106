@@ -53,7 +53,7 @@ const IndustryPage: React.FC = () => {
 
       <div className="relative h-40 md:h-56 overflow-hidden">
         {category.banner_url ? (
-          <img src={category.banner_url} alt={category.name} className="w-full h-full object-cover" />
+          <img loading="lazy" src={category.banner_url} alt={category.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-orange-500 via-red-500 to-pink-600" />
         )}
@@ -80,7 +80,7 @@ const IndustryPage: React.FC = () => {
               <CardContent className="p-0">
                 <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 flex items-center gap-3">
                   {biz.logo_url ? (
-                    <img src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30" />
+                    <img loading="lazy" src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30" />
                   ) : (
                     <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center"><Store className="h-7 w-7 text-white/80" /></div>
                   )}

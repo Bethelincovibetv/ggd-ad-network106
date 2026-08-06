@@ -42,7 +42,7 @@ const EbookPreview = ({ ebookData, onBack, onProceed }: EbookPreviewProps) => {
             <div className="space-y-4">
               <div className="relative bg-gradient-to-br from-purple-600 to-blue-600 p-4 rounded-lg text-white min-h-[300px] flex flex-col justify-between">
                 {ebookData.coverImage && (
-                  <img 
+                  <img loading="lazy" 
                     src={ebookData.coverImage} 
                     alt="Cover" 
                     className="absolute inset-0 w-full h-full object-cover rounded-lg"
@@ -72,7 +72,7 @@ const EbookPreview = ({ ebookData, onBack, onProceed }: EbookPreviewProps) => {
             <div className="space-y-4">
               {ebookData.authorImage && (
                 <div className="flex justify-center">
-                  <img 
+                  <img loading="lazy" 
                     src={ebookData.authorImage} 
                     alt="Author" 
                     className="w-24 h-24 rounded-full object-cover border-4 border-purple-100"
@@ -127,7 +127,7 @@ const EbookPreview = ({ ebookData, onBack, onProceed }: EbookPreviewProps) => {
             <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
               {ebookData.pageImages.map((image, index) => (
                 <div key={index} className="relative">
-                  <img 
+                  <img loading="lazy" 
                     src={image} 
                     alt={`Page ${index + 1}`} 
                     className="w-full h-16 object-cover rounded border"

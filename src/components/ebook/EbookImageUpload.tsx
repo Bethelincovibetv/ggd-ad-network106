@@ -100,7 +100,7 @@ const EbookImageUpload = ({ onImageUpload, onBack }: EbookImageUploadProps) => {
                 className="w-full h-32 border-dashed"
               >
                 {coverImage ? (
-                  <img src={coverImage} alt="Cover" className="w-full h-full object-cover rounded" />
+                  <img loading="lazy" src={coverImage} alt="Cover" className="w-full h-full object-cover rounded" />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-gray-400" />
@@ -136,7 +136,7 @@ const EbookImageUpload = ({ onImageUpload, onBack }: EbookImageUploadProps) => {
                 className="w-full h-32 border-dashed"
               >
                 {authorImage ? (
-                  <img src={authorImage} alt="Author" className="w-full h-full object-cover rounded" />
+                  <img loading="lazy" src={authorImage} alt="Author" className="w-full h-full object-cover rounded" />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-gray-400" />
@@ -185,7 +185,7 @@ const EbookImageUpload = ({ onImageUpload, onBack }: EbookImageUploadProps) => {
               <div className="grid grid-cols-3 gap-4 mt-4">
                 {pageImages.map((image, index) => (
                   <div key={index} className="relative">
-                    <img src={image} alt={`Page ${index + 1}`} className="w-full h-24 object-cover rounded" />
+                    <img loading="lazy" src={image} alt={`Page ${index + 1}`} className="w-full h-24 object-cover rounded" />
                     <Button
                       size="sm"
                       variant="destructive"

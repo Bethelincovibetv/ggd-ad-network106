@@ -69,14 +69,14 @@ const AdminMarketingApps = () => {
           <Button variant="outline" size="sm" className="w-full" onClick={() => document.getElementById('appImageUpload')?.click()}>
             <Upload className="h-4 w-4 mr-1" />{newApp.image_url ? 'Change Image' : 'Upload Image'}
           </Button>
-          {newApp.image_url && <img src={newApp.image_url} alt="Preview" className="w-full rounded-lg h-20 object-cover" />}
+          {newApp.image_url && <img loading="lazy" src={newApp.image_url} alt="Preview" className="w-full rounded-lg h-20 object-cover" />}
           <Button onClick={addApp} className="w-full"><Plus className="h-4 w-4 mr-1" />Add App</Button>
         </CardContent>
       </Card>
       {apps.map(app => (
         <Card key={app.id}>
           <CardContent className="p-3 flex items-center gap-3">
-            {app.image_url && <img src={app.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" />}
+            {app.image_url && <img loading="lazy" src={app.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" />}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-foreground">{app.title}</p>
               <p className="text-[10px] text-muted-foreground">{app.is_free ? 'Free' : `${app.credit_cost} credits`}</p>

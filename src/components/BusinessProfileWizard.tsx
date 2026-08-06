@@ -171,7 +171,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
         return (
           <div className="space-y-3">
             {form.business_logo_url && (
-              <img src={form.business_logo_url} alt="logo" className="h-24 w-24 rounded-xl object-cover border mx-auto" />
+              <img loading="lazy" src={form.business_logo_url} alt="logo" className="h-24 w-24 rounded-xl object-cover border mx-auto" />
             )}
             <label className="flex items-center justify-center gap-2 h-11 rounded-md border border-dashed cursor-pointer hover:bg-muted/40 transition">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -187,7 +187,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
       <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center gap-2">
-          <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
+          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
           <h1 className="text-base font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">Activate Your Business</h1>
         </div>
       </header>

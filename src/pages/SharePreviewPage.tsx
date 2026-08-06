@@ -88,7 +88,7 @@ const SharePreviewPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 p-4">
         <div className="text-center space-y-3">
-          <img src={ggdLogo} alt="GGD" className="h-14 w-14 mx-auto rounded-xl" />
+          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-14 w-14 mx-auto rounded-xl" />
           <h1 className="text-xl font-bold text-foreground">{error}</h1>
           <a href="/" className="text-sm text-orange-600 underline">Back to GGD AD NETWORK</a>
         </div>
@@ -111,13 +111,13 @@ const SharePreviewPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
           <span className="text-white font-black tracking-wide">GGD AD NETWORK</span>
         </div>
 
         <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
           {task.flyer_url && (
-            <img src={task.flyer_url} alt={task.title} className="w-full h-64 object-cover" />
+            <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-64 object-cover" />
           )}
           <div className="p-5 space-y-3">
             {task.creator && (
@@ -126,7 +126,7 @@ const SharePreviewPage = () => {
                 className="flex items-center gap-2 pb-2 border-b border-gray-100 hover:opacity-80"
               >
                 {(task.creator.business_logo_url || task.creator.avatar_url) ? (
-                  <img
+                  <img loading="lazy"
                     src={task.creator.business_logo_url || task.creator.avatar_url}
                     alt={task.creator.business_name || task.creator.display_name || 'Creator'}
                     className="h-9 w-9 rounded-full object-cover border"

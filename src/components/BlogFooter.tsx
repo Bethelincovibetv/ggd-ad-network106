@@ -21,7 +21,7 @@ const BlogFooter = () => {
         <div className="mb-8 p-6 bg-gradient-to-r from-purple-800 to-blue-800 rounded-2xl">
           <div className="text-center mb-6">
             <div className="flex items-center justify-center gap-3 mb-3">
-              <img 
+              <img loading="lazy" 
                 src="/lovable-uploads/8ddaf624-8a87-493f-998f-d39c2965eb7d.png" 
                 alt="GGD Logo" 
                 className="w-10 h-10 rounded-full bg-white p-1"

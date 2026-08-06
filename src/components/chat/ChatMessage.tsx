@@ -12,7 +12,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
     <div className={`flex gap-3 w-full ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
       <div className="flex-shrink-0">
         {message.sender === 'ai' ? (
-          <img 
+          <img loading="lazy" 
             src="/lovable-uploads/8ddaf624-8a87-493f-998f-d39c2965eb7d.png" 
             alt="GGD AI" 
             className="w-8 h-8 rounded-full bg-purple-100 p-1"

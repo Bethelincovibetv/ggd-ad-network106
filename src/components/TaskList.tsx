@@ -436,7 +436,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               <input type="file" id="taskFlyerInput" accept="image/*" onChange={handleFlyerSelect} className="hidden" />
               {flyerPreview ? (
                 <div className="relative rounded-2xl overflow-hidden border border-border/40">
-                  <img src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
+                  <img loading="lazy" src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
                   <Button variant="ghost" size="sm" onClick={() => { setFlyerFile(null); setFlyerPreview(null); }} className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/50 hover:bg-black/70 text-white">
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -564,7 +564,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           {shareTarget?.task && (
             <div className="space-y-3">
               {shareTarget.task.flyer_url && (
-                <img src={shareTarget.task.flyer_url} alt="" className="w-full h-32 object-cover rounded-xl" />
+                <img loading="lazy" src={shareTarget.task.flyer_url} alt="" className="w-full h-32 object-cover rounded-xl" />
               )}
               <div className="bg-muted/40 rounded-xl p-3">
                 <p className="text-sm font-bold text-foreground">{shareTarget.task.title}</p>
@@ -659,7 +659,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 {/* Task flyer image */}
                 {task.flyer_url && (
                   <div className="rounded-xl overflow-hidden border border-border/30">
-                    <img src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
+                    <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
                   </div>
                 )}
 

@@ -30,7 +30,7 @@ const FeaturedListingCard: React.FC<Props> = ({ listing }) => {
 
         <Link to={href} className="block">
           {listing.image_url && (
-            <img src={listing.image_url} alt={listing.title} className="w-full max-h-[420px] object-cover" />
+            <img loading="lazy" src={listing.image_url} alt={listing.title} className="w-full max-h-[420px] object-cover" />
           )}
           <div className="px-3 py-2">
             <p className="font-bold text-[14px] leading-snug">{listing.title}</p>

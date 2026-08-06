@@ -36,7 +36,7 @@ const BlogPreview = ({ blog }: BlogPreviewProps) => {
             {section.imageUrl && (
               <div className="my-8 text-center">
                 <div className="inline-block p-4 bg-white rounded-2xl shadow-lg border border-gray-100">
-                  <img
+                  <img loading="lazy"
                     src={section.imageUrl}
                     alt={section.imageAlt}
                     className="w-full max-w-2xl mx-auto rounded-xl shadow-md"

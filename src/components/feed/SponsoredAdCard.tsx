@@ -44,7 +44,7 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
         )}
         {ad.image_url && (
           <button onClick={open} className="block w-full">
-            <img src={ad.image_url} alt={ad.title} className="w-full max-h-[420px] object-cover" />
+            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full max-h-[420px] object-cover" />
           </button>
         )}
         <div className="p-3">

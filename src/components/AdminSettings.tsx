@@ -156,7 +156,7 @@ const AdminSettings = () => {
           <input type="file" id="adminLogoUpload" accept="image/*" onChange={uploadLogo} className="hidden" />
           <div className="flex items-center gap-4">
             {settings.admin_logo_url ? (
-              <img src={settings.admin_logo_url} alt="Logo" className="h-14 w-14 rounded-xl object-cover shadow-md border-2 border-white" />
+              <img loading="lazy" src={settings.admin_logo_url} alt="Logo" className="h-14 w-14 rounded-xl object-cover shadow-md border-2 border-white" />
             ) : (
               <div className="h-14 w-14 rounded-xl bg-secondary flex items-center justify-center"><Image className="h-6 w-6 text-muted-foreground" /></div>
             )}
@@ -269,14 +269,14 @@ const AdminSettings = () => {
           <Button variant="outline" size="sm" className="w-full rounded-xl" onClick={() => document.getElementById('promoImageUpload')?.click()}>
             <Upload className="h-4 w-4 mr-1" />{newPromo.image_url ? 'Change Image' : 'Upload Image'}
           </Button>
-          {newPromo.image_url && <img src={newPromo.image_url} alt="Preview" className="w-full rounded-xl" />}
+          {newPromo.image_url && <img loading="lazy" src={newPromo.image_url} alt="Preview" className="w-full rounded-xl" />}
           <Button onClick={addPromo} className="w-full bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl h-10 shadow-md">
             <Plus className="h-4 w-4 mr-1" />Add Material
           </Button>
 
           {promos.map((p: any) => (
             <div key={p.id} className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl">
-              {p.image_url && <img src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover shadow-sm" />}
+              {p.image_url && <img loading="lazy" src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover shadow-sm" />}
               <p className="text-xs flex-1 text-foreground font-medium">{p.title}</p>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive rounded-lg" onClick={() => deletePromo(p.id)}>
                 <Trash2 className="h-3.5 w-3.5" />

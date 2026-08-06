@@ -23,7 +23,7 @@ const ChatMessages = ({ messages, isTyping }: ChatMessagesProps) => {
       
       {isTyping && (
         <div className="flex gap-3 max-w-full">
-          <img 
+          <img loading="lazy" 
             src="/lovable-uploads/8ddaf624-8a87-493f-998f-d39c2965eb7d.png" 
             alt="GGD AI" 
             className="w-8 h-8 rounded-full bg-purple-100 p-1 flex-shrink-0"

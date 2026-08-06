@@ -117,7 +117,7 @@ Body: { "ad_id": "uuid", "event_type": "impression" or "click" }
     var ad = ads[idx];
     track(ad.id, "impression");
     container.innerHTML = '<div style="max-width:100%;margin:10px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.12);font-family:system-ui;cursor:pointer;background:#fff" onclick="window.open(\\'' + ad.target_url + '\\',\\'_blank\\')">'
-      + (ad.image_url ? '<img src="' + ad.image_url + '" style="width:100%;display:block">' : '')
+      + (ad.image_url ? '<img loading="lazy" src="' + ad.image_url + '" style="width:100%;display:block">' : '')
       + '<div style="padding:10px 14px"><h3 style="margin:0;font-size:15px;font-weight:700">' + ad.title + '</h3>'
       + (ad.description ? '<p style="margin:4px 0 0;font-size:12px;color:#666">' + ad.description + '</p>' : '')
       + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD AD NETWORK</div></div>';
@@ -343,7 +343,7 @@ Body: { "ad_id": "uuid", "event_type": "impression" or "click" }
     var ad = ads[idx];
     track(ad.id, "impression");
     container.innerHTML = '<div style="max-width:100%;margin:10px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.12);font-family:system-ui;cursor:pointer;background:#fff" onclick="window.open(\\'' + ad.target_url + '\\',\\'_blank\\')">'
-      + (ad.image_url ? '<img src="' + ad.image_url + '" style="width:100%;display:block">' : '')
+      + (ad.image_url ? '<img loading="lazy" src="' + ad.image_url + '" style="width:100%;display:block">' : '')
       + '<div style="padding:10px 14px"><h3 style="margin:0;font-size:15px;font-weight:700">' + ad.title + '</h3>'
       + (ad.description ? '<p style="margin:4px 0 0;font-size:12px;color:#666">' + ad.description + '</p>' : '')
       + '</div><div style="background:#f9f9f9;padding:3px;text-align:center;font-size:9px;color:#bbb">Ad by GGD AD NETWORK</div></div>';

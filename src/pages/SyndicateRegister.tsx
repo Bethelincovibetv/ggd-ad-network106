@@ -113,7 +113,7 @@ const SyndicateRegister = () => {
       <nav className="sticky top-0 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+            <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
             <span className="font-black text-xl text-white">GGD Syndicate</span>
           </div>
           <button onClick={() => navigate('/')} className="text-white/80 hover:text-white text-sm flex items-center gap-1">

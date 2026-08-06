@@ -391,7 +391,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
         isExpired ? 'border-gray-300 opacity-60' : 'border-border'
       }`}>
         <CardContent className="p-4 space-y-3">
-          {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
+          {task.flyer_url && <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
           <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
           <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
 
@@ -451,7 +451,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
             )}
           </div>
 
-          {assignment.proof_url && <img src={assignment.proof_url} alt="Proof" className="w-full rounded-lg border" />}
+          {assignment.proof_url && <img loading="lazy" src={assignment.proof_url} alt="Proof" className="w-full rounded-lg border" />}
         </CardContent>
       </Card>
     );
@@ -491,7 +491,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
           <div className="relative">
             <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/40 backdrop-blur">
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                <img loading="lazy" src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
               ) : (
                 <Users className="h-7 w-7 text-white" />
               )}
@@ -613,7 +613,7 @@ const SyndicateDashboard = ({ onNavigate }: SyndicateDashboardProps = {}) => {
         {availableTasks.map(task => (
           <Card key={task.id} className="shadow-sm">
             <CardContent className="p-4 space-y-3">
-              {task.flyer_url && <img src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
+              {task.flyer_url && <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full rounded-lg" />}
               <h4 className="font-bold text-sm text-foreground">{task.title}</h4>
               <p className="text-xs text-muted-foreground leading-relaxed">{task.description}</p>
               <div className="flex flex-wrap gap-1.5">

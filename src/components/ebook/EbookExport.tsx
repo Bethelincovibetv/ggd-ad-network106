@@ -53,7 +53,7 @@ const EbookExport = ({ ebookData, onBack }: EbookExportProps) => {
         </head>
         <body>
           <div class="cover">
-            ${ebookData.coverImage ? `<img src="${ebookData.coverImage}" alt="Cover" style="max-width: 300px; margin-bottom: 20px;">` : ''}
+            ${ebookData.coverImage ? `<img loading="lazy" src="${ebookData.coverImage}" alt="Cover" style="max-width: 300px; margin-bottom: 20px;">` : ''}
             <h1>${ebookData.topic}</h1>
             <div class="author">by ${ebookData.authorName}</div>
             <div class="category">${ebookData.category}</div>
@@ -61,7 +61,7 @@ const EbookExport = ({ ebookData, onBack }: EbookExportProps) => {
           
           <div class="author-section">
             <h2>About the Author</h2>
-            ${ebookData.authorImage ? `<img src="${ebookData.authorImage}" alt="Author" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin: 20px 0;">` : ''}
+            ${ebookData.authorImage ? `<img loading="lazy" src="${ebookData.authorImage}" alt="Author" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin: 20px 0;">` : ''}
             <p><strong>${ebookData.authorName}</strong> is an expert in ${ebookData.category.toLowerCase()}.</p>
           </div>
           

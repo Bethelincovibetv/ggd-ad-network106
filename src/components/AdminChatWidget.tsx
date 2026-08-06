@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, X, ExternalLink, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-const STORAGE_KEY = 'ggd_admin_chat_pos_v1';
+const STORAGE_KEY = 'ggd_admin_chat_pos_v2';
 
 const AdminChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,7 +17,8 @@ const AdminChatWidget = () => {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return JSON.parse(raw);
     } catch {}
-    return { x: window.innerWidth - 72, y: window.innerHeight - 200 };
+    // Sit clear of the floating Create button and the mobile footer nav.
+    return { x: window.innerWidth - 72, y: Math.max(80, window.innerHeight - 300) };
   });
   const [dragging, setDragging] = useState(false);
   const startRef = useRef<{ ox: number; oy: number; px: number; py: number; moved: boolean } | null>(null);
@@ -101,7 +102,7 @@ const AdminChatWidget = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {adminLogo ? (
-                <img src={adminLogo} alt="Admin" className="h-8 w-8 rounded-full object-cover border-2 border-white" />
+                <img loading="lazy" src={adminLogo} alt="Admin" className="h-8 w-8 rounded-full object-cover border-2 border-white" />
               ) : (
                 <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
                   <MessageCircle className="h-4 w-4" />

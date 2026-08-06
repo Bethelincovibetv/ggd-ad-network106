@@ -310,7 +310,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               <input type="file" id="newAdImage" accept="image/*" onChange={handleImageUpload} className="hidden" />
               {newAd.imageUrl ? (
                 <div className="relative rounded-2xl overflow-hidden border border-border/30 shadow-sm">
-                  <img src={newAd.imageUrl} alt="Preview" className="w-full h-40 object-cover" />
+                  <img loading="lazy" src={newAd.imageUrl} alt="Preview" className="w-full h-40 object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   <Button
                     variant="ghost"
@@ -407,7 +407,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               <div className="p-4 space-y-2.5">
                 {newAd.imageUrl && (
                   <div className="rounded-xl overflow-hidden mb-3">
-                    <img src={newAd.imageUrl} alt="Ad preview" className="w-full h-24 object-cover" />
+                    <img loading="lazy" src={newAd.imageUrl} alt="Ad preview" className="w-full h-24 object-cover" />
                   </div>
                 )}
                 <div className="flex justify-between items-center">

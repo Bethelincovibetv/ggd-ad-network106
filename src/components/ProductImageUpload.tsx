@@ -33,7 +33,7 @@ const ProductImageUpload = ({ productImages, onImageUpload }: ProductImageUpload
         {productImages.length > 0 && (
           <div className="mt-4 grid grid-cols-3 gap-4">
             {productImages.map((image, index) => (
-              <img 
+              <img loading="lazy" 
                 key={index} 
                 src={image} 
                 alt={`Product ${index + 1}`} 

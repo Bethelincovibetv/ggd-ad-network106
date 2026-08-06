@@ -42,10 +42,10 @@ const SlideCarousel = () => {
           <div key={slide.id} className="min-w-full flex-shrink-0">
             {slide.link_url ? (
               <a href={slide.link_url} target="_blank" rel="noopener noreferrer">
-                <img src={slide.image_url} alt={slide.title || 'Slide'} className="w-full h-36 object-cover rounded-xl" />
+                <img loading="lazy" src={slide.image_url} alt={slide.title || 'Slide'} className="w-full h-36 object-cover rounded-xl" />
               </a>
             ) : (
-              <img src={slide.image_url} alt={slide.title || 'Slide'} className="w-full h-36 object-cover rounded-xl" />
+              <img loading="lazy" src={slide.image_url} alt={slide.title || 'Slide'} className="w-full h-36 object-cover rounded-xl" />
             )}
           </div>
         ))}

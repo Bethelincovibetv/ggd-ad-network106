@@ -63,7 +63,7 @@ const CampaignAnalytics: React.FC<Props> = ({ adId, onBack }) => {
 
       <Card className="overflow-hidden">
         <div className="flex gap-3 p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10">
-          {ad.image_url && <img src={ad.image_url} alt={ad.title} className="h-20 w-20 rounded-xl object-cover" />}
+          {ad.image_url && <img loading="lazy" src={ad.image_url} alt={ad.title} className="h-20 w-20 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-black truncate">{ad.title}</h2>

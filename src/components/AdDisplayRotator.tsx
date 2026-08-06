@@ -100,7 +100,7 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slo
       >
         {currentAd.imageUrl && (
           <div className="relative">
-            <img 
+            <img loading="lazy" 
               src={currentAd.imageUrl} 
               alt={currentAd.title}
               className="w-full h-48 object-cover"

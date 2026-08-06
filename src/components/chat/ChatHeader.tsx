@@ -16,7 +16,7 @@ const ChatHeader = ({ voiceEnabled, onToggleVoice }: ChatHeaderProps) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <img 
+            <img loading="lazy" 
               src="/lovable-uploads/8ddaf624-8a87-493f-998f-d39c2965eb7d.png" 
               alt="GGD AI" 
               className="w-10 h-10 rounded-full bg-white p-1"

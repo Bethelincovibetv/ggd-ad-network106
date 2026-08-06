@@ -156,7 +156,7 @@ const AdRotator = () => {
   function render(ad) {
     container.innerHTML =
       '<div class="ggd-ad" onclick="window.open(\\'' + ad.target_url + '\\',\\'_blank\\')">' +
-      (ad.image_url ? '<img src="' + ad.image_url + '" alt="' + ad.title + '">' : '') +
+      (ad.image_url ? '<img loading="lazy" src="' + ad.image_url + '" alt="' + ad.title + '">' : '') +
       '<div class="ggd-ad-body"><h3>' + ad.title + '</h3>' +
       '<p>' + (ad.description || '') + '</p>' +
       '<a class="ggd-cta" href="' + ad.target_url + '" target="_blank" rel="noopener">Learn More →</a></div>' +
@@ -297,7 +297,7 @@ const AdRotator = () => {
                     </div>
                   </div>
                   {ad.image_url && (
-                    <img src={ad.image_url} alt={ad.title} className="w-16 h-16 object-cover rounded ml-4" />
+                    <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-16 h-16 object-cover rounded ml-4" />
                   )}
                   <div className="flex gap-2 ml-4">
                     <Button onClick={() => setEditingAd(ad)} variant="outline" size="sm">
@@ -352,7 +352,7 @@ const AdRotator = () => {
               <Button variant="outline" onClick={() => document.getElementById('editAdImage')?.click()} className="w-full mt-1">
                 <Upload className="mr-2 h-4 w-4" />{editingAd.image_url ? 'Change Image' : 'Upload Image'}
               </Button>
-              {editingAd.image_url && <img src={editingAd.image_url} alt="Preview" className="max-w-32 h-32 object-cover rounded mx-auto mt-3" />}
+              {editingAd.image_url && <img loading="lazy" src={editingAd.image_url} alt="Preview" className="max-w-32 h-32 object-cover rounded mx-auto mt-3" />}
             </div>
             <div className="flex items-center space-x-2">
               <Switch checked={editingAd.is_active} onCheckedChange={(checked) => setEditingAd({ ...editingAd, is_active: checked })} />

@@ -85,7 +85,7 @@ const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
       <div className="rounded-3xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white shadow-xl shadow-orange-500/25 relative overflow-hidden">
         <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
         <div className="relative flex items-center gap-4">
-          <img src={gggCoin} alt="GGG" className="h-16 w-16 drop-shadow-lg" />
+          <img loading="lazy" src={gggCoin} alt="GGG" className="h-16 w-16 drop-shadow-lg" />
           <div>
             <p className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">GoodGift Gram (GGG) — currency</p>
             <p className="text-4xl font-black leading-tight">{credits.toLocaleString()}</p>
@@ -116,7 +116,7 @@ const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
             <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-xl p-3 text-center">
               <p className="text-xs text-orange-700 font-semibold">You'll receive</p>
               <div className="flex items-center justify-center gap-2 mt-1">
-                <img src={gggCoin} alt="GGG" className="h-7 w-7" />
+                <img loading="lazy" src={gggCoin} alt="GGG" className="h-7 w-7" />
                 <p className="text-2xl font-black text-orange-700">{creditsToGet} GGG</p>
               </div>
             </div>
