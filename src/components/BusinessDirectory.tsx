@@ -106,7 +106,7 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
 
       {/* Hero with background image */}
       <div className="relative rounded-2xl overflow-hidden p-5 text-white shadow-xl">
-        <img src={directoryHero} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <img loading="lazy" src={directoryHero} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-br from-orange-600/85 via-red-600/80 to-pink-700/85" />
         <div className="relative">
           <Store className="h-9 w-9 mb-2 drop-shadow-lg" />
@@ -239,7 +239,7 @@ const BusinessDirectory = ({ isBusiness }: BusinessDirectoryProps) => {
               <CardContent className="p-0">
                 <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 flex items-center gap-3">
                   {biz.logo_url ? (
-                    <img src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30 shadow-md" />
+                    <img loading="lazy" src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30 shadow-md" />
                   ) : (
                     <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
                       <Store className="h-7 w-7 text-white/80" />

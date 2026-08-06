@@ -86,7 +86,7 @@ const SlideManager = () => {
             {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
             {uploading ? 'Uploading...' : 'Upload Slide Image'}
           </Button>
-          {newSlide.image_url && <img src={newSlide.image_url} alt="Preview" className="w-full h-24 object-cover rounded-lg" />}
+          {newSlide.image_url && <img loading="lazy" src={newSlide.image_url} alt="Preview" className="w-full h-24 object-cover rounded-lg" />}
           <Input placeholder="Title (optional)" value={newSlide.title} onChange={e => setNewSlide({ ...newSlide, title: e.target.value })} className="h-8 text-xs" />
           <Input placeholder="Link URL (optional)" value={newSlide.link_url} onChange={e => setNewSlide({ ...newSlide, link_url: e.target.value })} className="h-8 text-xs" />
           <Button onClick={createSlide} className="w-full text-xs bg-gradient-to-r from-orange-500 to-red-600 text-white" size="sm"><Plus className="h-3 w-3 mr-1" />Add Slide</Button>
@@ -99,7 +99,7 @@ const SlideManager = () => {
             <CardContent className="p-2">
               {editing?.id === slide.id ? (
                 <div className="space-y-2">
-                  <img src={editing.image_url} alt="" className="w-full h-20 object-cover rounded" />
+                  <img loading="lazy" src={editing.image_url} alt="" className="w-full h-20 object-cover rounded" />
                   <input type="file" id={`edit-${slide.id}`} accept="image/*" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, 'edit'); }} />
                   <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" onClick={() => document.getElementById(`edit-${slide.id}`)?.click()}>
@@ -118,7 +118,7 @@ const SlideManager = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <img src={slide.image_url} alt={slide.title || 'Slide'} className="w-20 h-12 object-cover rounded" />
+                  <img loading="lazy" src={slide.image_url} alt={slide.title || 'Slide'} className="w-20 h-12 object-cover rounded" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{slide.title || 'No title'}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{slide.link_url || 'No link'}</p>

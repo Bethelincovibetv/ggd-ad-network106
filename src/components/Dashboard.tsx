@@ -406,7 +406,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     var ad = ads[currentIndex];
     trackEvent(ad.id, "impression");
     var html = '<div style="max-width:100%;margin:10px auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.12);font-family:system-ui,sans-serif;cursor:pointer;background:#fff" onclick="window.open(\\''+ad.target_url+'\\',\\'_blank\\')">';
-    if (ad.image_url) html += '<img src="'+ad.image_url+'" style="width:100%;display:block" alt="'+ad.title+'">';
+    if (ad.image_url) html += '<img loading="lazy" src="'+ad.image_url+'" style="width:100%;display:block" alt="'+ad.title+'">';
     if (ad.title) {
       html += '<div style="padding:10px 14px"><h3 style="margin:0;font-size:15px;font-weight:700;color:#1a1a1a">'+ad.title+'</h3>';
       if (ad.description) html += '<p style="margin:4px 0 0;font-size:12px;color:#666">'+ad.description+'</p>';
@@ -453,7 +453,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
+              <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
               <h1 className="text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">GGD Ad Network</h1>
             </div>
           </div>
@@ -559,7 +559,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     </Button>
                     {newAd.image_url && (
                       <div className="relative">
-                        <img src={newAd.image_url} alt="Banner preview" className="w-full rounded-lg" />
+                        <img loading="lazy" src={newAd.image_url} alt="Banner preview" className="w-full rounded-lg" />
                         <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setNewAd({ ...newAd, image_url: '' })}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -595,7 +595,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   </Button>
                   {editingAd.image_url && (
                     <div className="relative">
-                      <img src={editingAd.image_url} alt="Banner" className="w-full rounded-lg" />
+                      <img loading="lazy" src={editingAd.image_url} alt="Banner" className="w-full rounded-lg" />
                       <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setEditingAd({ ...editingAd, image_url: null })}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -631,7 +631,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       <div className="flex gap-3 items-center">
                         <div className="h-14 w-14 rounded-xl overflow-hidden bg-gradient-to-br from-orange-100 to-yellow-100 flex-shrink-0 flex items-center justify-center">
                           {ad.image_url ? (
-                            <img src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
+                            <img loading="lazy" src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
                           ) : (
                             <Megaphone className="h-6 w-6 text-orange-400" />
                           )}
@@ -899,7 +899,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <SidebarTrigger className="flex-shrink-0 h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-6 [&_svg]:w-6 [&_svg]:text-white" />
-                  <img src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
+                  <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
                   <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
                     GGD AD NETWORK
                   </h1>

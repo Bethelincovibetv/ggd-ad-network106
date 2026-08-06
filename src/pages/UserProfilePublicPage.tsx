@@ -165,7 +165,7 @@ const UserProfilePublicPage: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />Back
           </Button>
           <div className="flex items-center gap-2">
-            <img src={ggdLogo} alt="GGD" className="h-6 w-6 rounded-lg" />
+            <img loading="lazy" src={ggdLogo} alt="GGD" className="h-6 w-6 rounded-lg" />
             <span className="text-sm font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">GGD Network</span>
           </div>
           <Button variant="ghost" size="sm" onClick={share} className="gap-1 text-xs">
@@ -179,7 +179,7 @@ const UserProfilePublicPage: React.FC = () => {
         <Card className="overflow-hidden border-0 shadow-2xl animate-fade-in">
           <div className="relative h-56 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 overflow-hidden">
             {heroBanner && (
-              <img src={heroBanner} alt={`${name} hero banner`} className="absolute inset-0 w-full h-full object-cover opacity-50 scale-110 animate-[heroZoom_20s_ease-in-out_infinite_alternate]" />
+              <img loading="lazy" src={heroBanner} alt={`${name} hero banner`} className="absolute inset-0 w-full h-full object-cover opacity-50 scale-110 animate-[heroZoom_20s_ease-in-out_infinite_alternate]" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl animate-pulse" />
@@ -296,7 +296,7 @@ const UserProfilePublicPage: React.FC = () => {
                       </div>
                       {listing.image_url && (
                         <div className="relative">
-                          <img src={listing.image_url} alt={listing.title} className="w-full h-48 object-cover" />
+                          <img loading="lazy" src={listing.image_url} alt={listing.title} className="w-full h-48 object-cover" />
                           {listing.video_url && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="h-14 w-14 rounded-full bg-white/90 grid place-items-center shadow-lg">
@@ -336,7 +336,7 @@ const UserProfilePublicPage: React.FC = () => {
                     <CardContent className="p-0">
                       <div className="relative">
                         {listing.image_url ? (
-                          <img src={listing.image_url} alt={listing.title} className="w-full aspect-square object-cover" />
+                          <img loading="lazy" src={listing.image_url} alt={listing.title} className="w-full aspect-square object-cover" />
                         ) : (
                           <div className="w-full aspect-square bg-muted flex items-center justify-center">
                             <Store className="h-8 w-8 text-muted-foreground/30" />

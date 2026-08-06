@@ -131,7 +131,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     <Sidebar collapsible="icon" className="border-r border-border bg-white">
       <SidebarHeader className="border-b border-border bg-white">
         <div className="flex items-center gap-2 px-2 py-2">
-          <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg flex-shrink-0" />
+          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <h1 className="text-sm font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">

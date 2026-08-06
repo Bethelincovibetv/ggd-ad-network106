@@ -52,7 +52,7 @@ const AdDisplayPreview = () => {
       <Card className={`overflow-hidden border-0 shadow-lg ${wrapClass}`}>
         <CardContent className="p-0">
           <a href={ad.target_url} target="_blank" rel="noopener noreferrer" className="block relative">
-            {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full h-40 object-cover" />}
+            {ad.image_url && <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full h-40 object-cover" />}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
               <Sparkles className="h-2.5 w-2.5" />Sponsored
@@ -74,7 +74,7 @@ const AdDisplayPreview = () => {
         <CardContent className="p-0">
           <a href={ad.target_url} target="_blank" rel="noopener noreferrer" className="block group">
             <div className="relative overflow-hidden">
-              {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-700" />}
+              {ad.image_url && <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-700" />}
               <div className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 grid place-items-center shadow">
                 <MousePointerClick className="h-3.5 w-3.5 text-orange-600" />
               </div>
@@ -97,7 +97,7 @@ const AdDisplayPreview = () => {
     <Card className={`overflow-hidden border-border ${wrapClass}`}>
       <CardContent className="p-0">
         <a href={ad.target_url} target="_blank" rel="noopener noreferrer" className="block">
-          {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full" />}
+          {ad.image_url && <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full" />}
           <div className="p-2">
             <h3 className="font-semibold text-xs text-foreground">{ad.title}</h3>
             {ad.description && <p className="text-[10px] text-muted-foreground">{ad.description}</p>}

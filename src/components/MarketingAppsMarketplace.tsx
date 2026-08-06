@@ -54,7 +54,7 @@ const MarketingAppsMarketplace = () => {
           const isRedeemed = redeemed.includes(app.id);
           return (
             <Card key={app.id} className="overflow-hidden">
-              {app.image_url && <img src={app.image_url} alt={app.title} className="w-full h-24 object-cover" />}
+              {app.image_url && <img loading="lazy" src={app.image_url} alt={app.title} className="w-full h-24 object-cover" />}
               <CardContent className="p-3 space-y-2">
                 <h3 className="text-xs font-bold text-foreground">{app.title}</h3>
                 {app.description && <p className="text-[10px] text-muted-foreground line-clamp-2">{app.description}</p>}

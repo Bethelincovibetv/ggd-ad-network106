@@ -118,7 +118,7 @@ const PromotionalContent = () => {
               <Card key={f.id} className="overflow-hidden">
                 {f.image_url && (
                   <div className="relative cursor-pointer" onClick={() => setPreviewImage(f.image_url)}>
-                    <img src={f.image_url} alt={f.title} className="w-full aspect-square object-cover" />
+                    <img loading="lazy" src={f.image_url} alt={f.title} className="w-full aspect-square object-cover" />
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
                       <Eye className="h-6 w-6 text-white drop-shadow-lg" />
                     </div>
@@ -150,7 +150,7 @@ const PromotionalContent = () => {
             onClick={() => setPreviewImage(null)}>
             <X className="h-6 w-6" />
           </Button>
-          <img src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg" onClick={e => e.stopPropagation()} />
+          <img loading="lazy" src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg" onClick={e => e.stopPropagation()} />
           <Button className="absolute bottom-6 bg-gradient-to-r from-orange-500 to-red-500 text-white"
             onClick={(e) => { e.stopPropagation(); downloadFlyer(previewImage, 'flyer'); }}>
             <Download className="h-4 w-4 mr-2" />Download Flyer

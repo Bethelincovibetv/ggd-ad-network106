@@ -382,7 +382,7 @@ const AdminSyndicateManager = () => {
                       <Badge className={`rounded-full text-[10px] px-3 py-1 border-0 ${a.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : a.status === 'rejected' ? 'bg-red-100 text-red-700' : a.status === 'submitted' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{a.status}</Badge>
                       <span className="text-[10px] text-muted-foreground">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : 'Not submitted'}</span>
                     </div>
-                    {a.proof_url && <img src={a.proof_url} alt="Proof" className="w-full rounded-xl border cursor-pointer hover:opacity-90 transition" onClick={() => window.open(a.proof_url, '_blank')} />}
+                    {a.proof_url && <img loading="lazy" src={a.proof_url} alt="Proof" className="w-full rounded-xl border cursor-pointer hover:opacity-90 transition" onClick={() => window.open(a.proof_url, '_blank')} />}
                     {a.status === 'submitted' && (
                       <div className="flex gap-2">
                         <Button size="sm" className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs rounded-xl h-10 shadow-md" onClick={() => adminReviewAssignment(a.id, true)}>

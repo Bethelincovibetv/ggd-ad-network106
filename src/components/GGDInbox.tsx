@@ -362,7 +362,7 @@ const GGDInbox: React.FC = () => {
         <div className="flex items-center gap-3 p-3 border-b bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-lg">
           <button onClick={closeThread}><ArrowLeft className="h-5 w-5" /></button>
           <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
-            {otherProfile?.avatar_url ? <img src={otherProfile.avatar_url} className="h-full w-full object-cover" /> : <User className="h-4 w-4" />}
+            {otherProfile?.avatar_url ? <img loading="lazy" src={otherProfile.avatar_url} className="h-full w-full object-cover" /> : <User className="h-4 w-4" />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-bold text-sm truncate">{otherProfile?.business_name || otherProfile?.display_name || "Member"}</p>
@@ -422,7 +422,7 @@ const GGDInbox: React.FC = () => {
                 <div className={`rounded-2xl px-3 py-2 text-sm ${mine ? "bg-orange-500 text-white rounded-br-sm" : "bg-background border rounded-bl-sm"}`}>
                   {m.image_url && (
                     <a href={m.image_url} target="_blank" rel="noreferrer" className="block mb-1">
-                      <img src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
+                      <img loading="lazy" src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
                     </a>
                   )}
                   {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
@@ -535,7 +535,7 @@ const GGDInbox: React.FC = () => {
                     className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
                   >
                     <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
-                      {p.avatar_url ? <img src={p.avatar_url} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
+                      {p.avatar_url ? <img loading="lazy" src={p.avatar_url} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm truncate">{p.business_name || p.display_name || p.email?.split("@")[0]}</p>
@@ -563,7 +563,7 @@ const GGDInbox: React.FC = () => {
                   className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
                 >
                   <div className="h-11 w-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
-                    {t.avatarUrl ? <img src={t.avatarUrl} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
+                    {t.avatarUrl ? <img loading="lazy" src={t.avatarUrl} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">

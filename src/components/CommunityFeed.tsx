@@ -615,7 +615,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
             {imagePreview && (
               <div className="relative">
-                <img src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
+                <img loading="lazy" src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
                 <button
                   onClick={() => onPickImage(null)}
                   className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
@@ -817,7 +817,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
         <DialogContent className="max-w-5xl p-0 bg-black border-0">
           {lightboxUrl && (
-            <img src={lightboxUrl} alt="" className="w-full h-auto max-h-[90vh] object-contain" />
+            <img loading="lazy" src={lightboxUrl} alt="" className="w-full h-auto max-h-[90vh] object-contain" />
           )}
         </DialogContent>
       </Dialog>
@@ -879,7 +879,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
             onEligible={() => setEligible(true)}
           />
         ) : task.flyer_url ? (
-          <img src={task.flyer_url} alt={task.title} className="w-full max-h-[420px] object-cover" />
+          <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full max-h-[420px] object-cover" />
         ) : null}
         <div className="p-3">
           <Button
@@ -1036,7 +1036,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
             className="relative cursor-pointer select-none bg-muted"
             onClick={() => handleImageTap(post.image_url!)}
           >
-            <img src={post.image_url} alt="" className="w-full max-h-[480px] object-cover" />
+            <img loading="lazy" src={post.image_url} alt="" className="w-full max-h-[480px] object-cover" />
             {heartBurst && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <Heart className="h-24 w-24 text-white fill-red-500 drop-shadow-2xl animate-scale-in" />

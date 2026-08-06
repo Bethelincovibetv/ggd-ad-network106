@@ -234,7 +234,7 @@ const BusinessStorefront = () => {
             <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <div className="flex items-center gap-4 relative">
               {profile.logo_url ? (
-                <img src={profile.logo_url} alt={profile.business_name} className="h-16 w-16 rounded-2xl object-cover border-4 border-white/40 shadow-lg" />
+                <img loading="lazy" src={profile.logo_url} alt={profile.business_name} className="h-16 w-16 rounded-2xl object-cover border-4 border-white/40 shadow-lg" />
               ) : (
                 <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center">
                   <Store className="h-8 w-8" />
@@ -355,7 +355,7 @@ const BusinessStorefront = () => {
             ) : (
               listings.slice(0, 3).map((l: any) => (
                 <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
-                  {l.image_url ? <img src={l.image_url} className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-muted grid place-items-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}
+                  {l.image_url ? <img loading="lazy" src={l.image_url} className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-muted grid place-items-center"><Package className="h-4 w-4 text-muted-foreground" /></div>}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold truncate">{l.title}</p>
                     {l.price > 0 && <p className="text-[10px] text-orange-600 font-semibold">₦{Number(l.price).toLocaleString()}</p>}
@@ -376,7 +376,7 @@ const BusinessStorefront = () => {
         <Card className="overflow-hidden border-0 shadow-lg">
           <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-6 text-center text-white">
             {profile.logo_url ? (
-              <img src={profile.logo_url} alt={profile.business_name} className="h-20 w-20 rounded-2xl mx-auto mb-3 object-cover border-4 border-white/30 shadow-xl" />
+              <img loading="lazy" src={profile.logo_url} alt={profile.business_name} className="h-20 w-20 rounded-2xl mx-auto mb-3 object-cover border-4 border-white/30 shadow-xl" />
             ) : (
               <div className="h-20 w-20 rounded-2xl mx-auto mb-3 bg-white/20 flex items-center justify-center">
                 <Store className="h-10 w-10 text-white/80" />
@@ -428,7 +428,7 @@ const BusinessStorefront = () => {
               <Sparkles className="h-3.5 w-3.5 text-purple-600" />
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Site Cover Image</p>
             </div>
-            {profile.hero_image_url && <img src={profile.hero_image_url} alt="Hero" className="w-full h-24 object-cover rounded-lg" />}
+            {profile.hero_image_url && <img loading="lazy" src={profile.hero_image_url} alt="Hero" className="w-full h-24 object-cover rounded-lg" />}
             <p className="text-[11px] text-muted-foreground">Upload your own cover photo from your phone, or generate one with AI.</p>
 
             {/* Upload from phone */}
@@ -586,7 +586,7 @@ const BusinessStorefront = () => {
                 {uploadingListingImg ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 Upload Image
               </Button>
-              {newListing.image_url && <img src={newListing.image_url} alt="Preview" className="w-full rounded-lg" />}
+              {newListing.image_url && <img loading="lazy" src={newListing.image_url} alt="Preview" className="w-full rounded-lg" />}
               <div className="flex gap-2">
                 <Button onClick={addListing} className="flex-1 h-12 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold shadow-lg">Save Listing</Button>
                 <Button onClick={() => setAddingListing(false)} variant="outline" className="flex-1 h-12 font-bold">Cancel</Button>
@@ -624,7 +624,7 @@ const BusinessStorefront = () => {
                 {uploadingListingImg ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                 {editListing.image_url ? 'Replace Image' : 'Upload Image'}
               </Button>
-              {editListing.image_url && <img src={editListing.image_url} alt="Preview" className="w-full rounded-lg" />}
+              {editListing.image_url && <img loading="lazy" src={editListing.image_url} alt="Preview" className="w-full rounded-lg" />}
               <div className="flex gap-2">
                 <Button onClick={saveEditListing} disabled={savingListing} className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold shadow-lg">
                   {savingListing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
@@ -639,7 +639,7 @@ const BusinessStorefront = () => {
             <CardContent className="p-3">
               <div className="flex gap-3">
                 {l.image_url ? (
-                  <img src={l.image_url} alt={l.title} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
+                  <img loading="lazy" src={l.image_url} alt={l.title} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
                 ) : (
                   <div className="h-20 w-20 rounded-xl bg-muted grid place-items-center flex-shrink-0">
                     <Package className="h-6 w-6 text-muted-foreground" />

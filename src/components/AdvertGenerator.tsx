@@ -104,7 +104,7 @@ const AdvertGenerator = () => {
         <div class="corner-effects corner-bl"></div>
         <div class="corner-effects corner-br"></div>
         
-        ${flyerImage ? `<img src="${flyerImage}" alt="${productName}" class="product-image">` : `<div class="product-image" style="background: ${selectedType.style.buttonStyle}; display: flex; align-items: center; justify-content: center; font-size: 40px;">🎮</div>`}
+        ${flyerImage ? `<img loading="lazy" src="${flyerImage}" alt="${productName}" class="product-image">` : `<div class="product-image" style="background: ${selectedType.style.buttonStyle}; display: flex; align-items: center; justify-content: center; font-size: 40px;">🎮</div>`}
         
         <div class="product-title">${productName}</div>
         <div class="product-description">${productDescription}</div>
@@ -238,7 +238,7 @@ const AdvertGenerator = () => {
               </Button>
               {flyerImage && (
                 <div className="mt-4 text-center">
-                  <img src={flyerImage} alt="Preview" className="max-w-32 h-32 object-cover rounded mx-auto" />
+                  <img loading="lazy" src={flyerImage} alt="Preview" className="max-w-32 h-32 object-cover rounded mx-auto" />
                 </div>
               )}
             </div>

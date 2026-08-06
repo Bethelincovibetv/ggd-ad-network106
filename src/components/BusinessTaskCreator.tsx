@@ -300,7 +300,7 @@ const BusinessTaskCreator = () => {
         <CardContent className="p-0">
           {task.flyer_url && (
             <div className="aspect-video bg-muted overflow-hidden">
-              <img src={task.flyer_url} alt={task.title} className="w-full h-full object-cover" />
+              <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-full object-cover" />
             </div>
           )}
           <div className="p-3 space-y-2">
@@ -408,7 +408,7 @@ const BusinessTaskCreator = () => {
                 {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ImageIcon className="h-4 w-4 mr-2" />}
                 {uploading ? 'Uploading...' : 'Upload Flyer'}
               </Button>
-              {flyerUrl && <img src={flyerUrl} alt="Flyer" className="w-full rounded-lg mt-2" />}
+              {flyerUrl && <img loading="lazy" src={flyerUrl} alt="Flyer" className="w-full rounded-lg mt-2" />}
             </div>
 
             <div>
@@ -421,7 +421,7 @@ const BusinessTaskCreator = () => {
                       className={`w-full flex items-center justify-between gap-2 p-2 rounded-lg border transition cursor-pointer ${checked ? 'border-orange-400 bg-orange-50' : 'border-border hover:bg-muted/40'}`}>
                       <div className="flex items-center gap-2">
                         <Checkbox checked={checked} className="pointer-events-none" />
-                        {p.icon_url && <img src={p.icon_url} alt={p.platform_name} className="h-5 w-5" />}
+                        {p.icon_url && <img loading="lazy" src={p.icon_url} alt={p.platform_name} className="h-5 w-5" />}
                         <span className="text-xs font-medium">{p.platform_name}</span>
                       </div>
                       <Badge variant="outline" className="text-[9px] text-green-700 border-green-300">₦{p.price_per_task}</Badge>
@@ -621,7 +621,7 @@ const BusinessTaskCreator = () => {
                             <div>
                               <p className="text-[10px] font-medium text-foreground mb-1">Proof:</p>
                               <button onClick={() => setZoomImage(sub.proof_url)} className="block w-full">
-                                <img src={sub.proof_url} alt="Proof" className="w-full rounded-lg border" />
+                                <img loading="lazy" src={sub.proof_url} alt="Proof" className="w-full rounded-lg border" />
                               </button>
                             </div>
                           )}
@@ -650,7 +650,7 @@ const BusinessTaskCreator = () => {
       {/* Image zoom */}
       <Dialog open={!!zoomImage} onOpenChange={o => { if (!o) setZoomImage(null); }}>
         <DialogContent className="max-w-3xl p-2 bg-black/95">
-          {zoomImage && <img src={zoomImage} alt="Proof full size" className="w-full h-auto rounded" />}
+          {zoomImage && <img loading="lazy" src={zoomImage} alt="Proof full size" className="w-full h-auto rounded" />}
         </DialogContent>
       </Dialog>
     </div>

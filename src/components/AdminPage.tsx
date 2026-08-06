@@ -161,7 +161,7 @@ const AdminPage = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex min-h-screen w-56 flex-col border-r border-border bg-white dark:bg-card shadow-2xl lg:w-60">
         <div className="flex items-center gap-3 border-b border-border px-4 py-5">
-          <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
           <div>
             <h1 className="text-base font-bold text-foreground">GGD Admin</h1>
             <p className="text-xs text-muted-foreground">Control panel</p>
@@ -213,7 +213,7 @@ const AdminPage = () => {
           <div className="flex h-full flex-col">
             <SheetHeader className="border-b border-border px-4 py-5 text-left">
               <SheetTitle className="flex items-center gap-3 text-base">
-                <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+                <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
                 <span>Admin Navigation</span>
               </SheetTitle>
             </SheetHeader>

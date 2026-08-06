@@ -256,7 +256,7 @@ const AdminAdManager = () => {
                   <TableCell className="py-2">
                     <div className="flex items-center gap-2">
                       {ad.image_url && (
-                        <img 
+                        <img loading="lazy" 
                           src={ad.image_url} 
                           alt="" 
                           className="h-10 w-10 rounded-lg object-cover border border-border shrink-0"
@@ -340,7 +340,7 @@ const AdminAdManager = () => {
           {selectedAd && (
             <div className="space-y-4">
               {selectedAd.image_url && (
-                <img src={selectedAd.image_url} alt={selectedAd.title} className="w-full h-40 object-cover rounded-xl border border-border" />
+                <img loading="lazy" src={selectedAd.image_url} alt={selectedAd.title} className="w-full h-40 object-cover rounded-xl border border-border" />
               )}
               {selectedAd.ad_type === 'watch' && selectedAd.youtube_url && (
                 <div className="space-y-1">

@@ -102,7 +102,7 @@ const AdminChatWidget = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {adminLogo ? (
-                <img src={adminLogo} alt="Admin" className="h-8 w-8 rounded-full object-cover border-2 border-white" />
+                <img loading="lazy" src={adminLogo} alt="Admin" className="h-8 w-8 rounded-full object-cover border-2 border-white" />
               ) : (
                 <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
                   <MessageCircle className="h-4 w-4" />
