@@ -467,6 +467,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   }
 
   const renderContent = () => {
+    const disabled = <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
     switch (activeTab) {
       case 'ads':
         if (analyticsAdId) {
@@ -714,7 +715,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'marketplace':
-        return isEnabled('marketing_apps') ? <MarketingAppsMarketplace /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('marketing_apps') && isEnabled('marketplace') ? <MarketingAppsMarketplace /> : disabled;
 
       case 'promo':
         return isEnabled('promotional_content') && isEnabled('referral_system') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -725,25 +726,27 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <UserGuide />;
 
       case 'user-guide':
-        return <UserGuide />;
+        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <UserGuide /> : disabled;
 
       case 'business-guide':
-        return <BusinessGuide />;
+        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <BusinessGuide /> : disabled;
 
       case 'syndicate-guide':
-        return <SyndicateGuide />;
+        return isEnabled('syndicate') && (isEnabled('quick_guide') || isEnabled('nav_guide')) ? <SyndicateGuide /> : disabled;
 
       case 'wizard':
-        return <SetupWizard onComplete={() => setActiveTab('ads')} onNavigate={(tab) => { setActiveTab(tab); }} />;
+        return isEnabled('setup_wizard')
+          ? <SetupWizard onComplete={() => setActiveTab('ads')} onNavigate={(tab) => { setActiveTab(tab); }} />
+          : disabled;
 
       case 'about':
-        return <AboutPage />;
+        return isEnabled('nav_about') ? <AboutPage /> : disabled;
 
       case 'business-tasks':
         return isEnabled('business_tasks') ? <BusinessTaskCreator /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'profile':
-        return <UserProfilePage />;
+        return isEnabled('nav_profile') || isAdmin ? <UserProfilePage /> : disabled;
 
       case 'smart-links':
         return isEnabled('link_shortener') ? <LinkShortener /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -752,13 +755,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('referral_system') ? <ReferralsPage /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'my-business':
-        return <BusinessStorefront />;
+        return isEnabled('nav_my_business') ? <BusinessStorefront /> : disabled;
 
       case 'inbox':
         return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'directory':
-        return <BusinessDirectory isBusiness={isBusiness} />;
+        return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
 
       case 'syndicate':
         if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -766,7 +769,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <SyndicateDashboard onNavigate={handleTabChange} />;
 
       case 'syndicate-join':
-        return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
+        return isEnabled('syndicate') ? <SyndicateApplicationForm onApplied={() => initDashboard()} /> : disabled;
 
       case 'syndicate-wallet':
         if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -777,10 +780,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
 
       case 'upgrade':
-        return <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />;
+        return isEnabled('premium_upgrade') || isEnabled('co_owner_upgrade')
+          ? <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />
+          : disabled;
 
       case 'api-keys':
-        return (
+        return !isEnabled('api_keys') ? disabled : (
           <div className="space-y-4">
             {!isPremium && !isAdmin ? (
               <Card className="border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50">
@@ -856,13 +861,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         );
 
       case 'feed':
-        return <CommunityFeed onNavigate={handleTabChange} />;
+        return isEnabled('community') ? <CommunityFeed onNavigate={handleTabChange} /> : disabled;
 
       case 'growth':
         return <BusinessGrowthDashboard onNavigate={handleTabChange} />;
 
       case 'syndicate-payouts':
-        return <SyndicatePayouts />;
+        return isEnabled('syndicate') && isEnabled('business_pays_syndicate') ? <SyndicatePayouts /> : disabled;
 
       case 'support':
         return <SupportPage userEmail={userEmail} />;
