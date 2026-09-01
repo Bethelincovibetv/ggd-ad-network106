@@ -1269,10 +1269,6 @@ export type Database = {
           verified_platforms: string[] | null
           wallet_frozen: boolean
           withdraw_pin_hash: string | null
-          bank_code: string | null
-          paystack_recipient_code: string | null
-          paystack_recipient_status: string | null
-          paystack_recipient_details: Json | null
         }
         Insert: {
           account_name?: string | null
@@ -1295,10 +1291,6 @@ export type Database = {
           verified_platforms?: string[] | null
           wallet_frozen?: boolean
           withdraw_pin_hash?: string | null
-          bank_code?: string | null
-          paystack_recipient_code?: string | null
-          paystack_recipient_status?: string | null
-          paystack_recipient_details?: Json | null
         }
         Update: {
           account_name?: string | null
@@ -1321,10 +1313,6 @@ export type Database = {
           verified_platforms?: string[] | null
           wallet_frozen?: boolean
           withdraw_pin_hash?: string | null
-          bank_code?: string | null
-          paystack_recipient_code?: string | null
-          paystack_recipient_status?: string | null
-          paystack_recipient_details?: Json | null
         }
         Relationships: []
       }
@@ -1748,14 +1736,6 @@ export type Database = {
           processed_at: string | null
           status: string | null
           user_id: string
-          payout_mode: string | null
-          paystack_recipient_code: string | null
-          paystack_transfer_code: string | null
-          paystack_reference: string | null
-          failure_reason: string | null
-          idempotency_key: string | null
-          credits_held: number | null
-          updated_at: string | null
         }
         Insert: {
           account_name?: string | null
@@ -1767,14 +1747,6 @@ export type Database = {
           processed_at?: string | null
           status?: string | null
           user_id: string
-          payout_mode?: string | null
-          paystack_recipient_code?: string | null
-          paystack_transfer_code?: string | null
-          paystack_reference?: string | null
-          failure_reason?: string | null
-          idempotency_key?: string | null
-          credits_held?: number | null
-          updated_at?: string | null
         }
         Update: {
           account_name?: string | null
@@ -1786,44 +1758,6 @@ export type Database = {
           processed_at?: string | null
           status?: string | null
           user_id?: string
-          payout_mode?: string | null
-          paystack_recipient_code?: string | null
-          paystack_transfer_code?: string | null
-          paystack_reference?: string | null
-          failure_reason?: string | null
-          idempotency_key?: string | null
-          credits_held?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      processed_payments: {
-        Row: {
-          id: string
-          reference: string
-          user_id: string | null
-          amount: number
-          payment_type: string
-          metadata: Json | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          reference: string
-          user_id?: string | null
-          amount: number
-          payment_type: string
-          metadata?: Json | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          reference?: string
-          user_id?: string | null
-          amount?: number
-          payment_type?: string
-          metadata?: Json | null
-          created_at?: string
         }
         Relationships: []
       }
@@ -1832,45 +1766,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_process_withdrawal: {
-        Args: {
-          p_request_id: string
-          p_approve: boolean
-          p_rejection_reason?: string | null
-        }
-        Returns: Json
-      }
       admin_subscribe_user: {
         Args: { _tier: number; _user_id: string }
         Returns: undefined
-      }
-      complete_credit_task: {
-        Args: {
-          p_task_id: string
-        }
-        Returns: Json
-      }
-      complete_paystack_withdrawal: {
-        Args: {
-          p_reference: string
-          p_transfer_code?: string | null
-          p_status?: string
-          p_reason?: string | null
-        }
-        Returns: Json
-      }
-      create_syndicate_task: {
-        Args: {
-          p_title: string
-          p_description: string
-          p_share_link?: string | null
-          p_flyer_url?: string | null
-          p_placements: string[]
-          p_target_state?: string | null
-          p_max_syndicates: number
-          p_approval_mode?: string
-        }
-        Returns: Json
       }
       generate_business_slug: {
         Args: { _name: string; _user_id: string }
@@ -1884,41 +1782,8 @@ export type Database = {
         Returns: boolean
       }
       is_feature_enabled: { Args: { _key: string }; Returns: boolean }
-      refund_syndicate_withdrawal: {
-        Args: {
-          p_request_id: string
-          p_reason?: string | null
-        }
-        Returns: Json
-      }
       release_expired_syndicate_assignments: { Args: never; Returns: number }
-      request_syndicate_withdrawal: {
-        Args: {
-          p_amount: number
-          p_bank_name: string
-          p_account_number: string
-          p_account_name: string
-          p_pin_hash?: string | null
-          p_bank_code?: string | null
-        }
-        Returns: Json
-      }
-      review_syndicate_assignment: {
-        Args: {
-          p_assignment_id: string
-          p_approve: boolean
-          p_rejection_reason?: string | null
-        }
-        Returns: Json
-      }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
-      transfer_credits: {
-        Args: {
-          p_recipient_email: string
-          p_amount: number
-        }
-        Returns: Json
-      }
     }
     Enums: {
       app_role:
