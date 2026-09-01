@@ -38,38 +38,19 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not logged in');
-
-      // Find recipient
-      const { data: recipient } = await supabase.from('profiles')
-        .select('user_id, email, display_name').eq('email', recipientEmail.trim()).maybeSingle();
-      
-      if (!recipient) { toast.error('User not found with that email'); setLoading(false); return; }
-      if (recipient.user_id === user.id) { toast.error('Cannot transfer to yourself'); setLoading(false); return; }
-
-      // Deduct from sender
-      await supabase.from('profiles')
-        .update({ credits: credits - transferAmount }).eq('user_id', user.id);
-
-      // Add to recipient
-      const { data: recipientProfile } = await supabase.from('profiles')
-        .select('credits').eq('user_id', recipient.user_id).single();
-      await supabase.from('profiles')
-        .update({ credits: (recipientProfile?.credits || 0) + transferAmount }).eq('user_id', recipient.user_id);
-
-      // Record transfer
-      await supabase.from('credit_transfers' as any).insert({
-        sender_id: user.id, receiver_id: recipient.user_id, amount: transferAmount,
+      const { data, error } = await supabase.rpc('transfer_credits', {
+        p_recipient_email: recipientEmail.trim(),
+        p_amount: transferAmount,
       });
 
-      // Notify recipient
-      await supabase.from('notifications').insert({
-        user_id: recipient.user_id, title: '💰 Credits Received',
-        message: `You received ${transferAmount} credits from ${user.email}!`, type: 'credit',
-      });
+      if (error) throw error;
+      const res = data as any;
+      if (res && !res.success) {
+        throw new Error(res.error || 'Transfer failed');
+      }
 
-      onCreditsUpdate(credits - transferAmount);
+      const newBalance = res?.new_balance !== undefined ? res.new_balance : (credits - transferAmount);
+      onCreditsUpdate(newBalance);
       toast.success(`Sent ${transferAmount} credits to ${recipientEmail}!`);
       setRecipientEmail('');
       setAmount('');

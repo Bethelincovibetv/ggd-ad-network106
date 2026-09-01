@@ -122,39 +122,33 @@ const BusinessTaskCreator = () => {
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     if (form.placements.length === 0) { toast.error("Select at least one placement"); return; }
 
-    const totalCost = calculateTotalCost();
-    const creditsRequired = Math.ceil(totalCost / exchangeRate);
-    const eligible = Math.max(0, credits - loginBonusCredits);
-    if (eligible < creditsRequired) {
-      toast.error(`Need ${creditsRequired} eligible GGG credits (₦${totalCost.toLocaleString()}). You have ${eligible} eligible (${loginBonusCredits} are login bonus and cannot fund tasks).`);
-      return;
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     const maxSyndicates = parseInt(form.max_syndicates) || 10;
-    const costPerSyndicate = totalCost / maxSyndicates;
-    const payoutAmount = costPerSyndicate * (payoutPct / 100);
+    try {
+      const { data, error } = await supabase.rpc('create_syndicate_task', {
+        p_title: form.title.trim(),
+        p_description: form.description.trim(),
+        p_share_link: form.share_link.trim() || null,
+        p_flyer_url: flyerUrl || null,
+        p_placements: form.placements,
+        p_target_state: form.target_state.trim() || null,
+        p_max_syndicates: maxSyndicates,
+        p_approval_mode: form.approval_mode || 'manual',
+      });
 
-    const { error } = await supabase.from('syndicate_tasks').insert({
-      business_user_id: user.id, title: form.title, description: form.description,
-      flyer_url: flyerUrl || null, share_link: form.share_link || null,
-      placements: form.placements, target_state: form.target_state || null,
-      max_syndicates: maxSyndicates, cost_per_syndicate: costPerSyndicate,
-      total_cost: totalCost,
-      approval_mode: form.approval_mode,
-      payout_amount: payoutAmount,
-    } as any);
-    if (error) { toast.error("Failed to create task"); return; }
+      if (error) throw error;
+      const res = data as any;
+      if (res && !res.success) {
+        throw new Error(res.error || 'Failed to create task');
+      }
 
-    await supabase.from('profiles').update({ credits: credits - creditsRequired }).eq('user_id', user.id);
-
-    toast.success(`Task created! ${creditsRequired} GGG credits debited.`);
-    setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', approval_mode: 'manual' });
-    setFlyerUrl('');
-    setIsCreating(false);
-    fetchData();
+      toast.success(`Task created! ${res?.credits_debited || ''} GGG credits debited.`);
+      setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', approval_mode: 'manual' });
+      setFlyerUrl('');
+      setIsCreating(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create task");
+    }
   };
 
   const togglePlacement = (id: string) =>
@@ -163,50 +157,29 @@ const BusinessTaskCreator = () => {
     }));
 
   const reviewSubmission = async (assignmentId: string, approve: boolean) => {
-    const status = approve ? 'approved' : 'rejected';
-    await supabase.from('syndicate_task_assignments').update({
-      status, reviewed_at: new Date().toISOString(),
-    }).eq('id', assignmentId);
-
-    if (approve) {
-      const assignment = allAssignments.find(s => s.id === assignmentId);
-      if (assignment) {
-        const task = tasks.find(t => t.id === assignment.task_id);
-        const explicit = Number((task as any)?.payout_amount || 0);
-        const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (payoutPct / 100);
-        const payoutCredits = Math.floor(Number(payout) / exchangeRate);
-        const { data: synProf } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-        await supabase.from('profiles').update({
-          credits: Number(synProf?.credits || 0) + payoutCredits,
-        }).eq('user_id', assignment.syndicate_user_id);
-        const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-        if (synProfile) {
-          await supabase.from('syndicate_profiles').update({
-            tasks_completed: (synProfile.tasks_completed || 0) + 1,
-            ranking_score: (synProfile.ranking_score || 0) + 10,
-          }).eq('user_id', assignment.syndicate_user_id);
-        }
-        await supabase.from('notifications').insert({
-          user_id: assignment.syndicate_user_id,
-          title: '💰 Task Approved!',
-          message: `Approved! ${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`,
-          type: 'credit',
-        });
-      }
-    } else {
-      const assignment = allAssignments.find(s => s.id === assignmentId);
-      if (assignment) {
-        await supabase.from('notifications').insert({
-          user_id: assignment.syndicate_user_id,
-          title: '❌ Task Rejected',
-          message: 'Your task submission was rejected. Please review the requirements.',
-          type: 'warning',
-        });
-      }
+    let reason: string | null = null;
+    if (!approve) {
+      reason = window.prompt("Reason for rejection?", "Proof does not match requirements");
+      if (reason === null) return;
     }
+    try {
+      const { data, error } = await supabase.rpc('review_syndicate_assignment', {
+        p_assignment_id: assignmentId,
+        p_approve: approve,
+        p_rejection_reason: reason,
+      });
 
-    toast.success(approve ? "Approved & paid" : "Rejected");
-    fetchData();
+      if (error) throw error;
+      const res = data as any;
+      if (res && !res.success) {
+        throw new Error(res.error || 'Review failed');
+      }
+
+      toast.success(approve ? "Approved & paid" : "Rejected");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Review failed');
+    }
   };
 
   const archiveTask = async (taskId: string) => {

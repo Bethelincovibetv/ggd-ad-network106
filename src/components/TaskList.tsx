@@ -201,25 +201,36 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     toast.info("⏳ Sharing... Verifying in 15 seconds. Stay on the share page!", { duration: 15000 });
 
     setTimeout(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setVerifyingTaskId(null); return; }
-      const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
-      if (error) {
+      try {
+        const { data, error } = await supabase.rpc('complete_credit_task', {
+          p_task_id: task.id,
+        });
+
+        if (error) {
+          setVerifyingTaskId(null);
+          if ((error as any).code === '23505') { toast.info("Already completed!"); return; }
+          toast.error(error.message || "Failed to complete task");
+          return;
+        }
+
+        const res = data as any;
+        if (res && !res.success) {
+          setVerifyingTaskId(null);
+          toast.info(res.error || "Could not complete task");
+          return;
+        }
+
+        const awarded = res?.credits_awarded || task.reward_credits || 5;
+        const updatedCredits = credits + awarded;
+        onCreditsUpdate(updatedCredits);
+        setCompletions(prev => [...prev, task.id]);
         setVerifyingTaskId(null);
-        if (error.code === '23505') { toast.info("Already completed!"); return; }
-        toast.error("Failed to complete task"); return;
+        toast.success(`🎉 Earned ${awarded} credits!`);
+        fetchTasks();
+      } catch (err: any) {
+        setVerifyingTaskId(null);
+        toast.error(err.message || "Task verification failed");
       }
-      await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
-      if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
-        await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
-      }
-      const updatedCredits = credits + task.reward_credits;
-      await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
-      onCreditsUpdate(updatedCredits);
-      setCompletions(prev => [...prev, task.id]);
-      setVerifyingTaskId(null);
-      toast.success(`🎉 Earned ${task.reward_credits} credits!`);
-      fetchTasks();
     }, 15000);
   };
 

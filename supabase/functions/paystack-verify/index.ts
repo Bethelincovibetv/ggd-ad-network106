@@ -53,9 +53,22 @@ Deno.serve(async (req) => {
     }
 
     const txData = verifyData.data
-    const type = txData.metadata?.type
+    const type = txData.metadata?.type || 'credit_purchase'
     const email = txData.customer?.email
-    const amountNaira = txData.amount / 100
+    const amountNaira = Number(txData.amount) / 100
+
+    // Check if this reference has already been processed to prevent double-crediting
+    const { data: existingPayment } = await supabase
+      .from('processed_payments')
+      .select('id')
+      .eq('reference', reference)
+      .maybeSingle()
+
+    if (existingPayment) {
+      return new Response(JSON.stringify({ success: true, message: 'Transaction already processed' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Find user by email
     const { data: profile } = await supabase
@@ -65,9 +78,30 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (!profile) {
-      return new Response(JSON.stringify({ success: false, message: 'User not found' }), {
+      return new Response(JSON.stringify({ success: false, message: 'User not found for payment' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Record reference in processed_payments ledger
+    const { error: ledgerError } = await supabase
+      .from('processed_payments')
+      .insert({
+        reference,
+        user_id: profile.user_id,
+        amount: amountNaira,
+        payment_type: type,
+        metadata: txData.metadata || {},
+      })
+
+    if (ledgerError) {
+      // If unique constraint violated on reference, return already processed
+      if (ledgerError.code === '23505') {
+        return new Response(JSON.stringify({ success: true, message: 'Transaction already processed' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      throw new Error(`Failed to record payment ledger: ${ledgerError.message}`)
     }
 
     if (type === 'credit_purchase') {
@@ -78,7 +112,7 @@ Deno.serve(async (req) => {
         .eq('key', 'credit_exchange_rate')
         .maybeSingle()
 
-      const rate = parseInt(rateSetting?.value || '100')
+      const rate = parseInt(rateSetting?.value || '100') || 100
       const creditsToAdd = Math.floor(amountNaira / rate)
 
       await supabase.from('profiles')
@@ -88,7 +122,7 @@ Deno.serve(async (req) => {
       await supabase.from('notifications').insert({
         user_id: profile.user_id,
         title: '💰 Credits Added!',
-        message: `${creditsToAdd} credits added from ₦${amountNaira} payment.`,
+        message: `${creditsToAdd} GGG credits added from ₦${amountNaira.toLocaleString()} payment.`,
         type: 'payment',
       })
     } else if (type === 'task_wallet_funding') {
@@ -106,12 +140,19 @@ Deno.serve(async (req) => {
             total_funded: (wallet.total_funded || 0) + amountNaira,
           })
           .eq('user_id', profile.user_id)
+      } else {
+        await supabase.from('task_wallets')
+          .insert({
+            user_id: profile.user_id,
+            balance: amountNaira,
+            total_funded: amountNaira,
+          })
       }
 
       await supabase.from('notifications').insert({
         user_id: profile.user_id,
         title: '💼 Task Wallet Funded!',
-        message: `₦${amountNaira} added to your task wallet.`,
+        message: `₦${amountNaira.toLocaleString()} added to your task wallet.`,
         type: 'payment',
       })
     } else if (type === 'premium_upgrade' || type === 'vendor_upgrade') {

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2, Ban, Snowflake, Sun, PauseCircle, PlayCircle, RotateCw } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2, Ban, Snowflake, Sun, PauseCircle, PlayCircle, RotateCw, Zap, AlertTriangle, RefreshCw, CreditCard } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,8 @@ const AdminSyndicateManager = () => {
   const [loading, setLoading] = useState(true);
   const [viewingTaskSubs, setViewingTaskSubs] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null);
+  const [withdrawalFilter, setWithdrawalFilter] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -123,25 +125,55 @@ const AdminSyndicateManager = () => {
   };
 
   const processWithdrawal = async (id: string, approve: boolean) => {
-    const withdrawal = withdrawals.find(w => w.id === id);
-    await supabase.from('withdrawal_requests').update({ status: approve ? 'completed' : 'rejected', processed_at: new Date().toISOString() }).eq('id', id);
-    if (!approve && withdrawal) {
-      const { data: rateRow } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
-      const rate = parseInt(rateRow?.value || '') || 100;
-      const refundCredits = Math.ceil(Number(withdrawal.amount) / rate);
-      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', withdrawal.user_id).maybeSingle();
-      await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + refundCredits }).eq('user_id', withdrawal.user_id);
-    }
-    if (withdrawal) {
-      await supabase.from('notifications').insert({
-        user_id: withdrawal.user_id,
-        title: approve ? '💰 Withdrawal Processed' : '❌ Withdrawal Rejected',
-        message: approve ? `₦${withdrawal.amount} sent to your bank.` : `Equivalent GGG credits refunded for ₦${withdrawal.amount}.`,
-        type: approve ? 'credit' : 'warning',
+    try {
+      let reason: string | null = null;
+      if (!approve) {
+        reason = window.prompt("Reason for rejecting this withdrawal?", "Bank details invalid or flagged");
+        if (reason === null) return;
+      }
+      const { data, error } = await supabase.rpc('admin_process_withdrawal', {
+        p_request_id: id,
+        p_approve: approve,
+        p_rejection_reason: reason,
       });
+
+      if (error) throw error;
+      const res = data as any;
+      if (res && !res.success) {
+        throw new Error(res.error || 'Failed to process withdrawal');
+      }
+
+      toast.success(approve ? "Withdrawal marked as paid manually" : "Withdrawal rejected & refunded");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to process withdrawal");
     }
-    toast.success(approve ? "Withdrawal processed" : "Withdrawal rejected & refunded");
-    fetchData();
+  };
+
+  const triggerPaystackPayout = async (withdrawalId: string, forceRetry = false) => {
+    setProcessingPayoutId(withdrawalId);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
+        body: { withdrawal_id: withdrawalId, force_retry: forceRetry },
+      });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        throw new Error(data.error || 'Paystack transfer failed');
+      }
+
+      if (data.status === 'completed') {
+        toast.success("⚡ Paystack transfer successful! Funds sent to bank.");
+      } else {
+        toast.info(data.message || "⚡ Payout initiated via Paystack (processing)");
+      }
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Paystack transfer failed");
+      fetchData();
+    } finally {
+      setProcessingPayoutId(null);
+    }
   };
 
   const updatePlatformPrice = async (id: string, newPrice: number) => {
@@ -157,51 +189,29 @@ const AdminSyndicateManager = () => {
   };
 
   const adminReviewAssignment = async (assignmentId: string, approve: boolean) => {
-    const assignment = taskAssignments.find(a => a.id === assignmentId);
-    const status = approve ? 'approved' : 'rejected';
     let reason: string | null = null;
     if (!approve) {
       reason = window.prompt("Why is this proof rejected? (shown to the syndicate)", "Proof unclear or invalid");
       if (reason === null) return; // cancelled
     }
-    await supabase.from('syndicate_task_assignments').update({
-      status,
-      rejection_reason: approve ? null : reason,
-      reviewed_at: new Date().toISOString(),
-    } as any).eq('id', assignmentId);
-    if (approve && assignment) {
-      const task = allTasks.find(t => t.id === assignment.task_id);
-      const [{ data: rateRow }, { data: pctRow }] = await Promise.all([
-        supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
-        supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
-      ]);
-      const rate = parseInt(rateRow?.value || '') || 100;
-      const pct = parseInt(pctRow?.value || '') || 70;
-      const explicit = Number((task as any)?.payout_amount || 0);
-      const payout = explicit > 0 ? explicit : Number(task?.cost_per_syndicate || 50) * (pct / 100);
-      const payoutCredits = Math.floor(Number(payout) / rate);
-      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-      await supabase.from('profiles').update({ credits: Number(prof?.credits || 0) + payoutCredits }).eq('user_id', assignment.syndicate_user_id);
-      const { data: synProfile } = await supabase.from('syndicate_profiles').select('*').eq('user_id', assignment.syndicate_user_id).maybeSingle();
-      if (synProfile) {
-        await supabase.from('syndicate_profiles').update({
-          tasks_completed: (synProfile.tasks_completed || 0) + 1, ranking_score: (synProfile.ranking_score || 0) + 10,
-        }).eq('user_id', assignment.syndicate_user_id);
+    try {
+      const { data, error } = await supabase.rpc('review_syndicate_assignment', {
+        p_assignment_id: assignmentId,
+        p_approve: approve,
+        p_rejection_reason: reason,
+      });
+
+      if (error) throw error;
+      const res = data as any;
+      if (res && !res.success) {
+        throw new Error(res.error || 'Review failed');
       }
-      await supabase.from('notifications').insert({
-        user_id: assignment.syndicate_user_id, title: '💰 Task Approved by Admin!',
-        message: `${payoutCredits} GGG credits (≈₦${payout}) credited to your wallet.`, type: 'credit',
-      });
-    } else if (!approve && assignment) {
-      await supabase.from('notifications').insert({
-        user_id: assignment.syndicate_user_id,
-        title: '❌ Proof Rejected',
-        message: `Reason: ${reason}`,
-        type: 'warning',
-      });
+
+      toast.success(approve ? "Approved & paid!" : "Rejected");
+      viewTaskSubmissions(viewingTaskSubs!);
+    } catch (err: any) {
+      toast.error(err.message || 'Review failed');
     }
-    toast.success(approve ? "Approved & paid!" : "Rejected");
-    viewTaskSubmissions(viewingTaskSubs!);
   };
 
   if (loading) return (
@@ -431,47 +441,210 @@ const AdminSyndicateManager = () => {
         </TabsContent>
 
         {/* Withdrawals */}
-        <TabsContent value="withdrawals" className="space-y-3">
-          {pendingWithdrawals.length === 0 && (
-            <div className="text-center py-12">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                <Wallet className="h-8 w-8 text-green-400" />
-              </div>
-              <p className="text-sm font-semibold text-foreground">No pending payouts</p>
-              <p className="text-xs text-muted-foreground">All withdrawals processed</p>
+        <TabsContent value="withdrawals" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl">
+              {[
+                { key: 'pending', label: '⏳ Pending / In-Flight' },
+                { key: 'completed', label: '✅ Completed' },
+                { key: 'failed', label: '⚠️ Failed / Rejected' },
+                { key: 'all', label: '📋 All Records' },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setWithdrawalFilter(f.key as any)}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${
+                    withdrawalFilter === f.key
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
-          )}
-          {pendingWithdrawals.map(w => (
-            <Card key={w.id} className="border-0 shadow-md rounded-2xl overflow-hidden">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] uppercase opacity-80 font-semibold">Withdrawal Request</p>
-                      <p className="text-2xl font-black">₦{w.amount?.toLocaleString()}</p>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchData}
+              className="rounded-xl h-8 text-xs font-semibold"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+            </Button>
+          </div>
+
+          {(() => {
+            const filtered = withdrawals.filter(w => {
+              const s = w.status || 'pending';
+              if (withdrawalFilter === 'pending') return ['pending', 'pending_admin', 'pending_automatic', 'processing'].includes(s);
+              if (withdrawalFilter === 'completed') return s === 'completed';
+              if (withdrawalFilter === 'failed') return ['failed', 'rejected', 'cancelled'].includes(s);
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-12 bg-secondary/20 rounded-2xl">
+                  <div className="h-14 w-14 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3">
+                    <Wallet className="h-7 w-7 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">No withdrawals in this filter</p>
+                  <p className="text-xs text-muted-foreground">Change filter or refresh to view requests</p>
+                </div>
+              );
+            }
+
+            return filtered.map(w => {
+              const isProcessingThis = processingPayoutId === w.id;
+              const isPendingOrProcessing = ['pending', 'pending_admin', 'pending_automatic', 'processing'].includes(w.status || 'pending');
+              const isCompleted = w.status === 'completed';
+              const isFailed = ['failed', 'rejected', 'cancelled'].includes(w.status);
+
+              return (
+                <Card key={w.id} className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
+                  <CardContent className="p-0">
+                    <div className={`p-4 text-white ${
+                      isCompleted ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+                      isFailed ? 'bg-gradient-to-r from-red-600 to-rose-600' :
+                      w.status === 'processing' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' :
+                      'bg-gradient-to-r from-amber-500 to-orange-500'
+                    }`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Withdrawal Request</span>
+                            {w.payout_mode === 'automatic' ? (
+                              <Badge className="bg-white/25 text-white border-0 text-[9px] font-bold">
+                                <Zap className="h-3 w-3 mr-0.5" /> Auto (Paystack)
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-white/20 text-white border-0 text-[9px] font-medium">
+                                👤 Manual Transfer
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-2xl font-black mt-0.5">₦{Number(w.amount)?.toLocaleString()}</p>
+                          <p className="text-[11px] opacity-90">{w._profile?.display_name || w._profile?.email || 'Syndicate Member'}</p>
+                        </div>
+                        <Badge className="bg-white/25 text-white border-0 text-[10px] font-bold px-2.5 py-1">
+                          {isCompleted ? <CheckCircle className="h-3 w-3 mr-1" /> :
+                           w.status === 'processing' ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> :
+                           isFailed ? <AlertTriangle className="h-3 w-3 mr-1" /> :
+                           <Clock className="h-3 w-3 mr-1" />}
+                          {w.status === 'pending_automatic' ? 'Pending Auto' :
+                           w.status === 'pending_admin' ? 'Pending Admin' :
+                           w.status === 'processing' ? 'Processing Transfer' :
+                           w.status}
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge className="bg-white/20 text-white border-0 text-[10px]"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
-                  </div>
-                  <p className="text-[11px] opacity-90 mt-1">{w._profile?.display_name || w._profile?.email || 'User'}</p>
-                </div>
-                <div className="p-4 space-y-3">
-                  <div className="bg-secondary/50 rounded-xl p-3">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Bank Details</p>
-                    <p className="text-xs font-semibold text-foreground">{w.bank_name} — {w.account_number}</p>
-                    <p className="text-[11px] text-muted-foreground">{w.account_name}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs rounded-xl h-10 shadow-md" onClick={() => processWithdrawal(w.id, true)}>
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" />Send Payment
-                    </Button>
-                    <Button size="sm" variant="destructive" className="flex-1 text-xs rounded-xl h-10" onClick={() => processWithdrawal(w.id, false)}>
-                      <XCircle className="h-3.5 w-3.5 mr-1" />Reject
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                    <div className="p-4 space-y-3">
+                      <div className="bg-secondary/40 rounded-xl p-3 space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center text-[10px] uppercase font-bold text-muted-foreground">
+                          <span>Bank Account</span>
+                          <span>Requested: {new Date(w.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p className="font-bold text-sm text-foreground">{w.bank_name} — {w.account_number}</p>
+                        <p className="text-muted-foreground font-medium">{w.account_name}</p>
+
+                        {(w.paystack_reference || w.paystack_transfer_code || w.failure_reason) && (
+                          <div className="pt-2 mt-2 border-t border-border/40 space-y-1 text-[11px]">
+                            {w.paystack_reference && (
+                              <p className="text-muted-foreground font-mono text-[10px]">
+                                <span className="font-semibold text-foreground">Paystack Ref:</span> {w.paystack_reference}
+                              </p>
+                            )}
+                            {w.paystack_transfer_code && (
+                              <p className="text-muted-foreground font-mono text-[10px]">
+                                <span className="font-semibold text-foreground">Transfer Code:</span> {w.paystack_transfer_code}
+                              </p>
+                            )}
+                            {w.failure_reason && (
+                              <div className="rounded-lg bg-red-50 dark:bg-red-950/40 p-2 text-red-700 dark:text-red-300 text-[11px] font-medium">
+                                <strong>Failure Reason:</strong> {w.failure_reason} (Credits were safely restored)
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Controls */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {isPendingOrProcessing && (
+                          <>
+                            <Button
+                              size="sm"
+                              disabled={isProcessingThis}
+                              className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-xs rounded-xl h-10 font-bold shadow-md"
+                              onClick={() => triggerPaystackPayout(w.id, w.status === 'processing')}
+                            >
+                              {isProcessingThis ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              ) : (
+                                <Zap className="h-3.5 w-3.5 mr-1.5" />
+                              )}
+                              {w.status === 'processing' ? 'Re-check / Retry Paystack' : '⚡ Pay via Paystack'}
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              disabled={isProcessingThis}
+                              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white text-xs rounded-xl h-10 font-bold shadow-md"
+                              onClick={() => processWithdrawal(w.id, true)}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Mark Paid Manually
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isProcessingThis}
+                              className="text-xs rounded-xl h-10 px-3.5 font-bold"
+                              onClick={() => processWithdrawal(w.id, false)}
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject & Refund
+                            </Button>
+                          </>
+                        )}
+
+                        {isFailed && (
+                          <div className="flex w-full gap-2">
+                            <Button
+                              size="sm"
+                              disabled={isProcessingThis}
+                              className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs rounded-xl h-10 font-bold shadow-md"
+                              onClick={() => triggerPaystackPayout(w.id, true)}
+                            >
+                              {isProcessingThis ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                              🔄 Retry Paystack Transfer
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isProcessingThis}
+                              className="flex-1 text-xs rounded-xl h-10 font-bold"
+                              onClick={() => processWithdrawal(w.id, true)}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-emerald-600" /> Mark Paid Manually
+                            </Button>
+                          </div>
+                        )}
+
+                        {isCompleted && (
+                          <div className="w-full text-center py-1 text-xs text-muted-foreground font-medium flex items-center justify-center gap-1.5">
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                            Settled on {w.processed_at ? new Date(w.processed_at).toLocaleString() : 'Record'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            });
+          })()}
         </TabsContent>
 
         {/* Platform Pricing */}
