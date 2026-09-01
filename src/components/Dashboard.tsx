@@ -776,9 +776,6 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         if (!isSyndicate && !isAdmin) return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
         return <SyndicateWallet />;
 
-      case 'task-wallet':
-        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
-
       case 'upgrade':
         return isEnabled('premium_upgrade') || isEnabled('co_owner_upgrade')
           ? <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />
