@@ -60,7 +60,7 @@ interface AssignmentMeta {
   bank_name?: string | null;
   bank_account_name?: string | null;
   bank_account_number?: string | null;
-  proof_image_url?: string | null;
+  proof_url?: string | null;
   status: string;
 }
 
@@ -244,7 +244,7 @@ const GGDInbox: React.FC = () => {
       const syndicateId = (t as any)?.creator_id === me ? otherId : me;
       const { data: a } = await supabase
         .from("syndicate_task_assignments")
-        .select("id, task_id, syndicate_user_id, bank_name, bank_account_name, bank_account_number, proof_image_url, status")
+        .select("id, task_id, syndicate_user_id, proof_url, status")
         .eq("task_id", taskId)
         .eq("syndicate_user_id", syndicateId)
         .order("created_at", { ascending: false })
@@ -298,7 +298,7 @@ const GGDInbox: React.FC = () => {
       if (assignment) {
         await supabase
           .from("syndicate_task_assignments")
-          .update({ proof_image_url: proofUrl, status: "submitted" })
+          .update({ proof_url: proofUrl, status: "submitted" })
           .eq("id", assignment.id);
       }
       // Inject the proof screenshot as a system-generated chat message
@@ -346,7 +346,7 @@ const GGDInbox: React.FC = () => {
 
   // ---- Pinned metadata (only for Business viewer + when proof submitted) ----
   const iAmBusinessInThisTask = tab === "business" || (assignment && assignment.syndicate_user_id !== me);
-  const showBankDetails = !!(iAmBusinessInThisTask && assignment?.proof_image_url && assignment?.bank_account_number);
+  const showBankDetails = !!(iAmBusinessInThisTask && assignment?.proof_url && assignment?.bank_account_number);
   const waLink = otherProfile ? buildWhatsAppLink(otherProfile.whatsapp_number || otherProfile.business_phone, { taskName: taskTitle }) : null;
 
   const copy = async (text: string, label = "Copied") => {

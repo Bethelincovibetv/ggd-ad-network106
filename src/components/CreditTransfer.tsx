@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Send, Wallet, History, ArrowRight, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 
 interface CreditTransferProps {
   credits: number;
@@ -38,7 +39,7 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('transfer_credits', {
+      const { data, error } = await callRpc('transfer_credits', {
         p_recipient_email: recipientEmail.trim(),
         p_amount: transferAmount,
       });

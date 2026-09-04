@@ -10,6 +10,7 @@ import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin,
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
@@ -131,7 +132,7 @@ const AdminSyndicateManager = () => {
         reason = window.prompt("Reason for rejecting this withdrawal?", "Bank details invalid or flagged");
         if (reason === null) return;
       }
-      const { data, error } = await supabase.rpc('admin_process_withdrawal', {
+      const { data, error } = await callRpc('admin_process_withdrawal', {
         p_request_id: id,
         p_approve: approve,
         p_rejection_reason: reason,
@@ -195,7 +196,7 @@ const AdminSyndicateManager = () => {
       if (reason === null) return; // cancelled
     }
     try {
-      const { data, error } = await supabase.rpc('review_syndicate_assignment', {
+      const { data, error } = await callRpc('review_syndicate_assignment', {
         p_assignment_id: assignmentId,
         p_approve: approve,
         p_rejection_reason: reason,
