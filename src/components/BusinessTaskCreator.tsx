@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const BusinessTaskCreator = () => {
@@ -124,7 +125,7 @@ const BusinessTaskCreator = () => {
 
     const maxSyndicates = parseInt(form.max_syndicates) || 10;
     try {
-      const { data, error } = await supabase.rpc('create_syndicate_task', {
+      const { data, error } = await callRpc('create_syndicate_task', {
         p_title: form.title.trim(),
         p_description: form.description.trim(),
         p_share_link: form.share_link.trim() || null,
@@ -163,7 +164,7 @@ const BusinessTaskCreator = () => {
       if (reason === null) return;
     }
     try {
-      const { data, error } = await supabase.rpc('review_syndicate_assignment', {
+      const { data, error } = await callRpc('review_syndicate_assignment', {
         p_assignment_id: assignmentId,
         p_approve: approve,
         p_rejection_reason: reason,

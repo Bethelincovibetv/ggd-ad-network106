@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, ArrowDownCircle, Clock, CheckCircle, Loader2, ShieldCheck, KeyRound, Zap, AlertTriangle, XCircle, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
 
 async function sha256Hex(s: string): Promise<string> {
@@ -56,13 +57,14 @@ const SyndicateWallet = () => {
     setAutoPayoutEnabled((autoRes.data?.value || 'false').toLowerCase() === 'true');
     setMaxAutoPayout(parseInt(maxAutoRes.data?.value || '50000') || 50000);
     setWithdrawals(withdrawalsRes.data || []);
-    if (profileRes.data) {
-      setProfile(profileRes.data);
-      const bCode = profileRes.data.bank_code || findBankCode(profileRes.data.bank_name || '') || '';
+    const profileData = profileRes.data as (typeof profileRes.data & { bank_code?: string }) | null;
+    if (profileData) {
+      setProfile(profileData);
+      const bCode = profileData.bank_code || findBankCode(profileData.bank_name || '') || '';
       setBankForm({
-        bank_name: profileRes.data.bank_name || '',
-        account_number: profileRes.data.account_number || '',
-        account_name: profileRes.data.account_name || '',
+        bank_name: profileData.bank_name || '',
+        account_number: profileData.account_number || '',
+        account_name: profileData.account_name || '',
         bank_code: bCode,
       });
     }
@@ -170,7 +172,7 @@ const SyndicateWallet = () => {
 
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('request_syndicate_withdrawal', {
+      const { data, error } = await callRpc('request_syndicate_withdrawal', {
         p_amount: withdrawAmount,
         p_bank_name: bankForm.bank_name,
         p_account_number: bankForm.account_number,

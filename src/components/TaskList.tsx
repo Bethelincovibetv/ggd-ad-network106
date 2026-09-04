@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 import SlideCarousel from "@/components/SlideCarousel";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -202,7 +203,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
     setTimeout(async () => {
       try {
-        const { data, error } = await supabase.rpc('complete_credit_task', {
+        const { data, error } = await callRpc('complete_credit_task', {
           p_task_id: task.id,
         });
 
