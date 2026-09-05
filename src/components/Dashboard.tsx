@@ -721,18 +721,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('promotional_content') && isEnabled('referral_system') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'guide':
-        if (!isEnabled('quick_guide')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
-        if (isSyndicate) return <SyndicateGuide />;
-        return <UserGuide />;
-
       case 'user-guide':
-        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <UserGuide /> : disabled;
-
       case 'business-guide':
-        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <BusinessGuide /> : disabled;
-
       case 'syndicate-guide':
-        return isEnabled('syndicate') && (isEnabled('quick_guide') || isEnabled('nav_guide')) ? <SyndicateGuide /> : disabled;
+        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <UserGuide /> : disabled;
 
       case 'wizard':
         return isEnabled('setup_wizard')

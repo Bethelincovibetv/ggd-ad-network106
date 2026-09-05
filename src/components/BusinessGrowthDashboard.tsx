@@ -89,7 +89,7 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
       else if (views > 200 && clicks / Math.max(views, 1) < 0.02) t.push({ text: "Your advert gets views but few clicks — improve the headline with the AI assistant.", action: "Improve campaign", tab: "ads" });
       else if (views > prevViews && prevViews > 0) t.push({ text: "Traffic is trending up — add more budget to ride the momentum.", action: "Add budget", tab: "ads" });
     }
-    if (isEnabled("syndicate") && isEnabled("business_tasks")) t.push({ text: "Hire syndicates to push your offer across social media.", action: "Promote now", tab: "business-tasks" });
+    if (isEnabled("syndicate") && isEnabled("business_tasks")) t.push({ text: "Promote your offer with verified Syndicate promoters.", action: "Launch Campaign", tab: "business-tasks" });
     setTips(t.slice(0, 4));
     setLoading(false);
   };

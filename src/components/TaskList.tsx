@@ -260,7 +260,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-          <Gift className="h-5 w-5 text-orange-500" />Activity Feed
+          <Gift className="h-5 w-5 text-orange-500" />Credit Tasks (Community Promotion)
         </h2>
       </div>
 
@@ -269,7 +269,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="text-center mb-1">
             <h3 className="text-sm font-bold text-foreground">Create New</h3>
-            <p className="text-[10px] text-muted-foreground">Pick a campaign type to launch</p>
+            <p className="text-[10px] text-muted-foreground">Pick a promotion or advertising channel to launch</p>
           </div>
 
           {/* Normal Share Task */}
@@ -283,12 +283,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-foreground">📢 Normal Task</h4>
-                  <span className="text-[9px] font-bold bg-green-500/15 text-green-600 px-2 py-0.5 rounded-full">FREE</span>
+                  <h4 className="text-sm font-bold text-foreground">📢 Credit Task</h4>
+                  <span className="text-[9px] font-bold bg-green-500/15 text-green-600 px-2 py-0.5 rounded-full">CREDITS</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Credit ads — basic sharing task. Promote on WhatsApp, Telegram & more.</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Community promotion using GGG Credits. Community members share your content or watch your videos to earn credits.</p>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> All users</span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Community members</span>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
                 </div>
               </div>
@@ -300,7 +300,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           <Card
             className="border overflow-hidden transition-all border-purple-500/30 hover:border-purple-500/50 cursor-pointer hover:shadow-lg hover:shadow-purple-500/10 group"
             onClick={() => {
-              // Every user is now a business — go straight to syndicate campaign creation
+              // Route straight to syndicate campaign creation
               if (onNavigate) {
                 onNavigate('business-tasks');
                 setShowCreate(false);
@@ -317,27 +317,27 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-foreground">💰 Advanced Task</h4>
-                    <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">PRO</span>
+                    <h4 className="text-sm font-bold text-foreground">👥 Syndicate Campaign</h4>
+                    <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">PAID NETWORK</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Paid Syndicate ads — verified promoters share your ad across Facebook, Instagram, TikTok & more for massive reach.
+                    Professional paid promotion — verified Syndicate promoters share your offer across Facebook, Instagram, TikTok & WhatsApp for verified reach.
                   </p>
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Business only</span>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 20 credits</span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Megaphone className="h-3 w-3" /> Verified Promoters</span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> Direct Campaign Budget</span>
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors shrink-0" />
               </div>
 
               <div className="mt-3 rounded-xl bg-purple-500/10 border border-purple-500/20 px-3 py-2">
-                <p className="text-[10px] text-purple-400 font-semibold mb-1">🔥 How is this different?</p>
+                <p className="text-[10px] text-purple-400 font-semibold mb-1">🔥 Why Syndicate?</p>
                 <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc list-inside">
-                  <li>Your ad is assigned to <span className="font-semibold text-foreground">verified Syndicate promoters</span></li>
-                  <li>Promoters share with <span className="font-semibold text-foreground">proof of posting</span> on real social accounts</li>
-                  <li>Get <span className="font-semibold text-foreground">massive organic reach</span> across multiple platforms</li>
-                  <li>Track performance with detailed analytics per promoter</li>
+                  <li>Assigned to <span className="font-semibold text-foreground">verified professional promoters</span></li>
+                  <li>Promoters share with <span className="font-semibold text-foreground">proof of posting</span> on real accounts</li>
+                  <li>Generates <span className="font-semibold text-foreground">multi-channel organic reach</span></li>
+                  <li>Promoters earn into their <span className="font-semibold text-foreground">Syndicate paid wallet</span></li>
                 </ul>
                 <p className="text-[10px] text-green-400 font-bold mt-1.5 flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" /> Tap to launch your campaign

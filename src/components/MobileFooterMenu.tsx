@@ -22,7 +22,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', grad: 'from-sky-400 via-blue-500 to-indigo-500' }] : []),
     ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'Inbox', grad: 'from-teal-400 via-cyan-500 to-blue-500' }] : []),
     ...(isSyndicate && isEnabled('syndicate')
-      ? [{ id: 'syndicate', icon: Users, label: 'Crew', grad: 'from-violet-400 via-purple-500 to-indigo-600' }]
+      ? [{ id: 'syndicate', icon: Users, label: 'Syndicate', grad: 'from-violet-400 via-purple-500 to-indigo-600' }]
       : isEnabled('nav_my_business')
         ? [{ id: 'my-business', icon: Store, label: 'My Biz', grad: 'from-indigo-400 via-blue-500 to-cyan-500' }]
         : []),

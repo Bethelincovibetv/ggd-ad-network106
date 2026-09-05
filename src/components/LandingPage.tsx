@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Globe, Zap, BarChart3, Code, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, Briefcase, TrendingUp, DollarSign, Target } from "lucide-react";
+import { 
+  Globe, Zap, BarChart3, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, 
+  Briefcase, TrendingUp, Target, Building2, Store, Megaphone, Sparkles, Coins, CheckCircle2,
+  Share2, Eye, PenTool, Layers
+} from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -98,20 +102,63 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   };
 
   const navItems = [
-    { id: 'features', label: 'Features' },
+    { id: 'features', label: 'What GGD Does' },
+    { id: 'business', label: 'For Businesses' },
+    { id: 'promote-earn', label: 'Promote & Earn' },
     { id: 'how-it-works', label: 'How It Works' },
-    { id: 'business', label: 'For Business' },
-    { id: 'earn', label: 'Earn Money' },
+    { id: 'blogmate', label: 'BlogMate AI' },
     { id: 'contact', label: 'Contact' },
   ];
 
-  const features = [
-    { icon: Globe, title: "Global Reach", description: "Display your ads across thousands of websites and social media platforms." },
-    { icon: Code, title: "Launch In Minutes", description: "Set up your business profile, create a campaign, and reach real audiences fast." },
-    { icon: BarChart3, title: "Real-Time Analytics", description: "Track impressions, clicks, and conversions with detailed dashboards." },
-    { icon: Shield, title: "Trusted & Secure", description: "Your campaigns and earnings are protected with bank-grade security." },
-    { icon: Users, title: "Earn by Sharing", description: "Complete tasks, refer friends, and earn credits to grow your business." },
-    { icon: Smartphone, title: "Mobile App", description: "Install our app on your phone for quick ad management on the go." },
+  const coreCapabilities = [
+    {
+      icon: Building2,
+      title: "Get Discovered",
+      description: "Establish your presence in the GGD Business Directory with your brand profile, contact info, and WhatsApp link so customers can find you.",
+      color: "text-blue-400 bg-blue-500/10"
+    },
+    {
+      icon: Store,
+      title: "Show What You Sell",
+      description: "Showcase physical products, digital goods, and service offerings with clear pricing and direct inquiry channels.",
+      color: "text-emerald-400 bg-emerald-500/10"
+    },
+    {
+      icon: Megaphone,
+      title: "Get Visibility",
+      description: "Run high-visibility commercial Banner Ads across GGD and partner sites, plus unlock eligible featured exposure to drive traffic.",
+      color: "text-orange-400 bg-orange-500/10"
+    },
+    {
+      icon: Share2,
+      title: "Promote & Reach",
+      description: "Launch community Credit Tasks to gain video views, website visits, and social shares powered by the GGG credit economy.",
+      color: "text-yellow-400 bg-yellow-500/10"
+    },
+    {
+      icon: Users,
+      title: "Work With Promoters",
+      description: "Partner with verified Syndicate promoters who share your business campaigns across WhatsApp, Facebook, Instagram, and TikTok.",
+      color: "text-purple-400 bg-purple-500/10"
+    },
+    {
+      icon: Sparkles,
+      title: "Create Marketing Content",
+      description: "Use integrated marketing tools, including BlogMate AI, to craft compelling articles, social posts, ads, and sales copy.",
+      color: "text-pink-400 bg-pink-500/10"
+    },
+    {
+      icon: Globe,
+      title: "Build Awareness",
+      description: "Share updates, network with local entrepreneurs, and engage with the active GGD community to grow brand loyalty.",
+      color: "text-cyan-400 bg-cyan-500/10"
+    },
+    {
+      icon: BarChart3,
+      title: "Track Results",
+      description: "Monitor real-time performance analytics including impressions, clicks, click-through rates, and conversion feedback.",
+      color: "text-red-400 bg-red-500/10"
+    },
   ];
 
   return (
@@ -120,10 +167,24 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />
+            <img src={ggdLogo} alt="GGD Ad Network" className="h-8 w-8 rounded-lg" />
             <span className="font-black text-xl text-white">GGD</span>
           </div>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="text-white p-2 border border-white/30 rounded-lg">
+
+          <div className="hidden md:flex items-center gap-6">
+            {navItems.map(item => (
+              <button key={item.id} onClick={() => scrollTo(item.id)}
+                className="text-sm text-white/90 hover:text-white font-medium transition-colors">
+                {item.label}
+              </button>
+            ))}
+            <Button onClick={onGetStarted}
+              className="bg-white text-[#e67e22] hover:bg-white/90 font-bold px-4 py-2 rounded-lg">
+              Get Started
+            </Button>
+          </div>
+
+          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-white p-2 border border-white/30 rounded-lg">
             {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
@@ -131,7 +192,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333] animate-fade-in">
+        <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333] animate-fade-in md:hidden">
           <div className="flex flex-col p-6 space-y-6">
             {navItems.map(item => (
               <button key={item.id} onClick={() => scrollTo(item.id)}
@@ -171,28 +232,29 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
               </div>
             </div>
 
-            {/* Badge */}
+            {/* Positioning Badge */}
             <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-5 py-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Zap className="h-4 w-4 text-[#e67e22]" />
-              <span className="text-sm font-semibold text-gray-200">#1 Social Media Ad Network</span>
+              <span className="text-xs md:text-sm font-semibold text-gray-200">Digital Business-Growth & Marketing Platform</span>
             </div>
 
             {/* Main heading */}
             <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in" style={{ animationDelay: '0.4s' }}>
-              Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] to-[#e74c3c]">Business</span>
+              Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">Business</span>
             </h1>
 
-            <p className="text-base md:text-lg text-gray-400 max-w-lg mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
-              Create ad campaigns and reach thousands through our network of social media operators. WhatsApp, Facebook, Instagram, TikTok & more.
+            {/* Supporting Copy */}
+            <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
+              Get discovered, reach more customers, promote your products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.
             </p>
 
-            <div className="flex flex-col gap-3 pt-4 max-w-sm mx-auto animate-fade-in" style={{ animationDelay: '0.8s' }}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 max-w-md mx-auto animate-fade-in justify-center" style={{ animationDelay: '0.8s' }}>
               <Button onClick={onGetStarted} size="lg"
-                className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-transform">
+                className="w-full sm:w-auto bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-transform">
                 Start Free <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button variant="outline" size="lg" onClick={() => scrollTo('how-it-works')}
-                className="w-full border-[#444] text-gray-400 hover:bg-[#2a2a2a] hover:text-white py-7 text-lg rounded-xl bg-[#2a2a2a]">
+                className="w-full sm:w-auto border-[#444] text-gray-300 hover:bg-[#2a2a2a] hover:text-white px-8 py-7 text-lg rounded-xl bg-[#2a2a2a]">
                 How It Works
               </Button>
             </div>
@@ -213,10 +275,33 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 <div className="text-2xl md:text-3xl font-black text-[#e67e22]">
                   {s.value !== null ? `${s.value.toLocaleString()}${s.suffix}` : s.display}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+                <div className="text-xs text-gray-400 mt-1">{s.label}</div>
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* What GGD Helps You Do */}
+      <div id="features" className="container mx-auto px-4 py-16">
+        <div className="text-center mb-12 space-y-2">
+          <h2 className="text-3xl md:text-4xl font-black text-white">What GGD Helps You Do</h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+            Everything your business needs to establish a presence, attract audiences, and drive real outcomes.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {coreCapabilities.map((item, i) => (
+            <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-300 group hover:-translate-y-1">
+              <CardContent className="p-5 space-y-3">
+                <div className={`p-3 rounded-xl w-fit ${item.color}`}>
+                  <item.icon className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors">{item.title}</h3>
+                <p className="text-gray-400 text-xs leading-relaxed">{item.description}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
@@ -225,7 +310,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         <div className="container mx-auto px-4 py-12">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Live Ad Campaigns</h2>
-            <p className="text-gray-400 text-sm">See real ads running on GGD Ad Network right now</p>
+            <p className="text-gray-400 text-sm">See real commercial banner ads running on GGD Ad Network right now</p>
           </div>
           <div className="max-w-sm mx-auto">
             <Card className="overflow-hidden bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-500">
@@ -244,7 +329,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 </div>
               </div>
               <div className="bg-[#111] px-4 py-2 text-center border-t border-[#333]">
-                <p className="text-[10px] text-gray-500">Powered by <span className="font-semibold text-[#e67e22]">GGD Ad Network</span></p>
+                <p className="text-[10px] text-gray-500">Commercial Banner Ads powered by <span className="font-semibold text-[#e67e22]">GGD Ad Network</span></p>
               </div>
             </Card>
             {sampleAds.length > 1 && (
@@ -258,115 +343,245 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       )}
 
-      {/* For Business Section */}
+      {/* For Businesses Section */}
       <div id="business" className="container mx-auto px-4 py-16">
-        <Card className="bg-gradient-to-br from-[#0a1628] to-[#1a2744] border-[#2a3f5f] max-w-3xl mx-auto overflow-hidden">
-          <CardContent className="p-8 text-center space-y-6 relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-            <div className="relative mx-auto w-full max-w-sm group">
+        <Card className="bg-gradient-to-br from-[#0a1628] via-[#102038] to-[#1a2744] border-[#2a3f5f] max-w-4xl mx-auto overflow-hidden">
+          <CardContent className="p-8 md:p-12 space-y-8 relative">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full px-3.5 py-1 text-xs font-semibold">
+                <Building2 className="h-3.5 w-3.5" /> For Growing Businesses
+              </div>
+              <h2 className="text-2xl md:text-4xl font-black text-white">
+                Establish, Promote, and Grow Your Business
+              </h2>
+              <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+                Businesses can use GGD to establish their presence, showcase products and services, promote their business, reach customers and grow.
+              </p>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-md group">
               <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 to-orange-500/30 blur-2xl rounded-2xl animate-pulse" />
-              <img src={businessImg} alt="Grow your small business with GGD ads" loading="lazy" width={1024} height={768}
-                className="relative rounded-2xl shadow-2xl shadow-blue-500/20 hover:scale-105 transition-transform duration-500 animate-fade-in" />
+              <img src={businessImg} alt="Grow your business on GGD" loading="lazy" width={1024} height={768}
+                className="relative rounded-2xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-transform duration-500" />
             </div>
-            <Briefcase className="h-12 w-12 text-blue-400 mx-auto animate-bounce" />
-            <h2 className="text-2xl md:text-3xl font-bold text-white">For Small Business Owners</h2>
-            <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
-              Don't have a big marketing budget? No problem. Create ad campaigns, post tasks for our syndicate network, and watch your business grow. Pay only for results.
-            </p>
-            <div className="grid grid-cols-3 gap-3">
+
+            <div className="grid sm:grid-cols-2 gap-4 pt-2">
               {[
-                { icon: <Target className="h-6 w-6 text-red-400" />, label: "Create Ads" },
-                { icon: <Users className="h-6 w-6 text-orange-400" />, label: "Target Audience" },
-                { icon: <TrendingUp className="h-6 w-6 text-green-400" />, label: "Track Results" },
+                {
+                  icon: Building2,
+                  title: "Establish Your Presence",
+                  desc: "Create a verified profile in the Business Directory with contact info, WhatsApp link, location, and brand description."
+                },
+                {
+                  icon: Store,
+                  title: "Showcase What You Sell",
+                  desc: "Display products, services, pricing, and key features directly on your storefront so visitors can inquire easily."
+                },
+                {
+                  icon: Megaphone,
+                  title: "Reach Targeted Customers",
+                  desc: "Amplify your message through commercial Banner Ads, community credit tasks, and verified Syndicate promoter campaigns."
+                },
+                {
+                  icon: TrendingUp,
+                  title: "Track Performance & Grow",
+                  desc: "Monitor impressions, clicks, CTR, and customer engagement to continuously turn visibility into real business growth."
+                },
               ].map((item, i) => (
-                <div key={i} className="bg-[#1a2744]/80 border border-[#2a3f5f] rounded-xl p-4 hover:border-blue-500/50 hover:scale-105 transition-all">
-                  <div className="flex justify-center mb-2">{item.icon}</div>
-                  <p className="text-xs text-gray-300 font-medium">{item.label}</p>
+                <div key={i} className="bg-[#1a2744]/70 border border-[#2a3f5f] rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                      <item.icon className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white">{item.title}</h3>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed pl-10">{item.desc}</p>
                 </div>
               ))}
             </div>
-            <Button onClick={onGetStarted} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
-              Create Your First Ad <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+
+            <div className="text-center pt-2">
+              <Button onClick={onGetStarted} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-base font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-105 transition-transform">
+                Start Your Business Presence <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Earn Section - Syndicate */}
-      <div id="earn" className="container mx-auto px-4 py-16">
-        <Card className="bg-gradient-to-br from-[#1a1a2e] to-[#2d1b3d] border-[#3d2b4f] max-w-3xl mx-auto overflow-hidden">
-          <CardContent className="p-8 text-center space-y-6 relative">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl animate-pulse" />
-            <div className="relative mx-auto w-full max-w-sm group">
-              <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 to-yellow-500/30 blur-2xl rounded-2xl animate-pulse" />
-              <img src={syndicateImg} alt="Earn money sharing ads on social media" loading="lazy" width={1024} height={768}
-                className="relative rounded-2xl shadow-2xl shadow-purple-500/20 hover:scale-105 transition-transform duration-500 animate-fade-in" />
-            </div>
-            <Star className="h-12 w-12 text-yellow-400 mx-auto animate-pulse" />
-            <h2 className="text-2xl md:text-3xl font-bold text-white">Earn Money as a Syndicate</h2>
-            <p className="text-gray-400 max-w-xl mx-auto leading-relaxed">
-              Turn your social media into income. Share ads across WhatsApp, Facebook, Instagram, TikTok & X. Get paid for every task you complete.
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { icon: <DollarSign className="h-6 w-6 text-yellow-400" />, label: "Earn Daily" },
-                { icon: <Smartphone className="h-6 w-6 text-purple-400" />, label: "Work Mobile" },
-                { icon: <Globe className="h-6 w-6 text-green-400" />, label: "Anywhere" },
-              ].map((item, i) => (
-                <div key={i} className="bg-[#2d1b3d]/80 border border-[#3d2b4f] rounded-xl p-4 hover:border-yellow-500/50 hover:scale-105 transition-all">
-                  <div className="flex justify-center mb-2">{item.icon}</div>
-                  <p className="text-xs text-gray-300 font-medium">{item.label}</p>
+      {/* Promote & Earn Section (Clear distinction between Credit Tasks and Syndicate) */}
+      <div id="promote-earn" className="container mx-auto px-4 py-16">
+        <div className="text-center mb-12 space-y-2">
+          <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-200">
+            <Coins className="h-3.5 w-3.5 text-[#e67e22]" /> Two Distinct Channels
+          </div>
+          <h2 className="text-3xl md:text-4xl font-black text-white">Promote & Earn on GGD</h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
+            GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {/* Credit Tasks Card */}
+          <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
+            <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase tracking-wider">
+                  Community Economy
+                </span>
+                <span className="text-xs text-gray-400">Earn & Spend</span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Share2 className="h-6 w-6" />
                 </div>
-              ))}
-            </div>
-            <Button onClick={() => navigate('/syndicate-register')} size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white px-8 py-5 text-base font-bold rounded-xl hover:scale-105 transition-transform">
-              Become a Syndicate <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </CardContent>
-        </Card>
+                <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
+                <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                  Community members complete promotional activities like watching YouTube videos, visiting websites, and social sharing to earn GGG Credits.
+                </p>
+              </div>
+
+              <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
+                <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
+                <ul className="space-y-1.5 list-disc list-inside text-gray-400">
+                  <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
+                  <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
+                  <li>Promote social posts, watch time, and link visits through active community members.</li>
+                </ul>
+              </div>
+
+              <div className="pt-4 mt-auto">
+                <Button onClick={onGetStarted} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl">
+                  Explore Credit Tasks <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Syndicate Card */}
+          <Card className="bg-gradient-to-br from-[#24172f] via-[#1b1224] to-[#140c1c] border-purple-500/30 overflow-hidden flex flex-col">
+            <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full uppercase tracking-wider">
+                  Paid Syndicate Network
+                </span>
+                <span className="text-xs text-gray-400">Real Paid Rewards</span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="h-12 w-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <Users className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Syndicate Promoters</h3>
+                <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                  Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp, Facebook, Instagram, and TikTok with verified proof.
+                </p>
+              </div>
+
+              <div className="space-y-2 bg-[#0e0714]/60 rounded-xl p-4 border border-purple-500/20 text-xs text-gray-300">
+                <p className="font-semibold text-purple-400">How the Syndicate Economy Works:</p>
+                <ul className="space-y-1.5 list-disc list-inside text-gray-400">
+                  <li>Businesses fund paid campaigns to reach <strong className="text-white">targeted social audiences</strong>.</li>
+                  <li>Verified Syndicate promoters share across social media and upload <strong className="text-white">proof of posting</strong>.</li>
+                  <li>Promoters earn cash rewards into their <strong className="text-white">separate Syndicate wallet</strong>.</li>
+                </ul>
+              </div>
+
+              <div className="pt-4 mt-auto">
+                <Button onClick={() => navigate('/syndicate-register')} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-6 rounded-xl">
+                  Become a Syndicate Promoter <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Features */}
-      <div id="features" className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Everything You Need</h2>
-          <p className="text-gray-400 max-w-xl mx-auto">Powerful tools for businesses of all sizes.</p>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f, i) => (
-            <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/30 transition-all duration-300 group hover:scale-105 hover:-translate-y-1">
-              <CardContent className="p-6 space-y-3">
-                <div className="p-3 bg-[#e67e22]/10 rounded-xl w-fit group-hover:bg-[#e67e22]/20 transition-colors">
-                  <f.icon className="h-6 w-6 text-[#e67e22]" />
-                </div>
-                <h3 className="text-lg font-semibold text-white">{f.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{f.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* How it works */}
+      {/* How GGD Helps You Grow */}
       <div id="how-it-works" className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">How It Works</h2>
-          <p className="text-gray-400">From signup to massive reach in 4 simple steps</p>
+        <div className="text-center mb-12 space-y-2">
+          <h2 className="text-3xl md:text-4xl font-black text-white">How GGD Helps You Grow</h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+            From initial business discovery to expanding revenue in four clear steps.
+          </p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { step: "01", title: "Create Your Business Profile", desc: "Sign up free and set up your business storefront with logo, contact links and products." },
-            { step: "02", title: "Post Tasks & Community Updates", desc: "Launch share tasks with your flyer or post to the community feed — everyone sees your business." },
-            { step: "03", title: "Syndicates & Users Share It", desc: "Verified promoters and the GGD community share your content across WhatsApp, Facebook, TikTok and more." },
-            { step: "04", title: "Track Reach & Grow Sales", desc: "Get rich link previews on every share, real-time click tracking and direct customer conversations." },
+            {
+              step: "01",
+              title: "Get Discovered",
+              desc: "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
+            },
+            {
+              step: "02",
+              title: "Create & Promote",
+              desc: "Craft marketing copy with tools like BlogMate AI, launch Banner Ads, or post community promotional tasks."
+            },
+            {
+              step: "03",
+              title: "Reach Customers",
+              desc: "Community members and verified Syndicate promoters amplify your reach across social platforms and websites."
+            },
+            {
+              step: "04",
+              title: "Grow",
+              desc: "Convert increased high-intent visibility into inquiries, customer orders, and long-term business growth."
+            },
           ].map((s, i) => (
-            <div key={i} className="text-center space-y-3 group hover:scale-105 transition-transform">
-              <div className="text-5xl font-black text-[#e67e22]/20 group-hover:text-[#e67e22]/40 transition-colors">{s.step}</div>
-              <h3 className="text-lg font-bold text-white">{s.title}</h3>
-              <p className="text-gray-400 text-sm">{s.desc}</p>
+            <div key={i} className="text-center space-y-3 bg-[#222] border border-[#333] rounded-2xl p-6 hover:border-[#e67e22]/50 hover:scale-105 transition-all">
+              <div className="text-4xl font-black text-[#e67e22]">{s.step}</div>
+              <h3 className="text-base font-bold text-white">{s.title}</h3>
+              <p className="text-gray-400 text-xs leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
+      </div>
+
+      {/* BlogMate AI Section — Positioned as a marketing/content tool inside GGD */}
+      <div id="blogmate" className="container mx-auto px-4 py-16">
+        <Card className="bg-gradient-to-br from-[#1f192b] via-[#241738] to-[#171124] border-purple-500/30 max-w-4xl mx-auto overflow-hidden">
+          <CardContent className="p-8 md:p-12 space-y-6 relative">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-full px-3.5 py-1 text-xs font-semibold">
+                <Sparkles className="h-3.5 w-3.5" /> Marketing & Content Tool
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black text-white">
+                BlogMate AI — Marketing & Content Creation
+              </h2>
+              <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+                BlogMate AI is a marketing and content creation tool inside GGD Ad Network. Turn business ideas into compelling articles, social posts, promotional ads, and sales copy in seconds.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+              {[
+                { step: "1. Generate", desc: "Draft high-converting articles and promo copy tailored to your business." },
+                { step: "2. Edit & Save", desc: "Refine content in the editor and save to your private drafts library." },
+                { step: "3. Publish", desc: "Publish content to build organic search and platform discoverability." },
+                { step: "4. Promote", desc: "Link content directly to Banner Ads or Syndicate campaigns for maximum reach." },
+              ].map((item, i) => (
+                <div key={i} className="bg-[#120a1c]/80 border border-purple-500/20 rounded-xl p-4 text-center space-y-1.5">
+                  <h4 className="text-xs font-bold text-purple-400">{item.step}</h4>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center space-y-2 pt-2">
+              <p className="text-xs text-gray-400">
+                BlogMate is one of several marketing tools within GGD designed to power your business growth.
+              </p>
+              <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-6 text-sm font-bold rounded-xl shadow-lg hover:scale-105 transition-transform">
+                Explore Marketing Tools <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Homepage Video */}
@@ -381,12 +596,12 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       <div id="contact" className="container mx-auto px-4 py-16">
         <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] rounded-2xl p-8 md:p-14 text-center hover:shadow-2xl hover:shadow-[#e67e22]/20 transition-shadow">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Grow Your Business?</h2>
-          <p className="text-orange-100 text-lg mb-8 max-w-xl mx-auto">
-            Join thousands of businesses and operators on GGD Ad Network.
+          <p className="text-orange-100 text-base md:text-lg mb-8 max-w-xl mx-auto">
+            Join businesses, creators, and promoters on GGD Ad Network to expand your reach and boost visibility.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button onClick={onGetStarted} size="lg" className="bg-white text-[#e67e22] hover:bg-gray-100 px-8 py-6 text-lg font-bold rounded-xl shadow-xl hover:scale-105 transition-transform">
-              Start Now — It's Free <ArrowRight className="ml-2 h-5 w-5" />
+              Start Free — It's Free <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             {waGroupLink && (
               <Button size="lg" variant="outline" onClick={() => window.open(waGroupLink, '_blank')}
@@ -412,3 +627,4 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 };
 
 export default LandingPage;
+

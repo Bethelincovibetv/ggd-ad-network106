@@ -1,6 +1,6 @@
 {
   "name": "GGD Ad Network",
-  "description": "Connect businesses with social media promoters across WhatsApp, Facebook, Instagram & TikTok.",
+  "description": "Digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote their products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

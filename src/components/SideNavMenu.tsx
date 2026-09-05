@@ -44,8 +44,8 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const main = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home' }] : []),
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
-    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Activity Feed' }] : []),
-    ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'My Campaigns' }] : []),
+    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
+    ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
     { id: 'growth', icon: Rocket, label: 'Business Growth' },
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
@@ -58,22 +58,22 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
     ...(isEnabled('nav_business_details') ? [{ id: 'upgrade', icon: Edit3, label: 'Business Details' }] : []),
     ...(isEnabled('syndicate') ? (isSyndicate ? [
-      { id: 'syndicate', icon: Users, label: 'Open Syndicate' },
+      { id: 'syndicate', icon: Users, label: 'Syndicate Hub' },
     ] : [
       { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
     ]) : []),
   ];
 
   const discover = [
-    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
-    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
+    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
+    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
     ...(isEnabled('promotional_content') && isEnabled('referral_system') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
   const help = [
-    ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
-    ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About' }] : []),
+    ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
+    ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];
 
   const iconGrad: Record<string, string> = {
