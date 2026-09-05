@@ -1010,6 +1010,117 @@ export type Database = {
         }
         Relationships: []
       }
+      promoter_applications: {
+        Row: {
+          admin_notes: string | null
+          audience_category: string | null
+          created_at: string
+          estimated_audience: number
+          experience: string | null
+          id: string
+          promoter_name: string
+          reviewed_at: string | null
+          status: string
+          target_state: string | null
+          user_id: string
+          whatsapp_channels: string[]
+        }
+        Insert: {
+          admin_notes?: string | null
+          audience_category?: string | null
+          created_at?: string
+          estimated_audience?: number
+          experience?: string | null
+          id?: string
+          promoter_name: string
+          reviewed_at?: string | null
+          status?: string
+          target_state?: string | null
+          user_id: string
+          whatsapp_channels?: string[]
+        }
+        Update: {
+          admin_notes?: string | null
+          audience_category?: string | null
+          created_at?: string
+          estimated_audience?: number
+          experience?: string | null
+          id?: string
+          promoter_name?: string
+          reviewed_at?: string | null
+          status?: string
+          target_state?: string | null
+          user_id?: string
+          whatsapp_channels?: string[]
+        }
+        Relationships: []
+      }
+      promoter_profiles: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          audience_category: string | null
+          bank_code: string | null
+          bank_name: string | null
+          created_at: string
+          estimated_audience: number
+          experience: string | null
+          id: string
+          is_suspended: boolean
+          is_verified: boolean
+          promoter_name: string | null
+          suspended_reason: string | null
+          target_state: string | null
+          updated_at: string
+          user_id: string
+          wallet_frozen: boolean
+          whatsapp_channels: string[]
+          withdraw_pin_hash: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          audience_category?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          estimated_audience?: number
+          experience?: string | null
+          id?: string
+          is_suspended?: boolean
+          is_verified?: boolean
+          promoter_name?: string | null
+          suspended_reason?: string | null
+          target_state?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_frozen?: boolean
+          whatsapp_channels?: string[]
+          withdraw_pin_hash?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          audience_category?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          estimated_audience?: number
+          experience?: string | null
+          id?: string
+          is_suspended?: boolean
+          is_verified?: boolean
+          promoter_name?: string | null
+          suspended_reason?: string | null
+          target_state?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_frozen?: boolean
+          whatsapp_channels?: string[]
+          withdraw_pin_hash?: string | null
+        }
+        Relationships: []
+      }
       promotional_materials: {
         Row: {
           created_at: string
@@ -1725,6 +1836,277 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_campaign_applications: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          promoter_user_id: string
+          proof_notes: string | null
+          proof_url: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          promoter_user_id: string
+          proof_notes?: string | null
+          proof_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          promoter_user_id?: string
+          proof_notes?: string | null
+          proof_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_campaign_applications_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_campaigns: {
+        Row: {
+          approved_at: string | null
+          budget_credits: number
+          business_user_id: string
+          caption: string
+          created_at: string
+          creative_url: string | null
+          destination_url: string
+          duration_days: number
+          ends_at: string | null
+          id: string
+          platform_fee_credits: number
+          promoters_required: number
+          promotion_method: string
+          rejection_reason: string | null
+          remaining_budget_credits: number
+          requirements: string | null
+          requires_approval: boolean
+          reward_credits: number
+          starts_at: string | null
+          status: string
+          target_state: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          budget_credits: number
+          business_user_id: string
+          caption: string
+          created_at?: string
+          creative_url?: string | null
+          destination_url: string
+          duration_days?: number
+          ends_at?: string | null
+          id?: string
+          platform_fee_credits?: number
+          promoters_required?: number
+          promotion_method?: string
+          rejection_reason?: string | null
+          remaining_budget_credits: number
+          requirements?: string | null
+          requires_approval?: boolean
+          reward_credits: number
+          starts_at?: string | null
+          status?: string
+          target_state?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          budget_credits?: number
+          business_user_id?: string
+          caption?: string
+          created_at?: string
+          creative_url?: string | null
+          destination_url?: string
+          duration_days?: number
+          ends_at?: string | null
+          id?: string
+          platform_fee_credits?: number
+          promoters_required?: number
+          promotion_method?: string
+          rejection_reason?: string | null
+          remaining_budget_credits?: number
+          requirements?: string | null
+          requires_approval?: boolean
+          reward_credits?: number
+          starts_at?: string | null
+          status?: string
+          target_state?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_earnings: {
+        Row: {
+          amount_credits: number
+          application_id: string
+          approved_at: string | null
+          campaign_id: string
+          created_at: string
+          id: string
+          paid_at: string | null
+          promoter_user_id: string
+          review_note: string | null
+          status: string
+        }
+        Insert: {
+          amount_credits: number
+          application_id: string
+          approved_at?: string | null
+          campaign_id: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          promoter_user_id: string
+          review_note?: string | null
+          status?: string
+        }
+        Update: {
+          amount_credits?: number
+          application_id?: string
+          approved_at?: string | null
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          promoter_user_id?: string
+          review_note?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_earnings_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_campaign_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_earnings_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_tracking_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          referrer: string | null
+          tracking_link_id: string
+          user_agent: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          referrer?: string | null
+          tracking_link_id: string
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          referrer?: string | null
+          tracking_link_id?: string
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_tracking_events_tracking_link_id_fkey"
+            columns: ["tracking_link_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_tracking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_tracking_links: {
+        Row: {
+          application_id: string
+          campaign_id: string
+          clicks: number
+          conversions: number
+          created_at: string
+          id: string
+          promoter_user_id: string
+          slug: string
+        }
+        Insert: {
+          application_id: string
+          campaign_id: string
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          id?: string
+          promoter_user_id: string
+          slug: string
+        }
+        Update: {
+          application_id?: string
+          campaign_id?: string
+          clicks?: number
+          conversions?: number
+          created_at?: string
+          id?: string
+          promoter_user_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_tracking_links_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_campaign_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_tracking_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       withdrawal_requests: {
         Row: {
           account_name: string | null
@@ -1770,6 +2152,28 @@ export type Database = {
         Args: { _tier: number; _user_id: string }
         Returns: undefined
       }
+      apply_to_whatsapp_campaign: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
+      create_whatsapp_campaign: {
+        Args: {
+          p_budget_credits: number
+          p_caption: string
+          p_creative_url: string
+          p_destination_url: string
+          p_duration_days: number
+          p_promoters_required: number
+          p_promotion_method?: string
+          p_requirements?: string
+          p_requires_approval?: boolean
+          p_reward_credits: number
+          p_target_state?: string
+          p_title: string
+          p_video_url: string
+        }
+        Returns: Json
+      }
       generate_business_slug: {
         Args: { _name: string; _user_id: string }
         Returns: string
@@ -1782,8 +2186,50 @@ export type Database = {
         Returns: boolean
       }
       is_feature_enabled: { Args: { _key: string }; Returns: boolean }
+      record_whatsapp_click: {
+        Args: { p_referrer?: string; p_slug: string; p_user_agent?: string }
+        Returns: Json
+      }
       release_expired_syndicate_assignments: { Args: never; Returns: number }
+      request_whatsapp_promoter_withdrawal: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_amount: number
+          p_bank_code?: string
+          p_bank_name: string
+        }
+        Returns: Json
+      }
+      review_whatsapp_application: {
+        Args: {
+          p_application_id: string
+          p_approve: boolean
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      review_whatsapp_campaign: {
+        Args: { p_approve: boolean; p_campaign_id: string; p_reason?: string }
+        Returns: Json
+      }
+      review_whatsapp_promotion: {
+        Args: {
+          p_application_id: string
+          p_approve: boolean
+          p_reason?: string
+        }
+        Returns: Json
+      }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
+      submit_whatsapp_promotion: {
+        Args: {
+          p_application_id: string
+          p_notes?: string
+          p_proof_url: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:
@@ -1794,6 +2240,7 @@ export type Database = {
         | "moderator"
         | "user"
         | "co_owner"
+        | "promoter"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1929,6 +2376,7 @@ export const Constants = {
         "moderator",
         "user",
         "co_owner",
+        "promoter",
       ],
     },
   },
