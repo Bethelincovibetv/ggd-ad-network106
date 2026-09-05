@@ -29,6 +29,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ReferralChat from '@/components/ReferralChat';
+import { linkReferralToUser, resolveReferrerByCode } from '@/services/referralService';
 
 interface ReferralsPageProps {
   onSelectTab?: (tab: string) => void;
@@ -47,6 +48,8 @@ const ReferralsPage: React.FC<ReferralsPageProps> = () => {
   const [showHowItWorks, setShowHowItWorks] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [linkCodeInput, setLinkCodeInput] = useState('');
+  const [linkingSponsor, setLinkingSponsor] = useState(false);
 
   useEffect(() => { 
     load(); 
@@ -62,7 +65,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = () => {
 
     try {
       const [{ data: prof }, { data: setting }, { data: refs }, { data: earnings }] = await Promise.all([
-        supabase.from('profiles').select('referral_code, referred_by_user_id').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('referral_code, referred_by_user_id, referred_by').eq('user_id', user.id).maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'referral_percentage').maybeSingle(),
         supabase.from('profiles').select('user_id, display_name, email, avatar_url, created_at').eq('referred_by_user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('referral_earnings' as any).select('credits_earned').eq('referrer_id', user.id),
@@ -76,6 +79,13 @@ const ReferralsPage: React.FC<ReferralsPageProps> = () => {
           .eq('user_id', prof.referred_by_user_id)
           .maybeSingle();
         referrerProfile = refData;
+      } else if (prof?.referred_by) {
+        // Self-heal sponsor link if referral_code is stored on profile but referred_by_user_id was not set
+        const refData = await resolveReferrerByCode(prof.referred_by);
+        if (refData && refData.user_id !== user.id) {
+          referrerProfile = refData;
+          await supabase.from('profiles').update({ referred_by_user_id: refData.user_id }).eq('user_id', user.id);
+        }
       }
 
       setCode(prof?.referral_code || '');
@@ -90,6 +100,30 @@ const ReferralsPage: React.FC<ReferralsPageProps> = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLinkSponsor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkCodeInput.trim()) {
+      toast.error('Please enter a referral code');
+      return;
+    }
+    setLinkingSponsor(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLinkingSponsor(false);
+      return;
+    }
+    const res = await linkReferralToUser(user.id, linkCodeInput.trim());
+    if (res.success && res.referrer) {
+      toast.success('Connected to sponsor successfully!');
+      setReferrer(res.referrer);
+      setLinkCodeInput('');
+      load();
+    } else {
+      toast.error(res.error || 'Failed to link sponsor');
+    }
+    setLinkingSponsor(false);
   };
 
   const link = `${window.location.origin}/?ref=${code}`;
@@ -368,14 +402,38 @@ const ReferralsPage: React.FC<ReferralsPageProps> = () => {
               </div>
             </div>
           ) : (
-            <div className="p-4 rounded-2xl border border-dashed border-border bg-muted/20 text-center space-y-1.5">
+            <div className="p-5 rounded-2xl border border-dashed border-border bg-muted/20 text-center space-y-3">
               <div className="inline-flex p-2.5 rounded-full bg-muted text-muted-foreground mb-1">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <h4 className="text-sm font-bold text-foreground">Direct Registration</h4>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                You joined GGD AD Network directly without a sponsor referral code. You are at the root level of your own network!
-              </p>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Direct Registration</h4>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed mt-0.5">
+                  You joined GGD AD Network directly without a sponsor referral code. You are at the root level of your own network!
+                </p>
+              </div>
+
+              <div className="max-w-xs mx-auto pt-3 border-t border-border/60">
+                <p className="text-xs font-semibold text-foreground mb-2">
+                  Were you referred by someone? Connect your sponsor:
+                </p>
+                <form onSubmit={handleLinkSponsor} className="flex gap-2">
+                  <Input
+                    placeholder="Enter referral code"
+                    value={linkCodeInput}
+                    onChange={(e) => setLinkCodeInput(e.target.value.toUpperCase())}
+                    className="h-9 text-xs font-mono uppercase"
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={linkingSponsor}
+                    className="h-9 px-3 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white flex-shrink-0"
+                  >
+                    {linkingSponsor ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Connect'}
+                  </Button>
+                </form>
+              </div>
             </div>
           )}
         </CardContent>

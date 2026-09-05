@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,31 +27,33 @@ const RouteFallback = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/business/:id" element={<BusinessDetailPage />} />
-          <Route path="/user/:id" element={<UserProfilePublicPage />} />
-          <Route path="/b/:slug" element={<UserProfilePublicPage />} />
-          <Route path="/r/:slug" element={<RedirectPage />} />
-          <Route path="/s/:slug" element={<SharePreviewPage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/industry/:slug" element={<IndustryPage />} />
-          <Route path="/syndicate-register" element={<SyndicateRegister />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </Suspense>
-        <AdminChatWidget />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/business/:id" element={<BusinessDetailPage />} />
+            <Route path="/user/:id" element={<UserProfilePublicPage />} />
+            <Route path="/b/:slug" element={<UserProfilePublicPage />} />
+            <Route path="/r/:slug" element={<RedirectPage />} />
+            <Route path="/s/:slug" element={<SharePreviewPage />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/industry/:slug" element={<IndustryPage />} />
+            <Route path="/syndicate-register" element={<SyndicateRegister />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          </Suspense>
+          <AdminChatWidget />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;

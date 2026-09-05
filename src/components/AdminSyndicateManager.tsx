@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
@@ -196,15 +197,13 @@ const AdminSyndicateManager = () => {
       if (reason === null) return; // cancelled
     }
     try {
-      const { data, error } = await callRpc('review_syndicate_assignment', {
-        p_assignment_id: assignmentId,
-        p_approve: approve,
-        p_rejection_reason: reason,
+      const res = await reviewSyndicateAssignment({
+        assignmentId,
+        approve,
+        rejectionReason: reason,
       });
 
-      if (error) throw error;
-      const res = data as any;
-      if (res && !res.success) {
+      if (!res.success) {
         throw new Error(res.error || 'Review failed');
       }
 
@@ -305,7 +304,7 @@ const AdminSyndicateManager = () => {
                 {/* User header */}
                 <div className="bg-gradient-to-r from-purple-500/10 to-fuchsia-500/10 p-4 flex items-center gap-3">
                   <Avatar className="h-14 w-14 border-2 border-purple-200 shadow-sm">
-                    <AvatarImage src={s.avatar_url || s._profile?.avatar_url} />
+                    <AvatarImage src={s._profile?.avatar_url || s.avatar_url} />
                     <AvatarFallback className="bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white font-bold text-sm">
                       {(s._profile?.display_name || s._profile?.email || 'U').slice(0, 2).toUpperCase()}
                     </AvatarFallback>

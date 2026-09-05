@@ -94,6 +94,14 @@ const UserProfilePage = () => {
         logo_url: publicUrl,
       });
     }
+
+    // Mirror to syndicate_profiles for single unified identity across the platform
+    try {
+      await supabase.from('syndicate_profiles').update({ avatar_url: publicUrl }).eq('user_id', authUser.id);
+    } catch {
+      // Ignore if user has no syndicate profile
+    }
+
     toast.success('Profile picture updated!');
     setUploading(false);
     load();

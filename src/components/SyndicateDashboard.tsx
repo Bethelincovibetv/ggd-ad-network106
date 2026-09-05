@@ -47,6 +47,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [mainProfile, setMainProfile] = useState<any>(null);
   const [wallet, setWallet] = useState<any>(null);
   const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -104,7 +105,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         supabase.from('syndicate_tasks').select('*').eq('status', 'active').order('created_at', { ascending: false }),
         supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('credits, avatar_url, display_name').eq('user_id', user.id).maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_assignment_hours').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
@@ -115,6 +116,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       setTasks(tasksRes.data || []);
       setMyAssignments(assignmentsRes.data || []);
       setProfile(profileRes.data);
+      setMainProfile(profCreditsRes.data);
       const c = Number(profCreditsRes.data?.credits || 0);
       setCredits(c);
       const r = parseInt(rateRes.data?.value || '') || 100;
@@ -159,14 +161,8 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         return;
       }
 
-      const { data: profileRows, error: profileLookupError } = await supabase
-        .from('syndicate_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
-
-      if (profileLookupError || !profileRows?.length) {
-        toast.error("Could not verify your syndicate profile");
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image must be under 5MB");
         return;
       }
 
@@ -174,11 +170,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       const uniqueSuffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const fileName = `${user.id}/avatars/${uniqueSuffix}.${extension}`;
+      const fileName = `${user.id}/avatar-${uniqueSuffix}.${extension}`;
 
+      // Upload to unified avatars bucket
       const { error: uploadError } = await supabase.storage
-        .from('syndicate-proofs')
-        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+        .from('avatars')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
       if (uploadError) {
         toast.error(uploadError.message || "Upload failed");
@@ -186,21 +183,19 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('syndicate-proofs')
+        .from('avatars')
         .getPublicUrl(fileName);
 
-      const { error: updateError } = await supabase
-        .from('syndicate_profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', user.id);
+      // Single source of truth: synchronize across profiles, business, and syndicate
+      await Promise.all([
+        supabase.from('profiles').update({ avatar_url: publicUrl, business_logo_url: publicUrl }).eq('user_id', user.id),
+        (supabase.from('business_profiles') as any).update({ logo_url: publicUrl }).eq('user_id', user.id),
+        supabase.from('syndicate_profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id),
+      ]);
 
-      if (updateError) {
-        toast.error(updateError.message || "Could not save your profile photo");
-        return;
-      }
-
+      setMainProfile((current: any) => ({ ...current, avatar_url: publicUrl }));
       setProfile((current: any) => current ? { ...current, avatar_url: publicUrl } : current);
-      toast.success("Profile photo updated!");
+      toast.success("Profile photo updated across the platform!");
       fetchData();
     } finally {
       setUploadingAvatar(false);
@@ -674,8 +669,8 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-white/20 flex items-center justify-center overflow-hidden border-2 border-white/40 shadow-md">
-                {profile?.avatar_url ? (
-                  <img loading="lazy" src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                {(mainProfile?.avatar_url || profile?.avatar_url) ? (
+                  <img loading="lazy" src={mainProfile?.avatar_url || profile?.avatar_url} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <Users className="h-8 w-8 text-white" />
                 )}

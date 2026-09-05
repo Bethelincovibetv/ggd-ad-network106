@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { callRpc } from "@/lib/supabaseRpc";
+import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const BusinessTaskCreator = () => {
@@ -125,20 +125,18 @@ const BusinessTaskCreator = () => {
 
     const maxSyndicates = parseInt(form.max_syndicates) || 10;
     try {
-      const { data, error } = await callRpc('create_syndicate_task', {
-        p_title: form.title.trim(),
-        p_description: form.description.trim(),
-        p_share_link: form.share_link.trim() || null,
-        p_flyer_url: flyerUrl || null,
-        p_placements: form.placements,
-        p_target_state: form.target_state.trim() || null,
-        p_max_syndicates: maxSyndicates,
-        p_approval_mode: form.approval_mode || 'manual',
+      const res = await createSyndicateTask({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        share_link: form.share_link.trim() || null,
+        flyer_url: flyerUrl || null,
+        placements: form.placements,
+        target_state: form.target_state.trim() || null,
+        max_syndicates: maxSyndicates,
+        approval_mode: form.approval_mode === 'auto' ? 'automatic' : 'manual',
       });
 
-      if (error) throw error;
-      const res = data as any;
-      if (res && !res.success) {
+      if (!res.success) {
         throw new Error(res.error || 'Failed to create task');
       }
 
@@ -164,15 +162,13 @@ const BusinessTaskCreator = () => {
       if (reason === null) return;
     }
     try {
-      const { data, error } = await callRpc('review_syndicate_assignment', {
-        p_assignment_id: assignmentId,
-        p_approve: approve,
-        p_rejection_reason: reason,
+      const res = await reviewSyndicateAssignment({
+        assignmentId,
+        approve,
+        rejectionReason: reason,
       });
 
-      if (error) throw error;
-      const res = data as any;
-      if (res && !res.success) {
+      if (!res.success) {
         throw new Error(res.error || 'Review failed');
       }
 

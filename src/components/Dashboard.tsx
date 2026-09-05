@@ -11,6 +11,7 @@ import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Lo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { ensureUserProfileAndReferral } from "@/services/referralService";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -187,7 +188,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
 
-    const { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits').eq('user_id', user.id).single();
+    let { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits').eq('user_id', user.id).maybeSingle();
+    if (!profile) {
+      profile = await ensureUserProfileAndReferral(user);
+    }
     // Admins and existing complete profiles bypass the wizard.
     setProfileSetupComplete(userRoles.includes('admin') ? true : !!(profile as any)?.profile_setup_complete);
     const { data: settings } = await supabase.from('app_settings').select('*');
