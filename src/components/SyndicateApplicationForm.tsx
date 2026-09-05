@@ -173,12 +173,12 @@ const SyndicateApplicationForm = ({ onApplied }: SyndicateApplicationFormProps) 
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Label className="text-xs font-semibold text-foreground">{p.label}</Label>
+                    <Label className="text-xs font-bold text-foreground">{p.label}</Label>
                     <Input
                       value={(form as any)[p.key]}
                       onChange={e => setForm({...form, [p.key]: e.target.value})}
                       placeholder={p.placeholder}
-                      className="mt-0.5 h-7 text-xs border-0 bg-transparent px-0 focus-visible:ring-0 placeholder:text-muted-foreground/60"
+                      className="mt-1 h-9 text-xs sm:text-sm border-0 bg-transparent px-0 focus-visible:ring-0 placeholder:text-muted-foreground/60"
                     />
                   </div>
                   {filled && <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />}
