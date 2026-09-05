@@ -15,6 +15,7 @@ const SyndicateRegister = lazy(() => import("./pages/SyndicateRegister"));
 const SharePreviewPage = lazy(() => import("./pages/SharePreviewPage"));
 const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
 const IndustryPage = lazy(() => import("./pages/IndustryPage"));
+const WhatsAppPromoterHub = lazy(() => import("./pages/WhatsAppPromoterHub"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -32,20 +33,20 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/business/:id" element={<BusinessDetailPage />} />
-          <Route path="/user/:id" element={<UserProfilePublicPage />} />
-          <Route path="/b/:slug" element={<UserProfilePublicPage />} />
-          <Route path="/r/:slug" element={<RedirectPage />} />
-          <Route path="/s/:slug" element={<SharePreviewPage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/industry/:slug" element={<IndustryPage />} />
-          <Route path="/syndicate-register" element={<SyndicateRegister />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/business/:id" element={<BusinessDetailPage />} />
+            <Route path="/user/:id" element={<UserProfilePublicPage />} />
+            <Route path="/b/:slug" element={<UserProfilePublicPage />} />
+            <Route path="/r/:slug" element={<RedirectPage />} />
+            <Route path="/s/:slug" element={<SharePreviewPage />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/industry/:slug" element={<IndustryPage />} />
+            <Route path="/syndicate-register" element={<SyndicateRegister />} />
+            <Route path="/whatsapp-promoter-hub" element={<WhatsAppPromoterHub />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </Suspense>
         <AdminChatWidget />
       </BrowserRouter>
