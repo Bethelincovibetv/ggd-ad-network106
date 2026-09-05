@@ -485,6 +485,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           </div>
         );
 
+      case 'advertising':
       case 'campaigns':
         if (!isEnabled('nav_campaigns') && !isEnabled('ads')) {
           return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -709,7 +710,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'transfer':
       case 'task-wallet':
       case 'wallet':
-        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} />;
+        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} initialTab={activeTab === 'transfer' ? 'transfer' : 'buy'} />;
 
       case 'premium':
         return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -717,8 +718,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'marketplace':
         return isEnabled('marketing_apps') && isEnabled('marketplace') ? <MarketingAppsMarketplace /> : disabled;
 
+      case 'share-earn':
       case 'promo':
-        return isEnabled('promotional_content') && isEnabled('referral_system') ? <PromotionalContent /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+      case 'referrals':
+        return isEnabled('promotional_content') || isEnabled('referral_system')
+          ? <PromotionalContent initialTab={activeTab === 'promo' ? 'flyers' : (activeTab === 'referrals' ? 'referrals' : 'referrals')} />
+          : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'guide':
       case 'user-guide':
@@ -743,9 +748,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'smart-links':
         return isEnabled('link_shortener') ? <LinkShortener /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
-      case 'referrals':
-        return isEnabled('referral_system') ? <ReferralsPage /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
-
+      case 'business':
       case 'my-business':
         return isEnabled('nav_my_business') ? <BusinessStorefront /> : disabled;
 

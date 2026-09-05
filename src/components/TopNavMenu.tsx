@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Shield, CreditCard, Send, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Gift } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface TopNavMenuProps {
@@ -14,45 +14,52 @@ interface TopNavMenuProps {
 
 const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
   const { isEnabled } = useFeatureToggles();
+
   const items = [
-    { id: 'ads', icon: LayoutDashboard, label: 'Home' },
-    { id: 'fund-credits', icon: CreditCard, label: 'Buy Credits' },
-    { id: 'transfer', icon: Send, label: 'Transfer' },
-    { id: 'premium', icon: Crown, label: 'Premium' },
-    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Apps' }] : []),
-    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory' }] : []),
-    ...(isEnabled('promotional_content') && isEnabled('referral_system') ? [{ id: 'promo', icon: Share2, label: 'Promote' }] : []),
-    ...(isEnabled('referral_system') ? [{ id: 'referrals', icon: Gift, label: 'Referrals' }] : []),
-    ...(isBusiness ? [{ id: 'business-tasks', icon: Briefcase, label: 'Tasks' }, { id: 'my-business', icon: Store, label: 'My Biz' }] : []),
-    ...(isEnabled('syndicate') ? (isSyndicate
-      ? [{ id: 'syndicate', icon: Users, label: 'Open Syndicate' }]
-      : [{ id: 'syndicate-join', icon: Users, label: 'Join Syndicate' }]) : []),
-    ...(!isBusiness && !isSyndicate ? [{ id: 'upgrade', icon: Megaphone, label: 'Upgrade' }] : []),
-    ...(isSyndicate && isEnabled('syndicate') ? [{ id: 'syndicate-wallet', icon: Wallet, label: 'Earnings' }] : []),
-    ...(isBusiness ? [{ id: 'task-wallet', icon: Wallet, label: 'Wallet' }] : []),
-    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API' }] : []),
-    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'Guide' }] : []),
-    { id: 'about', icon: Info, label: 'About' },
+    { id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] },
+    ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed'] }] : []),
+    ...(isEnabled('ads') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
+    { id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] },
+    { id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] },
+    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
+    ...(isEnabled('syndicate') ? [{
+      id: isSyndicate ? 'syndicate' : 'syndicate-join',
+      icon: Users,
+      label: isSyndicate ? 'Syndicate Hub' : 'Join Syndicate',
+      matches: ['syndicate', 'syndicate-join', 'business-tasks']
+    }] : []),
+    ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{
+      id: 'share-earn',
+      icon: Share2,
+      label: 'Share & Earn',
+      matches: ['share-earn', 'promo', 'referrals']
+    }] : []),
+    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory', matches: ['directory'] }] : []),
+    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Apps', matches: ['marketplace'] }] : []),
+    { id: 'premium', icon: Crown, label: 'VIP Premium', matches: ['premium', 'upgrade'] },
+    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys', matches: ['api-keys'] }] : []),
+    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'User Guide', matches: ['guide'] }] : []),
+    { id: 'about', icon: Info, label: 'About GGD', matches: ['about'] },
   ];
 
   return (
-    <div className="bg-card backdrop-blur border-b border-border">
+    <div className="bg-card/90 backdrop-blur border-b border-border/80 sticky top-0 z-30">
       <ScrollArea className="w-full">
-        <div className="flex gap-2 px-3 py-3">
+        <div className="flex gap-2 px-3 py-2.5">
           {items.map(item => {
-            const active = activeTab === item.id;
+            const active = item.matches.includes(activeTab) || activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[92px] h-20 rounded-2xl px-3 transition-all ${
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[84px] h-[72px] rounded-2xl px-3 transition-all ${
                   active
-                    ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg scale-105'
-                    : 'bg-secondary/40 text-muted-foreground hover:bg-secondary'
+                    ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20 scale-[1.03]'
+                    : 'bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground'
                 }`}
               >
-                <item.icon className="h-7 w-7" strokeWidth={2.4} />
-                <span className="text-xs font-bold leading-none">{item.label}</span>
+                <item.icon className="h-5 w-5" strokeWidth={2.3} />
+                <span className="text-[11px] font-bold leading-tight whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}

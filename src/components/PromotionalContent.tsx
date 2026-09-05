@@ -7,10 +7,21 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReferralsPage from "@/components/ReferralsPage";
 
-const PromotionalContent = () => {
+interface PromotionalContentProps {
+  initialTab?: string;
+}
+
+const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'referrals' }) => {
+  const [activeSubTab, setActiveSubTab] = useState<string>(initialTab || 'referrals');
   const [flyers, setFlyers] = useState<any[]>([]);
   const [referralCode, setReferralCode] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveSubTab(initialTab === 'promo' ? 'users' : initialTab);
+    }
+  }, [initialTab]);
 
   useEffect(() => {
     supabase.from('promotional_materials').select('*').eq('is_active', true)
@@ -98,50 +109,46 @@ const PromotionalContent = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="referrals">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="referrals" className="text-[10px] gap-1"><UserPlus className="h-3 w-3" />My Referrals</TabsTrigger>
-          <TabsTrigger value="users" className="text-[10px] gap-1"><Users className="h-3 w-3" />Invite Users</TabsTrigger>
-          <TabsTrigger value="businesses" className="text-[10px] gap-1"><Briefcase className="h-3 w-3" />Invite Business</TabsTrigger>
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
+        <TabsList className="w-full grid grid-cols-4 h-11 p-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="referrals" className="text-[11px] font-semibold gap-1 rounded-lg"><UserPlus className="h-3.5 w-3.5" />Referrals</TabsTrigger>
+          <TabsTrigger value="users" className="text-[11px] font-semibold gap-1 rounded-lg"><Users className="h-3.5 w-3.5" />Users</TabsTrigger>
+          <TabsTrigger value="businesses" className="text-[11px] font-semibold gap-1 rounded-lg"><Briefcase className="h-3.5 w-3.5" />Biz</TabsTrigger>
+          <TabsTrigger value="flyers" className="text-[11px] font-semibold gap-1 rounded-lg"><Sparkles className="h-3.5 w-3.5" />Flyers</TabsTrigger>
         </TabsList>
-        <TabsContent value="referrals"><ReferralsPage /></TabsContent>
-        <TabsContent value="users">{renderCopies(shareCopies.users)}</TabsContent>
-        <TabsContent value="businesses">{renderCopies(shareCopies.businesses)}</TabsContent>
-      </Tabs>
-
-      {/* Flyers with Download & Preview */}
-      {flyers.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-bold text-foreground">📸 Promotional Flyers</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {flyers.map((f: any) => (
-              <Card key={f.id} className="overflow-hidden">
-                {f.image_url && (
-                  <div className="relative cursor-pointer" onClick={() => setPreviewImage(f.image_url)}>
-                    <img loading="lazy" src={f.image_url} alt={f.title} className="w-full aspect-square object-cover" />
-                    <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                      <Eye className="h-6 w-6 text-white drop-shadow-lg" />
+        <TabsContent value="referrals" className="mt-4"><ReferralsPage /></TabsContent>
+        <TabsContent value="users" className="mt-4">{renderCopies(shareCopies.users)}</TabsContent>
+        <TabsContent value="businesses" className="mt-4">{renderCopies(shareCopies.businesses)}</TabsContent>
+        <TabsContent value="flyers" className="mt-4">
+          {flyers.length === 0 ? (
+            <div className="text-center py-8 text-xs text-muted-foreground">No promotional flyers available at this moment.</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {flyers.map((f: any) => (
+                <Card key={f.id} className="overflow-hidden border-border/70 hover:border-orange-500/50 transition-colors">
+                  {f.image_url && (
+                    <div className="relative cursor-pointer aspect-square overflow-hidden bg-muted" onClick={() => setPreviewImage(f.image_url)}>
+                      <img src={f.image_url} alt={f.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye className="h-6 w-6 text-white" />
+                      </div>
                     </div>
-                  </div>
-                )}
-                <CardContent className="p-2 space-y-1">
-                  <p className="text-xs font-medium text-foreground truncate">{f.title}</p>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="outline" className="flex-1 text-[10px] h-7"
-                      onClick={() => setPreviewImage(f.image_url)}>
-                      <Eye className="h-3 w-3 mr-1" />Preview
-                    </Button>
-                    <Button size="sm" className="flex-1 text-[10px] h-7 bg-gradient-to-r from-orange-500 to-red-500 text-white"
-                      onClick={() => f.image_url && downloadFlyer(f.image_url, f.title)}>
-                      <Download className="h-3 w-3 mr-1" />Save
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                  )}
+                  <CardContent className="p-2.5 space-y-1.5">
+                    <p className="text-xs font-bold text-foreground truncate">{f.title}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">{f.description}</p>
+                    {f.image_url && (
+                      <Button size="sm" variant="outline" className="w-full text-xs h-8 text-orange-600 border-orange-200 hover:bg-orange-50 font-semibold" onClick={() => downloadFlyer(f.image_url, f.title)}>
+                        <Download className="h-3 w-3 mr-1" />Download
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Full-screen Preview Modal */}
       {previewImage && (

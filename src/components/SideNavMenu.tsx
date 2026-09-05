@@ -46,28 +46,28 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
     ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
-    { id: 'growth', icon: Rocket, label: 'Business Growth' },
-    ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
-    ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'Premium' }] : []),
+    ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
+    ...(isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
   ];
 
   const work = [
-    ...(isEnabled('business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
     ...(isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
-    ...(isEnabled('nav_business_details') ? [{ id: 'upgrade', icon: Edit3, label: 'Business Details' }] : []),
+    { id: 'growth', icon: Rocket, label: 'Business Growth' },
+    ...(isEnabled('business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
     ...(isEnabled('syndicate') ? (isSyndicate ? [
       { id: 'syndicate', icon: Users, label: 'Syndicate Hub' },
     ] : [
       { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
     ]) : []),
+    ...(!isBusiness && !isSyndicate && isEnabled('nav_business_details') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
   ];
 
   const discover = [
+    ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
-    ...(isEnabled('promotional_content') && isEnabled('referral_system') ? [{ id: 'promo', icon: Share2, label: 'Promote & Earn' }] : []),
     ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
@@ -95,6 +95,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     marketplace: 'from-emerald-400 to-green-600',
     directory: 'from-orange-400 to-amber-500',
     promo: 'from-pink-500 to-rose-500',
+    'share-earn': 'from-pink-500 to-rose-500',
     'api-keys': 'from-slate-500 to-gray-700',
     guide: 'from-indigo-400 to-purple-500',
     about: 'from-slate-400 to-slate-600',

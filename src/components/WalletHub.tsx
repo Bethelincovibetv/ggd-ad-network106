@@ -9,12 +9,19 @@ interface WalletHubProps {
   credits: number;
   onCreditsUpdate: (c: number) => void;
   isPremium: boolean;
+  initialTab?: 'buy' | 'transfer';
 }
 
-const WalletHub = ({ credits, onCreditsUpdate, isPremium }: WalletHubProps) => {
+const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'buy' }: WalletHubProps) => {
   const [exchangeRate, setExchangeRate] = useState<number>(100);
-  const [activeTab, setActiveTab] = useState<'buy' | 'transfer'>('buy');
+  const [activeTab, setActiveTab] = useState<'buy' | 'transfer'>(initialTab);
   const channelRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   useEffect(() => {
     let isMounted = true;
