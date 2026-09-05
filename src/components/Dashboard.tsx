@@ -859,7 +859,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return isEnabled('syndicate') && isEnabled('business_pays_syndicate') ? <SyndicatePayouts /> : disabled;
 
       case 'support':
-        return <SupportPage userEmail={userEmail} />;
+        return <SupportPage userEmail={userEmail} onNavigate={handleTabChange} />;
 
       case 'admin':
         return null;

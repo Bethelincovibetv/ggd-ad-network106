@@ -14,10 +14,5 @@ export const callRpc = <T = unknown>(
   functionName: string,
   args: Record<string, unknown>,
 ): Promise<RpcResponse<T>> => {
-  const rpc = supabase.rpc as unknown as (
-    name: string,
-    parameters: Record<string, unknown>,
-  ) => Promise<RpcResponse<T>>;
-
-  return rpc(functionName, args);
+  return (supabase.rpc as any)(functionName, args);
 };

@@ -43,7 +43,10 @@ const AdminChatSystem = () => {
           (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
           (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
         ) {
-          setMessages(prev => [...prev, msg]);
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
           if (msg.sender_id === selectedUser.user_id) {
             supabase.from('admin_chat_messages').update({ is_read: true }).eq('id', msg.id);
           }
