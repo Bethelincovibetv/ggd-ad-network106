@@ -1,452 +1,50 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import SyndicateGuide from "@/components/SyndicateGuide";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useMemo, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
-  BookOpen, ChevronDown, Wallet, CreditCard, Share2, Crown,
-  Megaphone, Store, Users, Gift, Smartphone, Sparkles, Image as ImageIcon,
-  Bell, Hash, Heart, MessageCircle, Search, Briefcase, Building2, Palette, Link2,
-  ShieldCheck, Send, BarChart3,
-} from "lucide-react";
-import guideHero from "@/assets/guide-hero.jpg";
+  Search, ChevronDown, Megaphone, Building2, Store, Users,
+  Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
+  CheckCircle2, Image as ImageIcon,
+} from 'lucide-react';
+import guideHero from '@/assets/guide-hero.jpg';
 
-interface Section {
-  icon: React.ReactNode;
+interface GuideSection {
   title: string;
   badge: string;
-  content: string;
+  icon: React.ReactNode;
   keywords: string;
+  content: React.ReactNode;
 }
 
-const sections: Section[] = [
-  {
-    icon: <Megaphone className="h-5 w-5 text-orange-500" />,
-    title: "Banner Ads — Create & Promote",
-    badge: "Ads",
-    keywords: "banner ad create new ad form duration credits cost upload image target url campaign promote",
-    content:
-`Banner ads run across the entire network. Anyone browsing the app sees them in rotation.
-
-**Create a banner:**
-1. Go to **Home** and tap **New Banner Ad** (cost shown on the button)
-2. The page scrolls straight to the banner form — no need to scroll yourself
-3. Enter a **Title**, **Description**, and **Target URL** (where clicks should go)
-4. Pick a **Duration** (1, 3, 7, 14 or 30 days). Premium/Admin unlock longer durations.
-5. Upload a **Banner Image** (recommended ratio: 16:9, max 2MB)
-6. Toggle **Active** on, then tap **Create**
-
-**How you're charged:**
-• Standard rate is *X credits per day* shown on the New Ad button (admin sets this in Admin Settings)
-• Total = duration × daily rate. Deducted from your credits the moment you tap Create.
-• Admins create banner ads for free.`,
-  },
-  {
-    icon: <Briefcase className="h-5 w-5 text-emerald-500" />,
-    title: "Syndicate Campaigns — Manual vs Auto Approval",
-    badge: "Business",
-    keywords: "syndicate campaign business task approval manual auto approve proof screenshot review payout",
-    content:
-`As a business you pay syndicates to share your ads on WhatsApp, Facebook, Google reviews and more.
-
-**Approval Mode (chosen when you create a campaign):**
-• **Manual Review** — every proof screenshot lands in your queue. You review and approve before the syndicate gets paid. Best when you want to verify quality.
-• **Auto Approve** — the moment a syndicate uploads a proof screenshot, they are paid automatically and stats update instantly. Best when you trust the network and want zero admin work.
-
-**Tip:** Start in Manual for the first 2-3 campaigns to learn what good proof looks like. Switch to Auto once you're comfortable.
-
-**Costs:** Each placement (WhatsApp, Facebook, Google Review, etc.) has its own ₦ rate per syndicate. Total cost = max syndicates × sum of placement rates. Funded from your Task Wallet.`,
-  },
-  {
-    icon: <Users className="h-5 w-5 text-purple-500" />,
-    title: "Earning as a Syndicate",
-    badge: "Earn",
-    keywords: "syndicate earn task wallet payout proof screenshot withdraw upload",
-    content:
-`Syndicates are paid per task they complete for businesses.
-
-1. Open the **Syndicate** dashboard from the sidebar
-2. Pick an available task → download the flyer & share link
-3. Post it on the required platform exactly as instructed
-4. Snap a **clear screenshot** showing your post is live
-5. Tap **Upload Proof** on the task card
-
-Depending on the task's mode you'll either be **paid instantly** (auto-approve) or wait for the business to review (usually within 24h). Earnings sit in your Syndicate Wallet — withdraw to your bank from the Wallet page.`,
-  },
-  {
-    icon: <ShieldCheck className="h-5 w-5 text-rose-500" />,
-    title: "Admin — Feature Toggles",
-    badge: "Admin",
-    keywords: "admin feature toggle enable disable switch on off control panel",
-    content:
-`Admins can switch every feature on or off in real time without code changes.
-
-Open **Admin → Feature Toggles**. Each row is a feature (Banner Ads, Syndicate Network, Marketplace, Directory, Premium Upgrade, AI Chat, Blog Generator, Ebook Generator, etc.).
-
-• **Switch ON** → the feature appears in the user navigation, side menu and pages.
-• **Switch OFF** → the feature is hidden everywhere instantly. Anyone who lands on the page sees a friendly "feature is currently disabled" notice.
-
-Useful for phased rollouts, maintenance windows, or A/B testing.`,
-  },
-  {
-    icon: <Sparkles className="h-5 w-5 text-pink-500" />,
-    title: "Community Feed",
-    badge: "Social",
-    keywords: "post community feed share comment react like emoji photo image video link hashtag template background",
-    content:
-`The Community Feed lets every user share posts, photos, links and videos with the whole network — like Facebook for businesses.
-
-**Create a post:**
-1. Tap **Community** in the sidebar (or **Feed** in the bottom bar)
-2. Type your message in the composer
-3. Add **#hashtags** to make it easier to find (e.g. #JollofRice #LagosVendor)
-4. (Optional) Pick a colorful **background template** for text-only posts
-5. (Optional) Tap **Photo** to attach an image, **Link** for a URL, or **Video** for a YouTube/Vimeo link
-6. Tap **Post**
-
-**Engaging with posts:**
-• **Tap a photo** to view it full-screen
-• **Double-tap a photo** to instantly Like it (Instagram-style)
-• Hover/long-press the **Like** button to pick a reaction (👍 ❤️ 😂 😮 😢 😡)
-• Tap **Comment** to leave a comment
-• Tap any **#hashtag** to filter the feed by that tag
-• Tap a creator's name or photo to open their business page`,
-  },
-  {
-    icon: <Bell className="h-5 w-5 text-orange-500" />,
-    title: "Notifications",
-    badge: "Updates",
-    keywords: "notification alert bell unread mark read inbox click open link",
-    content:
-`Stay on top of what's happening in your account.
-
-• Open the **bell icon** in the top bar
-• A red badge shows how many unread notifications you have
-• **Tap any notification** to mark it as read
-• If a notification has a link or destination, tapping it takes you straight there (a deep-link inside the app, or an external page)
-• Use **Mark all read** to clear the badge in one tap
-• Use the **trash icon** to permanently remove a notification you don't need`,
-  },
-  {
-    icon: <Wallet className="h-5 w-5 text-green-500" />,
-    title: "Credits System",
-    badge: "Earn",
-    keywords: "credit wallet earn money daily login bonus reward points",
-    content:
-`Credits are your in-app currency.
-
-**How to earn:**
-• Daily login bonus
-• Complete tasks (sharing links/posts)
-• Refer friends with your referral code
-• Buy credits with Paystack
-
-**How to spend:**
-• Create ad campaigns
-• Subscribe to the Business Directory
-• Unlock premium marketing apps
-• Use AI tools (Blog, Ebook, Funnel)`,
-  },
-  {
-    icon: <Megaphone className="h-5 w-5 text-orange-500" />,
-    title: "Creating Ads",
-    badge: "Ads",
-    keywords: "ad campaign banner advertise create new",
-    content:
-`Run ads across the GGD network.
-
-1. Go to **Home** and tap **New Ad**
-2. Enter title, description and target URL
-3. Upload a banner (1200×628 recommended)
-4. Set duration (1–7 days free, up to 30 days for Premium)
-5. Tap **Create**
-
-Watch impressions, clicks and CTR right on the ad card.`,
-  },
-  {
-    icon: <Briefcase className="h-5 w-5 text-blue-500" />,
-    title: "Business Tasks & Syndicate",
-    badge: "Tasks",
-    keywords: "task syndicate business creator share earn promote",
-    content:
-`Pay our syndicate of promoters to share your message everywhere.
-
-1. Open **Syndicate Campaigns** in the sidebar
-2. Create a task: title, description, share link, flyer
-3. Pick the platforms and number of promoters
-4. Fund your task wallet — credits are released as syndicates complete the work
-
-Every shared link gets a rich preview with your business name + flyer image, so it looks great on WhatsApp, Facebook and X.`,
-  },
-  {
-    icon: <ImageIcon className="h-5 w-5 text-purple-500" />,
-    title: "Task Share Previews (OG Image)",
-    badge: "Sharing",
-    keywords: "og image preview whatsapp facebook share link flyer",
-    content:
-`Whenever you share a task link, GGD generates a special preview that:
-
-• Shows your **flyer image** as the share thumbnail
-• Shows your **business name** as the source
-• Redirects real visitors to the in-app preview where they can complete the task
-
-This means your post looks professional on every social platform — no plain blue links anymore.`,
-  },
-  {
-    icon: <Hash className="h-5 w-5 text-cyan-500" />,
-    title: "Hashtags & Discovery",
-    badge: "Discover",
-    keywords: "hashtag tag discover trend search find filter",
-    content:
-`Hashtags help people find your posts.
-
-• Add a **#tag** to any community post (e.g. #FoodLagos)
-• Tap any hashtag to filter the feed
-• Use the **search bar** at the top of the Community Feed to filter posts by keyword or hashtag`,
-  },
-  {
-    icon: <Palette className="h-5 w-5 text-fuchsia-500" />,
-    title: "Post Background Templates",
-    badge: "Design",
-    keywords: "template background design theme color food beauty tech party",
-    content:
-`Make text-only posts pop with our background templates.
-
-• In the composer, tap the **🎨 palette icon** to open the template picker
-• Browse categories: Vibes, Food, Beauty, Tech, Events, Inspire
-• Tap any template to apply — your text appears centered on the colorful background
-• Pick **None** to go back to a plain post
-
-Use templates for quick announcements, deals, or motivational quotes — no design skills needed.`,
-  },
-  {
-    icon: <CreditCard className="h-5 w-5 text-blue-500" />,
-    title: "Buy & Transfer Credits",
-    badge: "Credits",
-    keywords: "buy purchase paystack transfer send fund credit",
-    content:
-`**Buying:**
-• Open **Buy Credits**, choose a package, pay with Paystack — credits arrive instantly.
-
-**Transferring:**
-• Open **Transfer**, enter the recipient's email and amount.
-• Premium users enjoy lower transfer fees.`,
-  },
-  {
-    icon: <Crown className="h-5 w-5 text-yellow-500" />,
-    title: "Premium Upgrade",
-    badge: "Premium",
-    keywords: "premium upgrade pay monthly tier benefits subscription",
-    content:
-`Premium unlocks:
-
-• Longer ad durations (up to 30 days)
-• API keys to embed ads on your own website
-• Lower transfer fees
-• Priority support
-• Higher promotion priority in the directory`,
-  },
-  {
-    icon: <Building2 className="h-5 w-5 text-teal-500" />,
-    title: "Business Directory",
-    badge: "Directory",
-    keywords: "directory business listing public discover store",
-    content:
-`The Directory is the public listing of all verified businesses.
-
-• Browse by category to discover new vendors
-• Subscribe to appear in the directory (30-day subscription)
-• Listed businesses get a public storefront page that's perfect to share`,
-  },
-  {
-    icon: <Store className="h-5 w-5 text-indigo-500" />,
-    title: "Your Business Page",
-    badge: "Storefront",
-    keywords: "business profile storefront page my business website",
-    content:
-`Every account has a public business page (your "website").
-
-• Open **My Business** to manage it
-• Update logo, hero image, description, contact info, social links
-• Anyone can visit your business page from your community posts or shared task links`,
-  },
-  {
-    icon: <Gift className="h-5 w-5 text-purple-500" />,
-    title: "Referrals",
-    badge: "Refer",
-    keywords: "referral invite friend code earn bonus link",
-    content:
-`Earn credits when friends sign up with your code.
-
-1. Open **Referrals**
-2. Copy your unique link
-3. Share on WhatsApp, Facebook, X
-4. You both earn when they join — and you keep earning a % of their credit purchases`,
-  },
-  {
-    icon: <Link2 className="h-5 w-5 text-sky-500" />,
-    title: "Smart Links",
-    badge: "Tools",
-    keywords: "short link smart shortener track click analytics",
-    content:
-`Turn any long URL into a short, trackable link.
-
-• Open **Smart Links**, paste the URL
-• Get a short ggd link you can share anywhere
-• See clicks, devices, countries and referrers in one place`,
-  },
-  {
-    icon: <ShieldCheck className="h-5 w-5 text-emerald-500" />,
-    title: "Security & Account",
-    badge: "Account",
-    keywords: "password security profile delete logout email",
-    content:
-`• Update your profile from the avatar menu (top right)
-• Use a strong, unique password
-• Logout from any device by signing out from the menu
-• Contact support to delete your account`,
-  },
-  {
-    icon: <Smartphone className="h-5 w-5 text-indigo-500" />,
-    title: "Install as an App",
-    badge: "Mobile",
-    keywords: "install pwa android iphone home screen mobile app",
-    content:
-`GGD works as a Progressive Web App.
-
-**Android:** Open in Chrome → tap install prompt or "Add to Home Screen".
-**iPhone:** Open in Safari → tap Share → "Add to Home Screen".
-
-Once installed, GGD behaves like a native app with offline support.`,
-  },
-  {
-    icon: <BarChart3 className="h-5 w-5 text-orange-500" />,
-    title: "Analytics",
-    badge: "Insights",
-    keywords: "analytics insight stats data impressions clicks ctr performance",
-    content:
-`See how your content is performing.
-
-• Each ad card shows views, clicks, CTR and remaining days
-• Smart Links show country, device and referrer breakdowns
-• Community posts display total reactions and comments under each card`,
-  },
-  {
-    icon: <Send className="h-5 w-5 text-pink-500" />,
-    title: "Withdrawals",
-    badge: "Payout",
-    keywords: "withdraw cash bank account payout earnings money",
-    content:
-`Cash out earnings from the Wallet.
-
-1. Open **Wallet** → request withdrawal
-2. Provide bank name, account number and account name
-3. Admin reviews and processes the payout`,
-  },
+const sections: GuideSection[] = [
+  { title: 'Start Here — How GGD Helps You Grow', badge: 'Getting Started', icon: <Sparkles className="h-5 w-5" />, keywords: 'welcome ggd ad network business growth marketing customers visibility discover get started', content: <div className="space-y-3"><p><strong>GGD Ad Network</strong> is a digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote their products and services, and grow.</p><p>The platform brings several growth channels together:</p><ul className="list-disc space-y-2 pl-5"><li><strong>Get discovered:</strong> create a business presence in the Business Directory.</li><li><strong>Sell:</strong> showcase products and services.</li><li><strong>Get visibility:</strong> use GGD Banner Ads and eligible featured placements.</li><li><strong>Promote:</strong> use Credit Tasks for community promotion or verified Syndicate promoters for paid promotion.</li><li><strong>Create:</strong> use marketing tools such as BlogMate AI.</li><li><strong>Connect:</strong> use Community to build awareness and relationships.</li><li><strong>Measure:</strong> use available analytics to understand results.</li></ul><div className="rounded-xl bg-orange-50 p-4 dark:bg-orange-950/20"><p className="font-semibold">Simple growth path</p><p className="mt-1">Get discovered → Create and promote → Reach customers → Grow</p></div></div> },
+  { title: 'Business Directory — Get Discovered', badge: 'Discovery', icon: <Building2 className="h-5 w-5" />, keywords: 'business directory listing discover profile storefront business page location contact', content: <div className="space-y-3"><p>The <strong>Business Directory</strong> is GGD's discovery layer. It helps people find businesses, products and services.</p><ul className="list-disc space-y-2 pl-5"><li>Create and maintain your public business profile.</li><li>Add your logo, description, location, contact details, WhatsApp and relevant links.</li><li>Use your public business page as a destination you can share with customers.</li><li>Keep business information accurate so people understand what you offer and how to reach you.</li></ul><p><strong>Think of it as your GGD business presence:</strong> people discover you first, then move to your products, services or contact options.</p></div> },
+  { title: 'Products & Services — Show What You Sell', badge: 'Business', icon: <Store className="h-5 w-5" />, keywords: 'products marketplace services sell listing product service shop business', content: <div className="space-y-3"><p>Your business presence can showcase what you actually sell or provide.</p><ul className="list-disc space-y-2 pl-5"><li><strong>Products:</strong> list products with useful details so customers can discover and evaluate them.</li><li><strong>Services:</strong> present the services your business offers and how customers can contact you.</li><li>Keep listings connected to the correct business profile so discovery leads back to your business.</li></ul><p>The goal is simple: <strong>visibility should lead somewhere useful.</strong></p></div> },
+  { title: 'Banner Ads — Buy Visibility Across GGD', badge: 'Advertising', icon: <Megaphone className="h-5 w-5" />, keywords: 'banner ads advertising campaign impressions clicks ctr target url promote paid visibility', content: <div className="space-y-3"><p><strong>GGD Banner Ads</strong> are the platform's commercial display advertising system. They are separate from the Featured Slider.</p><ol className="list-decimal space-y-2 pl-5"><li>Create your campaign with the required creative, message and destination.</li><li>Choose the available duration and placement options.</li><li>Fund the campaign according to the platform's current pricing.</li><li>Monitor available impressions, clicks and performance information.</li></ol><div className="rounded-xl border p-4"><p className="font-semibold">Banner Ads ≠ Featured Slider</p><p className="mt-1 text-sm text-muted-foreground">Banner Ads are paid advertising. The Featured Slider is an admin-managed featured-content, featured-business or announcement presentation system.</p></div></div> },
+  { title: 'Featured Slider — Featured, Not Banner Advertising', badge: 'Featured', icon: <ImageIcon className="h-5 w-5" />, keywords: 'slider featured business update announcement placement slides admin', content: <div className="space-y-3"><p>The <strong>Featured Slider</strong> is a separate presentation layer for featured updates, businesses, features or announcements selected by the platform.</p><p>It should not be confused with buying a Banner Ad. Featured exposure follows the platform's applicable admin rules.</p></div> },
+  { title: 'Credit Tasks — Community Promotion & Earn-and-Spend', badge: 'Credits', icon: <CreditCard className="h-5 w-5" />, keywords: 'credit task youtube views watch time likes comments subscribers website visits shares reward credits earn promote', content: <div className="space-y-3"><p><strong>Credit Tasks</strong> let a user or business fund a community promotion task using GGD credits. Other users complete the task and receive GGD credits as their reward.</p><p>Task goals can include YouTube views, watch time, likes, comments, subscribers, website visits and social shares.</p><div className="rounded-xl bg-muted/60 p-4"><p className="font-semibold">The GGD credit loop</p><p className="mt-1">User A spends GGD credits → creates a promotion task → User B completes it → User B earns GGD credits → User B can use those credits for eligible GGD activities.</p></div><p><strong>Important:</strong> Credit Tasks are not the Syndicate system.</p></div> },
+  { title: 'Syndicate — Verified Paid Promotion Network', badge: 'Promoters', icon: <Users className="h-5 w-5" />, keywords: 'syndicate verified promoter paid promotion whatsapp facebook instagram tiktok telegram proof earnings wallet payout', content: <div className="space-y-3"><p><strong>Syndicate</strong> is GGD's verified professional promotion network. Businesses fund paid campaigns and verified Syndicate promoters complete promotional work.</p><ol className="list-decimal space-y-2 pl-5"><li>A business creates and funds a Syndicate campaign.</li><li>A verified promoter accepts an available campaign.</li><li>The promoter carries out the required promotion on the specified channel.</li><li>The promoter submits proof/results when required.</li><li>The campaign is reviewed according to its approval mode and eligible earnings are paid.</li></ol><div className="rounded-xl border p-4"><p className="font-semibold">Two separate economies</p><p className="mt-1 text-sm text-muted-foreground">A Syndicate member keeps their normal GGD Credit Wallet and also has a separate Syndicate paid-earnings wallet. They are not the same balance.</p></div></div> },
+  { title: 'BlogMate AI — Create Marketing Content', badge: 'Marketing Tools', icon: <BookOpen className="h-5 w-5" />, keywords: 'blogmate ai blog article content writing advertisement marketing funnel create edit save publish', content: <div className="space-y-3"><p><strong>BlogMate AI</strong> is one of GGD's marketing/content tools. It helps turn a business idea into useful marketing content.</p><ul className="list-disc space-y-2 pl-5"><li>Generate blog posts and articles.</li><li>Create marketing and advertising copy.</li><li>Prepare content that supports campaigns, products or promotions.</li><li>Edit generated content before using it.</li></ul><p><strong>BlogMate is a tool inside GGD</strong>, not the identity of the whole platform.</p><p>Intended content journey: <strong>Generate → Edit → Save → Publish → Discover → Promote → Track.</strong></p></div> },
+  { title: 'Community — Build Awareness & Relationships', badge: 'Community', icon: <MessageCircle className="h-5 w-5" />, keywords: 'community feed posts comments reactions hashtags share photos video businesses social', content: <div className="space-y-3"><p>The <strong>Community</strong> is GGD's social and distribution layer.</p><ul className="list-disc space-y-2 pl-5"><li>Create posts and share relevant links, images and supported video content.</li><li>Use hashtags to improve discovery.</li><li>React, comment and engage with other posts.</li><li>Use community participation to build awareness around a business or offer.</li></ul></div> },
+  { title: 'GGG Credits — Your Internal Platform Currency', badge: 'Wallet', icon: <Wallet className="h-5 w-5" />, keywords: 'ggg credits wallet earn spend buy transfer tasks promotion internal currency', content: <div className="space-y-3"><p><strong>GGG credits</strong> are the internal platform currency used for eligible GGD activities.</p><p>Users may earn or obtain credits and spend them on eligible promotion, advertising or marketing features according to active platform rules.</p><p>Credit balances are separate from the <strong>Syndicate paid-earnings wallet</strong>.</p></div> },
+  { title: 'Analytics — Understand Your Results', badge: 'Insights', icon: <BarChart3 className="h-5 w-5" />, keywords: 'analytics impressions clicks ctr performance campaign results tracking insights', content: <div className="space-y-3"><p>Marketing is more useful when you can see what happened after you promoted something.</p><ul className="list-disc space-y-2 pl-5"><li>Review available ad impressions and clicks.</li><li>Use CTR and other campaign information where available.</li><li>Review relevant promotion/content activity and results.</li><li>Use what you learn to improve the next campaign or piece of content.</li></ul></div> },
+  { title: 'Account & Getting Help', badge: 'Support', icon: <CheckCircle2 className="h-5 w-5" />, keywords: 'account profile notifications security support help guide password mobile app install', content: <div className="space-y-3"><ul className="list-disc space-y-2 pl-5"><li>Keep your business/profile information accurate.</li><li>Watch notifications for account and campaign updates.</li><li>Use a strong password and protect your credentials.</li><li>Use the platform's support/help options when you need assistance.</li><li>GGD is designed for mobile use and can be installed as a Progressive Web App when available.</li></ul></div> },
 ];
 
 const UserGuide = () => {
   const [query, setQuery] = useState('');
-  const [isSyndicate, setIsSyndicate] = useState(false);
+  const [open, setOpen] = useState(0);
+  const filtered = useMemo(() => { const q = query.trim().toLowerCase(); if (!q) return sections; return sections.filter(s => `${s.title} ${s.badge} ${s.keywords}`.toLowerCase().includes(q)); }, [query]);
 
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
-      if ((data || []).some((r: any) => r.role === 'syndicate')) setIsSyndicate(true);
-    })();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return sections;
-    return sections.filter(s =>
-      s.title.toLowerCase().includes(q) ||
-      s.badge.toLowerCase().includes(q) ||
-      s.keywords.toLowerCase().includes(q) ||
-      s.content.toLowerCase().includes(q)
-    );
-  }, [query]);
-
-  const generalGuide = (
-    <div className="space-y-4">
-      <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-xl">
-        <img src={guideHero} alt="GGD Ad Network Guide" className="w-full h-40 object-cover" loading="lazy" />
-        <div className="p-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            <h2 className="text-lg font-black">App Guide</h2>
-          </div>
-          <p className="text-xs opacity-90 mt-1">
-            Everything you need to grow on GGD Ad Network. Tap a section to learn.
-          </p>
-        </div>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search the guide… (e.g. hashtag, withdraw, referral)"
-          className="pl-9 h-11 rounded-xl"
-        />
-      </div>
-
-      {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No matches for "{query}". Try a different keyword.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((section, i) => (
-            <Collapsible key={i} defaultOpen={!!query}>
-              <Card className="border-border/50">
-                <CollapsibleTrigger className="w-full text-left">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    {section.icon}
-                    <span className="text-sm font-bold text-foreground flex-1">{section.title}</span>
-                    <Badge variant="secondary" className="text-[10px]">{section.badge}</Badge>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-                  </CardContent>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-4 pb-4">
-                    <div className="bg-muted/40 rounded-xl p-3.5 text-[13px] text-foreground leading-relaxed whitespace-pre-line">
-                      {section.content.split('**').map((part, j) =>
-                        j % 2 === 1 ? <strong key={j}>{part}</strong> : <span key={j}>{part}</span>
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  if (!isSyndicate) return generalGuide;
-
-  return (
-    <div className="space-y-8">
-      {generalGuide}
-      <div className="pt-2">
-        <div className="flex items-center gap-2 mb-3">
-          <Briefcase className="h-5 w-5 text-emerald-500" />
-          <h2 className="text-lg font-black text-foreground">Syndicate Guide</h2>
-          <Badge variant="secondary" className="text-[10px]">For Syndicates</Badge>
-        </div>
-        <SyndicateGuide />
-      </div>
-    </div>
-  );
+  return <div className="mx-auto w-full max-w-5xl space-y-5 pb-8">
+    <Card className="overflow-hidden border-0 shadow-sm">
+      <div className="relative min-h-[230px] overflow-hidden"><img src={guideHero} alt="GGD Ad Network Guide" className="absolute inset-0 h-full w-full object-cover" /><div className="absolute inset-0 bg-black/55" /><div className="relative flex min-h-[230px] flex-col justify-end p-5 text-white sm:p-8"><Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">GGD Ad Network</Badge><h1 className="text-2xl font-black sm:text-4xl">Welcome to GGD Ad Network</h1><p className="mt-2 max-w-2xl text-sm text-white/90 sm:text-base">Your guide to getting discovered, promoting your business, reaching customers and growing with GGD.</p></div></div>
+      <CardContent className="space-y-4 p-4 sm:p-6"><div className="grid gap-3 sm:grid-cols-3">{[['Get Discovered','Directory, products & services'],['Get Visibility','Banner Ads & featured exposure'],['Promote & Grow','Credit Tasks, Syndicate & tools']].map(([title,text]) => <div key={title} className="rounded-xl bg-muted/50 p-4"><p className="font-bold">{title}</p><p className="mt-1 text-sm text-muted-foreground">{text}</p></div>)}</div><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the GGD Guide..." className="pl-9" /></div></CardContent>
+    </Card>
+    <div className="space-y-3">{filtered.map((section,index) => { const isOpen = open === index; return <Card key={section.title} className="overflow-hidden"><button type="button" className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40 sm:p-5" onClick={() => setOpen(isOpen ? -1 : index)} aria-expanded={isOpen}><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400">{section.icon}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{section.title}</h2><Badge variant="secondary">{section.badge}</Badge></div></div><ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} /></button>{isOpen && <CardContent className="border-t pt-4 text-sm leading-6 text-muted-foreground sm:px-5 sm:pt-5">{section.content}</CardContent>}</Card>})}</div>
+    {filtered.length === 0 && <Card><CardContent className="py-10 text-center"><p className="font-semibold">No guide section found</p><p className="mt-1 text-sm text-muted-foreground">Try ads, directory, credits, syndicate or BlogMate.</p></CardContent></Card>}
+  </div>;
 };
 
 export default UserGuide;
