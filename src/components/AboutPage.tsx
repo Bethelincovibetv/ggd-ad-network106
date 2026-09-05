@@ -1,9 +1,18 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Globe, Users, Zap, Shield, Heart, Target } from "lucide-react";
+import { Search, Megaphone, Rocket, PenTool, Users, TrendingUp } from "lucide-react";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 const AboutPage = () => {
+  const growthPaths = [
+    { icon: Search, title: 'Get Discovered', desc: 'Showcase your business, products, and services so customers can find you.' },
+    { icon: Megaphone, title: 'Get Visibility', desc: 'Advertise and promote your business to reach more potential customers.' },
+    { icon: Rocket, title: 'Promote', desc: 'Use community promotion, Credit Tasks, or professional Syndicate promoters.' },
+    { icon: PenTool, title: 'Create', desc: 'Use practical marketing and content tools to build what your business needs.' },
+    { icon: Users, title: 'Connect', desc: 'Take part in a community where businesses and people discover opportunities.' },
+    { icon: TrendingUp, title: 'Grow', desc: 'Turn visibility, promotion, and customer connections into business opportunities.' },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="text-center space-y-3">
@@ -11,33 +20,24 @@ const AboutPage = () => {
           About GGD Ad Network
         </h1>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          Africa's fastest-growing decentralized advertising and social media monetization platform.
+          A digital business-growth and marketing platform built to help businesses get discovered, reach more customers, and grow.
         </p>
       </div>
 
-      {/* About Video */}
       <YouTubeEmbed section="about" />
 
       <Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
         <CardContent className="p-5 space-y-3">
           <h2 className="text-lg font-bold text-foreground">Our Mission</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            GGD Ad Network empowers small businesses to reach millions through social media influencers 
-            and everyday users. We connect businesses with verified syndicate operators who share ads 
-            across WhatsApp, Facebook, Instagram, TikTok, and more — turning social engagement into income.
+            To make effective digital marketing and business growth more accessible to businesses, especially small and growing businesses.
+            GGD brings business discovery, advertising, community promotion, marketing tools, and promotional networks together in one ecosystem.
           </p>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        {[
-          { icon: Globe, title: 'Global Reach', desc: 'Ads displayed across thousands of platforms worldwide' },
-          { icon: Users, title: 'Syndicate Network', desc: 'Verified operators sharing your content everywhere' },
-          { icon: Zap, title: 'Instant Results', desc: 'Campaign goes live within minutes of creation' },
-          { icon: Shield, title: 'Secure & Trusted', desc: 'Verified proofs and secure Paystack payments' },
-          { icon: Heart, title: 'Community First', desc: 'Built for African businesses by African innovators' },
-          { icon: Target, title: 'Targeted Ads', desc: 'Reach specific locations and demographics' },
-        ].map((item, i) => (
+        {growthPaths.map((item, i) => (
           <Card key={i} className="border-border">
             <CardContent className="p-3 text-center space-y-1">
               <item.icon className="h-6 w-6 mx-auto text-orange-500" />
@@ -50,13 +50,13 @@ const AboutPage = () => {
 
       <Card className="border-border">
         <CardContent className="p-5 space-y-3">
-          <h2 className="text-lg font-bold text-foreground">How It Works</h2>
+          <h2 className="text-lg font-bold text-foreground">What GGD Helps You Do</h2>
           <div className="space-y-3">
             {[
-              { step: '1', title: 'Create Account', desc: 'Sign up for free and get daily login credits.' },
-              { step: '2', title: 'Create Campaigns', desc: 'Upload your ad banner, set duration, and go live.' },
-              { step: '3', title: 'Reach Millions', desc: 'Syndicate operators share your ads across social media.' },
-              { step: '4', title: 'Track & Grow', desc: 'Monitor impressions, clicks, and conversions in real-time.' },
+              { step: '1', title: 'Get discovered', desc: 'Create a business presence and showcase your products and services.' },
+              { step: '2', title: 'Reach more people', desc: 'Use advertising and promotion to put your business in front of potential customers.' },
+              { step: '3', title: 'Build connections', desc: 'Use the community and promotional network to create more opportunities.' },
+              { step: '4', title: 'Grow your business', desc: 'Use practical marketing tools and performance insights to keep improving.' },
             ].map((s, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-r from-orange-500 to-red-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{s.step}</div>
