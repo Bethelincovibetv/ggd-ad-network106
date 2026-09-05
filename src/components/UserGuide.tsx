@@ -3,10 +3,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
-  Search, ChevronDown, Megaphone, Building2, Store, Briefcase, Users,
+  Search, ChevronDown, Megaphone, Building2, Store, Users,
   Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
-  ArrowRight, CheckCircle2, Smartphone, ShieldCheck, Send, Link2, Crown,
-  Gift, Palette, Hash, Image as ImageIcon, Bell,
+  CheckCircle2, Image as ImageIcon,
 } from 'lucide-react';
 import guideHero from '@/assets/guide-hero.jpg';
 
