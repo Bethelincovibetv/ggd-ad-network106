@@ -46,7 +46,7 @@ export const PerformanceSection: React.FC<PerformanceSectionProps> = ({
         // Fetch ads statistics
         const { data: ads } = await supabase
           .from('ads')
-          .select('views_count, clicks_count, status')
+          .select('impressions, clicks, is_active');
           .eq('user_id', userId);
 
         let imps = 0;
@@ -54,9 +54,9 @@ export const PerformanceSection: React.FC<PerformanceSectionProps> = ({
         let activeAds = 0;
         if (ads) {
           ads.forEach((a) => {
-            imps += a.views_count || 0;
-            clks += a.clicks_count || 0;
-            if (a.status === 'active') activeAds++;
+            imps += a.impressions || 0;
+            clks += a.clicks || 0;
+            if (a.is_active) activeAds++;
           });
         }
 

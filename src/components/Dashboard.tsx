@@ -56,7 +56,7 @@ import CampaignsHub from "@/components/CampaignsHub";
 import CreateFab from "@/components/CreateFab";
 import ExtendAdvertModal from "@/components/ExtendAdvertModal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, RefreshCw } from "lucide-react";
+import { BarChart2, Clock, RefreshCw } from "lucide-react";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -201,7 +201,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       // Non-blocking sync
     }
 
-    let { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits').eq('user_id', user.id).maybeSingle();
+    let { data: profile } = await (supabase.from('profiles')
+      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits')
+      .eq('user_id', user.id)
+      .maybeSingle() as any);
     if (!profile) {
       profile = await ensureUserProfileAndReferral(user);
     }

@@ -224,7 +224,7 @@ export async function ensureUserProfileAndReferral(
     if (needsUpdate) {
       const { data: updated } = await supabase
         .from("profiles")
-        .update(updates)
+        .update(updates as any)
         .eq("user_id", user.id)
         .select()
         .single();

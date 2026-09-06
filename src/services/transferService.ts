@@ -372,7 +372,7 @@ export async function syncPendingTransfersForUser(userId: string): Promise<{
       title: '💰 GGG Credits Received',
       message: `transfer:${t.id}:${t.amount}`,
       type: 'transfer_credited',
-      read: true,
+      is_read: true,
     }));
 
     await supabase.from('notifications').insert(claimInserts);

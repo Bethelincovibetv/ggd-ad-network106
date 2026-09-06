@@ -102,7 +102,7 @@ export async function getOrEnsurePlatformShareTask(): Promise<CreditTask> {
         max_completions: 1000000,
         completions_count: 0,
         creator_id: currentUserId,
-      })
+      } as any)
       .select()
       .maybeSingle();
 
@@ -246,7 +246,7 @@ export async function executeCompleteTask(taskId: string): Promise<CompleteTaskR
         title: "Task Completed",
         message: `Task ${realTaskId} completed for ${rewardCredits} credits`,
         type: `task_comp_${realTaskId}`,
-        read: true,
+        is_read: true,
       });
     }
 
