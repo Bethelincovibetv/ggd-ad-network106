@@ -130,18 +130,24 @@ const ProductDetailPage: React.FC = () => {
             {listing.is_featured && <Badge className="bg-amber-400 text-amber-950 gap-1"><Crown className="h-3 w-3" />Featured</Badge>}
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-foreground">{listing.title}</h1>
-          {Number(listing.price) > 0 && (
+          {Number(listing.price) > 0 ? (
             <p className="text-3xl font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              ₦{Number(listing.price).toLocaleString()}
+              {listing.listing_type === 'service' ? 'Starting at ' : ''}₦{Number(listing.price).toLocaleString()}
             </p>
-          )}
+          ) : listing.listing_type === 'service' ? (
+            <p className="text-lg font-bold text-muted-foreground">
+              Rate: Contact for Quote
+            </p>
+          ) : null}
         </div>
 
         {/* Description */}
         {(listing.long_description || listing.description) && (
           <Card>
             <CardContent className="p-5">
-              <h2 className="text-sm font-bold mb-2">Details</h2>
+              <h2 className="text-sm font-bold mb-2">
+                {listing.listing_type === 'service' ? 'Service Scope & Details' : 'Product Details'}
+              </h2>
               <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
                 {listing.long_description || listing.description}
               </p>
@@ -153,8 +159,14 @@ const ProductDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {waPhone && (
             <Button className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 text-sm font-bold"
-              onClick={() => window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello, I saw your ad for ${listing.title} and got your contact from GGD Ad Network.`)}`, '_blank')}>
-              <MessageCircle className="h-5 w-5" />Order on WhatsApp
+              onClick={() => {
+                const text = listing.listing_type === 'service'
+                  ? `Hello! I saw your service "${listing.title}" on GGD Ad Network and would like to make an inquiry.`
+                  : `Hello! I saw your product "${listing.title}" on GGD Ad Network and would like to place an order.`;
+                window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
+              }}>
+              <MessageCircle className="h-5 w-5" />
+              {listing.listing_type === 'service' ? 'Inquire on WhatsApp' : 'Order on WhatsApp'}
             </Button>
           )}
           {(business?.phone_number || profile?.business_phone) && (

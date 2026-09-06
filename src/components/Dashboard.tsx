@@ -754,7 +754,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'business':
       case 'my-business':
-        return isEnabled('nav_my_business') ? <BusinessStorefront /> : disabled;
+        return isEnabled('nav_my_business') ? <BusinessStorefront onNavigate={handleTabChange} /> : disabled;
 
       case 'inbox':
         return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;

@@ -33,6 +33,7 @@ const UserProfilePublicPage: React.FC = () => {
   const [business, setBusiness] = useState<any>(null);
   const [category, setCategory] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
+  const [listingFilter, setListingFilter] = useState<'all' | 'products' | 'services'>('all');
   const [sitesEnabled, setSitesEnabled] = useState(true);
   const [premiumTier, setPremiumTier] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -66,10 +67,19 @@ const UserProfilePublicPage: React.FC = () => {
         const { data: cat } = await (supabase.from('business_categories') as any).select('*').eq('id', b.data.category_id).single();
         setCategory(cat);
       }
-      if (b.data?.id) {
-        const { data: L } = await (supabase.from('business_listings') as any)
-          .select('*').eq('business_profile_id', b.data.id).eq('is_active', true)
-          .order('is_featured', { ascending: false }).order('created_at', { ascending: false });
+      if (b.data?.id || resolvedId) {
+        let query = (supabase.from('business_listings') as any).select('*');
+        if (b.data?.id && resolvedId) {
+          query = query.or(`business_profile_id.eq.${b.data.id},user_id.eq.${resolvedId}`);
+        } else if (b.data?.id) {
+          query = query.eq('business_profile_id', b.data.id);
+        } else {
+          query = query.eq('user_id', resolvedId);
+        }
+        const { data: L } = await query
+          .eq('is_active', true)
+          .order('is_featured', { ascending: false })
+          .order('created_at', { ascending: false });
         setListings(L || []);
       }
       setLoading(false);
@@ -154,8 +164,17 @@ const UserProfilePublicPage: React.FC = () => {
     { key: 'tiktok', href: business?.tiktok_url, icon: ExternalLink, label: 'TikTok', color: 'bg-gray-800 hover:bg-gray-900' },
   ].filter(s => s.href);
 
-  const featured = listings.filter(l => l.is_featured);
-  const rest = listings.filter(l => !l.is_featured);
+  const productCount = listings.filter(l => l.listing_type !== 'service').length;
+  const serviceCount = listings.filter(l => l.listing_type === 'service').length;
+
+  const filteredListings = listings.filter(l => {
+    if (listingFilter === 'products') return l.listing_type !== 'service';
+    if (listingFilter === 'services') return l.listing_type === 'service';
+    return true;
+  });
+
+  const featured = filteredListings.filter(l => l.is_featured);
+  const rest = filteredListings.filter(l => !l.is_featured);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
@@ -276,12 +295,41 @@ const UserProfilePublicPage: React.FC = () => {
         {/* Products / Services / Offers */}
         {listings.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-black text-foreground flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-orange-500" />
-                Products & Offers
-              </h2>
-              <Badge variant="secondary" className="text-[10px]">{listings.length}</Badge>
+                <h2 className="text-lg font-black text-foreground">
+                  Products & Services
+                </h2>
+                <Badge variant="secondary" className="text-[10px]">{listings.length}</Badge>
+              </div>
+
+              {/* Filter Tabs when both products and services exist */}
+              {productCount > 0 && serviceCount > 0 && (
+                <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setListingFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${listingFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    All ({listings.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setListingFilter('products')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${listingFilter === 'products' ? 'bg-background text-blue-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Products ({productCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setListingFilter('services')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${listingFilter === 'services' ? 'bg-background text-purple-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Services ({serviceCount})
+                  </button>
+                </div>
+              )}
             </div>
 
             {featured.length > 0 && (
@@ -313,8 +361,12 @@ const UserProfilePublicPage: React.FC = () => {
                         </div>
                         {listing.description && <p className="text-sm text-muted-foreground mt-1">{listing.description}</p>}
                         <div className="flex items-center justify-between mt-3">
-                          {listing.price > 0 ? (
-                            <p className="text-xl font-black text-orange-600">₦{Number(listing.price).toLocaleString()}</p>
+                          {Number(listing.price) > 0 ? (
+                            <p className="text-xl font-black text-orange-600">
+                              {listing.listing_type === 'service' ? 'From ' : ''}₦{Number(listing.price).toLocaleString()}
+                            </p>
+                          ) : listing.listing_type === 'service' ? (
+                            <p className="text-xs font-bold text-muted-foreground">Quote on request</p>
                           ) : <span />}
                           <Button size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white gap-1 h-10"
                             onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
@@ -353,9 +405,13 @@ const UserProfilePublicPage: React.FC = () => {
                       </div>
                       <div className="p-2.5">
                         <h3 className="font-bold text-xs text-foreground line-clamp-2 min-h-[2rem]">{listing.title}</h3>
-                        {listing.price > 0 && (
-                          <p className="text-sm font-black text-orange-600 mt-1">₦{Number(listing.price).toLocaleString()}</p>
-                        )}
+                        {Number(listing.price) > 0 ? (
+                          <p className="text-sm font-black text-orange-600 mt-1">
+                            {listing.listing_type === 'service' ? 'From ' : ''}₦{Number(listing.price).toLocaleString()}
+                          </p>
+                        ) : listing.listing_type === 'service' ? (
+                          <p className="text-[11px] font-bold text-muted-foreground mt-1">Quote on request</p>
+                        ) : null}
                         <Button size="sm" className="w-full mt-2 h-8 text-[10px] bg-gradient-to-r from-orange-500 to-red-600 text-white"
                           onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
                           View Details
