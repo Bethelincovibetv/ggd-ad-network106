@@ -195,7 +195,7 @@ const ReferralChat = ({ peerId, peerName, onBack }: Props) => {
       if (data) {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === tempId ? { ...(data as ChatMsg), status: 'sent' } : m
+            m.id === tempId ? { ...(data as unknown as ChatMsg), status: 'sent' } : m
           )
         );
       }
