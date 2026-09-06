@@ -14,6 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
+import {
+  CreditTask,
+  getOrEnsurePlatformShareTask,
+  executeCompleteTask,
+} from "@/services/creditTaskService";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -23,20 +28,10 @@ interface TaskListProps {
 
 type TaskType = 'share' | 'social' | 'youtube';
 
-const PLATFORM_100_CREDIT_TASK = {
-  id: 'platform-ggd-share-100-credits',
-  title: 'Share GGD Ad Network — Earn 100 Credits',
-  description: 'Share the GGD Ad Network platform on WhatsApp, Facebook, Telegram or Instagram. Earn 100 promotional credits instantly to advertise your business!',
-  reward_credits: 100,
-  task_type: 'share',
-  share_url: typeof window !== 'undefined' ? `${window.location.origin}/?ref=share_task` : 'https://ggdadnetwork.com',
-  is_official: true,
-  max_completions: null,
-};
-
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
   const [tasks, setTasks] = useState<any[]>([]);
+  const [platformTask, setPlatformTask] = useState<CreditTask | null>(null);
   const [completions, setCompletions] = useState<string[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType | null>(null);
@@ -71,6 +66,15 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUid(user.id);
+
+    // Fetch official platform share task from real database ledger
+    try {
+      const pTask = await getOrEnsurePlatformShareTask();
+      setPlatformTask(pTask);
+    } catch {
+      // Fallback
+    }
+
     // Owner Mode: a user's own campaigns are shown with management tools,
     // never with "do this task" actions.
     const [{ data: othersData }, { data: mineData }] = await Promise.all([
@@ -81,18 +85,22 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     const completedIds = (comps || []).map(c => c.task_id);
 
-    // Also check persistent platform share completion
+    // Also check legacy platform share notifications if applicable
     const { data: notifs } = await supabase
       .from('notifications')
-      .select('id')
+      .select('id, type')
       .eq('user_id', user.id)
-      .eq('type', 'platform_share_100_completed')
-      .limit(1);
+      .or('type.eq.platform_share_100_completed,type.like.task_comp_%')
+      .limit(10);
 
     if (notifs && notifs.length > 0) {
-      completedIds.push(PLATFORM_100_CREDIT_TASK.id);
+      notifs.forEach(n => {
+        if (n.type === 'platform_share_100_completed' && platformTask?.id) {
+          completedIds.push(platformTask.id);
+        }
+      });
     }
-    setCompletions(completedIds);
+    setCompletions(Array.from(new Set(completedIds)));
   };
 
   const toggleTaskActive = async (task: any) => {
@@ -239,124 +247,30 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           return;
         }
 
-        // 1. Dedicated idempotent handler for the Official 100-Credit Platform Share Task
-        if (task.id === PLATFORM_100_CREDIT_TASK.id || task.is_official) {
-          const { data: existingClaims } = await supabase
-            .from('notifications')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('type', 'platform_share_100_completed')
-            .limit(1);
-
-          if (existingClaims && existingClaims.length > 0) {
-            setVerifyingTaskId(null);
-            toast.info("100-credit sharing reward has already been claimed!");
-            setCompletions(prev => Array.from(new Set([...prev, task.id])));
-            return;
-          }
-
-          // Persist the completion record idempotently
-          await supabase.from('notifications').insert({
-            user_id: user.id,
-            title: '100 Credits Awarded',
-            message: 'You earned 100 promotional credits for sharing GGD Ad Network!',
-            type: 'platform_share_100_completed',
-            read: true,
-          });
-
-          // Fetch fresh credits and add 100
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('credits')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          const currentCredits = Number(prof?.credits || 0);
-          const updatedCredits = currentCredits + 100;
-
-          // Real-time update in database
-          await supabase
-            .from('profiles')
-            .update({ credits: updatedCredits })
-            .eq('user_id', user.id);
-
-          // Real-time update in UI state
-          onCreditsUpdate(updatedCredits);
-          setCompletions(prev => Array.from(new Set([...prev, task.id])));
-          setVerifyingTaskId(null);
-          playRewardSound();
-          toast.success("🎉 Incredible! 100 Credits have been added to your balance!");
-          return;
-        }
-
-        // 2. Handler for community and advertiser tasks via complete_credit_task RPC
-        const { data, error } = await callRpc('complete_credit_task', {
-          p_task_id: task.id,
-        });
-
-        if (error) {
-          if ((error as any).code === '23505') {
-            setVerifyingTaskId(null);
-            toast.info("Already completed!");
-            setCompletions(prev => Array.from(new Set([...prev, task.id])));
-            return;
-          }
-
-          // Fallback: direct database insertion with unique constraint protection
-          const { error: insErr } = await supabase.from('task_completions').insert({
-            task_id: task.id,
-            user_id: user.id,
-          });
-
-          if (insErr) {
-            setVerifyingTaskId(null);
-            if ((insErr as any).code === '23505') {
-              toast.info("Already completed!");
-              setCompletions(prev => Array.from(new Set([...prev, task.id])));
-              return;
-            }
-            toast.error(insErr.message || "Failed to complete task");
-            return;
-          }
-
-          const awarded = task.reward_credits || 5;
-          const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
-          const currentCredits = Number(prof?.credits || 0);
-          const updatedCredits = currentCredits + awarded;
-          await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
-
-          await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
-          if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
-            await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
-          }
-
-          onCreditsUpdate(updatedCredits);
-          setCompletions(prev => Array.from(new Set([...prev, task.id])));
-          setVerifyingTaskId(null);
-          playRewardSound();
-          toast.success(`🎉 Earned ${awarded} credits!`);
-          fetchTasks();
-          return;
-        }
-
-        const res = data as any;
-        if (res && !res.success) {
-          setVerifyingTaskId(null);
-          toast.info(res.error || "Could not complete task");
-          return;
-        }
-
-        const awarded = res?.credits_awarded || task.reward_credits || 5;
-        const updatedCredits = credits + awarded;
-        onCreditsUpdate(updatedCredits);
-        setCompletions(prev => Array.from(new Set([...prev, task.id])));
+        const res = await executeCompleteTask(task.id);
         setVerifyingTaskId(null);
+
+        if (res.alreadyCompleted) {
+          toast.info(res.error || "You have already completed this task!");
+          setCompletions(prev => Array.from(new Set([...prev, task.id])));
+          return;
+        }
+
+        if (!res.success) {
+          toast.error(res.error || "Failed to complete task");
+          return;
+        }
+
+        if (res.newBalance !== undefined) {
+          onCreditsUpdate(res.newBalance);
+        }
+        setCompletions(prev => Array.from(new Set([...prev, task.id])));
         playRewardSound();
-        toast.success(`🎉 Earned ${awarded} credits!`);
+        toast.success(`🎉 Task completed! +${res.rewardAwarded} credits added to your wallet!`);
         fetchTasks();
       } catch (err: any) {
         setVerifyingTaskId(null);
-        toast.error(err.message || "Task verification failed");
+        toast.error("Verification failed. Please try again.");
       }
     }, 15000);
   };
@@ -731,19 +645,20 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Featured Platform 100-Credit Task */}
-      {(() => {
-        const platformCompleted = completions.includes(PLATFORM_100_CREDIT_TASK.id);
-        const isVerifying = verifyingTaskId === PLATFORM_100_CREDIT_TASK.id;
+      {/* Featured Platform Task */}
+      {platformTask && (() => {
+        const platformCompleted = completions.includes(platformTask.id);
+        const isVerifying = verifyingTaskId === platformTask.id;
+        const rewardAmount = platformTask.reward_credits || 100;
         return (
           <Card className="overflow-hidden border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/10 shadow-md shadow-orange-500/5 transition-all rounded-2xl">
             <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-3.5 py-1.5 flex items-center justify-between text-white">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-yellow-200 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-wider">Featured Platform Task</span>
+                <span className="text-[11px] font-black uppercase tracking-wider">Official Platform Task</span>
               </div>
               <span className="text-[11px] font-black bg-white text-orange-600 px-2.5 py-0.5 rounded-full shadow-xs">
-                +100 CREDITS
+                +{rewardAmount} CREDITS
               </span>
             </div>
             <CardContent className="p-4 space-y-3">
@@ -753,10 +668,10 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-bold text-foreground leading-snug">
-                    {PLATFORM_100_CREDIT_TASK.title}
+                    {platformTask.title}
                   </h3>
                   <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
-                    {PLATFORM_100_CREDIT_TASK.description}
+                    {platformTask.description}
                   </p>
                 </div>
               </div>
@@ -764,7 +679,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/70">
                 <div className="flex items-center gap-1.5 text-xs text-foreground/85 font-medium">
                   <Coins className="h-4 w-4 text-orange-500" />
-                  <span>Reward: <strong className="text-foreground font-bold">100 Credits</strong> (Instant)</span>
+                  <span>Reward: <strong className="text-foreground font-bold">{rewardAmount} Credits</strong> (Instant)</span>
                 </div>
 
                 {platformCompleted ? (
@@ -788,11 +703,11 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() => completeTask(PLATFORM_100_CREDIT_TASK)}
+                    onClick={() => completeTask(platformTask)}
                     className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-full px-4 h-8 shadow-md shadow-orange-500/20"
                   >
                     <Share2 className="h-3.5 w-3.5 mr-1" />
-                    Share & Earn 100 Credits
+                    Share & Earn {rewardAmount} Credits
                   </Button>
                 )}
               </div>

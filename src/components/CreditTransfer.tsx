@@ -30,6 +30,7 @@ import {
   verifyRecipient,
   executeTransfer,
   getTransferHistory,
+  syncPendingTransfersForUser,
   VerifiedRecipient,
   TransferRecord,
 } from "@/services/transferService";
@@ -82,6 +83,18 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
       const { data: authData } = await supabase.auth.getUser();
       if (authData.user && isMounted) {
         setCurrentUserId(authData.user.id);
+        
+        // Synchronize any incoming transfers directly into persistent balance
+        try {
+          const syncRes = await syncPendingTransfersForUser(authData.user.id);
+          if (syncRes.credited && syncRes.totalAdded > 0) {
+            onCreditsUpdate(syncRes.newBalance);
+            toast.success(`🎉 Synced +${syncRes.totalAdded} incoming transfer credits!`);
+          }
+        } catch {
+          // Non-blocking sync
+        }
+
         loadHistory(authData.user.id);
         setupRealtimeSubscription(authData.user.id);
       }
@@ -132,16 +145,22 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
             const updated = await getTransferHistory(uid);
             setHistory(updated);
 
-            // If we are the receiver, fetch latest balance from profile
+            // If we are the receiver, sync and credit profile immediately
             if (newRow.receiver_id === uid) {
-              const { data: prof } = await supabase
-                .from('profiles')
-                .select('credits')
-                .eq('user_id', uid)
-                .maybeSingle();
-              if (prof && typeof prof.credits === 'number') {
-                onCreditsUpdate(prof.credits);
-                toast.success(`You received ${newRow.amount} GGG credits!`);
+              const syncRes = await syncPendingTransfersForUser(uid);
+              if (syncRes.credited) {
+                onCreditsUpdate(syncRes.newBalance);
+                toast.success(`🎉 You received ${newRow.amount} GGG credits!`);
+              } else {
+                const { data: prof } = await supabase
+                  .from('profiles')
+                  .select('credits')
+                  .eq('user_id', uid)
+                  .maybeSingle();
+                if (prof && typeof prof.credits === 'number') {
+                  onCreditsUpdate(prof.credits);
+                  toast.success(`You received ${newRow.amount} GGG credits!`);
+                }
               }
             }
           }

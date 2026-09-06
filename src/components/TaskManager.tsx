@@ -47,6 +47,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  CreditTask,
+  getOrEnsurePlatformShareTask,
+} from "@/services/creditTaskService";
 
 interface TaskItem {
   id: string;
@@ -70,6 +74,11 @@ const TaskManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'completed'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  // Official Platform Task State
+  const [officialTask, setOfficialTask] = useState<CreditTask | null>(null);
+  const [officialRewardInput, setOfficialRewardInput] = useState('100');
+  const [savingOfficialReward, setSavingOfficialReward] = useState(false);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +105,15 @@ const TaskManager = () => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
+      // Load official platform share task
+      try {
+        const offTask = await getOrEnsurePlatformShareTask();
+        setOfficialTask(offTask);
+        setOfficialRewardInput(String(offTask.reward_credits || 100));
+      } catch (err) {
+        console.warn('Failed loading official platform task', err);
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -110,6 +128,49 @@ const TaskManager = () => {
       toast.error('Network error loading tasks');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveOfficialReward = async () => {
+    const reward = parseInt(officialRewardInput, 10);
+    if (isNaN(reward) || reward <= 0) {
+      toast.error('Please enter a valid credit reward (minimum 1)');
+      return;
+    }
+    setSavingOfficialReward(true);
+    try {
+      if (officialTask?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(officialTask.id)) {
+        await supabase.from('tasks').update({ reward_credits: reward }).eq('id', officialTask.id);
+      }
+      await supabase.from('app_settings').upsert(
+        {
+          key: 'platform_share_reward_credits',
+          value: String(reward),
+        },
+        { onConflict: 'key' }
+      );
+
+      toast.success(`Official Platform Task reward updated to ${reward} credits!`);
+      setOfficialTask(prev => prev ? { ...prev, reward_credits: reward } : null);
+      fetchTasks();
+    } catch (err: any) {
+      toast.error('Failed to update reward: ' + (err?.message || 'Error'));
+    } finally {
+      setSavingOfficialReward(false);
+    }
+  };
+
+  const handleToggleOfficialActive = async () => {
+    if (!officialTask) return;
+    const newStatus = !officialTask.is_active;
+    try {
+      if (officialTask.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(officialTask.id)) {
+        await supabase.from('tasks').update({ is_active: newStatus }).eq('id', officialTask.id);
+      }
+      setOfficialTask(prev => prev ? { ...prev, is_active: newStatus } : null);
+      toast.success(newStatus ? 'Official Platform Task activated' : 'Official Platform Task paused');
+    } catch (err: any) {
+      toast.error('Error toggling official task status');
     }
   };
 
@@ -434,16 +495,104 @@ const TaskManager = () => {
         <Card className="border border-border/60 shadow-sm bg-card">
           <CardContent className="p-3.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Platform Task</p>
-            <p className="text-xs font-bold text-foreground mt-1 flex items-center gap-1.5">
-              <Gift className="h-4 w-4 text-orange-500" />
-              100-Credit Share
+            <p className="text-sm font-black text-foreground mt-0.5">
+              +{officialTask?.reward_credits || 100} Credits
             </p>
-            <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 mt-1">
-              Active / Idempotent
+            <Badge variant="outline" className={`text-[9px] mt-1 ${officialTask?.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+              {officialTask?.is_active ? 'Active' : 'Paused'} · {officialTask?.completions_count || 0} claims
             </Badge>
           </CardContent>
         </Card>
       </div>
+
+      {/* Official Platform Share Task - Configuration Card */}
+      {officialTask && (
+        <Card className="border-2 border-orange-500/30 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/5 shadow-sm rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-4 py-2 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-yellow-200" />
+              <span className="text-xs font-black uppercase tracking-wider">Official Platform Share Task</span>
+            </div>
+            <Badge className="bg-white/20 text-white border-0 text-[10px] font-bold">
+              {officialTask.is_active ? 'Active on Community Feed' : 'Paused'}
+            </Badge>
+          </div>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">{officialTask.title}</h4>
+                  <Badge className="bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 border-orange-200 text-[10px] font-bold">
+                    +{officialTask.reward_credits} Credits Reward
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {officialTask.description}
+                </p>
+                <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                    <strong>{officialTask.completions_count || 0}</strong> user claims completed
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Globe className="h-3.5 w-3.5 text-blue-500" />
+                    {officialTask.share_url}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Reward & Status Adjuster */}
+              <div className="flex flex-wrap items-center gap-3 bg-muted/40 p-3 rounded-xl border border-border/60">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Reward Credits
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={officialRewardInput}
+                      onChange={e => setOfficialRewardInput(e.target.value)}
+                      className="h-8 w-24 text-xs font-bold text-center"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSaveOfficialReward}
+                      disabled={savingOfficialReward}
+                      className="h-8 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 rounded-lg"
+                    >
+                      {savingOfficialReward ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        'Save'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="h-8 w-[1px] bg-border mx-1 hidden sm:block" />
+
+                <div className="space-y-1 flex flex-col items-center">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </Label>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Label htmlFor="official-active-toggle" className="text-xs font-medium cursor-pointer">
+                      {officialTask.is_active ? 'Active' : 'Paused'}
+                    </Label>
+                    <Switch
+                      id="official-active-toggle"
+                      checked={officialTask.is_active}
+                      onCheckedChange={handleToggleOfficialActive}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search & Filter Bar */}
       <Card className="border border-border/60 shadow-sm">

@@ -414,7 +414,16 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     });
 
     if (error) {
-      toast.error("Matching failed: " + error.message);
+      const msg = (error.message || '').toLowerCase();
+      if (error.code === '23505' && msg.includes('uniq_syndicate_one_active_task')) {
+        toast.error("You already have an active task. Finish it first.");
+      } else if (error.code === '23505') {
+        toast.info("You are already assigned to this task");
+      } else if (error.code === '23514' || msg.includes('capacity')) {
+        toast.error("This task is currently at full capacity");
+      } else {
+        toast.error("Matching failed. Please try selecting a task manually.");
+      }
     } else {
       toast.success(`Matched to task: ${taskToMatch.title}`);
       setMainTab('assignments');

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
+import { syncPendingTransfersForUser } from "@/services/transferService";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -189,6 +190,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     // Every registered user is a business by default
     setIsBusiness(true);
     setIsSyndicate(userRoles.includes('syndicate'));
+
+    // Automatically sync any pending incoming transfers from credit_transfers
+    try {
+      const syncResult = await syncPendingTransfersForUser(user.id);
+      if (syncResult.credited && syncResult.totalAdded > 0) {
+        toast.success(`🎉 +${syncResult.totalAdded} credits received from transfer!`);
+      }
+    } catch {
+      // Non-blocking sync
+    }
 
     let { data: profile } = await supabase.from('profiles').select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits').eq('user_id', user.id).maybeSingle();
     if (!profile) {
