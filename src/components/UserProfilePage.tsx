@@ -238,10 +238,17 @@ const UserProfilePage = () => {
             </div>
           </div>
 
-          <div className="bg-white/15 rounded-lg p-3 text-center backdrop-blur mt-4">
-            <p className="text-[9px] uppercase opacity-80">GGG Credits Wallet</p>
-            <p className="text-2xl font-black">{profile?.credits ?? 0}</p>
-            <p className="text-[10px] opacity-80">Single unified wallet · Naira value via admin rate</p>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <div className="bg-white/15 rounded-xl p-3 text-center backdrop-blur border border-white/20">
+              <p className="text-[9px] uppercase tracking-wider font-semibold opacity-90">Naira Task Wallet</p>
+              <p className="text-xl font-black mt-0.5">₦{Number(wallet?.balance || 0).toLocaleString()}</p>
+              <p className="text-[9px] opacity-75">Funded: ₦{Number(wallet?.total_funded || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-white/15 rounded-xl p-3 text-center backdrop-blur border border-white/20">
+              <p className="text-[9px] uppercase tracking-wider font-semibold opacity-90">GGG Credits</p>
+              <p className="text-xl font-black mt-0.5">{profile?.credits ?? 0} <span className="text-xs font-normal opacity-80">cr</span></p>
+              <p className="text-[9px] opacity-75">In-app currency</p>
+            </div>
           </div>
         </div>
       </Card>

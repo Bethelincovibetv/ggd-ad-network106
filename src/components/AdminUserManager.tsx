@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import {
   Search, Plus, Crown, Ban, CheckCircle, Minus, Shield, Briefcase,
   Users, Sparkles, Calendar, Wallet, Mail, Hash, Filter,
-  ExternalLink, MapPin, Award, MessageCircle, ChevronRight, Loader2
+  ExternalLink, MapPin, Award, MessageCircle, ChevronRight, Loader2,
+  Banknote, ArrowUpRight, ArrowDownRight, History, RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,12 @@ const AdminUserManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [creditAmounts, setCreditAmounts] = useState<Record<string, string>>({});
+  const [creditNotes, setCreditNotes] = useState<Record<string, string>>({});
+  const [taskWalletAmounts, setTaskWalletAmounts] = useState<Record<string, string>>({});
+  const [taskWalletNotes, setTaskWalletNotes] = useState<Record<string, string>>({});
+  const [isAdjusting, setIsAdjusting] = useState<boolean>(false);
+  const [userNotifications, setUserNotifications] = useState<any[]>([]);
+  const [loadingUserNotifications, setLoadingUserNotifications] = useState(false);
   const [wallets, setWallets] = useState<Record<string, any>>({});
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [businessProfiles, setBusinessProfiles] = useState<Record<string, any>>({});
@@ -112,21 +119,193 @@ const AdminUserManager = () => {
     loadAll();
   };
 
-  const adjustCredits = async (profileId: string, sign: 1 | -1) => {
-    const raw = parseInt(creditAmounts[profileId] || '0');
+  // Load selected user's recent wallet and credit activity
+  useEffect(() => {
+    if (selectedUser?.user_id) {
+      setLoadingUserNotifications(true);
+      supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', selectedUser.user_id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+        .then(({ data }) => {
+          setUserNotifications(data || []);
+          setLoadingUserNotifications(false);
+        });
+    } else {
+      setUserNotifications([]);
+    }
+  }, [selectedUser]);
+
+  const adjustCredits = async (sign: 1 | -1, customAmount?: number) => {
+    if (!selectedUser) return;
+    const raw = customAmount !== undefined ? customAmount : parseInt(creditAmounts[selectedUser.id] || '0', 10);
     const amount = Math.abs(raw) * sign;
-    if (!amount) return;
-    const user = users.find(u => u.id === profileId);
-    if (!user) return;
-    const newCredits = user.credits + amount;
-    if (newCredits < 0) { toast.error("Cannot go below 0 credits"); return; }
-    await supabase.from('profiles').update({ credits: newCredits }).eq('id', profileId);
-    toast.success(amount > 0 ? `Added ${amount} credits` : `Debited ${Math.abs(amount)} credits`);
-    setCreditAmounts(prev => ({ ...prev, [profileId]: '' }));
-    loadAll();
+    if (!amount) {
+      toast.error("Please enter a valid credit amount");
+      return;
+    }
+
+    const currentCredits = Number(selectedUser.credits) || 0;
+    const newCredits = Math.max(0, currentCredits + amount);
+    const reason = creditNotes[selectedUser.id]?.trim() || (amount > 0 ? 'Admin credit funding' : 'Admin credit adjustment');
+
+    setIsAdjusting(true);
+    try {
+      // 1. Try atomic RPC first
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_adjust_user_credits', {
+        p_target_id: selectedUser.user_id,
+        p_amount: amount,
+        p_reason: reason,
+      });
+
+      if (!rpcErr && rpcData && (rpcData as any).success) {
+        toast.success(amount > 0 ? `🎉 Successfully added ${amount} GGG credits!` : `Debited ${Math.abs(amount)} GGG credits`);
+        setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
+        setCreditNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
+        setSelectedUser((prev: any) => prev ? { ...prev, credits: (rpcData as any).new_credits } : null);
+        await loadAll();
+        return;
+      }
+
+      // 2. Direct fallback update
+      let { error: upErr } = await supabase
+        .from('profiles')
+        .update({ credits: newCredits })
+        .eq('user_id', selectedUser.user_id);
+
+      if (upErr) {
+        const res2 = await supabase
+          .from('profiles')
+          .update({ credits: newCredits })
+          .eq('id', selectedUser.id);
+        upErr = res2.error;
+      }
+
+      if (upErr) {
+        throw new Error(upErr.message || 'Permission denied or update failed');
+      }
+
+      // 3. Insert notification for user
+      await supabase.from('notifications').insert({
+        user_id: selectedUser.user_id,
+        title: amount > 0 ? '🎉 Credits Added by Admin' : '⚠️ Credits Debited by Admin',
+        message: amount > 0 
+          ? `Admin added ${amount} GGG credits to your wallet (${reason}). New balance: ${newCredits} credits.`
+          : `Admin debited ${Math.abs(amount)} GGG credits from your wallet (${reason}). New balance: ${newCredits} credits.`,
+        type: 'credit',
+        is_read: false,
+      });
+
+      toast.success(amount > 0 ? `🎉 Added ${amount} credits (New: ${newCredits})` : `Debited ${Math.abs(amount)} credits (New: ${newCredits})`);
+      setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
+      setCreditNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
+      setSelectedUser((prev: any) => prev ? { ...prev, credits: newCredits } : null);
+      await loadAll();
+    } catch (err: any) {
+      toast.error('Credit adjustment error: ' + (err.message || 'Action failed'));
+    } finally {
+      setIsAdjusting(false);
+    }
   };
 
-  // Funds are now unified into GGG credits — admin only adjusts credits.
+  const adjustTaskWallet = async (sign: 1 | -1, customAmount?: number) => {
+    if (!selectedUser) return;
+    const raw = customAmount !== undefined ? customAmount : parseFloat(taskWalletAmounts[selectedUser.id] || '0');
+    const amount = Math.abs(raw) * sign;
+    if (!amount) {
+      toast.error("Please enter a valid Naira amount (e.g. ₦1,000)");
+      return;
+    }
+
+    const currentWallet = wallets[selectedUser.user_id];
+    const currentBalance = Number(currentWallet?.balance || 0);
+    const currentFunded = Number(currentWallet?.total_funded || 0);
+    const newBalance = Math.max(0, currentBalance + amount);
+    const newFunded = currentFunded + (amount > 0 ? amount : 0);
+    const reason = taskWalletNotes[selectedUser.id]?.trim() || (amount > 0 ? 'Admin manual wallet funding' : 'Admin adjustment');
+
+    setIsAdjusting(true);
+    try {
+      // 1. Try atomic RPC first
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_fund_task_wallet', {
+        p_target_id: selectedUser.user_id,
+        p_amount: amount,
+        p_reason: reason,
+      });
+
+      if (!rpcErr && rpcData && (rpcData as any).success) {
+        toast.success(amount > 0 ? `💰 Successfully funded ₦${amount.toLocaleString()} into Task Wallet!` : `Debited ₦${Math.abs(amount).toLocaleString()} from Task Wallet`);
+        setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
+        setTaskWalletNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
+        setWallets(prev => ({
+          ...prev,
+          [selectedUser.user_id]: {
+            ...(prev[selectedUser.user_id] || {}),
+            balance: (rpcData as any).new_balance,
+            total_funded: (rpcData as any).new_balance,
+          }
+        }));
+        await loadAll();
+        return;
+      }
+
+      // 2. Direct fallback update
+      let wErr: any = null;
+      if (currentWallet) {
+        const res = await supabase
+          .from('task_wallets')
+          .update({
+            balance: newBalance,
+            total_funded: newFunded,
+          })
+          .eq('user_id', selectedUser.user_id);
+        wErr = res.error;
+      } else {
+        const res = await supabase
+          .from('task_wallets')
+          .insert({
+            user_id: selectedUser.user_id,
+            balance: newBalance,
+            total_funded: newFunded,
+          });
+        wErr = res.error;
+      }
+
+      if (wErr) {
+        throw new Error(wErr.message || 'Failed to update task wallet');
+      }
+
+      // 3. Insert notification for user
+      await supabase.from('notifications').insert({
+        user_id: selectedUser.user_id,
+        title: amount > 0 ? '💼 Task Wallet Funded!' : '💼 Task Wallet Debited',
+        message: amount > 0 
+          ? `Admin funded your Naira Task Wallet with ₦${amount.toLocaleString()} (${reason}). New balance: ₦${newBalance.toLocaleString()}.`
+          : `Admin debited ₦${Math.abs(amount).toLocaleString()} from your Naira Task Wallet (${reason}). New balance: ₦${newBalance.toLocaleString()}.`,
+        type: 'wallet',
+        is_read: false,
+      });
+
+      toast.success(amount > 0 ? `💰 Successfully funded ₦${amount.toLocaleString()} (New balance: ₦${newBalance.toLocaleString()})` : `Debited ₦${Math.abs(amount).toLocaleString()} (New balance: ₦${newBalance.toLocaleString()})`);
+      setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
+      setTaskWalletNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
+      setWallets(prev => ({
+        ...prev,
+        [selectedUser.user_id]: {
+          ...(prev[selectedUser.user_id] || {}),
+          balance: newBalance,
+          total_funded: newFunded,
+        }
+      }));
+      await loadAll();
+    } catch (err: any) {
+      toast.error('Naira wallet funding error: ' + (err.message || 'Action failed'));
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
 
   const saveProfile = async () => {
     if (!selectedUser) return;
@@ -232,8 +411,8 @@ const AdminUserManager = () => {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-xs font-bold text-foreground">{user.credits}<span className="text-[9px] text-muted-foreground"> cr</span></p>
-                  <p className="text-[10px] text-muted-foreground">≈ ₦{(user.credits * exchangeRate).toLocaleString()}</p>
+                  <p className="text-xs font-bold text-emerald-600">₦{Number(wallet?.balance || 0).toLocaleString()}</p>
+                  <p className="text-[10px] text-muted-foreground">{user.credits}<span className="text-[9px]"> cr</span> (≈₦{(user.credits * exchangeRate).toLocaleString()})</p>
                   <ChevronRight className="h-4 w-4 text-muted-foreground inline mt-0.5" />
                 </div>
               </CardContent>
@@ -254,7 +433,7 @@ const AdminUserManager = () => {
               <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 text-white p-5 relative">
                 <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
                 <SheetHeader className="text-left relative">
-                  <SheetTitle className="text-white text-base">User Details</SheetTitle>
+                  <SheetTitle className="text-white text-base">User Details & Wallets</SheetTitle>
                 </SheetHeader>
                 <div className="flex items-center gap-3 mt-3 relative">
                   <Avatar className="h-16 w-16 border-4 border-white shadow-lg">
@@ -267,15 +446,16 @@ const AdminUserManager = () => {
                     <p className="text-[11px] opacity-90 flex items-center gap-1"><Hash className="h-3 w-3" />{selectedUser.referral_code || 'N/A'}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-4 relative">
-                  <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur">
-                    <p className="text-[9px] uppercase opacity-80">Credits</p>
-                    <p className="text-base font-bold">{selectedUser.credits}</p>
+                <div className="grid grid-cols-2 gap-2 mt-4 relative">
+                  <div className="bg-white/15 rounded-xl p-2.5 backdrop-blur border border-white/20">
+                    <p className="text-[9px] uppercase tracking-wider font-semibold opacity-90">Naira Task Wallet</p>
+                    <p className="text-lg font-black mt-0.5">₦{Number(sw?.balance || 0).toLocaleString()}</p>
+                    <p className="text-[9px] opacity-75">Total funded: ₦{Number(sw?.total_funded || 0).toLocaleString()}</p>
                   </div>
-                  <div className="bg-white/15 rounded-lg p-2 text-center backdrop-blur col-span-2">
-                    <p className="text-[9px] uppercase opacity-80">≈ Naira value</p>
-                    <p className="text-base font-bold">₦{(selectedUser.credits * exchangeRate).toLocaleString()}</p>
-                    <p className="text-[9px] opacity-70">Rate: ₦{exchangeRate}/credit</p>
+                  <div className="bg-white/15 rounded-xl p-2.5 backdrop-blur border border-white/20">
+                    <p className="text-[9px] uppercase tracking-wider font-semibold opacity-90">GGG Credits</p>
+                    <p className="text-lg font-black mt-0.5">{selectedUser.credits} <span className="text-xs font-normal opacity-80">cr</span></p>
+                    <p className="text-[9px] opacity-75">≈ ₦{(selectedUser.credits * exchangeRate).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -285,7 +465,7 @@ const AdminUserManager = () => {
                   <TabsList className="grid grid-cols-4 w-full text-[11px]">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="roles">Roles</TabsTrigger>
-                    <TabsTrigger value="wallet">Funds</TabsTrigger>
+                    <TabsTrigger value="wallet">Funding</TabsTrigger>
                     <TabsTrigger value="links">Links</TabsTrigger>
                   </TabsList>
 
@@ -397,27 +577,224 @@ const AdminUserManager = () => {
                     })}
                   </TabsContent>
 
-                  <TabsContent value="wallet" className="space-y-3 pt-3">
-                    <Card>
-                      <CardContent className="p-3 space-y-2">
-                        <p className="text-xs font-semibold">Credits ({selectedUser.credits})</p>
-                        <div className="flex gap-2">
-                          <Input type="number" placeholder="Amount"
-                            value={creditAmounts[selectedUser.id] || ''}
-                            onChange={e => setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: e.target.value }))}
-                            className="h-9 text-sm flex-1" />
-                          <Button size="sm" variant="outline" onClick={() => adjustCredits(selectedUser.id, 1)}><Plus className="h-3 w-3" /></Button>
-                          <Button size="sm" variant="destructive" onClick={() => adjustCredits(selectedUser.id, -1)}><Minus className="h-3 w-3" /></Button>
+                  <TabsContent value="wallet" className="space-y-4 pt-3">
+                    {/* SECTION 1: NAIRA TASK WALLET (₦ CASH) */}
+                    <Card className="border-emerald-200 shadow-sm bg-gradient-to-br from-emerald-50/70 to-teal-50/40">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                              <Banknote className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-emerald-950 uppercase tracking-wide">Naira Task Wallet</p>
+                              <p className="text-[11px] text-emerald-700">Business campaigns & syndicates</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-emerald-800 font-semibold uppercase">Current Balance</span>
+                            <p className="text-xl font-black text-emerald-700">₦{Number(sw?.balance || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-semibold text-emerald-900 uppercase">Quick Add Presets</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[500, 1000, 2000, 5000, 10000, 20000].map(val => (
+                              <Button
+                                key={val}
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isAdjusting}
+                                onClick={() => setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: String(val) }))}
+                                className="h-7 text-xs font-semibold bg-white/80 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-300 text-emerald-800"
+                              >
+                                +₦{val.toLocaleString()}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Custom Naira Amount & Reason */}
+                        <div className="space-y-2 pt-1">
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₦</span>
+                            <Input
+                              type="number"
+                              placeholder="Enter Naira amount (e.g. 5000)"
+                              value={taskWalletAmounts[selectedUser.id] || ''}
+                              onChange={e => setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: e.target.value }))}
+                              disabled={isAdjusting}
+                              className="h-9 text-sm pl-8 font-medium bg-white"
+                            />
+                          </div>
+                          <Input
+                            placeholder="Optional reason (e.g. Bank transfer, Campaign bonus)"
+                            value={taskWalletNotes[selectedUser.id] || ''}
+                            onChange={e => setTaskWalletNotes(prev => ({ ...prev, [selectedUser.id]: e.target.value }))}
+                            disabled={isAdjusting}
+                            className="h-8 text-xs bg-white"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            disabled={isAdjusting || !taskWalletAmounts[selectedUser.id]}
+                            onClick={() => adjustTaskWallet(1)}
+                            className="h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+                          >
+                            {isAdjusting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                            Fund Naira Wallet (+)
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isAdjusting || !taskWalletAmounts[selectedUser.id]}
+                            onClick={() => adjustTaskWallet(-1)}
+                            className="h-9 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center justify-center gap-1.5"
+                          >
+                            <ArrowDownRight className="h-3.5 w-3.5" />
+                            Debit Naira (-)
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-orange-50 border-orange-200">
-                      <CardContent className="p-3">
-                        <p className="text-[11px] text-orange-800">
-                          <Wallet className="h-3 w-3 inline mr-1" />
-                          Funds are unified into GGG credits. Adjust credits above — naira value is computed at ₦{exchangeRate}/credit.
-                        </p>
+                    {/* SECTION 2: GGG CREDITS WALLET */}
+                    <Card className="border-orange-200 shadow-sm bg-gradient-to-br from-orange-50/70 to-amber-50/40">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-lg bg-orange-500 text-white flex items-center justify-center shadow-sm">
+                              <Wallet className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-orange-950 uppercase tracking-wide">GGG Credits Wallet</p>
+                              <p className="text-[11px] text-orange-700">In-app features, AI & transfers</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-orange-800 font-semibold uppercase">Current Credits</span>
+                            <p className="text-xl font-black text-orange-600">{selectedUser.credits} <span className="text-xs font-medium">cr</span></p>
+                            <p className="text-[10px] text-orange-700">≈ ₦{(selectedUser.credits * exchangeRate).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-semibold text-orange-900 uppercase">Quick Add Presets</label>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {[10, 50, 100, 500, 1000].map(val => (
+                              <Button
+                                key={val}
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isAdjusting}
+                                onClick={() => setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: String(val) }))}
+                                className="h-7 text-xs font-semibold bg-white/80 hover:bg-orange-100 hover:text-orange-900 border-orange-300 text-orange-800"
+                              >
+                                +{val}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Custom Credits & Reason */}
+                        <div className="space-y-2 pt-1">
+                          <Input
+                            type="number"
+                            placeholder="Enter credit amount (e.g. 50)"
+                            value={creditAmounts[selectedUser.id] || ''}
+                            onChange={e => setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: e.target.value }))}
+                            disabled={isAdjusting}
+                            className="h-9 text-sm font-medium bg-white"
+                          />
+                          <Input
+                            placeholder="Optional reason (e.g. Welcome bonus, Compensation)"
+                            value={creditNotes[selectedUser.id] || ''}
+                            onChange={e => setCreditNotes(prev => ({ ...prev, [selectedUser.id]: e.target.value }))}
+                            disabled={isAdjusting}
+                            className="h-8 text-xs bg-white"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            disabled={isAdjusting || !creditAmounts[selectedUser.id]}
+                            onClick={() => adjustCredits(1)}
+                            className="h-9 text-xs font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+                          >
+                            {isAdjusting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                            Add Credits (+)
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isAdjusting || !creditAmounts[selectedUser.id]}
+                            onClick={() => adjustCredits(-1)}
+                            className="h-9 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 flex items-center justify-center gap-1.5"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                            Debit Credits (-)
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* SECTION 3: RECENT USER ACTIVITY / TRANSACTIONS LOG */}
+                    <Card className="border-border">
+                      <CardContent className="p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <History className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recent User Transactions</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{userNotifications.length} logged events</span>
+                        </div>
+
+                        {loadingUserNotifications ? (
+                          <div className="py-4 text-center">
+                            <Loader2 className="h-4 w-4 animate-spin text-orange-500 mx-auto" />
+                            <p className="text-[11px] text-muted-foreground mt-1">Loading activity log…</p>
+                          </div>
+                        ) : userNotifications.length === 0 ? (
+                          <div className="py-3 text-center text-xs text-muted-foreground bg-muted/40 rounded-lg">
+                            No recent transactions found for this user.
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {userNotifications.map(notif => (
+                              <div key={notif.id} className="p-2.5 rounded-lg border bg-background/80 text-xs space-y-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] h-4 font-bold ${
+                                      notif.type === 'wallet'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : notif.type === 'credit'
+                                        ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }`}
+                                  >
+                                    {notif.type || 'system'}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {new Date(notif.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                  </span>
+                                </div>
+                                <p className="font-semibold text-foreground text-[11px]">{notif.title}</p>
+                                <p className="text-muted-foreground text-[11px] leading-relaxed">{notif.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
