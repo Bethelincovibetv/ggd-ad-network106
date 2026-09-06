@@ -2230,6 +2230,14 @@ export type Database = {
         }
         Returns: Json
       }
+      transfer_credits: {
+        Args: { p_amount: number; p_recipient_email: string }
+        Returns: Json
+      }
+      transfer_credits_to_user: {
+        Args: { p_amount: number; p_recipient_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:
