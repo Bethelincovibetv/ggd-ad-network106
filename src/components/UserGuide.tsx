@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button';
 import {
   Search, ChevronDown, Megaphone, Building2, Store, Users,
   Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
-  CheckCircle2, Image as ImageIcon, ArrowRight,
+  CheckCircle2, Circle, Image as ImageIcon, ArrowRight, Loader2
 } from 'lucide-react';
 import guideHero from '@/assets/guide-hero.jpg';
+import { supabase } from '@/integrations/supabase/client';
+import { guideService } from '@/services/guideService';
+import { playRewardSound } from '@/lib/soundEffects';
+import { toast } from 'sonner';
 
 interface GuideSection {
   title: string;
@@ -263,9 +267,55 @@ const sections: GuideSection[] = [
 const UserGuide = () => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [togglingStep, setTogglingStep] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+          const steps = await guideService.getCompletedSteps(user.id);
+          setCompletedSteps(steps);
+        }
+      } catch (err) {
+        console.warn("Failed to load user guide progress:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const handleNavigate = (tab: string) => {
     window.dispatchEvent(new CustomEvent('ggd-nav', { detail: tab }));
+  };
+
+  const getSectionId = (title: string) => `guide_${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+  const toggleSectionCompleted = async (title: string) => {
+    const stepId = getSectionId(title);
+    const isCompleted = completedSteps.includes(stepId);
+    const nextStatus = !isCompleted;
+
+    setTogglingStep(stepId);
+    // Optimistic UI update
+    setCompletedSteps(prev =>
+      nextStatus ? [...prev, stepId] : prev.filter(id => id !== stepId)
+    );
+
+    if (userId) {
+      await guideService.setStepCompletion(userId, stepId, nextStatus);
+    }
+
+    if (nextStatus) {
+      playRewardSound();
+      toast.success("Section marked as read & completed!");
+    }
+    setTogglingStep(null);
   };
 
   const filtered = useMemo(() => {
@@ -274,86 +324,175 @@ const UserGuide = () => {
     return sections.filter(s => `${s.title} ${s.badge} ${s.keywords}`.toLowerCase().includes(q));
   }, [query]);
 
+  const completedCount = sections.filter(s => completedSteps.includes(getSectionId(s.title))).length;
+  const completionPercentage = Math.round((completedCount / sections.length) * 100);
+
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 pb-8">
-      <Card className="overflow-hidden border-0 shadow-sm">
-        <div className="relative min-h-[230px] overflow-hidden">
+    <div className="mx-auto w-full max-w-5xl space-y-5 pb-10">
+      <Card className="overflow-hidden border-0 shadow-sm rounded-2xl">
+        <div className="relative min-h-[240px] overflow-hidden">
           <img src={guideHero} alt="GGD Ad Network Guide" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-black/55" />
-          <div className="relative flex min-h-[230px] flex-col justify-end p-5 text-white sm:p-8">
-            <Badge className="mb-3 w-fit bg-white/15 text-white hover:bg-white/20">GGD Ad Network</Badge>
-            <h1 className="text-2xl font-black sm:text-4xl">Welcome to GGD Ad Network</h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/90 sm:text-base">Your guide to getting discovered, promoting your business, reaching customers and growing with GGD.</p>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative flex min-h-[240px] flex-col justify-end p-5 text-white sm:p-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-white/20 text-white hover:bg-white/30 font-bold">GGD Ad Network Guide</Badge>
+              <Badge className="bg-orange-500 text-white font-bold">{completionPercentage}% Completed</Badge>
+            </div>
+            <h1 className="text-2xl font-black sm:text-4xl text-white tracking-tight">Welcome to GGD Ad Network</h1>
+            <p className="mt-2 max-w-2xl text-sm sm:text-base text-white/95 font-medium leading-relaxed">
+              Your comprehensive guide to getting discovered, promoting your business, reaching customers and growing with GGD.
+            </p>
           </div>
         </div>
-        <CardContent className="space-y-4 p-4 sm:p-6">
+        <CardContent className="space-y-4 p-5 sm:p-6 bg-card">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-orange-600 dark:text-orange-400 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-foreground">Reading & Learning Progress</p>
+                <p className="text-xs text-foreground/80 font-medium">{completedCount} of {sections.length} Guide Modules Completed</p>
+              </div>
+            </div>
+            <div className="w-full sm:w-48 bg-muted rounded-full h-2.5 overflow-hidden border border-border/40">
+              <div
+                className="bg-gradient-to-r from-orange-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
             {[
-              ['Get Discovered', 'Directory, products & services'],
-              ['Get Visibility', 'Banner Ads & featured exposure'],
-              ['Promote & Grow', 'Credit Tasks, Syndicate & tools'],
+              ['Get Discovered', 'Directory, storefront, products & services'],
+              ['Get Visibility', 'Banner Ads, slide placements & featured exposure'],
+              ['Promote & Grow', 'Credit Tasks, Syndicate promoters & BlogMate AI'],
             ].map(([title, text]) => (
-              <div key={title} className="rounded-xl bg-muted/50 p-4">
-                <p className="font-bold">{title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+              <div key={title} className="rounded-xl bg-muted/60 p-4 border border-border/60">
+                <p className="font-black text-sm text-foreground">{title}</p>
+                <p className="mt-1 text-xs text-foreground/80 font-medium leading-relaxed">{text}</p>
               </div>
             ))}
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the GGD Guide..." className="pl-9" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search topics in the GGD Guide (e.g. ads, credits, syndicate, directory)..."
+              className="pl-9 h-11 text-sm bg-background border-border text-foreground font-medium"
+            />
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         {filtered.map((section, index) => {
           const isOpen = open === index;
+          const sectionId = getSectionId(section.title);
+          const isCompleted = completedSteps.includes(sectionId);
+          const isToggling = togglingStep === sectionId;
+
           return (
-            <Card key={section.title} className="overflow-hidden">
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40 sm:p-5"
-                onClick={() => setOpen(isOpen ? -1 : index)}
-                aria-expanded={isOpen}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400">
-                  {section.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-bold">{section.title}</h2>
-                    <Badge variant="secondary">{section.badge}</Badge>
+            <Card
+              key={section.title}
+              className={`overflow-hidden rounded-2xl border transition-all ${
+                isCompleted
+                  ? 'border-emerald-500/40 bg-emerald-50/20 dark:bg-emerald-950/10'
+                  : 'border-border bg-card hover:border-orange-500/30'
+              }`}
+            >
+              <div className="flex items-center justify-between p-4 sm:p-5">
+                <button
+                  type="button"
+                  className="flex flex-1 items-center gap-3 text-left transition-colors focus:outline-hidden"
+                  onClick={() => setOpen(isOpen ? -1 : index)}
+                  aria-expanded={isOpen}
+                >
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    isCompleted
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400'
+                  }`}>
+                    {section.icon}
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-bold text-sm sm:text-base text-foreground">{section.title}</h2>
+                      <Badge variant="secondary" className="font-semibold text-xs">{section.badge}</Badge>
+                      {isCompleted && (
+                        <Badge className="bg-emerald-600 text-white font-bold text-[10px] py-0 px-2">
+                          Read ✓
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronDown className={`h-5 w-5 shrink-0 text-foreground/70 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <div className="pl-3 border-l border-border/60 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionCompleted(section.title)}
+                    disabled={isToggling}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-muted focus:outline-hidden"
+                    title={isCompleted ? "Mark unread" : "Mark as read"}
+                  >
+                    {isCompleted ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="hidden sm:inline text-emerald-700 dark:text-emerald-300 font-bold">Done</span>
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="h-4 w-4 text-muted-foreground" />
+                        <span className="hidden sm:inline text-foreground/80">Mark Read</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              </button>
+              </div>
+
               {isOpen && (
-                <CardContent className="border-t pt-4 text-sm leading-6 text-muted-foreground sm:px-5 sm:pt-5 space-y-4">
+                <CardContent className="border-t border-border/50 pt-5 text-sm leading-relaxed text-foreground/90 sm:px-6 sm:pt-6 space-y-4 bg-muted/20">
                   {section.content}
-                  {section.actionTab && section.actionLabel && (
-                    <div className="pt-2">
+                  <div className="flex items-center justify-between pt-3 border-t border-border/50 flex-wrap gap-2">
+                    {section.actionTab && section.actionLabel && (
                       <Button
                         size="sm"
                         onClick={() => handleNavigate(section.actionTab!)}
-                        className="bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs h-9 rounded-xl shadow-sm"
+                        className="bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs h-9 rounded-xl shadow-xs"
                       >
                         {section.actionLabel}
                         <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                       </Button>
-                    </div>
-                  )}
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant={isCompleted ? "outline" : "default"}
+                      onClick={() => toggleSectionCompleted(section.title)}
+                      className={`text-xs font-bold h-9 rounded-xl ml-auto ${
+                        isCompleted
+                          ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                      {isCompleted ? 'Mark as Unread' : 'Mark Section as Read'}
+                    </Button>
+                  </div>
                 </CardContent>
               )}
             </Card>
           );
         })}
       </div>
+
       {filtered.length === 0 && (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="font-semibold">No guide section found</p>
-            <p className="mt-1 text-sm text-muted-foreground">Try ads, directory, credits, syndicate or BlogMate.</p>
+        <Card className="rounded-2xl">
+          <CardContent className="py-12 text-center">
+            <p className="font-bold text-base text-foreground">No guide section found</p>
+            <p className="mt-1 text-sm text-foreground/80 font-medium">Try keywords like ads, directory, credits, syndicate or BlogMate.</p>
           </CardContent>
         </Card>
       )}

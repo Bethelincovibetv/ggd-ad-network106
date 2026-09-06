@@ -88,7 +88,10 @@ const SlideManager = () => {
           </Button>
           {newSlide.image_url && <img loading="lazy" src={newSlide.image_url} alt="Preview" className="w-full h-24 object-cover rounded-lg" />}
           <Input placeholder="Title (optional)" value={newSlide.title} onChange={e => setNewSlide({ ...newSlide, title: e.target.value })} className="h-8 text-xs" />
-          <Input placeholder="Link URL (optional)" value={newSlide.link_url} onChange={e => setNewSlide({ ...newSlide, link_url: e.target.value })} className="h-8 text-xs" />
+          <div className="space-y-1">
+            <Input placeholder="Destination URL (e.g. https://..., /u/slug, /listing/id, or 'directory')" value={newSlide.link_url} onChange={e => setNewSlide({ ...newSlide, link_url: e.target.value })} className="h-8 text-xs" />
+            <p className="text-[10px] text-muted-foreground">Supported: External website (https://), Business profile (/u/username), Listing (/listing/id), or feature tab (directory, marketplace, tasks).</p>
+          </div>
           <Button onClick={createSlide} className="w-full text-xs bg-gradient-to-r from-orange-500 to-red-600 text-white" size="sm"><Plus className="h-3 w-3 mr-1" />Add Slide</Button>
         </CardContent>
       </Card>

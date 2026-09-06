@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
@@ -13,6 +13,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
+import { playRewardSound } from "@/lib/soundEffects";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -21,6 +22,17 @@ interface TaskListProps {
 }
 
 type TaskType = 'share' | 'social' | 'youtube';
+
+const PLATFORM_100_CREDIT_TASK = {
+  id: 'platform-ggd-share-100-credits',
+  title: 'Share GGD Ad Network — Earn 100 Credits',
+  description: 'Share the GGD Ad Network platform on WhatsApp, Facebook, Telegram or Instagram. Earn 100 promotional credits instantly to advertise your business!',
+  reward_credits: 100,
+  task_type: 'share',
+  share_url: typeof window !== 'undefined' ? `${window.location.origin}/?ref=share_task` : 'https://ggdadnetwork.com',
+  is_official: true,
+  max_completions: null,
+};
 
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
@@ -67,7 +79,20 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     ]);
     setTasks([...(mineData || []), ...(othersData || [])]);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
-    setCompletions((comps || []).map(c => c.task_id));
+    const completedIds = (comps || []).map(c => c.task_id);
+
+    // Also check persistent platform share completion
+    const { data: notifs } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', 'platform_share_100_completed')
+      .limit(1);
+
+    if (notifs && notifs.length > 0) {
+      completedIds.push(PLATFORM_100_CREDIT_TASK.id);
+    }
+    setCompletions(completedIds);
   };
 
   const toggleTaskActive = async (task: any) => {
@@ -182,7 +207,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    if (task.creator_id === user.id) {
+    if (completions.includes(task.id)) {
+      toast.info("You have already completed this task!");
+      return;
+    }
+
+    if (!task.is_official && task.creator_id === user.id) {
       toast.error("You can't complete your own task!");
       return;
     }
@@ -203,14 +233,109 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
     setTimeout(async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setVerifyingTaskId(null);
+          return;
+        }
+
+        // 1. Dedicated idempotent handler for the Official 100-Credit Platform Share Task
+        if (task.id === PLATFORM_100_CREDIT_TASK.id || task.is_official) {
+          const { data: existingClaims } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('type', 'platform_share_100_completed')
+            .limit(1);
+
+          if (existingClaims && existingClaims.length > 0) {
+            setVerifyingTaskId(null);
+            toast.info("100-credit sharing reward has already been claimed!");
+            setCompletions(prev => Array.from(new Set([...prev, task.id])));
+            return;
+          }
+
+          // Persist the completion record idempotently
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            title: '100 Credits Awarded',
+            message: 'You earned 100 promotional credits for sharing GGD Ad Network!',
+            type: 'platform_share_100_completed',
+            read: true,
+          });
+
+          // Fetch fresh credits and add 100
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('credits')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          const currentCredits = Number(prof?.credits || 0);
+          const updatedCredits = currentCredits + 100;
+
+          // Real-time update in database
+          await supabase
+            .from('profiles')
+            .update({ credits: updatedCredits })
+            .eq('user_id', user.id);
+
+          // Real-time update in UI state
+          onCreditsUpdate(updatedCredits);
+          setCompletions(prev => Array.from(new Set([...prev, task.id])));
+          setVerifyingTaskId(null);
+          playRewardSound();
+          toast.success("🎉 Incredible! 100 Credits have been added to your balance!");
+          return;
+        }
+
+        // 2. Handler for community and advertiser tasks via complete_credit_task RPC
         const { data, error } = await callRpc('complete_credit_task', {
           p_task_id: task.id,
         });
 
         if (error) {
+          if ((error as any).code === '23505') {
+            setVerifyingTaskId(null);
+            toast.info("Already completed!");
+            setCompletions(prev => Array.from(new Set([...prev, task.id])));
+            return;
+          }
+
+          // Fallback: direct database insertion with unique constraint protection
+          const { error: insErr } = await supabase.from('task_completions').insert({
+            task_id: task.id,
+            user_id: user.id,
+          });
+
+          if (insErr) {
+            setVerifyingTaskId(null);
+            if ((insErr as any).code === '23505') {
+              toast.info("Already completed!");
+              setCompletions(prev => Array.from(new Set([...prev, task.id])));
+              return;
+            }
+            toast.error(insErr.message || "Failed to complete task");
+            return;
+          }
+
+          const awarded = task.reward_credits || 5;
+          const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+          const currentCredits = Number(prof?.credits || 0);
+          const updatedCredits = currentCredits + awarded;
+          await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
+
+          await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+          if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+            await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+          }
+
+          onCreditsUpdate(updatedCredits);
+          setCompletions(prev => Array.from(new Set([...prev, task.id])));
           setVerifyingTaskId(null);
-          if ((error as any).code === '23505') { toast.info("Already completed!"); return; }
-          toast.error(error.message || "Failed to complete task");
+          playRewardSound();
+          toast.success(`🎉 Earned ${awarded} credits!`);
+          fetchTasks();
           return;
         }
 
@@ -224,8 +349,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         const awarded = res?.credits_awarded || task.reward_credits || 5;
         const updatedCredits = credits + awarded;
         onCreditsUpdate(updatedCredits);
-        setCompletions(prev => [...prev, task.id]);
+        setCompletions(prev => Array.from(new Set([...prev, task.id])));
         setVerifyingTaskId(null);
+        playRewardSound();
         toast.success(`🎉 Earned ${awarded} credits!`);
         fetchTasks();
       } catch (err: any) {
@@ -605,7 +731,77 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Tasks */}
+      {/* Featured Platform 100-Credit Task */}
+      {(() => {
+        const platformCompleted = completions.includes(PLATFORM_100_CREDIT_TASK.id);
+        const isVerifying = verifyingTaskId === PLATFORM_100_CREDIT_TASK.id;
+        return (
+          <Card className="overflow-hidden border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/10 shadow-md shadow-orange-500/5 transition-all rounded-2xl">
+            <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-3.5 py-1.5 flex items-center justify-between text-white">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-yellow-200 animate-pulse" />
+                <span className="text-[11px] font-black uppercase tracking-wider">Featured Platform Task</span>
+              </div>
+              <span className="text-[11px] font-black bg-white text-orange-600 px-2.5 py-0.5 rounded-full shadow-xs">
+                +100 CREDITS
+              </span>
+            </div>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/20">
+                  <Share2 className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-foreground leading-snug">
+                    {PLATFORM_100_CREDIT_TASK.title}
+                  </h3>
+                  <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                    {PLATFORM_100_CREDIT_TASK.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/70">
+                <div className="flex items-center gap-1.5 text-xs text-foreground/85 font-medium">
+                  <Coins className="h-4 w-4 text-orange-500" />
+                  <span>Reward: <strong className="text-foreground font-bold">100 Credits</strong> (Instant)</span>
+                </div>
+
+                {platformCompleted ? (
+                  <Button
+                    size="sm"
+                    disabled
+                    className="bg-green-600 text-white font-bold text-xs rounded-full px-4 h-8 cursor-not-allowed opacity-95"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                    Claimed ✓
+                  </Button>
+                ) : isVerifying ? (
+                  <Button
+                    size="sm"
+                    disabled
+                    className="bg-orange-500 text-white font-bold text-xs rounded-full px-4 h-8"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    Verifying...
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => completeTask(PLATFORM_100_CREDIT_TASK)}
+                    className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-full px-4 h-8 shadow-md shadow-orange-500/20"
+                  >
+                    <Share2 className="h-3.5 w-3.5 mr-1" />
+                    Share & Earn 100 Credits
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Community & Advertiser Tasks */}
       <div className="space-y-2">
         {tasks.map(task => {
           const completed = completions.includes(task.id);

@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio, Pause, Play, Copy, Trash2, Share2, CalendarClock } from "lucide-react";
+import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio, Pause, Play, Copy, Trash2, Share2, CalendarClock, Clock } from "lucide-react";
 import { toast } from "sonner";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
+import ExtendAdvertModal, { ExtendableAd } from "@/components/ExtendAdvertModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 type Status = "active" | "expired" | "inactive";
@@ -50,6 +51,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
   const [kindFilter, setKindFilter] = useState<Kind | "all">("all");
   const [analyticsId, setAnalyticsId] = useState<string | null>(null);
   const [balances, setBalances] = useState({ wallet: 0, credits: 0 });
+  const [extendingAd, setExtendingAd] = useState<ExtendableAd | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -327,6 +329,24 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
                     <div className="flex flex-wrap gap-2 mt-3">
                       {r.kind === "ad" && (
                         <>
+                          {r.status === "expired" && (
+                            <Button
+                              size="sm"
+                              className="h-10 text-sm font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-sm"
+                              onClick={() => setExtendingAd({
+                                id: r.id,
+                                title: r.title,
+                                description: r.description,
+                                image_url: r.image_url,
+                                target_url: r.target_url || '#',
+                                expires_at: r.expires_at,
+                                is_active: r.is_active,
+                                budget_credits: r.budget,
+                              })}
+                            >
+                              <Clock className="h-4 w-4 mr-1.5" />Extend Advert
+                            </Button>
+                          )}
                           <Button size="sm" className="h-10 text-sm font-bold" onClick={() => setAnalyticsId(r.id)}>
                             <BarChart2 className="h-4 w-4 mr-1" />Analytics
                           </Button>
@@ -361,6 +381,24 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
           })}
         </div>
       )}
+
+      <ExtendAdvertModal
+        ad={extendingAd}
+        open={!!extendingAd}
+        onOpenChange={(open) => { if (!open) setExtendingAd(null); }}
+        userCredits={balances.credits}
+        onCreditsUpdate={(newCredits) => setBalances(prev => ({ ...prev, credits: newCredits }))}
+        onSuccess={(updatedAd) => {
+          setRows(prev => prev.map(row => row.id === updatedAd.id ? {
+            ...row,
+            expires_at: updatedAd.expires_at,
+            is_active: true,
+            status: "active",
+            spend: updatedAd.budget_credits || row.spend,
+          } : row));
+          load();
+        }}
+      />
     </div>
   );
 };

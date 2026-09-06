@@ -24,6 +24,7 @@ import SponsoredAdCard from '@/components/feed/SponsoredAdCard';
 import FeaturedListingCard from '@/components/feed/FeaturedListingCard';
 import YouTubeTaskPlayer, { youtubeId } from '@/components/feed/YouTubeTaskPlayer';
 import { isYouTubeGoal, findGoal } from '@/components/feed/creditTaskGoals';
+import { playRewardSound } from '@/lib/soundEffects';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions';
 
@@ -270,6 +271,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
     await supabase.from('profiles').update({ credits: updated }).eq('user_id', user.id);
     setCredits(updated);
     setCompletedTaskIds(prev => [...prev, task.id]);
+    playRewardSound();
     toast.success(`🎉 Earned ${task.reward_credits} credits!`);
     return true;
   };

@@ -53,6 +53,7 @@ import SyndicatePayouts from "@/components/SyndicatePayouts";
 import GGDInbox from "@/components/GGDInbox";
 import CampaignsHub from "@/components/CampaignsHub";
 import CreateFab from "@/components/CreateFab";
+import ExtendAdvertModal from "@/components/ExtendAdvertModal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart2, RefreshCw } from "lucide-react";
 
@@ -133,6 +134,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('ads');
   const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
   const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
+  const [extendingAd, setExtendingAd] = useState<Ad | null>(null);
   const scrollToBannerForm = () => {
     setTimeout(() => {
       document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -687,9 +689,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       )}
 
                       {expired && (
-                        <Button size="sm" className="w-full mt-2 text-[11px] h-8 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold"
-                          onClick={() => republishAd(ad)}>
-                          <RefreshCw className="h-3 w-3 mr-1" />Republish Campaign
+                        <Button size="sm" className="w-full mt-2 text-[12px] h-9 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold shadow-sm"
+                          onClick={() => setExtendingAd(ad)}>
+                          <Clock className="h-3.5 w-3.5 mr-1.5" />Extend Advert
                         </Button>
                       )}
                     </CardContent>
@@ -933,6 +935,18 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
           <CreateFab onNavigate={handleTabChange} />
           <InstallPrompt />
+
+          <ExtendAdvertModal
+            ad={extendingAd}
+            open={!!extendingAd}
+            onOpenChange={(open) => { if (!open) setExtendingAd(null); }}
+            userCredits={credits}
+            onCreditsUpdate={(newCredits) => setCredits(newCredits)}
+            onSuccess={(updatedAd) => {
+              setAds(prev => prev.map(a => a.id === updatedAd.id ? { ...a, ...updatedAd } : a));
+              fetchAds();
+            }}
+          />
         </div>
       </div>
     </SidebarProvider>
