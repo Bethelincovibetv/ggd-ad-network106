@@ -374,7 +374,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         status: 'submitted', 
         submitted_at: new Date().toISOString(),
       } as any).eq('id', assignmentId);
-      toast.success("Proof submitted! Waiting for business review.");
+      toast.success("Proof submitted! Reward is held safely in escrow pending business review.");
     }
 
     setUploading(null);
@@ -484,6 +484,10 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     const hoursLeft = Math.max(0, Math.floor(timeLeft / (60 * 60 * 1000)));
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
+    const explicitPayout = Number(task.payout_amount || 0);
+    const payoutNaira = explicitPayout > 0 ? explicitPayout : Number(task.cost_per_syndicate || 50) * (payoutPct / 100);
+    const payoutCredits = Math.max(1, Math.floor(payoutNaira / exchangeRate));
+
     return (
       <Card 
         key={assignment.id} 
@@ -496,14 +500,19 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         <CardContent className="p-4 sm:p-5 space-y-3.5">
           {/* Status Header */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Badge className={`text-xs font-bold px-3 py-1 ${
-              assignment.status === 'approved' ? 'bg-green-600 text-white' :
-              assignment.status === 'submitted' ? 'bg-amber-500 text-white' :
-              assignment.status === 'rejected' ? 'bg-red-600 text-white' :
-              isExpired ? 'bg-muted text-muted-foreground' : 'bg-blue-600 text-white'
-            }`}>
-              {isExpired ? 'Expired' : assignment.status === 'accepted' || assignment.status === 'assigned' ? 'In Progress' : assignment.status.toUpperCase()}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={`text-xs font-bold px-3 py-1 ${
+                assignment.status === 'approved' ? 'bg-green-600 text-white' :
+                assignment.status === 'submitted' ? 'bg-amber-500 text-white' :
+                assignment.status === 'rejected' ? 'bg-red-600 text-white' :
+                isExpired ? 'bg-muted text-muted-foreground' : 'bg-blue-600 text-white'
+              }`}>
+                {isExpired ? 'Expired' : assignment.status === 'accepted' || assignment.status === 'assigned' ? 'In Progress' : assignment.status === 'submitted' ? 'Under Review' : assignment.status.toUpperCase()}
+              </Badge>
+              <Badge variant="outline" className="text-[11px] font-bold border-emerald-300 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40">
+                {assignment.status === 'approved' ? `Paid: ₦${payoutNaira.toLocaleString()} (+${payoutCredits} cr)` : `Escrow: ₦${payoutNaira.toLocaleString()} (≈${payoutCredits} cr)`}
+              </Badge>
+            </div>
 
             {/* Time remaining countdown */}
             {(assignment.status === 'accepted' || assignment.status === 'assigned') && !isExpired && (

@@ -158,32 +158,89 @@ export async function executeTransfer(
 
     // 3. Attempt database RPC first if available
     try {
-      const rpcResult = await callRpc<{ success: boolean; error?: string; new_balance?: number; transfer_id?: string }>(
-        'transfer_credits',
-        {
-          p_recipient_email: recipient.email || recipient.username,
-          p_amount: amount,
-        }
-      );
+      // Try transfer_credits passing recipient.userId (handled seamlessly by our updated RPC)
+      // or recipient.email as fallback
+      const recipientIdentifier = recipient.userId || recipient.email || recipient.username;
+      const { data: rpcData, error: rpcError } = await callRpc<{
+        success: boolean;
+        error?: string;
+        new_balance?: number;
+        transfer_id?: string;
+        amount?: number;
+      }>('transfer_credits', {
+        p_recipient_email: recipientIdentifier,
+        p_amount: amount,
+      });
 
-      if (rpcResult.data && (rpcResult.data as any).success) {
+      if (!rpcError && rpcData && rpcData.success) {
         return {
           success: true,
           message: `Successfully transferred ${amount} credits to ${recipient.displayName}!`,
           amount,
-          newBalance: (rpcResult.data as any).new_balance ?? (currentBalance - amount),
-          transferId: (rpcResult.data as any).transfer_id,
+          newBalance: rpcData.new_balance ?? (currentBalance - amount),
+          transferId: rpcData.transfer_id,
           recipient,
           timestamp: new Date().toISOString(),
         };
+      }
+
+      if (rpcData && rpcData.error) {
+        return { success: false, error: rpcData.error };
       }
     } catch {
       // RPC fallback to direct database transaction
     }
 
-    // 4. Safe direct database flow
-    // A. Record the transfer in credit_transfers
-    const { data: transferRecord, error: insertError } = await supabase
+    // 4. Safe direct database flow with strict atomicity (all-or-nothing)
+    // Fetch recipient's current balance before making any adjustments
+    const { data: recipientProfile, error: recipientFetchError } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('user_id', recipient.userId)
+      .maybeSingle();
+
+    if (recipientFetchError || !recipientProfile) {
+      return {
+        success: false,
+        error: 'Recipient profile could not be verified for transfer. No credits were deducted.',
+      };
+    }
+
+    const currentRecipientBalance = Number(recipientProfile.credits) || 0;
+    const newSenderBalance = currentBalance - amount;
+    const newRecipientBalance = currentRecipientBalance + amount;
+
+    // A. Debit sender
+    const { error: debitError } = await supabase
+      .from('profiles')
+      .update({ credits: newSenderBalance })
+      .eq('user_id', sender.id);
+
+    if (debitError) {
+      return { success: false, error: `Failed to debit your wallet: ${debitError.message}` };
+    }
+
+    // B. Credit recipient (must succeed; otherwise rollback sender debit immediately)
+    const { error: creditError } = await supabase
+      .from('profiles')
+      .update({ credits: newRecipientBalance })
+      .eq('user_id', recipient.userId);
+
+    if (creditError) {
+      // IMMEDIATE ROLLBACK: Restore sender balance if recipient credit failed
+      await supabase
+        .from('profiles')
+        .update({ credits: currentBalance })
+        .eq('user_id', sender.id);
+
+      return {
+        success: false,
+        error: `Transfer failed: unable to credit recipient account. Your balance of ${currentBalance} credits has been safely preserved.`,
+      };
+    }
+
+    // C. Record the transfer in credit_transfers
+    const { data: transferRecord } = await supabase
       .from('credit_transfers')
       .insert({
         sender_id: sender.id,
@@ -191,28 +248,9 @@ export async function executeTransfer(
         amount,
       })
       .select()
-      .single();
+      .maybeSingle();
 
-    if (insertError) {
-      return { success: false, error: `Transfer failed: ${insertError.message}` };
-    }
-
-    // B. Debit sender
-    const newSenderBalance = currentBalance - amount;
-    const { error: debitError } = await supabase
-      .from('profiles')
-      .update({ credits: newSenderBalance })
-      .eq('user_id', sender.id);
-
-    if (debitError) {
-      // Roll back the transfer record if sender couldn't be debited
-      if (transferRecord?.id) {
-        await supabase.from('credit_transfers').delete().eq('id', transferRecord.id);
-      }
-      return { success: false, error: `Failed to debit your wallet: ${debitError.message}` };
-    }
-
-    // C. Notify receiver
+    // D. Notify receiver
     try {
       await supabase.from('notifications').insert({
         user_id: recipient.userId,
