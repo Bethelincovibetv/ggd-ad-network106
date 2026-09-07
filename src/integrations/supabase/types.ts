@@ -2148,6 +2148,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_user_credits: {
+        Args: { p_amount: number; p_reason?: string; p_target_id: string }
+        Returns: Json
+      }
+      admin_fund_task_wallet: {
+        Args: { p_amount: number; p_reason?: string; p_target_id: string }
+        Returns: Json
+      }
       admin_subscribe_user: {
         Args: { _tier: number; _user_id: string }
         Returns: undefined
