@@ -46,7 +46,7 @@ export const PerformanceSection: React.FC<PerformanceSectionProps> = ({
         // Fetch ads statistics
         const { data: ads } = await supabase
           .from('ads')
-          .select('impressions, clicks, is_active');
+          .select('impressions, clicks, is_active')
           .eq('user_id', userId);
 
         let imps = 0;

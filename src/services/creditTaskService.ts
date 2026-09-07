@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 
 export interface CreditTask {
   id: string;
@@ -199,6 +200,38 @@ export async function executeCompleteTask(taskId: string): Promise<CompleteTaskR
 
     const realTaskId = taskRecord.id;
     const rewardCredits = Math.max(1, Number(taskRecord.reward_credits) || 5);
+
+    // Use the server-authoritative function for real tasks. It locks the task,
+    // prevents duplicate completion, increments the counter, and credits the
+    // member's wallet in one transaction.
+    const isRealTaskUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realTaskId);
+    if (isRealTaskUuid) {
+      const { data: rpcData, error: rpcError } = await callRpc<{
+        success: boolean;
+        credits_awarded?: number;
+        error?: string;
+      }>('complete_credit_task', { p_task_id: realTaskId });
+
+      if (rpcError) {
+        return { success: false, error: `Unable to complete task securely: ${rpcError.message}` };
+      }
+      if (!rpcData?.success) {
+        return { success: false, error: rpcData?.error || 'Task completion was not accepted.' };
+      }
+
+      const awarded = Number(rpcData.credits_awarded) || rewardCredits;
+      const { data: refreshedProfile } = await supabase
+        .from("profiles")
+        .select("credits")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      return {
+        success: true,
+        rewardAwarded: awarded,
+        newBalance: Number(refreshedProfile?.credits) || 0,
+      };
+    }
 
     // 2. Check if already completed in task_completions
     const isRealUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realTaskId);

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 
 const roleStyles: Record<string, string> = {
   admin: 'bg-red-100 text-red-700 border-red-200',
@@ -154,7 +155,7 @@ const AdminUserManager = () => {
     setIsAdjusting(true);
     try {
       // 1. Try atomic RPC first
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_adjust_user_credits', {
+      const { data: rpcData, error: rpcErr } = await callRpc('admin_adjust_user_credits', {
         p_target_id: selectedUser.user_id,
         p_amount: amount,
         p_reason: reason,
@@ -229,7 +230,7 @@ const AdminUserManager = () => {
     setIsAdjusting(true);
     try {
       // 1. Try atomic RPC first
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_fund_task_wallet', {
+      const { data: rpcData, error: rpcErr } = await callRpc('admin_fund_task_wallet', {
         p_target_id: selectedUser.user_id,
         p_amount: amount,
         p_reason: reason,
