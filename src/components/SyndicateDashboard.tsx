@@ -30,7 +30,8 @@ import {
   HelpCircle,
   TrendingUp,
   Coins,
-  ChevronRight
+  ChevronRight,
+  Video
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,18 @@ import YouTubeEmbed from "@/components/YouTubeEmbed";
 import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
 import SyndicateWallet from "@/components/SyndicateWallet";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+
+const isVideoProof = (url?: string | null) => {
+  if (!url) return false;
+  return /\.(mp4|webm|mov|ogg|m4v)(\?.*)?$/i.test(url) || url.includes('/videos/') || url.includes('video');
+};
+
+const maskAccountNumber = (acc?: string | null) => {
+  if (!acc) return '—';
+  const clean = String(acc).trim();
+  if (clean.length <= 4) return '•••• ' + clean;
+  return '•••• ' + clean.slice(-4);
+};
 
 interface SyndicateDashboardProps {
   onNavigate?: (tab: string) => void;
@@ -295,7 +308,15 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       return; 
     }
 
-    // Compute SHA-256 of the file to dedupe identical proof images
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(file.name);
+    const maxSizeBytes = isVideo ? 50 * 1024 * 1024 : 15 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      toast.error(isVideo ? "Video proof must be under 50MB" : "Image proof must be under 15MB");
+      setUploading(null);
+      return;
+    }
+
+    // Compute SHA-256 of the file to dedupe identical proof files
     let proofHash = '';
     try {
       const buf = await file.arrayBuffer();
@@ -309,7 +330,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         .limit(1)
         .maybeSingle();
       if (dupe && dupe.id !== assignmentId) {
-        toast.error("This exact proof screenshot has already been submitted. Please upload a fresh screenshot.");
+        toast.error("This exact proof file has already been submitted. Please upload a fresh screenshot or recording.");
         setUploading(null);
         return;
       }
@@ -320,10 +341,13 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     const { data: userProfile } = await supabase.from('profiles').select('display_name, email').eq('user_id', user.id).maybeSingle();
     const userName = userProfile?.display_name || userProfile?.email?.split('@')[0] || 'unknown';
     const sanitizedName = userName.replace(/[^a-zA-Z0-9]/g, '_');
-    const ext = file.name.split('.').pop() || 'jpg';
+    const ext = file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg');
     const fileName = `${user.id}/${sanitizedName}_${assignmentId}.${ext}`;
     
-    const { error: uploadError } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { upsert: true });
+    const { error: uploadError } = await supabase.storage.from('syndicate-proofs').upload(fileName, file, { 
+      upsert: true,
+      contentType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg')
+    });
     if (uploadError) { 
       toast.error("Upload failed: " + uploadError.message); 
       setUploading(null); 
@@ -374,7 +398,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         status: 'submitted', 
         submitted_at: new Date().toISOString(),
       } as any).eq('id', assignmentId);
-      toast.success("Proof submitted! Reward is held safely in escrow pending business review.");
+      toast.success("Proof recorded! Participation recorded for team settlement.");
     }
 
     setUploading(null);
@@ -494,7 +518,10 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     const minsLeft = Math.max(0, Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000)));
 
     const explicitPayout = Number(task.payout_amount || 0);
-    const payoutNaira = explicitPayout > 0 ? explicitPayout : Number(task.cost_per_syndicate || 50) * (payoutPct / 100);
+    const settlementBase = Number(task.total_cost || ((task.cost_per_syndicate || 50) * (task.max_syndicates || 1)));
+    const teamPayoutPool = Math.round(settlementBase * (payoutPct / 100));
+    const eligibleMembersCount = Number(task.max_syndicates || 1);
+    const payoutNaira = explicitPayout > 0 ? explicitPayout : Math.max(1, Math.round(teamPayoutPool / eligibleMembersCount));
     const payoutCredits = Math.max(1, Math.floor(payoutNaira / exchangeRate));
 
     return (
@@ -512,14 +539,14 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={`text-xs font-bold px-3 py-1 ${
                 assignment.status === 'approved' ? 'bg-green-600 text-white' :
-                assignment.status === 'submitted' ? 'bg-amber-500 text-white' :
+                assignment.status === 'submitted' ? 'bg-purple-600 text-white' :
                 assignment.status === 'rejected' ? 'bg-red-600 text-white' :
                 isExpired ? 'bg-muted text-muted-foreground' : 'bg-blue-600 text-white'
               }`}>
-                {isExpired ? 'Expired' : assignment.status === 'accepted' || assignment.status === 'assigned' ? 'In Progress' : assignment.status === 'submitted' ? 'Under Review' : assignment.status.toUpperCase()}
+                {isExpired ? 'Expired' : assignment.status === 'accepted' || assignment.status === 'assigned' ? 'In Progress' : assignment.status === 'submitted' ? 'Proof Recorded · Awaiting Settlement' : assignment.status.toUpperCase()}
               </Badge>
               <Badge variant="outline" className="text-[11px] font-bold border-emerald-300 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40">
-                {assignment.status === 'approved' ? `Paid: ₦${payoutNaira.toLocaleString()} (+${payoutCredits} cr)` : `Escrow: ₦${payoutNaira.toLocaleString()} (≈${payoutCredits} cr)`}
+                {assignment.status === 'approved' ? `Settled: ₦${payoutNaira.toLocaleString()}` : `Calculated Payout: ₦${payoutNaira.toLocaleString()}`}
               </Badge>
             </div>
 
@@ -528,6 +555,38 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
               <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/40 px-3 py-1 rounded-full border border-orange-200 dark:border-orange-900/50">
                 <Clock className="h-3.5 w-3.5 animate-pulse" />
                 <span>{hoursLeft}h {minsLeft}m left</span>
+              </div>
+            )}
+          </div>
+
+          {/* Explicit & Deterministic Team Payout Breakdown */}
+          <div className="bg-slate-50 dark:bg-slate-900/70 rounded-xl p-3 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <span>Direct Team Payout Model</span>
+              <span className="text-purple-600 dark:text-purple-400 font-semibold">{payoutPct}% Configured Split</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+              <div className="bg-background rounded-lg p-2 border border-border/50">
+                <p className="text-[9px] text-muted-foreground">Settlement Base</p>
+                <p className="text-xs font-bold text-foreground">₦{settlementBase.toLocaleString()}</p>
+              </div>
+              <div className="bg-background rounded-lg p-2 border border-border/50">
+                <p className="text-[9px] text-muted-foreground">Team Payout Pool</p>
+                <p className="text-xs font-bold text-foreground">₦{teamPayoutPool.toLocaleString()}</p>
+              </div>
+              <div className="bg-background rounded-lg p-2 border border-border/50">
+                <p className="text-[9px] text-muted-foreground">Eligible Members</p>
+                <p className="text-xs font-bold text-foreground">{eligibleMembersCount} slots</p>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 rounded-lg p-2 border border-emerald-200 dark:border-emerald-800">
+                <p className="text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold">Your Payout</p>
+                <p className="text-xs font-black text-emerald-600 dark:text-emerald-300">₦{payoutNaira.toLocaleString()}</p>
+              </div>
+            </div>
+            {profile?.bank_name && (
+              <div className="pt-1 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/40">
+                <span>Payout Destination:</span>
+                <span className="font-semibold text-foreground">{profile.bank_name} — {maskAccountNumber(profile.account_number)}</span>
               </div>
             )}
           </div>
@@ -604,7 +663,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
               <input 
                 type="file" 
                 id={`proof-${assignment.id}`} 
-                accept="image/*" 
+                accept="image/*,video/mp4,video/webm,video/quicktime,video/*" 
                 className="hidden"
                 onChange={e => e.target.files?.[0] && uploadProof(assignment.id, e.target.files[0])} 
               />
@@ -617,11 +676,11 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                 {uploading === assignment.id ? (
                   <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Submitting Proof...</>
                 ) : (
-                  <><Upload className="h-4 w-4 mr-1" /> Upload Proof Screenshot</>
+                  <><Upload className="h-4 w-4 mr-1" /> Upload Proof (Screenshot or Video)</>
                 )}
               </Button>
               <p className="text-[11px] text-muted-foreground text-center mt-1.5">
-                Upload your screenshot showing the post on WhatsApp Status, Facebook group, or channel.
+                Upload your screenshot or video recording showing your post on WhatsApp Status, Facebook group, or channel.
               </p>
             </div>
           )}
@@ -629,9 +688,26 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           {/* Submitted proof display */}
           {assignment.proof_url && (
             <div className="pt-2 border-t border-border/60 space-y-1.5">
-              <p className="text-xs font-bold text-foreground">Submitted Proof:</p>
-              <div className="relative rounded-xl overflow-hidden border border-border bg-muted max-h-48">
-                <img loading="lazy" src={assignment.proof_url} alt="Proof" className="w-full h-full object-contain" />
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-foreground">Submitted Proof:</p>
+                {isVideoProof(assignment.proof_url) && (
+                  <Badge className="text-[9px] bg-purple-100 text-purple-700 border-0 font-bold gap-1">
+                    <Video className="h-2.5 w-2.5" /> Video Proof
+                  </Badge>
+                )}
+              </div>
+              <div className="relative rounded-xl overflow-hidden border border-border bg-black/5 max-h-56 flex items-center justify-center">
+                {isVideoProof(assignment.proof_url) ? (
+                  <video 
+                    src={assignment.proof_url} 
+                    controls 
+                    playsInline 
+                    preload="metadata" 
+                    className="w-full max-h-56 object-contain bg-black rounded-xl"
+                  />
+                ) : (
+                  <img loading="lazy" src={assignment.proof_url} alt="Proof" className="w-full h-full object-contain cursor-pointer hover:opacity-95" onClick={() => window.open(assignment.proof_url, '_blank')} />
+                )}
               </div>
             </div>
           )}
@@ -844,67 +920,81 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
           {/* Jobs List */}
           <div className="space-y-3.5">
-            {availableTasks.map(task => (
-              <Card key={task.id} className="border border-border/80 shadow-sm hover:border-purple-500/40 transition-all overflow-hidden bg-card">
-                <CardContent className="p-4 sm:p-5 space-y-3.5">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-2.5 py-1">
-                          ₦{task.cost_per_syndicate || 50} per task
+            {availableTasks.map(task => {
+              const explicitPayout = Number(task.payout_amount || 0);
+              const settlementBase = Number(task.total_cost || ((task.cost_per_syndicate || 50) * (task.max_syndicates || 1)));
+              const teamPayoutPool = Math.round(settlementBase * (payoutPct / 100));
+              const eligibleMembersCount = Number(task.max_syndicates || 1);
+              const taskPayoutNaira = explicitPayout > 0 ? explicitPayout : Math.max(1, Math.round(teamPayoutPool / eligibleMembersCount));
+
+              return (
+                <Card key={task.id} className="border border-border/80 shadow-sm hover:border-purple-500/40 transition-all overflow-hidden bg-card">
+                  <CardContent className="p-4 sm:p-5 space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-2.5 py-1">
+                            ₦{taskPayoutNaira.toLocaleString()} per task
+                          </Badge>
+                          {task.target_state ? (
+                            <Badge variant="outline" className="text-xs font-semibold flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground" /> {task.target_state}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs font-semibold">
+                              Nationwide
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" /> {assignmentHours}h turnaround
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-base text-foreground mt-1.5">{task.title}</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                          {task.description}
+                        </p>
+                      </div>
+
+                      {task.flyer_url && (
+                        <div className="sm:w-36 h-28 rounded-xl overflow-hidden border border-border bg-muted flex-shrink-0">
+                          <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Deterministic calculation pill */}
+                    <div className="bg-muted/60 rounded-xl p-2.5 border border-border/50 text-[11px] text-muted-foreground flex flex-wrap items-center justify-between gap-2">
+                      <span>Settlement Formula: ₦{settlementBase.toLocaleString()} × {payoutPct}% pool = ₦{teamPayoutPool.toLocaleString()} ÷ {eligibleMembersCount} members</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">₦{taskPayoutNaira.toLocaleString()} Payout</span>
+                    </div>
+
+                    {/* Placements tags */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(task.placements || []).map((p: string) => (
+                        <Badge key={p} variant="secondary" className="text-[11px] font-semibold px-2.5 py-0.5">
+                          {p.replace(/_/g, ' ')}
                         </Badge>
-                        {task.target_state ? (
-                          <Badge variant="outline" className="text-xs font-semibold flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" /> {task.target_state}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs font-semibold">
-                            Nationwide
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" /> {assignmentHours}h turnaround
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-base text-foreground mt-1.5">{task.title}</h4>
-                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                        {task.description}
-                      </p>
+                      ))}
                     </div>
 
-                    {task.flyer_url && (
-                      <div className="sm:w-36 h-28 rounded-xl overflow-hidden border border-border bg-muted flex-shrink-0">
-                        <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-full object-cover" />
+                    {/* Accept Button */}
+                    <div className="pt-2 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-xs text-muted-foreground">
+                        Remaining team slots: <strong>{Math.max(0, (task.max_syndicates || 1) - (assignmentCounts[task.id] || 0))}</strong>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Placements tags */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(task.placements || []).map((p: string) => (
-                      <Badge key={p} variant="secondary" className="text-[11px] font-semibold px-2.5 py-0.5">
-                        {p.replace(/_/g, ' ')}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {/* Accept Button */}
-                  <div className="pt-2 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="text-xs text-muted-foreground">
-                      Remaining spots: <strong>{Math.max(0, (task.max_syndicates || 1) - (assignmentCounts[task.id] || 0))}</strong>
+                      <Button 
+                        type="button"
+                        onClick={() => acceptTask(task.id)}
+                        disabled={pendingAssignments.length > 0}
+                        className="w-full sm:w-auto h-12 px-6 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md flex items-center justify-center gap-2"
+                      >
+                        Accept Task & Earn ₦{taskPayoutNaira.toLocaleString()}
+                      </Button>
                     </div>
-                    <Button 
-                      type="button"
-                      onClick={() => acceptTask(task.id)}
-                      disabled={pendingAssignments.length > 0}
-                      className="w-full sm:w-auto h-12 px-6 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md flex items-center justify-center gap-2"
-                    >
-                      Accept Task & Earn ₦{task.cost_per_syndicate || 50}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
 
             {availableTasks.length === 0 && (
               <div className="text-center py-12 px-4 space-y-3 bg-card rounded-2xl border border-dashed border-border">

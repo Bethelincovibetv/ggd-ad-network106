@@ -8,6 +8,13 @@ import { toast } from 'sonner';
 import { Copy, Check, Wallet, ShieldAlert } from 'lucide-react';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
+const maskAccountNumber = (acc?: string | null) => {
+  if (!acc) return '—';
+  const clean = String(acc).trim();
+  if (clean.length <= 4) return '•••• ' + clean;
+  return '•••• ' + clean.slice(-4);
+};
+
 interface Row {
   id: string;
   task_id: string;
@@ -156,9 +163,9 @@ const SyndicatePayouts: React.FC = () => {
                   <span className="font-semibold">{r.syndicate?.bank_name || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-mono">{r.syndicate?.account_number || 'No account provided'}</span>
+                  <span className="font-mono">{maskAccountNumber(r.syndicate?.account_number)}</span>
                   {r.syndicate?.account_number && (
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copy(r.syndicate?.account_number)}>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copy(r.syndicate?.account_number)} title="Copy Account Number">
                       <Copy className="h-3 w-3" />
                     </Button>
                   )}

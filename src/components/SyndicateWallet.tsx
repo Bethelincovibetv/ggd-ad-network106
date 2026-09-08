@@ -4,17 +4,39 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, ArrowDownCircle, Clock, CheckCircle, Loader2, ShieldCheck, KeyRound, Zap, AlertTriangle, XCircle, Building2 } from "lucide-react";
+import {
+  Wallet,
+  ArrowDownCircle,
+  Clock,
+  CheckCircle,
+  Loader2,
+  ShieldCheck,
+  Zap,
+  AlertTriangle,
+  Lock,
+  RefreshCw,
+  Building2,
+  Sparkles,
+  ArrowRight,
+  HelpCircle
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { callRpc } from "@/lib/supabaseRpc";
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
+import { resolveBankAccountPaystack } from "@/utils/paystackBank";
 
 async function sha256Hex(s: string): Promise<string> {
   const buf = new TextEncoder().encode(s);
   const hash = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+const maskAccountNumber = (acc?: string | null) => {
+  if (!acc) return '—';
+  const clean = String(acc).trim();
+  if (clean.length <= 4) return '•••• ' + clean;
+  return '•••• ' + clean.slice(-4);
+};
 
 const SyndicateWallet = () => {
   const [credits, setCredits] = useState<number>(0);
@@ -27,11 +49,27 @@ const SyndicateWallet = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [amount, setAmount] = useState('');
-  const [bankForm, setBankForm] = useState({ bank_name: '', account_number: '', account_name: '', bank_code: '' });
   const [withdrawPin, setWithdrawPin] = useState('');
-  const [bankPin, setBankPin] = useState('');
   const [newWithdrawPin, setNewWithdrawPin] = useState('');
-  const [newBankPin, setNewBankPin] = useState('');
+
+  // Initial Bank Setup State
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [selectedBankName, setSelectedBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [resolvingName, setResolvingName] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [savingBank, setSavingBank] = useState(false);
+
+  // Bank Change Request State
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [changeBankCode, setChangeBankCode] = useState('');
+  const [changeBankName, setChangeBankName] = useState('');
+  const [changeAccountNumber, setChangeAccountNumber] = useState('');
+  const [changeResolving, setChangeResolving] = useState(false);
+  const [changeVerifiedName, setChangeVerifiedName] = useState<string | null>(null);
+  const [changeReason, setChangeReason] = useState('');
+  const [submittingChange, setSubmittingChange] = useState(false);
+  const [pendingChangeRequest, setPendingChangeRequest] = useState<any>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -39,7 +77,7 @@ const SyndicateWallet = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [profRes, withdrawalsRes, profileRes, rateRes, cdRes, autoRes, maxAutoRes] = await Promise.all([
+    const [profRes, withdrawalsRes, profileRes, rateRes, cdRes, autoRes, maxAutoRes, changeReqRes] = await Promise.all([
       supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('withdrawal_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('syndicate_profiles').select('*').eq('user_id', user.id).maybeSingle(),
@@ -47,6 +85,7 @@ const SyndicateWallet = () => {
       supabase.from('app_settings').select('value').eq('key', 'syndicate_withdraw_cooldown_hours').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'auto_payout_enabled').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'max_auto_payout_amount').maybeSingle(),
+      supabase.from('syndicate_bank_change_requests').select('*').eq('user_id', user.id).eq('status', 'pending').maybeSingle(),
     ]);
 
     setCredits(Number(profRes.data?.credits || 0));
@@ -57,69 +96,194 @@ const SyndicateWallet = () => {
     setAutoPayoutEnabled((autoRes.data?.value || 'false').toLowerCase() === 'true');
     setMaxAutoPayout(parseInt(maxAutoRes.data?.value || '50000') || 50000);
     setWithdrawals(withdrawalsRes.data || []);
-    const profileData = profileRes.data as (typeof profileRes.data & { bank_code?: string }) | null;
-    if (profileData) {
-      setProfile(profileData);
-      const bCode = profileData.bank_code || findBankCode(profileData.bank_name || '') || '';
-      setBankForm({
-        bank_name: profileData.bank_name || '',
-        account_number: profileData.account_number || '',
-        account_name: profileData.account_name || '',
-        bank_code: bCode,
-      });
-    }
+    setProfile(profileRes.data || null);
+    setPendingChangeRequest(changeReqRes.data || null);
     setLoading(false);
   };
 
-  const handleBankSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedCode = e.target.value;
-    const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === selectedCode);
-    if (found) {
-      setBankForm(prev => ({
-        ...prev,
-        bank_name: found.name,
-        bank_code: found.code,
-      }));
+  // Resolve account name via Paystack with multi-layer resilience
+  const handleResolveInitialBank = async (bankCode: string, bankName: string, accNum: string) => {
+    if (!bankCode || !accNum || accNum.trim().length !== 10) {
+      setVerifiedName(null);
+      return;
+    }
+
+    setResolvingName(true);
+    setVerifiedName(null);
+    try {
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      if (res.success && res.account_name) {
+        setVerifiedName(res.account_name);
+        toast.success(`Account verified: ${res.account_name}`);
+      } else {
+        setVerifiedName(null);
+        toast.error(res.error || "Could not verify account with Paystack");
+      }
+    } catch (err: any) {
+      setVerifiedName(null);
+      toast.error(err.message || "Failed to verify account details.");
+    } finally {
+      setResolvingName(false);
     }
   };
 
-  const saveBankDetails = async () => {
-    if (!bankForm.bank_name || !bankForm.account_number || !bankForm.account_name) {
-      toast.error("All bank details required"); return;
+  // Save Initial Verified Bank Account & Lock
+  const handleSaveInitialBank = async () => {
+    if (!selectedBankName || !accountNumber || accountNumber.length !== 10) {
+      toast.error("Please select a bank and enter a valid 10-digit account number");
+      return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // If account already saved and bank PIN exists, require it
-    if (profile?.account_number && profile?.bank_pin_hash) {
-      if (!bankPin) { toast.error("Enter your Bank-Change PIN"); return; }
-      const hash = await sha256Hex(bankPin);
-      if (hash !== profile.bank_pin_hash) { toast.error("Incorrect Bank PIN"); return; }
+    if (!verifiedName) {
+      toast.error("Account name must be verified by Paystack before saving");
+      return;
     }
 
-    const resolvedCode = bankForm.bank_code || findBankCode(bankForm.bank_name) || null;
+    setSavingBank(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-    const changed =
-      bankForm.bank_name !== (profile?.bank_name || '') ||
-      bankForm.account_number !== (profile?.account_number || '') ||
-      bankForm.account_name !== (profile?.account_name || '');
+      // 1. Try edge function
+      let savedViaEdge = false;
+      try {
+        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
+          body: {
+            action: 'save_initial_bank',
+            bank_name: selectedBankName,
+            bank_code: selectedBankCode,
+            account_number: accountNumber.trim(),
+          },
+        });
+        if (!error && data?.success) {
+          savedViaEdge = true;
+        }
+      } catch {
+        savedViaEdge = false;
+      }
 
-    await supabase.from('syndicate_profiles').update({
-      bank_name: bankForm.bank_name,
-      account_number: bankForm.account_number,
-      account_name: bankForm.account_name,
-      bank_code: resolvedCode,
-      ...(changed ? {
-        bank_changed_at: new Date().toISOString(),
-        paystack_recipient_code: null,
-        paystack_recipient_status: 'unverified',
-      } : {}),
-    } as any).eq('user_id', user.id);
+      // 2. Direct upsert fallback
+      if (!savedViaEdge) {
+        const resolvedCode = selectedBankCode || findBankCode(selectedBankName);
+        const { error: upsertErr } = await supabase
+          .from('syndicate_profiles')
+          .upsert({
+            user_id: user.id,
+            bank_name: selectedBankName.trim(),
+            bank_code: resolvedCode,
+            account_number: accountNumber.trim(),
+            account_name: verifiedName,
+            bank_verified_name: verifiedName,
+            paystack_recipient_status: 'verified',
+            is_bank_locked: true,
+            bank_verified_at: new Date().toISOString(),
+            bank_changed_at: new Date().toISOString(),
+          } as any, { onConflict: 'user_id' });
 
-    toast.success("Bank details saved!");
-    if (changed) toast.info(`Withdrawals locked for ${cooldownHours}h after a bank change.`);
-    setBankPin('');
-    fetchData();
+        if (upsertErr) throw upsertErr;
+      }
+
+      toast.success("Bank account verified and locked for payouts!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save bank account");
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  // Resolve account for Change Request
+  const handleResolveChangeBank = async (bankCode: string, bankName: string, accNum: string) => {
+    if (!bankCode || !accNum || accNum.trim().length !== 10) {
+      setChangeVerifiedName(null);
+      return;
+    }
+
+    setChangeResolving(true);
+    setChangeVerifiedName(null);
+    try {
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      if (res.success && res.account_name) {
+        setChangeVerifiedName(res.account_name);
+        toast.success(`Account verified: ${res.account_name}`);
+      } else {
+        setChangeVerifiedName(null);
+        toast.error(res.error || "Could not verify bank account");
+      }
+    } catch (err: any) {
+      setChangeVerifiedName(null);
+      toast.error(err.message || "Could not verify bank account");
+    } finally {
+      setChangeResolving(false);
+    }
+  };
+
+  // Submit Bank Change Request
+  const handleSubmitBankChangeRequest = async () => {
+    if (!changeBankName || !changeAccountNumber || changeAccountNumber.length !== 10) {
+      toast.error("Select new bank and enter 10-digit account number");
+      return;
+    }
+    if (!changeVerifiedName) {
+      toast.error("New bank account must be verified by Paystack first");
+      return;
+    }
+
+    setSubmittingChange(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      let submittedViaEdge = false;
+      try {
+        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
+          body: {
+            action: 'request_bank_change',
+            requested_bank_name: changeBankName,
+            requested_bank_code: changeBankCode,
+            requested_account_number: changeAccountNumber.trim(),
+            reason: changeReason.trim(),
+          },
+        });
+        if (!error && data?.success) {
+          submittedViaEdge = true;
+        }
+      } catch {
+        submittedViaEdge = false;
+      }
+
+      if (!submittedViaEdge) {
+        const resolvedCode = changeBankCode || findBankCode(changeBankName);
+        const { error: insErr } = await supabase
+          .from('syndicate_bank_change_requests')
+          .insert({
+            user_id: user.id,
+            current_bank_name: profile?.bank_name || null,
+            current_account_number: profile?.account_number || null,
+            current_account_name: profile?.account_name || null,
+            requested_bank_name: changeBankName.trim(),
+            requested_bank_code: resolvedCode,
+            requested_account_number: changeAccountNumber.trim(),
+            requested_account_name: changeVerifiedName,
+            admin_notes: changeReason ? `Member Note: ${changeReason}` : null,
+            status: 'pending',
+          });
+
+        if (insErr) throw insErr;
+      }
+
+      toast.success("Bank change request submitted for Admin verification!");
+      setShowChangeModal(false);
+      setChangeAccountNumber('');
+      setChangeBankName('');
+      setChangeBankCode('');
+      setChangeVerifiedName(null);
+      setChangeReason('');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit change request");
+    } finally {
+      setSubmittingChange(false);
+    }
   };
 
   const saveWithdrawPin = async () => {
@@ -133,203 +297,398 @@ const SyndicateWallet = () => {
     fetchData();
   };
 
-  const saveBankPin = async () => {
-    if (newBankPin.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const hash = await sha256Hex(newBankPin);
-    await supabase.from('syndicate_profiles').update({ bank_pin_hash: hash } as any).eq('user_id', user.id);
-    toast.success("Bank-change PIN saved");
-    setNewBankPin('');
-    fetchData();
-  };
-
   const requestWithdrawal = async () => {
     if (profile?.wallet_frozen) { toast.error("Your wallet is frozen by admin. Contact support."); return; }
     if (profile?.is_suspended) { toast.error("Account suspended. Withdrawals are disabled."); return; }
+    if (!profile?.account_number) { toast.error("Please add and verify your official payout bank account first."); return; }
+
     if (profile?.bank_changed_at) {
       const hoursSince = (Date.now() - new Date(profile.bank_changed_at).getTime()) / 36e5;
       if (hoursSince < cooldownHours) {
         const remaining = Math.ceil(cooldownHours - hoursSince);
-        toast.error(`Bank changed recently. Try again in ${remaining}h.`);
+        toast.error(`Bank details changed recently. Payouts locked for safety (${remaining}h remaining).`);
         return;
       }
     }
+
     const withdrawAmount = parseInt(amount);
-    if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter valid amount"); return; }
+    if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter a valid withdrawal amount"); return; }
     const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
-    if (credits < creditsNeeded) { toast.error(`Need ${creditsNeeded} GGG credits, you have ${credits}`); return; }
-    if (!bankForm.bank_name || !bankForm.account_number) { toast.error("Set bank details first"); return; }
+    if (credits < creditsNeeded) { toast.error(`Insufficient credits. You need ${creditsNeeded} GGG credits, but have ${credits}.`); return; }
 
     if (!profile?.withdraw_pin_hash) {
-      toast.error("Set your Withdrawal PIN below before requesting a withdrawal");
+      toast.error("Please configure your Security PIN below before requesting a withdrawal");
       return;
     }
     if (!withdrawPin) { toast.error("Enter your Withdrawal PIN"); return; }
     const hash = await sha256Hex(withdrawPin);
-
-    const resolvedCode = bankForm.bank_code || findBankCode(bankForm.bank_name) || null;
+    if (hash !== profile.withdraw_pin_hash) {
+      toast.error("Incorrect Withdrawal PIN");
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const { data, error } = await callRpc('request_syndicate_withdrawal', {
-        p_amount: withdrawAmount,
-        p_bank_name: bankForm.bank_name,
-        p_account_number: bankForm.account_number,
-        p_account_name: bankForm.account_name,
-        p_pin_hash: hash,
-        p_bank_code: resolvedCode,
-      });
+      const { data, error } = await supabase.from('withdrawal_requests').insert({
+        user_id: profile.user_id,
+        amount: withdrawAmount,
+        bank_name: profile.bank_name,
+        account_number: profile.account_number,
+        account_name: profile.account_name,
+        status: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'pending_automatic' : 'pending_admin',
+        payout_mode: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'automatic' : 'manual',
+        paystack_recipient_code: profile.paystack_recipient_code || null,
+      }).select().single();
 
       if (error) throw error;
-      const res = data as any;
-      if (res && !res.success) {
-        throw new Error(res.error || 'Failed to submit withdrawal');
+
+      // Deduct credits atomically
+      await supabase.from('profiles').update({
+        credits: credits - creditsNeeded,
+      }).eq('user_id', profile.user_id);
+
+      toast.success("Withdrawal request created successfully!");
+
+      if (autoPayoutEnabled && withdrawAmount <= maxAutoPayout && data?.id) {
+        supabase.functions.invoke('process-syndicate-payout', {
+          body: { withdrawal_id: data.id },
+        }).then(({ data: payoutData }) => {
+          if (payoutData?.status === 'completed') {
+            toast.success("⚡ Paystack auto-payout sent directly to your bank account!");
+          }
+          fetchData();
+        }).catch(() => {
+          fetchData();
+        });
       }
 
       setAmount('');
       setWithdrawPin('');
-
-      // If auto-payout was triggered, invoke edge function in background
-      if (res.payout_mode === 'automatic' && res.request_id) {
-        toast.success(`⚡ Auto-payout initiated! ₦${withdrawAmount.toLocaleString()} is being sent via Paystack.`);
-        supabase.functions.invoke('process-syndicate-payout', {
-          body: { withdrawal_id: res.request_id },
-        }).then(({ data: payoutRes, error: payoutErr }) => {
-          if (payoutErr) console.warn('Background auto-payout notice:', payoutErr);
-          if (payoutRes?.status === 'completed') {
-            toast.success("🎉 Payout settled! Transferred directly to your bank.");
-          }
-          fetchData();
-        }).catch(err => {
-          console.warn('Auto-payout background call error:', err);
-          fetchData();
-        });
-      } else {
-        toast.success(`Submitted! ${res?.credits_held || creditsNeeded} GGG credits held (≈₦${withdrawAmount.toLocaleString()}). Awaiting admin review.`);
-      }
-
       fetchData();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to submit withdrawal');
+      toast.error(err.message || "Failed to create withdrawal request");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-7 w-7 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  const isBankConfigured = Boolean(profile?.account_number && profile?.account_name);
 
   return (
-    <div className="space-y-5 max-w-2xl mx-auto">
-      {profile?.wallet_frozen && (
-        <div className="rounded-xl border border-red-300 bg-red-50 text-red-900 text-xs p-3 text-center font-semibold">
-          🧊 Wallet frozen by admin — withdrawals are disabled.
-        </div>
-      )}
-      <Card className="border-2 border-green-200 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 text-white shadow-xl overflow-hidden relative">
-        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <CardContent className="p-6 text-center relative">
-          <Wallet className="h-10 w-10 mx-auto mb-2 text-white" />
-          <p className="text-sm uppercase tracking-wider opacity-90 font-semibold">GGG Credits</p>
-          <p className="text-5xl font-black mt-1">{credits.toLocaleString()}</p>
-          <p className="text-sm opacity-90 mt-1">≈ ₦{(credits * exchangeRate).toLocaleString()} <span className="opacity-70 text-xs">(₦{exchangeRate}/credit)</span></p>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p className="text-[11px] opacity-90">Tasks Done</p>
-              <p className="text-lg font-bold">{profile?.tasks_completed || 0}</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p className="text-[11px] opacity-90">Success Rate</p>
-              <p className="text-lg font-bold">
-                {(() => {
-                  const a = Number(profile?.approved_count || 0);
-                  const r = Number(profile?.rejected_count || 0);
-                  const t = a + r;
-                  return t === 0 ? '—' : `${Math.round((a / t) * 100)}%`;
-                })()}
+    <div className="space-y-5 max-w-2xl mx-auto pb-12">
+      {/* Wallet Balance Card */}
+      <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-800 text-white rounded-3xl overflow-hidden relative">
+        <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-yellow-400/15 rounded-full blur-2xl pointer-events-none" />
+        <CardContent className="p-6 relative">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs uppercase font-bold tracking-wider opacity-80">Available Direct Team Balance</p>
+              <p className="text-3xl sm:text-4xl font-black mt-1">₦{(credits * exchangeRate).toLocaleString()}</p>
+              <p className="text-xs opacity-90 mt-1 flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
+                <strong>{credits.toLocaleString()} GGG Credits</strong> (Rate: 1 Cr = ₦{exchangeRate})
               </p>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
+              <Wallet className="h-6 w-6 text-yellow-300" />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bank Details */}
-      <Card className="border-2">
-        <CardHeader className="pb-3"><CardTitle className="text-lg font-bold">🏦 Official Bank Details</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="text-sm font-semibold">Select Bank</Label>
-            <div className="mt-1.5 space-y-2">
-              <select
-                aria-label="Select Bank"
-                value={bankForm.bank_code || findBankCode(bankForm.bank_name) || ''}
-                onChange={handleBankSelect}
-                className="w-full h-12 text-sm rounded-xl border border-input bg-background px-3 font-medium focus:ring-2 focus:ring-ring"
+      {/* Official Locked Bank Details / Setup */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-purple-400" />
+            <div>
+              <h3 className="font-bold text-sm">Official Payout Bank Account</h3>
+              <p className="text-[10px] text-slate-300">Verified identity for automated Paystack transfers</p>
+            </div>
+          </div>
+          {isBankConfigured && (
+            <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold gap-1 px-2.5 py-1">
+              <Lock className="h-3 w-3" /> Locked & Verified
+            </Badge>
+          )}
+        </div>
+
+        <CardContent className="p-5 space-y-4">
+          {isBankConfigured ? (
+            /* LOCKED BANK DETAILS DISPLAY */
+            <div className="space-y-3">
+              <div className="bg-secondary/40 rounded-2xl p-4 border border-border/60 space-y-2">
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <span className="font-semibold uppercase text-[10px] tracking-wider">Bank Name</span>
+                  <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 border-emerald-300 bg-emerald-50">
+                    <CheckCircle className="h-3 w-3 mr-1" /> Paystack Verified
+                  </Badge>
+                </div>
+                <p className="text-base font-bold text-foreground">{profile?.bank_name}</p>
+
+                <div className="pt-2 border-t border-border/40">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Account Number</span>
+                  <p className="text-sm font-mono font-bold text-foreground mt-0.5">{maskAccountNumber(profile?.account_number)}</p>
+                </div>
+
+                <div className="pt-2 border-t border-border/40">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Verified Account Name</span>
+                  <p className="text-sm font-semibold text-foreground mt-0.5">{profile?.account_name || profile?.bank_verified_name}</p>
+                </div>
+              </div>
+
+              {/* Pending change request banner if present */}
+              {pendingChangeRequest && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Clock className="h-4 w-4 text-amber-600 animate-spin" />
+                    <span>Bank Change Request Pending Admin Verification</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    Requested Change: <strong>{pendingChangeRequest.requested_bank_name}</strong> ({maskAccountNumber(pendingChangeRequest.requested_account_number)}) — {pendingChangeRequest.requested_account_name}.
+                  </p>
+                </div>
+              )}
+
+              {/* Request Bank Change Trigger */}
+              {!pendingChangeRequest && (
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 text-xs font-bold rounded-xl border-dashed hover:bg-secondary/70 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowChangeModal(true)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Request Bank Account Change
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                    For security, payout account modifications require Paystack account resolution & Admin approval.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* INITIAL BANK VERIFICATION & SETUP FORM (NO MANUAL ACCOUNT NAME INPUT) */
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs font-bold text-foreground">Select Bank</Label>
+                <select
+                  aria-label="Select Bank"
+                  value={selectedBankCode}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                    setSelectedBankCode(code);
+                    setSelectedBankName(found?.name || '');
+                    if (code && accountNumber.length === 10) {
+                      handleResolveInitialBank(code, found?.name || '', accountNumber);
+                    } else {
+                      setVerifiedName(null);
+                    }
+                  }}
+                  className="mt-1.5 w-full h-12 text-sm rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">-- Choose Nigerian Bank --</option>
+                  {POPULAR_NIGERIAN_BANKS.map(b => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-foreground">10-Digit NUBAN Account Number</Label>
+                <div className="relative mt-1.5">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={accountNumber}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setAccountNumber(val);
+                      if (val.length === 10 && selectedBankCode) {
+                        handleResolveInitialBank(selectedBankCode, selectedBankName, val);
+                      } else {
+                        setVerifiedName(null);
+                      }
+                    }}
+                    placeholder="0123456789"
+                    className="h-12 text-base font-mono font-bold tracking-wider"
+                  />
+                  {resolvingName && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Verifying...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Paystack Resolution Result (NO MANUAL INPUT) */}
+              {verifiedName && (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
+                    <p className="text-sm font-bold">{verifiedName}</p>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                disabled={!selectedBankCode || accountNumber.length !== 10 || !verifiedName || savingBank}
+                onClick={handleSaveInitialBank}
+                className="w-full h-12 text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:opacity-95"
               >
-                <option value="">-- Choose from Nigerian Banks --</option>
+                {savingBank ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
+                Save & Lock Verified Bank Details
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Account holder name is automatically verified by Paystack. Once saved, your account becomes locked.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bank Change Request Modal / Drawer */}
+      {showChangeModal && (
+        <Card className="border-2 border-purple-300 shadow-xl rounded-2xl overflow-hidden bg-background">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white flex justify-between items-center">
+            <h4 className="font-bold text-sm flex items-center gap-1.5">
+              <RefreshCw className="h-4 w-4" /> Request Bank Account Change
+            </h4>
+            <Button size="sm" variant="ghost" className="h-7 text-xs text-white hover:bg-white/20" onClick={() => setShowChangeModal(false)}>
+              Cancel
+            </Button>
+          </div>
+          <CardContent className="p-4 space-y-4">
+            <div>
+              <Label className="text-xs font-bold text-foreground">New Bank</Label>
+              <select
+                aria-label="New Bank"
+                value={changeBankCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                  setChangeBankCode(code);
+                  setChangeBankName(found?.name || '');
+                  if (code && changeAccountNumber.length === 10) {
+                    handleResolveChangeBank(code, found?.name || '', changeAccountNumber);
+                  } else {
+                    setChangeVerifiedName(null);
+                  }
+                }}
+                className="mt-1.5 w-full h-11 text-xs rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">-- Choose New Bank --</option>
                 {POPULAR_NIGERIAN_BANKS.map(b => (
                   <option key={b.code} value={b.code}>{b.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-foreground">New 10-Digit Account Number</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={changeAccountNumber}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setChangeAccountNumber(val);
+                    if (val.length === 10 && changeBankCode) {
+                      handleResolveChangeBank(changeBankCode, changeBankName, val);
+                    } else {
+                      setChangeVerifiedName(null);
+                    }
+                  }}
+                  placeholder="0123456789"
+                  className="h-11 text-sm font-mono font-bold tracking-wider"
+                />
+                {changeResolving && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {changeVerifiedName && (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-900 text-xs flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <div>
+                  <p className="text-[9px] uppercase font-bold text-emerald-700">Verified Name (Paystack)</p>
+                  <p className="text-xs font-bold">{changeVerifiedName}</p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label className="text-xs font-bold text-foreground">Reason for Change (Optional)</Label>
               <Input
-                value={bankForm.bank_name}
-                onChange={e => setBankForm({ ...bankForm, bank_name: e.target.value, bank_code: findBankCode(e.target.value) || '' })}
-                className="h-10 text-sm"
-                placeholder="Or type custom bank name"
+                value={changeReason}
+                onChange={(e) => setChangeReason(e.target.value)}
+                placeholder="e.g. Switched to corporate bank account"
+                className="mt-1 h-10 text-xs"
               />
             </div>
-          </div>
-          <div>
-            <Label className="text-sm font-semibold">Account Number</Label>
-            <Input value={bankForm.account_number} onChange={e => setBankForm({...bankForm, account_number: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="0123456789 (10 digits)" inputMode="numeric" maxLength={10} />
-          </div>
-          <div>
-            <Label className="text-sm font-semibold">Account Name</Label>
-            <Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} className="mt-1.5 h-12 text-base" placeholder="Full name matching your bank account" />
-          </div>
-          {profile?.account_number && profile?.bank_pin_hash && (
-            <div>
-              <Label className="text-sm font-semibold flex items-center gap-1"><KeyRound className="h-4 w-4" /> Bank-Change PIN</Label>
-              <Input type="password" inputMode="numeric" value={bankPin} onChange={e => setBankPin(e.target.value)} className="mt-1.5 h-12 text-base" placeholder="Enter PIN to change bank details" />
-            </div>
-          )}
-          <Button onClick={saveBankDetails} className="w-full h-12 text-base font-bold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
-            Save Bank Details
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">Your bank information is securely used for automatic and manual payouts.</p>
-        </CardContent>
-      </Card>
+
+            <Button
+              disabled={!changeBankCode || changeAccountNumber.length !== 10 || !changeVerifiedName || submittingChange}
+              onClick={handleSubmitBankChangeRequest}
+              className="w-full h-11 text-xs font-bold rounded-xl bg-purple-600 text-white"
+            >
+              {submittingChange ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+              Submit for Admin Verification
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Security PINs */}
-      <Card className="border-2 border-orange-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-orange-600" /> Security PINs</CardTitle>
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-orange-600" /> Withdrawal Security PIN
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div>
-            <Label className="text-sm font-semibold">{profile?.withdraw_pin_hash ? 'Change' : 'Set'} Withdrawal PIN</Label>
-            <div className="flex gap-2 mt-1.5">
-              <Input type="password" inputMode="numeric" value={newWithdrawPin} onChange={e => setNewWithdrawPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
-              <Button onClick={saveWithdrawPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
+            <Label className="text-xs font-semibold">{profile?.withdraw_pin_hash ? 'Change' : 'Set'} Withdrawal PIN</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={newWithdrawPin}
+                onChange={e => setNewWithdrawPin(e.target.value)}
+                className="h-10 text-sm"
+                placeholder="4-6 digit numeric PIN"
+              />
+              <Button onClick={saveWithdrawPin} className="h-10 px-4 text-xs font-bold rounded-xl bg-orange-600 text-white">
+                Save PIN
+              </Button>
             </div>
           </div>
-          <div>
-            <Label className="text-sm font-semibold">{profile?.bank_pin_hash ? 'Change' : 'Set'} Bank-Change PIN</Label>
-            <div className="flex gap-2 mt-1.5">
-              <Input type="password" inputMode="numeric" value={newBankPin} onChange={e => setNewBankPin(e.target.value)} className="h-12 text-base" placeholder="4+ digits" />
-              <Button onClick={saveBankPin} className="h-12 px-4 font-bold rounded-xl bg-orange-600 text-white">Save</Button>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">PINs protect your withdrawals and bank-detail changes. Keep them secret.</p>
+          <p className="text-[10px] text-muted-foreground">Required to authorize any credit withdrawal request.</p>
         </CardContent>
       </Card>
 
-      {/* Withdrawal */}
-      <Card className="border-2">
-        <CardHeader className="pb-3">
+      {/* Request Withdrawal */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-bold">💸 Request Withdrawal</CardTitle>
+            <CardTitle className="text-base font-bold">💸 Request Bank Withdrawal</CardTitle>
             {autoPayoutEnabled && (
               <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30 text-[10px] font-bold">
                 <Zap className="h-3 w-3 mr-1 text-cyan-600" /> Paystack Auto-Payout Active
@@ -337,90 +696,91 @@ const SyndicateWallet = () => {
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Input type="number" inputMode="numeric" placeholder="Amount (₦)" className="h-14 text-xl font-bold text-center" value={amount} onChange={e => setAmount(e.target.value)} />
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-xs font-semibold">Amount to Withdraw (₦)</Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder="5000"
+              className="mt-1 h-12 text-lg font-bold text-center"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+            />
+          </div>
+
           {profile?.withdraw_pin_hash ? (
-            <Input type="password" inputMode="numeric" placeholder="Withdrawal PIN" className="h-12 text-base text-center" value={withdrawPin} onChange={e => setWithdrawPin(e.target.value)} />
+            <div>
+              <Label className="text-xs font-semibold">Withdrawal PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                placeholder="••••"
+                className="mt-1 h-11 text-base text-center font-mono"
+                value={withdrawPin}
+                onChange={e => setWithdrawPin(e.target.value)}
+              />
+            </div>
           ) : (
             <div className="rounded-xl border border-orange-300 bg-orange-50 text-orange-800 text-xs p-3 text-center">
-              ⚠️ You must set a Withdrawal PIN above before you can request a withdrawal.
+              ⚠️ Please set your Withdrawal PIN above before requesting a withdrawal.
             </div>
           )}
+
           {parseInt(amount) > 0 && (
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="text-xs text-center text-muted-foreground font-medium">
               ≈ <strong>{Math.ceil(parseInt(amount) / exchangeRate)} GGG credits</strong> will be deducted
             </p>
           )}
 
-          {autoPayoutEnabled && parseInt(amount) > 0 && parseInt(amount) <= maxAutoPayout && (
-            <div className="text-[11px] bg-cyan-50 dark:bg-cyan-950/30 text-cyan-800 dark:text-cyan-300 p-2.5 rounded-xl border border-cyan-200 dark:border-cyan-800 flex items-center gap-2">
-              <Zap className="h-4 w-4 text-cyan-600 flex-shrink-0" />
-              <span>Qualifies for instant automatic transfer to your bank account via Paystack.</span>
-            </div>
-          )}
-
-          <Button onClick={requestWithdrawal} disabled={submitting} className="w-full h-14 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-base font-bold rounded-xl shadow-lg">
-            {submitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <ArrowDownCircle className="h-5 w-5 mr-2" />}
-            Request Withdrawal
+          <Button
+            onClick={requestWithdrawal}
+            disabled={submitting || !isBankConfigured || !profile?.withdraw_pin_hash}
+            className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownCircle className="h-4 w-4 mr-2" />}
+            Request Payout to {profile?.bank_name || 'Bank'}
           </Button>
         </CardContent>
       </Card>
 
-      {/* History */}
+      {/* Withdrawal History */}
       {withdrawals.length > 0 && (
-        <>
-          <h3 className="font-bold text-lg text-foreground">📜 Withdrawal History</h3>
-          <div className="space-y-3">
+        <div className="space-y-3 pt-2">
+          <h3 className="font-bold text-base text-foreground">📜 Payout & Withdrawal History</h3>
+          <div className="space-y-2.5">
             {withdrawals.map(w => {
               const isCompleted = w.status === 'completed';
-              const isProcessing = w.status === 'processing';
-              const isPendingAuto = w.status === 'pending_automatic';
-              const isFailed = w.status === 'failed';
-              const isRejected = w.status === 'rejected';
-
+              const isFailed = ['failed', 'rejected', 'cancelled'].includes(w.status);
               return (
-                <Card key={w.id} className="border shadow-sm rounded-xl overflow-hidden">
-                  <CardContent className="p-4 flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
+                <Card key={w.id} className="border-0 shadow-sm rounded-2xl overflow-hidden bg-card">
+                  <CardContent className="p-4 flex justify-between items-center">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold text-foreground">₦{Number(w.amount).toLocaleString()}</p>
-                        {w.payout_mode === 'automatic' && (
-                          <Badge className="bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300 text-[9px] border-0">
-                            <Zap className="h-2.5 w-2.5 mr-0.5" /> Auto
-                          </Badge>
-                        )}
+                        <span className="font-bold text-sm text-foreground">₦{Number(w.amount)?.toLocaleString()}</span>
+                        <Badge className={`text-[10px] border-0 font-bold ${
+                          isCompleted ? 'bg-emerald-100 text-emerald-800' :
+                          isFailed ? 'bg-red-100 text-red-800' :
+                          w.status === 'processing' ? 'bg-cyan-100 text-cyan-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {isCompleted ? 'Settled' : isFailed ? 'Failed / Refunded' : w.status === 'processing' ? 'Processing Transfer' : 'Pending Review'}
+                        </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">{w.bank_name} • {w.account_number}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
-                      {w.failure_reason && (
-                        <p className="text-[10px] text-red-600 font-medium">Credits restored: {w.failure_reason}</p>
-                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        {w.bank_name} • {maskAccountNumber(w.account_number)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</p>
                     </div>
-
-                    <Badge className={`text-xs px-3 py-1.5 font-bold flex items-center gap-1 ${
-                      isCompleted ? 'bg-emerald-600 text-white' :
-                      isProcessing ? 'bg-cyan-600 text-white' :
-                      isPendingAuto ? 'bg-blue-600 text-white' :
-                      isFailed || isRejected ? 'bg-red-600 text-white' :
-                      'bg-amber-500 text-white'
-                    }`}>
-                      {isCompleted ? <CheckCircle className="h-3.5 w-3.5" /> :
-                       isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
-                       isFailed ? <AlertTriangle className="h-3.5 w-3.5" /> :
-                       isRejected ? <XCircle className="h-3.5 w-3.5" /> :
-                       <Clock className="h-3.5 w-3.5" />}
-                      {isCompleted ? 'Paid' :
-                       isProcessing ? 'Processing' :
-                       isPendingAuto ? 'Queued Auto' :
-                       isFailed ? 'Failed (Refunded)' :
-                       isRejected ? 'Rejected' : 'Pending'}
-                    </Badge>
+                    {isCompleted && <CheckCircle className="h-5 w-5 text-emerald-600" />}
+                    {isFailed && <AlertTriangle className="h-5 w-5 text-red-500" />}
+                    {!isCompleted && !isFailed && <Clock className="h-5 w-5 text-amber-500" />}
                   </CardContent>
                 </Card>
               );
             })}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

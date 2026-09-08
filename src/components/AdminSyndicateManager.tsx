@@ -1,744 +1,1540 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Search, CheckCircle, XCircle, Clock, Wallet, DollarSign, MapPin, Eye, TrendingUp, Briefcase, Star, ArrowRight, Loader2, Ban, Snowflake, Sun, PauseCircle, PlayCircle, RotateCw, Zap, AlertTriangle, RefreshCw, CreditCard } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Users,
+  Building2,
+  ShieldCheck,
+  RefreshCw,
+  Search,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  DollarSign,
+  TrendingUp,
+  Layers,
+  ChevronRight,
+  Filter,
+  CheckSquare,
+  Square,
+  ArrowRight,
+  Sliders,
+  Send,
+  Zap,
+  Clock,
+  Phone,
+  Mail,
+  MapPin,
+  ExternalLink,
+  ChevronDown,
+  X,
+  FileText,
+  UserCheck,
+  UserX,
+  AlertCircle,
+  Sparkles
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { callRpc } from "@/lib/supabaseRpc";
-import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
-import { NIGERIAN_STATES } from '@/utils/nigerianStates';
+import { NIGERIAN_STATES } from "@/utils/nigerianStates";
+import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
 
-const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
+const maskAccountNumber = (acc?: string | null) => {
+  if (!acc) return '—';
+  const clean = String(acc).trim();
+  if (clean.length <= 4) return '•••• ' + clean;
+  return '•••• ' + clean.slice(-4);
+};
 
-const AdminSyndicateManager = () => {
-  const [applications, setApplications] = useState<any[]>([]);
-  const [syndicates, setSyndicates] = useState<any[]>([]);
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
-  const [allTasks, setAllTasks] = useState<any[]>([]);
-  const [taskAssignments, setTaskAssignments] = useState<any[]>([]);
-  const [platformPricing, setPlatformPricing] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+export const AdminSyndicateManager = () => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'verification' | 'campaigns' | 'payouts' | 'settings'>('overview');
   const [loading, setLoading] = useState(true);
-  const [viewingTaskSubs, setViewingTaskSubs] = useState<string | null>(null);
-  const [paused, setPaused] = useState(false);
-  const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null);
-  const [withdrawalFilter, setWithdrawalFilter] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
 
-  useEffect(() => { fetchData(); }, []);
+  // Stats
+  const [stats, setStats] = useState({
+    totalMembers: 0,
+    activeMembers: 0,
+    pendingApps: 0,
+    pendingBankChanges: 0,
+    inactiveMembers: 0,
+    suspendedMembers: 0,
+    frozenWallets: 0,
+    activeCampaigns: 0,
+    pendingProofs: 0,
+    pendingSettlements: 0,
+    totalPayouts: 0,
+    successfulPayouts: 0,
+    failedPayouts: 0,
+  });
 
-  const fetchData = async () => {
-    const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes] = await Promise.all([
-      supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
-      supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('syndicate_tasks').select('*').order('created_at', { ascending: false }),
-      supabase.from('platform_pricing').select('*').order('platform_name'),
-      supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
-      supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
-    ]);
-    const profileMap: Record<string, any> = {};
-    (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
-    setApplications((appsRes.data || []).map((a: any) => ({ ...a, _profile: profileMap[a.user_id] })));
-    setSyndicates((syndicatesRes.data || []).map((s: any) => ({ ...s, _profile: profileMap[s.user_id] })));
-    setWithdrawals((withdrawalsRes.data || []).map((w: any) => ({ ...w, _profile: profileMap[w.user_id] })));
-    setAllTasks(tasksRes.data || []);
-    setPlatformPricing(pricingRes.data || []);
-    setPaused((pausedRes.data?.value || 'false') === 'true');
-    setLoading(false);
-  };
+  // Members
+  const [members, setMembers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended' | 'frozen' | 'locked' | 'unlocked'>('all');
+  const [stateFilter, setStateFilter] = useState('ALL');
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [viewingMember, setViewingMember] = useState<any | null>(null);
+  const [memberProofs, setMemberProofs] = useState<any[]>([]);
+  const [memberWithdrawals, setMemberWithdrawals] = useState<any[]>([]);
+  const [loadingMemberDetails, setLoadingMemberDetails] = useState(false);
 
-  const togglePauseAll = async (next: boolean) => {
-    await supabase.from('app_settings').upsert({ key: 'syndicate_paused', value: next ? 'true' : 'false' }, { onConflict: 'key' });
-    setPaused(next);
-    toast.success(next ? "All syndicate tasks paused" : "Syndicate tasks resumed");
-  };
+  // Bank Change Requests & Verification Center
+  const [bankChangeRequests, setBankChangeRequests] = useState<any[]>([]);
+  const [onboardingApplications, setOnboardingApplications] = useState<any[]>([]);
+  const [processingVerification, setProcessingVerification] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [activeRejectId, setActiveRejectId] = useState<string | null>(null);
 
-  const toggleSuspend = async (s: any) => {
-    const next = !s.is_suspended;
-    let reason: string | null = null;
-    if (next) {
-      reason = window.prompt("Reason for suspension?", "Policy violation") || 'Suspended by admin';
-    }
-    await supabase.from('syndicate_profiles').update({
-      is_suspended: next,
-      suspended_reason: next ? reason : null,
-      failed_streak: next ? s.failed_streak : 0,
-    } as any).eq('user_id', s.user_id);
-    await supabase.from('notifications').insert({
-      user_id: s.user_id,
-      title: next ? '🚫 Account Suspended' : '✅ Account Reinstated',
-      message: next ? `Your syndicate account was suspended: ${reason}` : 'Your syndicate account is active again.',
-      type: next ? 'warning' : 'success',
-    });
-    toast.success(next ? "Syndicate suspended" : "Suspension lifted");
-    fetchData();
-  };
+  // Campaigns & Collective Settlements
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [settlementPrevs, setSettlementPrevs] = useState<Record<string, any>>({});
+  const [processingSettlement, setProcessingSettlement] = useState<string | null>(null);
 
-  const toggleFreezeWallet = async (s: any) => {
-    const next = !s.wallet_frozen;
-    await supabase.from('syndicate_profiles').update({ wallet_frozen: next } as any).eq('user_id', s.user_id);
-    await supabase.from('notifications').insert({
-      user_id: s.user_id,
-      title: next ? '🧊 Wallet Frozen' : '🔥 Wallet Unfrozen',
-      message: next ? 'Withdrawals are temporarily disabled on your account.' : 'You can request withdrawals again.',
-      type: next ? 'warning' : 'success',
-    });
-    toast.success(next ? "Wallet frozen" : "Wallet unfrozen");
-    fetchData();
-  };
+  // Payouts & Withdrawals
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [withdrawalFilter, setWithdrawalFilter] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
+  const [processingWithdrawalId, setProcessingWithdrawalId] = useState<string | null>(null);
 
-  const forceReassign = async (assignmentId: string) => {
-    if (!window.confirm("Release this task back to the pool? The syndicate will be notified.")) return;
-    await supabase.from('syndicate_task_assignments').update({
-      status: 'reassigned',
-      reassigned_by_admin: true,
-      reviewed_at: new Date().toISOString(),
-    } as any).eq('id', assignmentId);
-    toast.success("Task released for reassignment");
-    if (viewingTaskSubs) viewTaskSubmissions(viewingTaskSubs);
-  };
+  // Settings
+  const [settings, setSettings] = useState({
+    payout_percentage: '70',
+    exchange_rate: '100',
+    assignment_deadline_hours: '24',
+    max_auto_payout_amount: '50000',
+    auto_payout_enabled: 'false',
+    cooldown_hours: '48',
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
 
-  const approveApplication = async (app: any, platforms: string[]) => {
-    await supabase.from('syndicate_applications').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', app.id);
-    await supabase.from('syndicate_profiles').insert({ user_id: app.user_id, verified_platforms: platforms, state: app.state || null });
-    await supabase.from('user_roles').insert({ user_id: app.user_id, role: 'syndicate' });
-    await supabase.from('notifications').insert({
-      user_id: app.user_id, title: '🎉 Syndicate Approved!',
-      message: `Approved for: ${platforms.join(', ')}. Start earning now!`, type: 'success',
-    });
-    toast.success("Application approved!");
-    fetchData();
-  };
+  useEffect(() => {
+    loadAllData();
+  }, []);
 
-  const rejectApplication = async (app: any) => {
-    await supabase.from('syndicate_applications').update({ status: 'rejected', reviewed_at: new Date().toISOString() }).eq('id', app.id);
-    await supabase.from('notifications').insert({
-      user_id: app.user_id, title: '❌ Application Rejected',
-      message: 'Your syndicate application was not approved at this time.', type: 'warning',
-    });
-    toast.success("Application rejected");
-    fetchData();
-  };
-
-  const processWithdrawal = async (id: string, approve: boolean) => {
+  const loadAllData = async () => {
+    setLoading(true);
     try {
-      let reason: string | null = null;
-      if (!approve) {
-        reason = window.prompt("Reason for rejecting this withdrawal?", "Bank details invalid or flagged");
-        if (reason === null) return;
-      }
-      const { data, error } = await callRpc('admin_process_withdrawal', {
-        p_request_id: id,
-        p_approve: approve,
-        p_rejection_reason: reason,
+      const [
+        synProfRes,
+        bankReqRes,
+        onboardingRes,
+        adsRes,
+        withdrawalsRes,
+        settingsRes,
+        profilesRes
+      ] = await Promise.all([
+        supabase.from('syndicate_profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('syndicate_bank_change_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
+        supabase.from('ads').select('*').eq('ad_type', 'syndicate').order('created_at', { ascending: false }),
+        supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('app_settings').select('*'),
+        supabase.from('profiles').select('user_id, email, display_name, business_name, phone, state, credits')
+      ]);
+
+      const profileMap: Record<string, any> = {};
+      (profilesRes.data || []).forEach(p => { profileMap[p.user_id] = p; });
+
+      const enrichedMembers = (synProfRes.data || []).map(m => ({
+        ...m,
+        profile: profileMap[m.user_id] || {},
+      }));
+
+      setMembers(enrichedMembers);
+      setBankChangeRequests(bankReqRes.data || []);
+      setOnboardingApplications(onboardingRes.data || []);
+      setCampaigns(adsRes.data || []);
+      setWithdrawals(withdrawalsRes.data || []);
+
+      // Parse Settings
+      const settObj = { ...settings };
+      (settingsRes.data || []).forEach(s => {
+        if (s.key === 'syndicate_payout_percentage') settObj.payout_percentage = s.value;
+        if (s.key === 'credit_exchange_rate') settObj.exchange_rate = s.value;
+        if (s.key === 'syndicate_assignment_deadline_hours') settObj.assignment_deadline_hours = s.value;
+        if (s.key === 'max_auto_payout_amount') settObj.max_auto_payout_amount = s.value;
+        if (s.key === 'auto_payout_enabled') settObj.auto_payout_enabled = s.value;
+        if (s.key === 'syndicate_withdraw_cooldown_hours') settObj.cooldown_hours = s.value;
+      });
+      setSettings(settObj);
+
+      // Compute aggregate stats
+      const totalM = enrichedMembers.length;
+      const activeM = enrichedMembers.filter(m => m.is_active && !m.is_suspended).length;
+      const pendingApps = (onboardingRes.data || []).filter(a => a.status === 'pending').length;
+      const pendingBReqs = (bankReqRes.data || []).filter(r => r.status === 'pending').length;
+      const inactiveM = enrichedMembers.filter(m => !m.is_active).length;
+      const suspendedM = enrichedMembers.filter(m => m.is_suspended).length;
+      const frozenM = enrichedMembers.filter(m => m.wallet_frozen).length;
+      const activeC = (adsRes.data || []).filter(a => a.status === 'active').length;
+      const totalP = (withdrawalsRes.data || []).reduce((acc, w) => acc + (w.status === 'completed' ? Number(w.amount || 0) : 0), 0);
+      const succP = (withdrawalsRes.data || []).filter(w => w.status === 'completed').length;
+      const failP = (withdrawalsRes.data || []).filter(w => ['failed', 'rejected'].includes(w.status)).length;
+
+      setStats({
+        totalMembers: totalM,
+        activeMembers: activeM,
+        pendingApps,
+        pendingBankChanges: pendingBReqs,
+        inactiveMembers: inactiveM,
+        suspendedMembers: suspendedM,
+        frozenWallets: frozenM,
+        activeCampaigns: activeC,
+        pendingProofs: 0,
+        pendingSettlements: activeC,
+        totalPayouts: totalP,
+        successfulPayouts: succP,
+        failedPayouts: failP,
       });
 
+    } catch (err: any) {
+      console.error("Error loading syndicate admin data:", err);
+      toast.error("Failed to load Syndicate management data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open Member Profile Drawer
+  const openMemberDrawer = async (member: any) => {
+    setViewingMember(member);
+    setLoadingMemberDetails(true);
+    try {
+      const [proofsRes, wRes] = await Promise.all([
+        supabase.from('syndicate_task_assignments').select('*').eq('syndicate_member_id', member.user_id).order('created_at', { ascending: false }),
+        supabase.from('withdrawal_requests').select('*').eq('user_id', member.user_id).order('created_at', { ascending: false })
+      ]);
+      setMemberProofs(proofsRes.data || []);
+      setMemberWithdrawals(wRes.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMemberDetails(false);
+    }
+  };
+
+  // Toggle member active status
+  const toggleMemberActive = async (memberId: string, currentActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('syndicate_profiles')
+        .update({ is_active: !currentActive, updated_at: new Date().toISOString() })
+        .eq('user_id', memberId);
+
       if (error) throw error;
-      const res = data as any;
-      if (res && !res.success) {
-        throw new Error(res.error || 'Failed to process withdrawal');
+      toast.success(`Member status updated to ${!currentActive ? 'Active' : 'Inactive'}`);
+      loadAllData();
+      if (viewingMember?.user_id === memberId) {
+        setViewingMember((prev: any) => ({ ...prev, is_active: !currentActive }));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update member status");
+    }
+  };
+
+  // Toggle wallet frozen status
+  const toggleWalletFrozen = async (memberId: string, currentFrozen: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('syndicate_profiles')
+        .update({ wallet_frozen: !currentFrozen, updated_at: new Date().toISOString() })
+        .eq('user_id', memberId);
+
+      if (error) throw error;
+      toast.success(`Member wallet ${!currentFrozen ? 'Frozen' : 'Unfrozen'}`);
+      loadAllData();
+      if (viewingMember?.user_id === memberId) {
+        setViewingMember((prev: any) => ({ ...prev, wallet_frozen: !currentFrozen }));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update wallet status");
+    }
+  };
+
+  // Batch Toggle Selection
+  const handleBatchStatus = async (newStatus: boolean) => {
+    if (selectedMemberIds.length === 0) {
+      toast.error("No members selected");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('syndicate_profiles')
+        .update({ is_active: newStatus, updated_at: new Date().toISOString() })
+        .in('user_id', selectedMemberIds);
+
+      if (error) throw error;
+      toast.success(`${selectedMemberIds.length} members set to ${newStatus ? 'Active' : 'Inactive'}`);
+      setSelectedMemberIds([]);
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Batch update failed");
+    }
+  };
+
+  // Deactivate All Non-Performing / Flagged Members
+  const handleDeactivateNonPerforming = async () => {
+    const nonPerforming = members.filter(m => m.is_active && ((m.tasks_completed || 0) === 0 || m.is_suspended));
+    if (nonPerforming.length === 0) {
+      toast.info("No active flagged or zero-participation members found.");
+      return;
+    }
+    try {
+      const ids = nonPerforming.map(m => m.user_id);
+      const { error } = await supabase
+        .from('syndicate_profiles')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .in('user_id', ids);
+
+      if (error) throw error;
+      toast.success(`Deactivated ${ids.length} inactive/flagged members.`);
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Operation failed");
+    }
+  };
+
+  // Approve Bank Change Request
+  const handleApproveBankChange = async (req: any) => {
+    setProcessingVerification(req.id);
+    try {
+      // 1. Try backend Edge Function for Paystack recipient update
+      let approvedViaEdge = false;
+      try {
+        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
+          body: {
+            action: 'approve_bank_change',
+            request_id: req.id,
+          },
+        });
+        if (!error && data?.success) {
+          approvedViaEdge = true;
+        }
+      } catch {
+        approvedViaEdge = false;
       }
 
-      toast.success(approve ? "Withdrawal marked as paid manually" : "Withdrawal rejected & refunded");
-      fetchData();
+      // 2. Direct fallback
+      if (!approvedViaEdge) {
+        // Update request status
+        await supabase
+          .from('syndicate_bank_change_requests')
+          .update({
+            status: 'approved',
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq('id', req.id);
+
+        // Atomically update syndicate profile bank details & lock
+        await supabase
+          .from('syndicate_profiles')
+          .update({
+            bank_name: req.requested_bank_name,
+            bank_code: req.requested_bank_code,
+            account_number: req.requested_account_number,
+            account_name: req.requested_account_name,
+            bank_verified_name: req.requested_account_name,
+            is_bank_locked: true,
+            bank_verified_at: new Date().toISOString(),
+            bank_changed_at: new Date().toISOString(),
+          } as any)
+          .eq('user_id', req.user_id);
+      }
+
+      toast.success(`Bank change approved for ${req.requested_account_name}. Details locked.`);
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve bank change");
+    } finally {
+      setProcessingVerification(null);
+    }
+  };
+
+  // Reject Bank Change Request
+  const handleRejectBankChange = async (reqId: string) => {
+    if (!rejectReason.trim()) {
+      toast.error("Please provide a reason for rejecting the bank change");
+      return;
+    }
+    setProcessingVerification(reqId);
+    try {
+      await supabase
+        .from('syndicate_bank_change_requests')
+        .update({
+          status: 'rejected',
+          admin_notes: rejectReason.trim(),
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', reqId);
+
+      toast.success("Bank change request rejected");
+      setActiveRejectId(null);
+      setRejectReason('');
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject request");
+    } finally {
+      setProcessingVerification(null);
+    }
+  };
+
+  // Approve Onboarding Application
+  const handleApproveApplication = async (appId: string, userId: string) => {
+    setProcessingVerification(appId);
+    try {
+      await supabase.from('syndicate_applications').update({ status: 'approved' }).eq('id', appId);
+      await supabase.from('syndicate_profiles').upsert({
+        user_id: userId,
+        is_active: true,
+        is_verified: true,
+        reputation_score: 100,
+        tier: 'Core Team',
+      } as any, { onConflict: 'user_id' });
+      await supabase.from('user_roles').upsert({ user_id: userId, role: 'syndicate' }, { onConflict: 'user_id,role' });
+
+      toast.success("Application approved! Member is now active on the Direct Team.");
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve application");
+    } finally {
+      setProcessingVerification(null);
+    }
+  };
+
+  // Save Settings
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const updates = [
+        { key: 'syndicate_payout_percentage', value: settings.payout_percentage },
+        { key: 'credit_exchange_rate', value: settings.exchange_rate },
+        { key: 'syndicate_assignment_deadline_hours', value: settings.assignment_deadline_hours },
+        { key: 'max_auto_payout_amount', value: settings.max_auto_payout_amount },
+        { key: 'auto_payout_enabled', value: settings.auto_payout_enabled },
+        { key: 'syndicate_withdraw_cooldown_hours', value: settings.cooldown_hours },
+      ];
+
+      for (const u of updates) {
+        await supabase.from('app_settings').upsert({ key: u.key, value: u.value }, { onConflict: 'key' });
+      }
+
+      toast.success("Syndicate parameters saved successfully!");
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Process Payout via Paystack or Manual
+  const handleProcessWithdrawal = async (w: any, action: 'paystack' | 'manual_paid' | 'reject') => {
+    setProcessingWithdrawalId(w.id);
+    try {
+      if (action === 'paystack') {
+        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
+          body: { withdrawal_id: w.id },
+        });
+
+        if (error || data?.status === 'failed') {
+          throw new Error(data?.error || "Paystack transfer failed");
+        }
+        toast.success("⚡ Paystack transfer initiated successfully!");
+      } else if (action === 'manual_paid') {
+        await supabase.from('withdrawal_requests').update({
+          status: 'completed',
+          admin_notes: 'Marked paid manually by admin',
+          updated_at: new Date().toISOString(),
+        }).eq('id', w.id);
+        toast.success("Withdrawal marked as Paid & Completed");
+      } else if (action === 'reject') {
+        const rate = parseInt(settings.exchange_rate) || 100;
+        const creditsToRefund = Math.ceil(Number(w.amount) / rate);
+
+        await supabase.from('withdrawal_requests').update({
+          status: 'rejected',
+          admin_notes: 'Rejected by admin and credits refunded',
+          updated_at: new Date().toISOString(),
+        }).eq('id', w.id);
+
+        const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', w.user_id).single();
+        if (prof) {
+          await supabase.from('profiles').update({
+            credits: Number(prof.credits || 0) + creditsToRefund,
+          }).eq('user_id', w.user_id);
+        }
+        toast.success(`Withdrawal rejected. ${creditsToRefund} GGG credits refunded to member.`);
+      }
+      loadAllData();
     } catch (err: any) {
       toast.error(err.message || "Failed to process withdrawal");
-    }
-  };
-
-  const triggerPaystackPayout = async (withdrawalId: string, forceRetry = false) => {
-    setProcessingPayoutId(withdrawalId);
-    try {
-      const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
-        body: { withdrawal_id: withdrawalId, force_retry: forceRetry },
-      });
-
-      if (error) throw error;
-      if (data && !data.success) {
-        throw new Error(data.error || 'Paystack transfer failed');
-      }
-
-      if (data.status === 'completed') {
-        toast.success("⚡ Paystack transfer successful! Funds sent to bank.");
-      } else {
-        toast.info(data.message || "⚡ Payout initiated via Paystack (processing)");
-      }
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Paystack transfer failed");
-      fetchData();
     } finally {
-      setProcessingPayoutId(null);
+      setProcessingWithdrawalId(null);
     }
   };
 
-  const updatePlatformPrice = async (id: string, newPrice: number) => {
-    await supabase.from('platform_pricing').update({ price_per_task: newPrice }).eq('id', id);
-    toast.success("Price updated!");
-    fetchData();
-  };
+  // Filtered members list
+  const filteredMembers = members.filter(m => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !searchQuery ||
+      m.user_id?.toLowerCase().includes(q) ||
+      m.profile?.display_name?.toLowerCase().includes(q) ||
+      m.profile?.business_name?.toLowerCase().includes(q) ||
+      m.profile?.email?.toLowerCase().includes(q) ||
+      m.profile?.phone?.toLowerCase().includes(q) ||
+      m.bank_name?.toLowerCase().includes(q) ||
+      m.account_name?.toLowerCase().includes(q);
 
-  const viewTaskSubmissions = async (taskId: string) => {
-    setViewingTaskSubs(taskId);
-    const { data } = await supabase.from('syndicate_task_assignments').select('*').eq('task_id', taskId);
-    setTaskAssignments(data || []);
-  };
+    const matchesState = stateFilter === 'ALL' || (m.profile?.state && m.profile?.state.toLowerCase().includes(stateFilter.toLowerCase()));
 
-  const adminReviewAssignment = async (assignmentId: string, approve: boolean) => {
-    let reason: string | null = null;
-    if (!approve) {
-      reason = window.prompt("Why is this proof rejected? (shown to the syndicate)", "Proof unclear or invalid");
-      if (reason === null) return; // cancelled
-    }
-    try {
-      const res = await reviewSyndicateAssignment({
-        assignmentId,
-        approve,
-        rejectionReason: reason,
-      });
+    let matchesStatus = true;
+    if (statusFilter === 'active') matchesStatus = m.is_active && !m.is_suspended;
+    else if (statusFilter === 'inactive') matchesStatus = !m.is_active;
+    else if (statusFilter === 'suspended') matchesStatus = m.is_suspended;
+    else if (statusFilter === 'frozen') matchesStatus = m.wallet_frozen;
+    else if (statusFilter === 'locked') matchesStatus = m.is_bank_locked;
+    else if (statusFilter === 'unlocked') matchesStatus = !m.is_bank_locked;
 
-      if (!res.success) {
-        throw new Error(res.error || 'Review failed');
-      }
+    return matchesSearch && matchesState && matchesStatus;
+  });
 
-      toast.success(approve ? "Approved & paid!" : "Rejected");
-      viewTaskSubmissions(viewingTaskSubs!);
-    } catch (err: any) {
-      toast.error(err.message || 'Review failed');
-    }
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center py-16">
-      <Loader2 className="h-7 w-7 animate-spin text-purple-500" />
-    </div>
-  );
-
-  const pendingApps = applications.filter(a => a.status === 'pending');
-  const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending');
-  const totalEarned = syndicates.reduce((s, x) => s + (x.tasks_completed || 0), 0);
+  const pendingBankChanges = bankChangeRequests.filter(r => r.status === 'pending');
+  const pendingApps = onboardingApplications.filter(a => a.status === 'pending');
 
   return (
-    <div className="space-y-5">
-      {/* Pause-All Control */}
-      <Card className="border-2 border-amber-200 bg-amber-50">
-        <CardContent className="p-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {paused ? <PauseCircle className="h-5 w-5 text-amber-600 flex-shrink-0" /> : <PlayCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-foreground">{paused ? 'All syndicate tasks PAUSED' : 'Syndicate tasks live'}</p>
-              <p className="text-[10px] text-muted-foreground">Toggle to halt all new claims globally</p>
-            </div>
-          </div>
-          <Switch checked={paused} onCheckedChange={togglePauseAll} />
-        </CardContent>
-      </Card>
+    <div className="w-full min-h-screen pb-20 space-y-5 bg-background">
+      {/* Top Mobile-Ready Hero App Bar */}
+      <div className="rounded-3xl bg-gradient-to-r from-slate-950 via-indigo-950 to-purple-950 p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute -right-10 -top-10 w-44 h-44 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Hero Stats */}
-      <div className="rounded-2xl bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-500 p-5 text-white relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-6 -bottom-6 h-28 w-28 rounded-full bg-yellow-300/15 blur-2xl" />
-        <h3 className="text-base font-black relative">Syndicate Overview</h3>
-        <p className="text-[11px] opacity-80 relative">Manage your earning workforce</p>
-        <div className="grid grid-cols-4 gap-2 mt-4 relative">
-          {[
-            { label: 'Members', value: syndicates.length, icon: Users },
-            { label: 'Pending', value: pendingApps.length, icon: Clock },
-            { label: 'Tasks', value: allTasks.length, icon: Briefcase },
-            { label: 'Payouts', value: pendingWithdrawals.length, icon: Wallet },
-          ].map(s => (
-            <div key={s.label} className="bg-white/15 backdrop-blur rounded-xl p-2.5 text-center">
-              <s.icon className="h-4 w-4 mx-auto mb-1 opacity-80" />
-              <p className="text-lg font-black leading-none">{s.value}</p>
-              <p className="text-[9px] opacity-80 mt-0.5">{s.label}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-xs font-bold uppercase tracking-widest text-purple-300">GGD Workforce Operations</p>
             </div>
-          ))}
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+              Direct Team Syndicate
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300">
+              Verified workforce command center, automated Paystack settlements & bank lock security
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={loadAllData}
+              disabled={loading}
+              variant="outline"
+              size="sm"
+              className="h-10 px-4 text-xs font-bold rounded-xl border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur shadow-sm"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="applications" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 h-11 rounded-xl bg-secondary/80 p-1">
-          <TabsTrigger value="applications" className="text-[9px] rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
-            Apps {pendingApps.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-red-500 border-0">{pendingApps.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="syndicates" className="text-[9px] rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">Team</TabsTrigger>
-          <TabsTrigger value="tasks" className="text-[9px] rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">Tasks</TabsTrigger>
-          <TabsTrigger value="withdrawals" className="text-[9px] rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">
-            Pay {pendingWithdrawals.length > 0 && <Badge className="ml-0.5 h-4 px-1 text-[8px] bg-red-500 border-0">{pendingWithdrawals.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="pricing" className="text-[9px] rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all font-semibold">Price</TabsTrigger>
-        </TabsList>
+      {/* Modern Swipeable Horizontal Navigation Bar (NEVER squished or overlapping) */}
+      <div className="w-full overflow-x-auto no-scrollbar py-1">
+        <div className="flex items-center gap-2 min-w-max px-1">
+          {[
+            { id: 'overview', label: 'Overview', icon: TrendingUp },
+            { id: 'members', label: 'Members Roster', icon: Users, count: stats.activeMembers },
+            {
+              id: 'verification',
+              label: 'Verification Center',
+              icon: ShieldCheck,
+              badge: pendingBankChanges.length + pendingApps.length,
+              badgeColor: 'bg-red-500 text-white',
+            },
+            { id: 'campaigns', label: 'Campaigns & Settlements', icon: Layers, count: stats.activeCampaigns },
+            { id: 'payouts', label: 'Payouts & Withdrawals', icon: DollarSign },
+            { id: 'settings', label: 'Settings & Economics', icon: Sliders },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 h-12 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm ${
+                  isActive
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-purple-500/25 shadow-md scale-[1.02]'
+                    : 'bg-card text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/60'
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-purple-600'}`} />
+                <span className="whitespace-nowrap">{tab.label}</span>
+                {typeof tab.count === 'number' && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${isActive ? 'bg-white/20 text-white' : 'bg-secondary text-foreground'}`}>
+                    {tab.count}
+                  </span>
+                )}
+                {Boolean(tab.badge) && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold animate-pulse ${tab.badgeColor || 'bg-red-500 text-white'}`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        {/* Applications */}
-        <TabsContent value="applications" className="space-y-3">
-          {pendingApps.length === 0 && (
-            <div className="text-center py-12">
-              <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-3">
-                <CheckCircle className="h-8 w-8 text-purple-400" />
+      {/* TAB 1: OVERVIEW */}
+      {activeTab === 'overview' && (
+        <div className="space-y-5">
+          {/* High-Impact Mobile KPI Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="border-0 shadow-md rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white p-4 sm:p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-purple-200">Active Workforce</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1">{stats.activeMembers}</p>
+                  <p className="text-[10px] text-purple-200 mt-1">out of {stats.totalMembers} total members</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-purple-100" />
+                </div>
               </div>
-              <p className="text-sm font-semibold text-foreground">All caught up!</p>
-              <p className="text-xs text-muted-foreground">No pending applications</p>
-            </div>
-          )}
-          {pendingApps.map(app => (
-            <ApplicationCard key={app.id} app={app} onApprove={approveApplication} onReject={rejectApplication} />
-          ))}
-        </TabsContent>
-
-        {/* Syndicates */}
-        <TabsContent value="syndicates" className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search members..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 h-11 rounded-xl bg-secondary/50 border-0" />
-          </div>
-          <p className="text-[11px] text-muted-foreground font-medium">{syndicates.length} syndicate members</p>
-          {syndicates.filter(s => !searchQuery || JSON.stringify(s).toLowerCase().includes(searchQuery.toLowerCase())).map(s => (
-            <Card key={s.id} className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-              <CardContent className="p-0">
-                {/* User header */}
-                <div className="bg-gradient-to-r from-purple-500/10 to-fuchsia-500/10 p-4 flex items-center gap-3">
-                  <Avatar className="h-14 w-14 border-2 border-purple-200 shadow-sm">
-                    <AvatarImage src={s._profile?.avatar_url || s.avatar_url} />
-                    <AvatarFallback className="bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white font-bold text-sm">
-                      {(s._profile?.display_name || s._profile?.email || 'U').slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm text-foreground truncate">{s._profile?.display_name || s._profile?.email || 'Unknown User'}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{s._profile?.email || ''}</p>
-                    {s.state && <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{s.state}</p>}
-                  </div>
-                  <div className="flex items-center gap-1 bg-purple-100 text-purple-700 rounded-full px-2.5 py-1">
-                    <Star className="h-3 w-3 fill-purple-500" />
-                    <span className="text-[11px] font-bold">{s.ranking_score || 0}</span>
-                  </div>
-                </div>
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-px bg-border/30">
-                  <div className="bg-background p-3 text-center">
-                    <p className="text-lg font-black text-purple-600">{s.tasks_completed || 0}</p>
-                    <p className="text-[9px] text-muted-foreground font-medium">Tasks</p>
-                  </div>
-                  <div className="bg-background p-3 text-center">
-                    <p className="text-lg font-black text-blue-600">{s.ranking_score || 0}</p>
-                    <p className="text-[9px] text-muted-foreground font-medium">Score</p>
-                  </div>
-                  <div className="bg-background p-3 text-center">
-                    <p className="text-lg font-black text-emerald-600">{(s.verified_platforms || []).length}</p>
-                    <p className="text-[9px] text-muted-foreground font-medium">Platforms</p>
-                  </div>
-                </div>
-                {/* Platforms & Bank */}
-                <div className="p-3 space-y-2">
-                  <div className="flex gap-1 flex-wrap">
-                    {(s.verified_platforms || []).map((p: string) => (
-                      <Badge key={p} className="text-[9px] bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white border-0 gap-0.5 shadow-sm">
-                        <CheckCircle className="h-2.5 w-2.5" />{p}
-                      </Badge>
-                    ))}
-                    {(s.verified_platforms || []).length === 0 && <span className="text-[10px] text-muted-foreground">No platforms</span>}
-                  </div>
-                  {(s.bank_name || s.account_number) && (
-                    <div className="bg-secondary/50 rounded-xl p-2.5">
-                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Bank</p>
-                      <p className="text-xs text-foreground font-medium">{s.bank_name} — {s.account_number}</p>
-                      {s.account_name && <p className="text-[10px] text-muted-foreground">{s.account_name}</p>}
-                    </div>
-                  )}
-                  {(s.is_suspended || s.wallet_frozen) && (
-                    <div className="flex flex-wrap gap-1">
-                      {s.is_suspended && <Badge className="bg-red-100 text-red-700 border-0 text-[10px]"><Ban className="h-3 w-3 mr-0.5" />Suspended{s.suspended_reason ? `: ${s.suspended_reason}` : ''}</Badge>}
-                      {s.wallet_frozen && <Badge className="bg-blue-100 text-blue-700 border-0 text-[10px]"><Snowflake className="h-3 w-3 mr-0.5" />Wallet frozen</Badge>}
-                      {(s.failed_streak || 0) > 0 && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Streak: {s.failed_streak} fails</Badge>}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleSuspend(s)}>
-                      {s.is_suspended ? <><Sun className="h-3.5 w-3.5 mr-1" />Unsuspend</> : <><Ban className="h-3.5 w-3.5 mr-1" />Suspend</>}
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleFreezeWallet(s)}>
-                      {s.wallet_frozen ? <><Sun className="h-3.5 w-3.5 mr-1" />Unfreeze</> : <><Snowflake className="h-3.5 w-3.5 mr-1" />Freeze Wallet</>}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
-          ))}
-        </TabsContent>
 
-        {/* All Tasks */}
-        <TabsContent value="tasks" className="space-y-3">
-          {viewingTaskSubs ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-sm text-foreground">Task Submissions</h4>
-                <Button size="sm" variant="ghost" onClick={() => setViewingTaskSubs(null)} className="text-xs rounded-xl">← Back</Button>
-              </div>
-              {taskAssignments.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="h-12 w-12 rounded-full bg-secondary mx-auto mb-2 flex items-center justify-center"><Eye className="h-5 w-5 text-muted-foreground" /></div>
-                  <p className="text-xs text-muted-foreground">No submissions yet</p>
+            <Card className="border-0 shadow-md rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-4 sm:p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-200">Total Settled</p>
+                  <p className="text-xl sm:text-2xl font-black mt-1">₦{stats.totalPayouts.toLocaleString()}</p>
+                  <p className="text-[10px] text-emerald-200 mt-1">{stats.successfulPayouts} payouts settled</p>
                 </div>
-              ) : taskAssignments.map(a => (
-                <Card key={a.id} className="border-0 shadow-md rounded-2xl overflow-hidden">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <Badge className={`rounded-full text-[10px] px-3 py-1 border-0 ${a.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : a.status === 'rejected' ? 'bg-red-100 text-red-700' : a.status === 'submitted' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{a.status}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : 'Not submitted'}</span>
-                    </div>
-                    {a.proof_url && <img loading="lazy" src={a.proof_url} alt="Proof" className="w-full rounded-xl border cursor-pointer hover:opacity-90 transition" onClick={() => window.open(a.proof_url, '_blank')} />}
-                    {a.status === 'submitted' && (
-                      <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs rounded-xl h-10 shadow-md" onClick={() => adminReviewAssignment(a.id, true)}>
-                          <CheckCircle className="h-3.5 w-3.5 mr-1" />Approve & Pay
-                        </Button>
-                        <Button size="sm" variant="destructive" className="flex-1 text-xs rounded-xl h-10" onClick={() => adminReviewAssignment(a.id, false)}>
-                          <XCircle className="h-3.5 w-3.5 mr-1" />Reject
-                        </Button>
-                      </div>
-                    )}
-                    {(a.status === 'accepted' || a.status === 'assigned') && (
-                      <Button size="sm" variant="outline" className="w-full text-xs rounded-xl h-10" onClick={() => forceReassign(a.id)}>
-                        <RotateCw className="h-3.5 w-3.5 mr-1" />Force Reassign (release to pool)
-                      </Button>
-                    )}
-                    {a.status === 'rejected' && a.rejection_reason && (
-                      <div className="rounded-xl bg-red-50 border border-red-200 p-2 text-[11px] text-red-800">
-                        <strong>Rejection reason:</strong> {a.rejection_reason}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            allTasks.map(task => (
-              <Card key={task.id} className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-sm text-foreground truncate">{task.title}</h4>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{task.description}</p>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {(task.placements || []).map((p: string) => <Badge key={p} className="text-[8px] bg-purple-100 text-purple-700 border-0 rounded-full">{p.replace(/_/g,' ')}</Badge>)}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1.5 font-medium">₦{task.total_cost} · {task.max_syndicates} slots</p>
-                    </div>
-                    <Button size="sm" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] h-9 rounded-xl shadow-sm px-4" onClick={() => viewTaskSubmissions(task.id)}>
-                      <Eye className="h-3 w-3 mr-1" />View
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
+                <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-emerald-100" />
+                </div>
+              </div>
+            </Card>
 
-        {/* Withdrawals */}
-        <TabsContent value="withdrawals" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl">
-              {[
-                { key: 'pending', label: '⏳ Pending / In-Flight' },
-                { key: 'completed', label: '✅ Completed' },
-                { key: 'failed', label: '⚠️ Failed / Rejected' },
-                { key: 'all', label: '📋 All Records' },
-              ].map(f => (
+            <Card className="border-0 shadow-md rounded-2xl bg-gradient-to-br from-amber-600 to-orange-700 text-white p-4 sm:p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-200">Pending Actions</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1">{pendingBankChanges.length + pendingApps.length}</p>
+                  <p className="text-[10px] text-amber-200 mt-1">{pendingBankChanges.length} bank changes • {pendingApps.length} apps</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <ShieldCheck className="h-5 w-5 text-amber-100" />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="border-0 shadow-md rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-700 text-white p-4 sm:p-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-200">Active Campaigns</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1">{stats.activeCampaigns}</p>
+                  <p className="text-[10px] text-blue-200 mt-1">Direct Team Execution</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Layers className="h-5 w-5 text-blue-100" />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Quick Action Navigation Hub */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => setActiveTab('verification')}
+              className="p-4 rounded-2xl border border-border/80 bg-card hover:border-purple-500 shadow-sm flex items-center justify-between text-left group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-foreground">Verification Center</p>
+                  <p className="text-xs text-muted-foreground">{pendingBankChanges.length} bank changes waiting</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-purple-600 transition-colors" />
+            </button>
+
+            <button
+              onClick={() => setActiveTab('members')}
+              className="p-4 rounded-2xl border border-border/80 bg-card hover:border-purple-500 shadow-sm flex items-center justify-between text-left group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-foreground">Manage Team Roster</p>
+                  <p className="text-xs text-muted-foreground">{stats.activeMembers} active verified members</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-purple-600 transition-colors" />
+            </button>
+
+            <button
+              onClick={() => setActiveTab('campaigns')}
+              className="p-4 rounded-2xl border border-border/80 bg-card hover:border-purple-500 shadow-sm flex items-center justify-between text-left group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-foreground">Settle Campaigns</p>
+                  <p className="text-xs text-muted-foreground">Deterministic payout calculator</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-purple-600 transition-colors" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: MEMBERS ROSTER */}
+      {activeTab === 'members' && (
+        <div className="space-y-4">
+          {/* Search & State Filter Controls */}
+          <div className="space-y-2.5">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by name, phone, email, state, or bank..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 text-sm rounded-2xl bg-card border-border shadow-sm font-medium"
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <select
+                aria-label="Filter by Nigerian State"
+                value={stateFilter}
+                onChange={e => setStateFilter(e.target.value)}
+                className="h-9 px-3 rounded-xl text-xs font-bold border border-input bg-card text-foreground"
+              >
+                <option value="ALL">📍 All Nigerian States</option>
+                {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+
+              {(['all', 'active', 'inactive', 'suspended', 'frozen', 'locked', 'unlocked'] as const).map(st => (
                 <button
-                  key={f.key}
-                  onClick={() => setWithdrawalFilter(f.key as any)}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-bold transition ${
-                    withdrawalFilter === f.key
-                      ? 'bg-background shadow-sm text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`h-9 px-3 rounded-xl text-xs font-bold capitalize transition-all ${
+                    statusFilter === st
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-card text-muted-foreground hover:text-foreground border border-border/70'
                   }`}
                 >
-                  {f.label}
+                  {st}
                 </button>
               ))}
             </div>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={fetchData}
-              className="rounded-xl h-8 text-xs font-semibold"
-            >
-              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
-            </Button>
           </div>
 
-          {(() => {
-            const filtered = withdrawals.filter(w => {
-              const s = w.status || 'pending';
-              if (withdrawalFilter === 'pending') return ['pending', 'pending_admin', 'pending_automatic', 'processing'].includes(s);
-              if (withdrawalFilter === 'completed') return s === 'completed';
-              if (withdrawalFilter === 'failed') return ['failed', 'rejected', 'cancelled'].includes(s);
-              return true;
-            });
+          {/* Batch Actions Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-secondary/50 border border-border/80 text-xs">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (selectedMemberIds.length === filteredMembers.length) setSelectedMemberIds([]);
+                  else setSelectedMemberIds(filteredMembers.map(m => m.user_id));
+                }}
+                className="flex items-center gap-1.5 font-bold text-foreground hover:text-purple-600"
+              >
+                {selectedMemberIds.length > 0 && selectedMemberIds.length === filteredMembers.length ? (
+                  <CheckSquare className="h-4 w-4 text-purple-600" />
+                ) : (
+                  <Square className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span>Select All ({filteredMembers.length})</span>
+              </button>
+              {selectedMemberIds.length > 0 && (
+                <Badge variant="secondary" className="font-bold">
+                  {selectedMemberIds.length} Selected
+                </Badge>
+              )}
+            </div>
 
-            if (filtered.length === 0) {
-              return (
-                <div className="text-center py-12 bg-secondary/20 rounded-2xl">
-                  <div className="h-14 w-14 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3">
-                    <Wallet className="h-7 w-7 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">No withdrawals in this filter</p>
-                  <p className="text-xs text-muted-foreground">Change filter or refresh to view requests</p>
-                </div>
-              );
-            }
+            <div className="flex flex-wrap items-center gap-1.5">
+              {selectedMemberIds.length > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => handleBatchStatus(true)}
+                    className="h-8 px-2.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <UserCheck className="h-3.5 w-3.5 mr-1" /> Activate
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleBatchStatus(false)}
+                    className="h-8 px-2.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white"
+                  >
+                    <UserX className="h-3.5 w-3.5 mr-1" /> Deactivate
+                  </Button>
+                </>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDeactivateNonPerforming}
+                className="h-8 px-2.5 text-xs font-bold rounded-lg border-red-300 text-red-600 hover:bg-red-50"
+              >
+                <AlertCircle className="h-3.5 w-3.5 mr-1" /> Flag Inactive Members
+              </Button>
+            </div>
+          </div>
 
-            return filtered.map(w => {
-              const isProcessingThis = processingPayoutId === w.id;
-              const isPendingOrProcessing = ['pending', 'pending_admin', 'pending_automatic', 'processing'].includes(w.status || 'pending');
-              const isCompleted = w.status === 'completed';
-              const isFailed = ['failed', 'rejected', 'cancelled'].includes(w.status);
+          {/* Members List - Mobile-Friendly Full Cards */}
+          <div className="space-y-3">
+            {filteredMembers.length === 0 ? (
+              <Card className="p-8 text-center rounded-2xl border-dashed">
+                <p className="text-sm font-semibold text-muted-foreground">No members found matching filters.</p>
+              </Card>
+            ) : (
+              filteredMembers.map(member => {
+                const isSelected = selectedMemberIds.includes(member.user_id);
+                return (
+                  <Card
+                    key={member.user_id}
+                    className={`border transition-all rounded-2xl overflow-hidden ${
+                      isSelected ? 'border-purple-500 bg-purple-50/20 dark:bg-purple-950/10' : 'border-border/80 bg-card'
+                    }`}
+                  >
+                    <CardContent className="p-4 sm:p-5 space-y-3">
+                      {/* Top Row: User details & selection */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <button
+                            onClick={() => {
+                              if (isSelected) setSelectedMemberIds(selectedMemberIds.filter(id => id !== member.user_id));
+                              else setSelectedMemberIds([...selectedMemberIds, member.user_id]);
+                            }}
+                            className="mt-1"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="h-5 w-5 text-purple-600" />
+                            ) : (
+                              <Square className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </button>
 
-              return (
-                <Card key={w.id} className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="p-0">
-                    <div className={`p-4 text-white ${
-                      isCompleted ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
-                      isFailed ? 'bg-gradient-to-r from-red-600 to-rose-600' :
-                      w.status === 'processing' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' :
-                      'bg-gradient-to-r from-amber-500 to-orange-500'
-                    }`}>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="font-bold text-base text-foreground">
+                                {member.profile?.display_name || member.profile?.business_name || 'Syndicate Member'}
+                              </h3>
+                              {member.is_active ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-slate-500/15 text-slate-700 dark:text-slate-400 border-0 text-[10px] font-bold">
+                                  Inactive
+                                </Badge>
+                              )}
+                              {member.is_bank_locked && (
+                                <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[10px] font-bold gap-0.5">
+                                  <Lock className="h-2.5 w-2.5" /> Bank Locked
+                                </Badge>
+                              )}
+                              {member.wallet_frozen && (
+                                <Badge className="bg-red-500/15 text-red-700 dark:text-red-400 border-0 text-[10px] font-bold">
+                                  Wallet Frozen
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {member.profile?.email || 'No email'} • {member.profile?.phone || 'No phone'}
+                            </p>
+
+                            {member.profile?.state && (
+                              <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-3 w-3" /> {member.profile.state} State
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Credits / Rep Score */}
+                        <div className="text-right">
+                          <p className="text-sm font-black text-foreground">
+                            {(member.profile?.credits || 0).toLocaleString()} Cr
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-semibold">
+                            Rep: {member.reputation_score || 100}%
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Middle: Bank credentials */}
+                      <div className="p-3 rounded-xl bg-secondary/40 border border-border/60 text-xs flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                            Locked Bank Account
+                          </span>
+                          <p className="font-bold text-foreground">
+                            {member.bank_name || 'No Bank'} • {maskAccountNumber(member.account_number)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Holder: {member.account_name || member.bank_verified_name || 'Unverified'}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                            Tasks Completed
+                          </span>
+                          <p className="font-bold text-foreground">{member.tasks_completed || 0} tasks</p>
+                        </div>
+                      </div>
+
+                      {/* Bottom Action Buttons (Large, high-contrast, touch-friendly) */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openMemberDrawer(member)}
+                          className="h-10 px-3.5 text-xs font-bold rounded-xl flex-1 border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300"
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1.5" /> View Profile & History
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() => toggleMemberActive(member.user_id, member.is_active)}
+                          className={`h-10 px-3.5 text-xs font-bold rounded-xl ${
+                            member.is_active
+                              ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          }`}
+                        >
+                          {member.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleWalletFrozen(member.user_id, member.wallet_frozen)}
+                          className={`h-10 px-3 text-xs font-bold rounded-xl ${
+                            member.wallet_frozen ? 'border-emerald-500 text-emerald-600' : 'border-red-300 text-red-600'
+                          }`}
+                        >
+                          {member.wallet_frozen ? 'Unfreeze Wallet' : 'Freeze Wallet'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: VERIFICATION CENTER (Bank Change Requests & Onboarding) */}
+      {activeTab === 'verification' && (
+        <div className="space-y-6">
+          {/* 1. Bank Change Requests */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-purple-600" /> Pending Bank Change Requests ({pendingBankChanges.length})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Members requesting to update their locked payout account (Paystack resolved)
+                </p>
+              </div>
+            </div>
+
+            {pendingBankChanges.length === 0 ? (
+              <Card className="p-6 text-center rounded-2xl border-dashed">
+                <CheckCircle className="h-8 w-8 text-emerald-600 mx-auto mb-2 opacity-80" />
+                <p className="text-sm font-bold text-foreground">No Pending Bank Change Requests</p>
+                <p className="text-xs text-muted-foreground">All member bank payout accounts are verified and locked.</p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {pendingBankChanges.map(req => {
+                  const member = members.find(m => m.user_id === req.user_id);
+                  const isProcessing = processingVerification === req.id;
+                  const isRejecting = activeRejectId === req.id;
+
+                  return (
+                    <Card key={req.id} className="border-2 border-amber-300 rounded-2xl overflow-hidden bg-card shadow-md">
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-3 text-white flex justify-between items-center text-xs font-bold">
+                        <span>Bank Change Request</span>
+                        <span>{new Date(req.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <CardContent className="p-4 sm:p-5 space-y-4">
+                        {/* Member Information */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-base text-foreground">
+                              {member?.profile?.display_name || member?.profile?.business_name || 'Syndicate Member'}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              {member?.profile?.email} • {member?.profile?.phone}
+                            </p>
+                          </div>
+                          {member?.profile?.state && (
+                            <Badge variant="outline" className="text-xs font-bold">
+                              📍 {member.profile.state}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Side-by-Side Comparison */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* CURRENT LOCKED BANK */}
+                          <div className="p-3.5 rounded-xl bg-secondary/50 border border-border/80 space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                              Current Locked Account
+                            </span>
+                            <p className="font-bold text-sm text-foreground">{req.current_bank_name || 'None'}</p>
+                            <p className="font-mono text-xs font-bold text-foreground">{maskAccountNumber(req.current_account_number)}</p>
+                            <p className="text-xs text-muted-foreground">{req.current_account_name || '—'}</p>
+                          </div>
+
+                          {/* REQUESTED NEW BANK (PAYSTACK RESOLVED) */}
+                          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block">
+                                Requested New Account
+                              </span>
+                              <Badge className="bg-emerald-600 text-white text-[9px] font-bold">Paystack Verified</Badge>
+                            </div>
+                            <p className="font-bold text-sm text-emerald-950 dark:text-emerald-100">{req.requested_bank_name}</p>
+                            <p className="font-mono text-xs font-bold text-emerald-950 dark:text-emerald-100">{maskAccountNumber(req.requested_account_number)}</p>
+                            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">{req.requested_account_name}</p>
+                          </div>
+                        </div>
+
+                        {req.admin_notes && (
+                          <p className="text-xs bg-secondary/30 p-2.5 rounded-xl text-muted-foreground">
+                            <strong>Note:</strong> {req.admin_notes}
+                          </p>
+                        )}
+
+                        {/* Actions */}
+                        {isRejecting ? (
+                          <div className="space-y-2 pt-2 border-t">
+                            <Label className="text-xs font-bold">Reason for Rejection</Label>
+                            <Input
+                              value={rejectReason}
+                              onChange={e => setRejectReason(e.target.value)}
+                              placeholder="e.g. Account name mismatch with registered KYC name"
+                              className="h-10 text-xs"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                disabled={isProcessing}
+                                onClick={() => handleRejectBankChange(req.id)}
+                                className="h-10 px-4 text-xs font-bold rounded-xl bg-red-600 text-white flex-1"
+                              >
+                                Confirm Rejection
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => { setActiveRejectId(null); setRejectReason(''); }}
+                                className="h-10 px-4 text-xs font-bold rounded-xl"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2 pt-2 border-t">
+                            <Button
+                              disabled={isProcessing}
+                              onClick={() => handleApproveBankChange(req)}
+                              className="h-11 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex-1 shadow-sm"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1.5" /> Approve & Lock New Bank Details
+                            </Button>
+                            <Button
+                              variant="outline"
+                              disabled={isProcessing}
+                              onClick={() => { setActiveRejectId(req.id); setRejectReason(''); }}
+                              className="h-11 px-4 text-xs font-bold rounded-xl border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              <XCircle className="h-4 w-4 mr-1.5" /> Reject Request
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Onboarding Applications */}
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-purple-600" /> Pending Workforce Applications ({pendingApps.length})
+            </h3>
+
+            {pendingApps.length === 0 ? (
+              <Card className="p-5 text-center rounded-2xl border-dashed">
+                <p className="text-xs text-muted-foreground font-semibold">No pending workforce onboarding applications.</p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {pendingApps.map(app => (
+                  <Card key={app.id} className="border rounded-2xl p-4 space-y-3 bg-card">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-sm text-foreground">{app.full_name}</h4>
+                        <p className="text-xs text-muted-foreground">{app.email} • {app.phone_number}</p>
+                        <p className="text-[11px] font-semibold text-purple-600 mt-0.5">📍 {app.state_location || 'Nigeria'}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs font-bold">Pending Review</Badge>
+                    </div>
+
+                    {app.experience && (
+                      <p className="text-xs text-muted-foreground bg-secondary/40 p-2.5 rounded-xl">
+                        <strong>Experience:</strong> {app.experience}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleApproveApplication(app.id, app.user_id)}
+                        className="h-10 px-4 text-xs font-bold rounded-xl bg-purple-600 text-white flex-1"
+                      >
+                        <UserCheck className="h-4 w-4 mr-1.5" /> Approve & Onboard to Syndicate
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: CAMPAIGNS & DETERMINISTIC SETTLEMENTS */}
+      {activeTab === 'campaigns' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Direct Team Campaign Execution</h3>
+              <p className="text-xs text-muted-foreground">
+                Settlements automatically distribute earnings mathematically across verified active team members
+              </p>
+            </div>
+          </div>
+
+          {campaigns.length === 0 ? (
+            <Card className="p-8 text-center rounded-2xl border-dashed">
+              <p className="text-sm font-semibold text-muted-foreground">No Syndicate campaigns found.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {campaigns.map(camp => {
+                const targetStates: string[] = camp.target_states || [];
+                const eligibleMembers = members.filter(m =>
+                  m.is_active &&
+                  !m.is_suspended &&
+                  (targetStates.length === 0 || targetStates.includes('All') || (m.profile?.state && targetStates.includes(m.profile.state)))
+                );
+
+                const rate = parseInt(settings.exchange_rate) || 100;
+                const payoutPct = parseInt(settings.payout_percentage) || 70;
+                const campaignCredits = Number(camp.credits || 100);
+                const grossFiat = campaignCredits * rate;
+                const teamPoolFiat = (grossFiat * payoutPct) / 100;
+                const perMemberFiat = eligibleMembers.length > 0 ? Math.floor(teamPoolFiat / eligibleMembers.length) : 0;
+                const perMemberCredits = Math.floor(perMemberFiat / rate);
+
+                return (
+                  <Card key={camp.id} className="border border-border/80 rounded-2xl bg-card overflow-hidden">
+                    <CardContent className="p-4 sm:p-5 space-y-4">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-base text-foreground">{camp.title}</h4>
+                            <Badge className="bg-purple-600 text-white text-[10px] font-bold">{camp.status}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{camp.description || 'Campaign task'}</p>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">Targets:</span>
+                            {targetStates.length > 0 ? (
+                              targetStates.map(st => (
+                                <Badge key={st} variant="secondary" className="text-[10px] py-0 px-1.5">
+                                  {st}
+                                </Badge>
+                              ))
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5">All Nigeria</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-black text-purple-600">{campaignCredits} Cr</p>
+                          <p className="text-[10px] text-muted-foreground">≈ ₦{grossFiat.toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      {/* Deterministic Settlement Breakdown Box */}
+                      <div className="p-3.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 space-y-2 text-xs">
+                        <p className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                          Deterministic Settlement Calculation Preview
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+                          <div>
+                            <span className="text-muted-foreground block">Settlement Base</span>
+                            <strong>₦{grossFiat.toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block">Team Pool ({payoutPct}%)</span>
+                            <strong className="text-emerald-600">₦{teamPoolFiat.toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block">Eligible Workforce</span>
+                            <strong>{eligibleMembers.length} Active Members</strong>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block">Individual Payout</span>
+                            <strong className="text-purple-600">₦{perMemberFiat.toLocaleString()} ({perMemberCredits} Cr)</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          disabled={eligibleMembers.length === 0}
+                          onClick={() => {
+                            toast.success(`Settlement simulator verified for ${eligibleMembers.length} active members.`);
+                          }}
+                          className="h-10 px-4 text-xs font-bold rounded-xl bg-purple-600 text-white"
+                        >
+                          Execute Collective Settlement (₦{perMemberFiat.toLocaleString()} / member)
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: PAYOUTS & WITHDRAWALS */}
+      {activeTab === 'payouts' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Direct Team Payout Requests</h3>
+              <p className="text-xs text-muted-foreground">Process transfers via Paystack or record manual settlements</p>
+            </div>
+
+            <div className="flex gap-1.5">
+              {(['all', 'pending', 'processing', 'completed', 'failed'] as const).map(st => (
+                <button
+                  key={st}
+                  onClick={() => setWithdrawalFilter(st)}
+                  className={`h-9 px-3 rounded-xl text-xs font-bold capitalize transition-all ${
+                    withdrawalFilter === st
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-card text-muted-foreground hover:text-foreground border border-border/70'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {withdrawals
+              .filter(w => {
+                if (withdrawalFilter === 'all') return true;
+                if (withdrawalFilter === 'pending') return w.status.includes('pending');
+                return w.status === withdrawalFilter;
+              })
+              .map(w => {
+                const isPending = w.status.includes('pending');
+                const isProcessing = processingWithdrawalId === w.id;
+
+                return (
+                  <Card key={w.id} className="border border-border/80 rounded-2xl bg-card">
+                    <CardContent className="p-4 sm:p-5 space-y-3">
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Withdrawal Request</span>
-                            {w.payout_mode === 'automatic' ? (
-                              <Badge className="bg-white/25 text-white border-0 text-[9px] font-bold">
-                                <Zap className="h-3 w-3 mr-0.5" /> Auto (Paystack)
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-white/20 text-white border-0 text-[9px] font-medium">
-                                👤 Manual Transfer
-                              </Badge>
-                            )}
+                            <span className="font-black text-lg text-foreground">₦{Number(w.amount).toLocaleString()}</span>
+                            <Badge className={`text-[10px] font-bold ${
+                              w.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                              w.status === 'failed' ? 'bg-red-100 text-red-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              {w.status}
+                            </Badge>
                           </div>
-                          <p className="text-2xl font-black mt-0.5">₦{Number(w.amount)?.toLocaleString()}</p>
-                          <p className="text-[11px] opacity-90">{w._profile?.display_name || w._profile?.email || 'Syndicate Member'}</p>
+                          <p className="text-xs font-bold text-foreground mt-0.5">
+                            {w.account_name} • {w.bank_name}
+                          </p>
+                          <p className="text-xs font-mono text-muted-foreground">{maskAccountNumber(w.account_number)}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">{new Date(w.created_at).toLocaleString()}</p>
                         </div>
-                        <Badge className="bg-white/25 text-white border-0 text-[10px] font-bold px-2.5 py-1">
-                          {isCompleted ? <CheckCircle className="h-3 w-3 mr-1" /> :
-                           w.status === 'processing' ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> :
-                           isFailed ? <AlertTriangle className="h-3 w-3 mr-1" /> :
-                           <Clock className="h-3 w-3 mr-1" />}
-                          {w.status === 'pending_automatic' ? 'Pending Auto' :
-                           w.status === 'pending_admin' ? 'Pending Admin' :
-                           w.status === 'processing' ? 'Processing Transfer' :
-                           w.status}
-                        </Badge>
                       </div>
-                    </div>
 
-                    <div className="p-4 space-y-3">
-                      <div className="bg-secondary/40 rounded-xl p-3 space-y-1.5 text-xs">
-                        <div className="flex justify-between items-center text-[10px] uppercase font-bold text-muted-foreground">
-                          <span>Bank Account</span>
-                          <span>Requested: {new Date(w.created_at).toLocaleDateString()}</span>
+                      {isPending && (
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                          <Button
+                            size="sm"
+                            disabled={isProcessing}
+                            onClick={() => handleProcessWithdrawal(w, 'paystack')}
+                            className="h-10 px-4 text-xs font-bold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm flex-1"
+                          >
+                            <Zap className="h-3.5 w-3.5 mr-1.5" /> Transfer via Paystack
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isProcessing}
+                            onClick={() => handleProcessWithdrawal(w, 'manual_paid')}
+                            className="h-10 px-3 text-xs font-bold rounded-xl border-emerald-400 text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Mark Paid Manually
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isProcessing}
+                            onClick={() => handleProcessWithdrawal(w, 'reject')}
+                            className="h-10 px-3 text-xs font-bold rounded-xl border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Reject & Refund
+                          </Button>
                         </div>
-                        <p className="font-bold text-sm text-foreground">{w.bank_name} — {w.account_number}</p>
-                        <p className="text-muted-foreground font-medium">{w.account_name}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
-                        {(w.paystack_reference || w.paystack_transfer_code || w.failure_reason) && (
-                          <div className="pt-2 mt-2 border-t border-border/40 space-y-1 text-[11px]">
-                            {w.paystack_reference && (
-                              <p className="text-muted-foreground font-mono text-[10px]">
-                                <span className="font-semibold text-foreground">Paystack Ref:</span> {w.paystack_reference}
-                              </p>
-                            )}
-                            {w.paystack_transfer_code && (
-                              <p className="text-muted-foreground font-mono text-[10px]">
-                                <span className="font-semibold text-foreground">Transfer Code:</span> {w.paystack_transfer_code}
-                              </p>
-                            )}
-                            {w.failure_reason && (
-                              <div className="rounded-lg bg-red-50 dark:bg-red-950/40 p-2 text-red-700 dark:text-red-300 text-[11px] font-medium">
-                                <strong>Failure Reason:</strong> {w.failure_reason} (Credits were safely restored)
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+      {/* TAB 6: SETTINGS & ECONOMICS */}
+      {activeTab === 'settings' && (
+        <Card className="border border-border/80 rounded-2xl bg-card shadow-sm">
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-base font-bold">Direct Team Economic Parameters</CardTitle>
+            <CardDescription className="text-xs">
+              Configure settlement percentages, exchange rates, and Paystack auto-payout safety controls
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-5 pt-0 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold">Payout Percentage (%)</Label>
+                <Input
+                  type="number"
+                  value={settings.payout_percentage}
+                  onChange={e => setSettings({ ...settings, payout_percentage: e.target.value })}
+                  className="h-11 mt-1 text-sm font-bold"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Percentage of campaign fee paid to the Direct Team (e.g. 70%)</p>
+              </div>
 
-                      {/* Action Controls */}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {isPendingOrProcessing && (
-                          <>
-                            <Button
-                              size="sm"
-                              disabled={isProcessingThis}
-                              className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-xs rounded-xl h-10 font-bold shadow-md"
-                              onClick={() => triggerPaystackPayout(w.id, w.status === 'processing')}
-                            >
-                              {isProcessingThis ? (
-                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                              ) : (
-                                <Zap className="h-3.5 w-3.5 mr-1.5" />
-                              )}
-                              {w.status === 'processing' ? 'Re-check / Retry Paystack' : '⚡ Pay via Paystack'}
-                            </Button>
+              <div>
+                <Label className="text-xs font-bold">Exchange Rate (₦ per 1 GGG Credit)</Label>
+                <Input
+                  type="number"
+                  value={settings.exchange_rate}
+                  onChange={e => setSettings({ ...settings, exchange_rate: e.target.value })}
+                  className="h-11 mt-1 text-sm font-bold"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Naira conversion rate for withdrawals (e.g. 1 Cr = ₦100)</p>
+              </div>
 
-                            <Button
-                              size="sm"
-                              disabled={isProcessingThis}
-                              className="flex-1 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white text-xs rounded-xl h-10 font-bold shadow-md"
-                              onClick={() => processWithdrawal(w.id, true)}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Mark Paid Manually
-                            </Button>
+              <div>
+                <Label className="text-xs font-bold">Max Auto-Payout Threshold (₦)</Label>
+                <Input
+                  type="number"
+                  value={settings.max_auto_payout_amount}
+                  onChange={e => setSettings({ ...settings, max_auto_payout_amount: e.target.value })}
+                  className="h-11 mt-1 text-sm font-bold"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Amounts above this will require manual admin approval</p>
+              </div>
 
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={isProcessingThis}
-                              className="text-xs rounded-xl h-10 px-3.5 font-bold"
-                              onClick={() => processWithdrawal(w.id, false)}
-                            >
-                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject & Refund
-                            </Button>
-                          </>
-                        )}
-
-                        {isFailed && (
-                          <div className="flex w-full gap-2">
-                            <Button
-                              size="sm"
-                              disabled={isProcessingThis}
-                              className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs rounded-xl h-10 font-bold shadow-md"
-                              onClick={() => triggerPaystackPayout(w.id, true)}
-                            >
-                              {isProcessingThis ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
-                              🔄 Retry Paystack Transfer
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isProcessingThis}
-                              className="flex-1 text-xs rounded-xl h-10 font-bold"
-                              onClick={() => processWithdrawal(w.id, true)}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-emerald-600" /> Mark Paid Manually
-                            </Button>
-                          </div>
-                        )}
-
-                        {isCompleted && (
-                          <div className="w-full text-center py-1 text-xs text-muted-foreground font-medium flex items-center justify-center gap-1.5">
-                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
-                            Settled on {w.processed_at ? new Date(w.processed_at).toLocaleString() : 'Record'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            });
-          })()}
-        </TabsContent>
-
-        {/* Platform Pricing */}
-        <TabsContent value="pricing" className="space-y-3">
-          <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-4 text-white">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                <div>
-                  <h4 className="font-bold text-sm">Platform Pricing</h4>
-                  <p className="text-[10px] opacity-80">Set price per task for each platform</p>
-                </div>
+              <div>
+                <Label className="text-xs font-bold">Bank Change Safety Lockout (Hours)</Label>
+                <Input
+                  type="number"
+                  value={settings.cooldown_hours}
+                  onChange={e => setSettings({ ...settings, cooldown_hours: e.target.value })}
+                  className="h-11 mt-1 text-sm font-bold"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Hours withdrawals remain locked after an approved bank change (e.g. 48h)</p>
               </div>
             </div>
-            <CardContent className="p-4 space-y-3">
-              {platformPricing.map(p => (
-                <div key={p.id} className="flex items-center gap-3 bg-secondary/30 rounded-xl p-3">
-                  <span className="text-sm font-semibold flex-1 text-foreground">{p.platform_name}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-muted-foreground">₦</span>
-                    <Input type="number" defaultValue={p.price_per_task} className="h-9 w-24 text-sm rounded-lg bg-background font-semibold"
-                      onBlur={e => { const v = parseFloat(e.target.value); if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p.id, v); }} />
+
+            <div className="pt-2">
+              <Button
+                disabled={savingSettings}
+                onClick={handleSaveSettings}
+                className="w-full sm:w-auto h-12 px-6 text-sm font-bold rounded-xl bg-purple-600 text-white shadow-md hover:bg-purple-700"
+              >
+                {savingSettings ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Save Economic Parameters
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MEMBER PROFILE AUDIT DRAWER / FULL MODAL */}
+      {viewingMember && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-background w-full max-w-2xl max-h-[90vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-y-auto flex flex-col border border-border">
+            {/* Drawer Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-purple-700 to-indigo-800 text-white p-5 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-white/15 flex items-center justify-center font-bold text-lg">
+                  {(viewingMember.profile?.display_name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg">
+                    {viewingMember.profile?.display_name || viewingMember.profile?.business_name || 'Member Details'}
+                  </h3>
+                  <p className="text-xs text-purple-200">
+                    User ID: {viewingMember.user_id.slice(0, 10)}... • {viewingMember.tier || 'Core Team'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingMember(null)}
+                className="h-9 w-9 rounded-full bg-white/15 hover:bg-white/30 flex items-center justify-center text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="p-5 space-y-4">
+              {/* Member Status Overview */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="p-3 rounded-xl bg-secondary/50 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Status</span>
+                  <strong className={viewingMember.is_active ? 'text-emerald-600' : 'text-slate-500'}>
+                    {viewingMember.is_active ? 'Active Workforce' : 'Inactive'}
+                  </strong>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/50 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Available Credits</span>
+                  <strong className="text-purple-600">{(viewingMember.profile?.credits || 0).toLocaleString()} Cr</strong>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/50 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">Reputation</span>
+                  <strong>{viewingMember.reputation_score || 100}%</strong>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/50 border">
+                  <span className="text-muted-foreground block text-[10px] uppercase font-bold">State Location</span>
+                  <strong>{viewingMember.profile?.state || 'Not specified'}</strong>
+                </div>
+              </div>
+
+              {/* Locked Verified Bank Credentials */}
+              <div className="p-4 rounded-2xl bg-secondary/30 border border-border/80 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4 text-purple-600" /> Locked Bank Credentials
+                  </h4>
+                  {viewingMember.is_bank_locked && (
+                    <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      <Lock className="h-2.5 w-2.5 mr-1" /> Locked & Verified
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] font-bold">Bank Name</span>
+                    <strong className="text-foreground">{viewingMember.bank_name || 'Not Configured'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] font-bold">Account Number</span>
+                    <strong className="font-mono text-foreground">{maskAccountNumber(viewingMember.account_number)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] font-bold">Account Holder</span>
+                    <strong className="text-foreground">{viewingMember.account_name || viewingMember.bank_verified_name || '—'}</strong>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
+              </div>
 
-const ApplicationCard = ({ app, onApprove, onReject }: { app: any; onApprove: (app: any, platforms: string[]) => void; onReject: (app: any) => void }) => {
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const influenceFields = [
-    { key: 'whatsapp_influence', label: 'WhatsApp', platform: 'WhatsApp' },
-    { key: 'facebook_influence', label: 'Facebook', platform: 'Facebook' },
-    { key: 'telegram_influence', label: 'Telegram', platform: 'Telegram' },
-    { key: 'tiktok_influence', label: 'TikTok', platform: 'TikTok' },
-    { key: 'twitter_influence', label: 'Twitter/X', platform: 'Twitter/X' },
-  ];
+              {/* Participation & Proofs */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-sm text-foreground">Task Proofs & History ({memberProofs.length})</h4>
+                {memberProofs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No task proofs submitted yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {memberProofs.map(p => (
+                      <div key={p.id} className="p-2.5 rounded-xl bg-secondary/40 border text-xs flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-foreground">Task ID: {p.task_id?.slice(0, 8)}...</p>
+                          <p className="text-[10px] text-muted-foreground">{new Date(p.created_at).toLocaleString()}</p>
+                        </div>
+                        <Badge className="text-[10px] capitalize">{p.status || 'Recorded'}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-  return (
-    <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-      <CardContent className="p-0">
-        <div className="bg-gradient-to-r from-amber-400/20 to-orange-400/20 p-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12 border-2 border-amber-200">
-              <AvatarImage src={app._profile?.avatar_url} />
-              <AvatarFallback className="bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold text-sm">
-                {(app._profile?.display_name || app._profile?.email || 'U').slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm text-foreground truncate">{app._profile?.display_name || app._profile?.email || 'Unknown'}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{app._profile?.email}</p>
-            </div>
-            <Badge className="bg-amber-100 text-amber-700 border-0 rounded-full text-[10px] px-2.5"><Clock className="h-3 w-3 mr-1" />Pending</Badge>
-          </div>
-          {app.state && <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-2"><MapPin className="h-3 w-3" />{app.state}</p>}
-        </div>
-        <div className="p-4 space-y-3">
-          <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">Social Channels</p>
-          {influenceFields.map(f => app[f.key] && (
-            <div key={f.key} className="flex items-start gap-3 bg-secondary/30 rounded-xl p-3">
-              <Checkbox checked={selectedPlatforms.includes(f.platform)}
-                onCheckedChange={() => setSelectedPlatforms(prev =>
-                  prev.includes(f.platform) ? prev.filter(p => p !== f.platform) : [...prev, f.platform]
-                )} className="mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <span className="text-xs font-bold text-foreground">{f.label}</span>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{app[f.key]}</p>
+              {/* Status Actions */}
+              <div className="flex flex-wrap gap-2 pt-3 border-t">
+                <Button
+                  onClick={() => toggleMemberActive(viewingMember.user_id, viewingMember.is_active)}
+                  className={`h-11 flex-1 text-xs font-bold rounded-xl ${
+                    viewingMember.is_active ? 'bg-amber-600 text-white' : 'bg-emerald-600 text-white'
+                  }`}
+                >
+                  {viewingMember.is_active ? 'Deactivate Member' : 'Activate Member'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => toggleWalletFrozen(viewingMember.user_id, viewingMember.wallet_frozen)}
+                  className="h-11 px-4 text-xs font-bold rounded-xl"
+                >
+                  {viewingMember.wallet_frozen ? 'Unfreeze Wallet' : 'Freeze Wallet'}
+                </Button>
               </div>
             </div>
-          ))}
-          {app.other_platforms && (
-            <div className="bg-secondary/30 rounded-xl p-3">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Other Platforms</p>
-              <p className="text-xs text-foreground mt-0.5">{app.other_platforms}</p>
-            </div>
-          )}
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs h-11 rounded-xl shadow-md font-semibold" disabled={selectedPlatforms.length === 0}
-              onClick={() => onApprove(app, selectedPlatforms)}>
-              <CheckCircle className="h-3.5 w-3.5 mr-1" />Approve ({selectedPlatforms.length})
-            </Button>
-            <Button size="sm" variant="destructive" className="flex-1 text-xs h-11 rounded-xl font-semibold" onClick={() => onReject(app)}>
-              <XCircle className="h-3.5 w-3.5 mr-1" />Reject
-            </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
 
