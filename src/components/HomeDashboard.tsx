@@ -154,11 +154,17 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
             <p className="text-2xl font-black mt-2">₦{(walletBalance ?? localWallet).toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('wallet')}>
+        <Card className="border-0 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('fund-credits')}>
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <Wallet className="h-5 w-5 opacity-80" />
-              <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credits</span>
+              <Coins className="h-5 w-5 opacity-80" />
+              <div className="flex items-center gap-1">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                </span>
+                <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credit Wallet</span>
+              </div>
             </div>
             <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
           </CardContent>

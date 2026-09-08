@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight, Megaphone } from "lucide-react";
+import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight, Megaphone, Coins, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -985,23 +985,35 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     GGD AD NETWORK
                   </h1>
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                  {/* Live Connected Wallet Pill */}
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                  {/* Live Connected Cash Wallet Pill */}
                   <button
-                    onClick={() => handleTabChange('wallet')}
-                    className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-orange-500/10 hover:from-emerald-500/20 hover:to-orange-500/20 border border-emerald-500/30 px-2 sm:px-3 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
-                    title="Connected Wallet: Click to open Naira & Credits"
+                    onClick={() => handleTabChange('task-wallet')}
+                    className="flex items-center gap-1 sm:gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
+                    title="Naira Cash Wallet (Click to open)"
                   >
-                    <span className="relative flex h-2 w-2">
+                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-500"></span>
                     </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-black">₦{walletBalance.toLocaleString()}</span>
-                      <span className="hidden sm:inline text-muted-foreground/50 font-normal">|</span>
-                      <span className="hidden sm:inline text-orange-600 dark:text-orange-400 font-extrabold">{credits.toLocaleString()} cr</span>
-                    </div>
-                    <Wallet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-emerald-700 dark:text-emerald-400 font-black text-[11px] sm:text-xs">₦{walletBalance.toLocaleString()}</span>
+                    <Banknote className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                  </button>
+
+                  {/* Live Connected Credit Wallet Pill */}
+                  <button
+                    onClick={() => handleTabChange('fund-credits')}
+                    className="flex items-center gap-1 sm:gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
+                    title="Credit Wallet (Click to open / top up)"
+                  >
+                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-orange-500"></span>
+                    </span>
+                    <span className="text-orange-700 dark:text-orange-400 font-black text-[11px] sm:text-xs">
+                      {isAdmin ? '∞' : credits.toLocaleString()} <span className="text-[10px] font-extrabold opacity-80">cr</span>
+                    </span>
+                    <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
                   </button>
 
                   {isAdmin && <Shield className="h-4 w-4 text-red-500" />}

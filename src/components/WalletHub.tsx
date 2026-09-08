@@ -160,7 +160,12 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             {/* Naira Task Wallet */}
-            <div className="bg-white/15 backdrop-blur rounded-2xl p-4 border border-white/20">
+            <div
+              onClick={() => setActiveTab('task-wallet')}
+              className={`bg-white/15 backdrop-blur rounded-2xl p-4 border transition-all cursor-pointer hover:bg-white/20 hover:scale-[1.01] ${
+                activeTab === 'task-wallet' ? 'border-white/50 ring-2 ring-white/30' : 'border-white/20'
+              }`}
+            >
               <div className="flex items-center justify-between opacity-90">
                 <div className="flex items-center gap-1.5">
                   <Banknote className="h-4 w-4" />
@@ -183,18 +188,30 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             </div>
 
             {/* Credits Wallet */}
-            <div className="bg-white/15 backdrop-blur rounded-2xl p-4 border border-white/20">
+            <div
+              onClick={() => setActiveTab('buy')}
+              className={`bg-white/15 backdrop-blur rounded-2xl p-4 border transition-all cursor-pointer hover:bg-white/20 hover:scale-[1.01] ${
+                activeTab === 'buy' || activeTab === 'transfer' ? 'border-white/50 ring-2 ring-white/30' : 'border-white/20'
+              }`}
+            >
               <div className="flex items-center justify-between opacity-90">
                 <div className="flex items-center gap-1.5">
                   <Coins className="h-4 w-4" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">GGG Credits</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Credit Wallet (GGG)</span>
                 </div>
-                <span className="text-[10px] bg-orange-400/40 text-orange-100 px-2 py-0.5 rounded-full font-bold">IN-APP</span>
+                <span className="text-[10px] bg-amber-400/40 text-amber-100 px-2 py-0.5 rounded-full font-bold">IN-APP CREDITS</span>
               </div>
               <p className="text-3xl font-black mt-2 tracking-tight">{credits.toLocaleString()} <span className="text-sm font-normal opacity-80">cr</span></p>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/15 text-[11px] opacity-90">
                 <span>Est. Value</span>
                 <span className="font-semibold">≈ ₦{nairaEquivalent.toLocaleString()} NGN</span>
+              </div>
+              <div className="flex items-center justify-between mt-1 text-[11px] opacity-90">
+                <span>Account Status</span>
+                <span className="font-semibold text-amber-200 flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Connected & Active
+                </span>
               </div>
             </div>
           </div>
@@ -215,8 +232,8 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             value="buy"
             className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold"
           >
-            <CreditCard className="h-3.5 w-3.5" />
-            Buy Credits
+            <Coins className="h-3.5 w-3.5" />
+            Top Up Credits
           </TabsTrigger>
           <TabsTrigger
             value="transfer"

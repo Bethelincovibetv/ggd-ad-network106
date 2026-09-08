@@ -84,12 +84,24 @@ const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
       {/* Pro hero balance */}
       <div className="rounded-3xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white shadow-xl shadow-orange-500/25 relative overflow-hidden">
         <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
-        <div className="relative flex items-center gap-4">
-          <img loading="lazy" src={gggCoin} alt="GGG" className="h-16 w-16 drop-shadow-lg" />
-          <div>
-            <p className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">GoodGift Gram (GGG) — currency</p>
-            <p className="text-4xl font-black leading-tight">{credits.toLocaleString()}</p>
-            <p className="text-[11px] opacity-80">₦{exchangeRate} = 1 GGG credit</p>
+        <div className="relative">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] bg-white/20 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">GGG Credit Vault</span>
+            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+              </span>
+              <span>Live & Connected</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <img loading="lazy" src={gggCoin} alt="GGG" className="h-16 w-16 drop-shadow-lg" />
+            <div>
+              <p className="text-[11px] uppercase tracking-wider opacity-80 font-semibold">Available Credit Balance</p>
+              <p className="text-4xl font-black leading-tight">{credits.toLocaleString()} <span className="text-sm font-bold opacity-80">cr</span></p>
+              <p className="text-[11px] opacity-90 font-medium mt-0.5">≈ ₦{(credits * exchangeRate).toLocaleString()} NGN · (₦{exchangeRate} / GGG)</p>
+            </div>
           </div>
         </div>
       </div>
