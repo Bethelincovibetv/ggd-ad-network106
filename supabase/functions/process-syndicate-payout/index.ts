@@ -544,6 +544,278 @@ Deno.serve(async (req) => {
     }
 
     // -------------------------------------------------------------
+    // ACTION: settle_campaign_paystack (Admin Batch Paystack Payout)
+    // -------------------------------------------------------------
+    if (action === 'settle_campaign_paystack' || action === 'settle_campaign_manual') {
+      const { task_id, notes } = payload
+      if (!task_id) {
+        return new Response(JSON.stringify({ success: false, error: 'task_id is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Check admin privileges
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle()
+
+      if (!adminRole) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Admin privileges required' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Fetch campaign task
+      const { data: task, error: taskErr } = await supabase
+        .from('syndicate_tasks')
+        .select('*')
+        .eq('id', task_id)
+        .single()
+
+      if (taskErr || !task) {
+        return new Response(JSON.stringify({ success: false, error: 'Campaign task not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Fetch payout percentage
+      const { data: pctSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'syndicate_payout_percentage')
+        .maybeSingle()
+
+      const payoutPct = parseInt(pctSetting?.value || '70', 10) || 70
+      const settlementBase = Number(task.total_cost || 0)
+      const totalPool = settlementBase * (payoutPct / 100.0)
+
+      // Fetch eligible participating assignments
+      const { data: assignments, error: assignErr } = await supabase
+        .from('syndicate_task_assignments')
+        .select('*')
+        .eq('task_id', task_id)
+        .in('status', ['submitted', 'approved', 'accepted'])
+
+      const participatingCount = assignments?.length || 0
+      const individualPayout = participatingCount > 0 ? Math.round((totalPool / participatingCount) * 100) / 100 : 0
+
+      // If manual settlement requested or no participants
+      if (action === 'settle_campaign_manual' || participatingCount === 0 || !paystackSecret) {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('settle_syndicate_campaign', {
+          p_task_id: task_id,
+          p_payment_mode: 'manual',
+          p_admin_notes: notes || 'Admin manual settlement',
+        })
+
+        if (rpcErr) {
+          return new Response(JSON.stringify({ success: false, error: rpcErr.message }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          settlement_base: settlementBase,
+          payout_percentage: payoutPct,
+          total_pool: totalPool,
+          participating_count: participatingCount,
+          individual_payout: individualPayout,
+          message: 'Campaign settled manually successfully',
+          data: rpcRes,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Paystack Batch Transfer Flow
+      const results: any[] = []
+      let successCount = 0
+      let failedCount = 0
+
+      for (const assignment of assignments || []) {
+        try {
+          const memberUserId = assignment.syndicate_user_id
+
+          // Check if already paid
+          if (assignment.payment_status === 'paid' && assignment.paystack_reference) {
+            results.push({ userId: memberUserId, status: 'already_paid', reference: assignment.paystack_reference })
+            successCount++
+            continue
+          }
+
+          // Fetch member verified payout profile
+          const { data: synProfile } = await supabase
+            .from('syndicate_profiles')
+            .select('*')
+            .eq('user_id', memberUserId)
+            .maybeSingle()
+
+          if (!synProfile?.account_number) {
+            results.push({ userId: memberUserId, status: 'failed', error: 'No bank account configured' })
+            failedCount++
+            continue
+          }
+
+          let recipientCode = synProfile.paystack_recipient_code
+          const bankCode = resolveBankCode(synProfile.bank_name, synProfile.bank_code)
+
+          if (!recipientCode) {
+            if (!bankCode) {
+              results.push({ userId: memberUserId, status: 'failed', error: 'Unknown bank code' })
+              failedCount++
+              continue
+            }
+
+            // Create recipient on the fly
+            const rcRes = await fetch('https://api.paystack.co/transferrecipient', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${paystackSecret}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                type: 'nuban',
+                name: synProfile.account_name || 'Direct Team Member',
+                account_number: synProfile.account_number,
+                bank_code: bankCode,
+                currency: 'NGN',
+                description: `GGD Direct Team Payout - ${memberUserId.slice(0, 8)}`,
+              }),
+            })
+            const rcData = await rcRes.json()
+            if (rcData.status && rcData.data?.recipient_code) {
+              recipientCode = rcData.data.recipient_code
+              await supabase
+                .from('syndicate_profiles')
+                .update({
+                  paystack_recipient_code: recipientCode,
+                  paystack_recipient_status: 'verified',
+                  bank_code: bankCode,
+                  paystack_recipient_details: rcData.data,
+                })
+                .eq('user_id', memberUserId)
+            } else {
+              results.push({ userId: memberUserId, status: 'failed', error: rcData.message || 'Failed to create recipient' })
+              failedCount++
+              continue
+            }
+          }
+
+          // Unique idempotent reference
+          const payoutReference = `GGD_SETTLE_${task_id.slice(0, 8)}_${memberUserId.slice(0, 8)}_${Date.now()}`
+          const amountKobo = Math.round(individualPayout * 100)
+
+          if (amountKobo <= 0) {
+            results.push({ userId: memberUserId, status: 'skipped', reason: 'Zero payout amount' })
+            continue
+          }
+
+          // Initiate transfer
+          const transferRes = await fetch('https://api.paystack.co/transfer', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${paystackSecret}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              source: 'balance',
+              amount: amountKobo,
+              recipient: recipientCode,
+              reason: `Direct Team Settlement: ${task.title.slice(0, 25)}`,
+              reference: payoutReference,
+            }),
+          })
+
+          const transferData = await transferRes.json()
+          if (!transferData.status) {
+            results.push({ userId: memberUserId, status: 'failed', error: transferData.message || 'Transfer failed' })
+            failedCount++
+            continue
+          }
+
+          const tx = transferData.data
+          const transferCode = tx?.transfer_code || null
+          const txStatus = tx?.status // 'success' | 'pending' | 'processing'
+          const finalPayStatus = (txStatus === 'success') ? 'paid' : 'processing'
+
+          // Update assignment
+          await supabase
+            .from('syndicate_task_assignments')
+            .update({
+              payment_status: finalPayStatus,
+              payout_amount: individualPayout,
+              paid_at: new Date().toISOString(),
+              paystack_reference: payoutReference,
+              paystack_transfer_code: transferCode,
+              settlement_notes: notes || 'Paystack automated settlement',
+            })
+            .eq('id', assignment.id)
+
+          // Notify member
+          await supabase.from('notifications').insert({
+            user_id: memberUserId,
+            title: '⚡ Paystack Settlement Transferred',
+            message: `₦${individualPayout.toLocaleString()} has been sent to your verified bank account for ${task.title}. Reference: ${payoutReference}`,
+            type: 'success',
+          })
+
+          results.push({
+            userId: memberUserId,
+            status: finalPayStatus,
+            reference: payoutReference,
+            transferCode: transferCode,
+            amount: individualPayout,
+          })
+          successCount++
+        } catch (memErr: any) {
+          results.push({ userId: assignment.syndicate_user_id, status: 'failed', error: memErr.message })
+          failedCount++
+        }
+      }
+
+      // Upsert persistent settlement record
+      await supabase
+        .from('syndicate_settlements')
+        .upsert({
+          task_id: task_id,
+          campaign_date: task.campaign_date,
+          settlement_base: settlementBase,
+          payout_percentage: payoutPct,
+          total_pool: totalPool,
+          participating_count: participatingCount,
+          individual_payout: individualPayout,
+          status: failedCount > 0 && successCount === 0 ? 'failed' : 'completed',
+          settled_by: user.id,
+          settled_at: new Date().toISOString(),
+          notes: notes || `Paystack settlement: ${successCount} paid, ${failedCount} failed`,
+        }, { onConflict: 'task_id' })
+
+      // Mark task as completed
+      await supabase
+        .from('syndicate_tasks')
+        .update({ status: 'completed' })
+        .eq('id', task_id)
+
+      return new Response(JSON.stringify({
+        success: true,
+        campaign_date: task.campaign_date,
+        settlement_base: settlementBase,
+        payout_percentage: payoutPct,
+        total_pool: totalPool,
+        participating_count: participatingCount,
+        individual_payout: individualPayout,
+        success_count: successCount,
+        failed_count: failedCount,
+        results: results,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // -------------------------------------------------------------
     // ACTION: process_withdrawal (Paystack Transfer Execution)
     // -------------------------------------------------------------
     const withdrawalId = payload.withdrawal_id

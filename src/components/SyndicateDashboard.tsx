@@ -80,6 +80,8 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   const [mainTab, setMainTab] = useState<string>('jobs');
   // Secondary sub-tab for assignments: 'pending' | 'submitted' | 'completed' | 'rejected' | 'expired'
   const [assignmentSubTab, setAssignmentSubTab] = useState<string>('pending');
+  const [historyDateFilter, setHistoryDateFilter] = useState<string>('all');
+  const [customHistoryDate, setCustomHistoryDate] = useState<string>('');
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
   
   const { isEnabled } = useFeatureToggles();
@@ -499,12 +501,29 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     return true;
   });
 
+  // Filter assignments by selected date
+  const filteredMyAssignments = myAssignments.filter(a => {
+    if (historyDateFilter === 'all') return true;
+    const taskDate = a.campaign_date || (a.syndicate_tasks?.campaign_date) || (a.created_at ? a.created_at.split('T')[0] : '');
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (historyDateFilter === 'today') return taskDate === todayStr;
+    if (historyDateFilter === 'yesterday') {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      return taskDate === y.toISOString().split('T')[0];
+    }
+    if (historyDateFilter === 'custom' && customHistoryDate) {
+      return taskDate === customHistoryDate;
+    }
+    return true;
+  });
+
   // Categorize assignments
-  const pendingAssignments = myAssignments.filter(a => a.status === 'accepted' || a.status === 'assigned');
-  const submittedAssignments = myAssignments.filter(a => a.status === 'submitted');
-  const completedAssignments = myAssignments.filter(a => a.status === 'approved');
-  const rejectedAssignments = myAssignments.filter(a => a.status === 'rejected');
-  const expiredAssignments = myAssignments.filter(a => a.status === 'expired');
+  const pendingAssignments = filteredMyAssignments.filter(a => a.status === 'accepted' || a.status === 'assigned');
+  const submittedAssignments = filteredMyAssignments.filter(a => a.status === 'submitted');
+  const completedAssignments = filteredMyAssignments.filter(a => a.status === 'approved');
+  const rejectedAssignments = filteredMyAssignments.filter(a => a.status === 'rejected');
+  const expiredAssignments = filteredMyAssignments.filter(a => a.status === 'expired');
 
   const renderAssignmentCard = (assignment: any) => {
     const task = assignment.syndicate_tasks;
@@ -1083,6 +1102,58 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             >
               <span>Missed</span>
             </button>
+          </div>
+
+          {/* Date Filter Bar for Member History */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-card border border-border/80 text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 text-purple-600" />
+              <span>Filter Date:</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setHistoryDateFilter('all')}
+                className={`h-8 px-3 rounded-lg font-bold transition ${
+                  historyDateFilter === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                All Dates
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHistoryDateFilter('today')}
+                className={`h-8 px-3 rounded-lg font-bold transition ${
+                  historyDateFilter === 'today' ? 'bg-purple-600 text-white shadow-xs' : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Today
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHistoryDateFilter('yesterday')}
+                className={`h-8 px-3 rounded-lg font-bold transition ${
+                  historyDateFilter === 'yesterday' ? 'bg-purple-600 text-white shadow-xs' : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Yesterday
+              </button>
+
+              <div className="flex items-center gap-1 bg-muted px-2.5 py-1 rounded-lg">
+                <input
+                  type="date"
+                  value={customHistoryDate}
+                  onChange={e => {
+                    setCustomHistoryDate(e.target.value);
+                    if (e.target.value) setHistoryDateFilter('custom');
+                  }}
+                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Assignments list depending on selected sub-tab */}

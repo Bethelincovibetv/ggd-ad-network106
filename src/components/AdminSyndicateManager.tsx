@@ -33,17 +33,22 @@ import {
   MapPin,
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
+  Calendar,
   X,
   FileText,
   UserCheck,
   UserX,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  CreditCard,
+  Banknote
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
+import { calculateCampaignSettlementPreview, settleSyndicateCampaign } from "@/services/syndicateTaskService";
 
 const maskAccountNumber = (acc?: string | null) => {
   if (!acc) return '—';
@@ -53,8 +58,11 @@ const maskAccountNumber = (acc?: string | null) => {
 };
 
 export const AdminSyndicateManager = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'verification' | 'campaigns' | 'payouts' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'verification' | 'campaigns' | 'payouts' | 'settings'>('campaigns');
   const [loading, setLoading] = useState(true);
+
+  // Date Filter (Default: Today)
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   // Stats
   const [stats, setStats] = useState({
@@ -91,10 +99,11 @@ export const AdminSyndicateManager = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [activeRejectId, setActiveRejectId] = useState<string | null>(null);
 
-  // Campaigns & Collective Settlements
+  // Date-based Campaigns & Assignments & Settlements
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [settlementPrevs, setSettlementPrevs] = useState<Record<string, any>>({});
-  const [processingSettlement, setProcessingSettlement] = useState<string | null>(null);
+  const [campaignAssignments, setCampaignAssignments] = useState<Record<string, any[]>>({});
+  const [campaignSettlements, setCampaignSettlements] = useState<Record<string, any>>({});
+  const [settlingTaskId, setSettlingTaskId] = useState<string | null>(null);
 
   // Payouts & Withdrawals
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -114,27 +123,43 @@ export const AdminSyndicateManager = () => {
 
   useEffect(() => {
     loadAllData();
-  }, []);
+  }, [selectedDate]);
+
+  const changeDateByDays = (days: number) => {
+    const current = new Date(selectedDate);
+    if (isNaN(current.getTime())) {
+      setSelectedDate(new Date().toISOString().split('T')[0]);
+      return;
+    }
+    current.setDate(current.getDate() + days);
+    setSelectedDate(current.toISOString().split('T')[0]);
+  };
 
   const loadAllData = async () => {
     setLoading(true);
     try {
+      // 1. Fetch core profiles, settings, and date-filtered syndicate tasks
       const [
         synProfRes,
         bankReqRes,
         onboardingRes,
-        adsRes,
+        tasksRes,
         withdrawalsRes,
         settingsRes,
-        profilesRes
+        profilesRes,
+        settlementsRes
       ] = await Promise.all([
         supabase.from('syndicate_profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('syndicate_bank_change_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
-        supabase.from('ads').select('*').eq('ad_type', 'syndicate').order('created_at', { ascending: false }),
+        supabase.from('syndicate_tasks')
+          .select('*')
+          .or(`campaign_date.eq.${selectedDate},created_at.gte.${selectedDate}T00:00:00,created_at.lte.${selectedDate}T23:59:59`)
+          .order('created_at', { ascending: false }),
         supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('app_settings').select('*'),
-        supabase.from('profiles').select('user_id, email, display_name, business_name, phone, state, credits')
+        supabase.from('profiles').select('user_id, email, display_name, business_name, phone, state, credits'),
+        supabase.from('syndicate_settlements').select('*').eq('campaign_date', selectedDate),
       ]);
 
       const profileMap: Record<string, any> = {};
@@ -145,11 +170,42 @@ export const AdminSyndicateManager = () => {
         profile: profileMap[m.user_id] || {},
       }));
 
+      const loadedTasks = tasksRes.data || [];
+      setCampaigns(loadedTasks);
       setMembers(enrichedMembers);
       setBankChangeRequests(bankReqRes.data || []);
       setOnboardingApplications(onboardingRes.data || []);
-      setCampaigns(adsRes.data || []);
       setWithdrawals(withdrawalsRes.data || []);
+
+      // Map settlements by task_id
+      const settMap: Record<string, any> = {};
+      (settlementsRes.data || []).forEach((s: any) => {
+        if (s.task_id) settMap[s.task_id] = s;
+      });
+      setCampaignSettlements(settMap);
+
+      // Fetch assignments for these tasks
+      if (loadedTasks.length > 0) {
+        const taskIds = loadedTasks.map(t => t.id);
+        const { data: assignData } = await supabase
+          .from('syndicate_task_assignments')
+          .select('*')
+          .in('task_id', taskIds);
+
+        const assignMap: Record<string, any[]> = {};
+        (assignData || []).forEach((a: any) => {
+          if (!assignMap[a.task_id]) assignMap[a.task_id] = [];
+          // Attach member profile and syndicate profile
+          const m = enrichedMembers.find(em => em.user_id === a.syndicate_user_id || em.user_id === a.syndicate_member_id);
+          assignMap[a.task_id].push({
+            ...a,
+            member: m || null,
+          });
+        });
+        setCampaignAssignments(assignMap);
+      } else {
+        setCampaignAssignments({});
+      }
 
       // Parse Settings
       const settObj = { ...settings };
@@ -171,9 +227,9 @@ export const AdminSyndicateManager = () => {
       const inactiveM = enrichedMembers.filter(m => !m.is_active).length;
       const suspendedM = enrichedMembers.filter(m => m.is_suspended).length;
       const frozenM = enrichedMembers.filter(m => m.wallet_frozen).length;
-      const activeC = (adsRes.data || []).filter(a => a.status === 'active').length;
-      const totalP = (withdrawalsRes.data || []).reduce((acc, w) => acc + (w.status === 'completed' ? Number(w.amount || 0) : 0), 0);
-      const succP = (withdrawalsRes.data || []).filter(w => w.status === 'completed').length;
+      const activeC = loadedTasks.filter(a => a.status === 'active').length;
+      const totalP = (withdrawalsRes.data || []).reduce((acc, w) => acc + (w.status === 'completed' || w.status === 'paid' ? Number(w.amount || 0) : 0), 0);
+      const succP = (withdrawalsRes.data || []).filter(w => w.status === 'completed' || w.status === 'paid').length;
       const failP = (withdrawalsRes.data || []).filter(w => ['failed', 'rejected'].includes(w.status)).length;
 
       setStats({
@@ -197,6 +253,30 @@ export const AdminSyndicateManager = () => {
       toast.error("Failed to load Syndicate management data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Campaign Collective Settlement (Paystack Batch Transfer / Manual)
+  const handleSettleCampaign = async (task: any, mode: 'paystack' | 'manual') => {
+    setSettlingTaskId(task.id);
+    try {
+      const res = await settleSyndicateCampaign({
+        taskId: task.id,
+        mode,
+        notes: `Admin Direct Team Settlement (${mode.toUpperCase()}) on ${selectedDate}`,
+      });
+
+      if (!res.success) {
+        toast.error(res.error || `Failed to settle campaign (${mode})`);
+        return;
+      }
+
+      toast.success(res.message || `Campaign successfully settled (${mode.toUpperCase()})!`);
+      loadAllData();
+    } catch (err: any) {
+      toast.error(err.message || "Settlement failed");
+    } finally {
+      setSettlingTaskId(null);
     }
   };
 
@@ -1137,104 +1217,350 @@ export const AdminSyndicateManager = () => {
       {/* TAB 4: CAMPAIGNS & DETERMINISTIC SETTLEMENTS */}
       {activeTab === 'campaigns' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-foreground">Direct Team Campaign Execution</h3>
-              <p className="text-xs text-muted-foreground">
-                Settlements automatically distribute earnings mathematically across verified active team members
-              </p>
+          {/* Interactive Date Picker & Header */}
+          <div className="bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-purple-600" />
+                  Direct Team Campaign Execution & Settlement
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Filtered by Campaign Date. Payouts are calculated deterministically across verified participating members.
+                </p>
+              </div>
+
+              {/* Date Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => changeDateByDays(-1)}
+                  className="h-10 px-2.5 rounded-xl text-xs font-bold border-border"
+                  title="Previous Day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant={selectedDate === new Date().toISOString().split('T')[0] ? 'default' : 'outline'}
+                  onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                  className={`h-10 px-3 rounded-xl text-xs font-bold ${
+                    selectedDate === new Date().toISOString().split('T')[0] ? 'bg-purple-600 text-white' : 'border-border'
+                  }`}
+                >
+                  Today
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const y = new Date();
+                    y.setDate(y.getDate() - 1);
+                    setSelectedDate(y.toISOString().split('T')[0]);
+                  }}
+                  className="h-10 px-3 rounded-xl text-xs font-bold border-border"
+                >
+                  Yesterday
+                </Button>
+
+                <div className="flex items-center gap-1.5 bg-secondary/50 border border-border px-3 py-1.5 rounded-xl">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => changeDateByDays(1)}
+                  className="h-10 px-2.5 rounded-xl text-xs font-bold border-border"
+                  title="Next Day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Date Summary Badge */}
+            <div className="bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between text-xs text-purple-900 dark:text-purple-200">
+              <span className="font-semibold">
+                📅 Showing Direct Team activity for: <strong>{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+              </span>
+              <span className="font-bold">
+                {campaigns.length} Campaign{campaigns.length !== 1 ? 's' : ''} on this date
+              </span>
             </div>
           </div>
 
           {campaigns.length === 0 ? (
-            <Card className="p-8 text-center rounded-2xl border-dashed">
-              <p className="text-sm font-semibold text-muted-foreground">No Syndicate campaigns found.</p>
+            <Card className="p-10 text-center rounded-2xl border-dashed">
+              <div className="max-w-sm mx-auto space-y-3">
+                <Calendar className="h-10 w-10 text-muted-foreground mx-auto opacity-60" />
+                <h4 className="font-bold text-base text-foreground">No Campaigns for {selectedDate}</h4>
+                <p className="text-xs text-muted-foreground">
+                  There are no Direct Team campaigns scheduled or executed for this date. Select "Today" or choose another date above to view campaigns and settlements.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                  className="h-10 px-4 rounded-xl text-xs font-bold bg-purple-600 text-white"
+                >
+                  Switch to Today
+                </Button>
+              </div>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-6">
               {campaigns.map(camp => {
-                const targetStates: string[] = camp.target_states || [];
-                const eligibleMembers = members.filter(m =>
+                const taskAssignments: any[] = campaignAssignments[camp.id] || [];
+                const settlementRecord = campaignSettlements[camp.id];
+
+                // Categorize participants
+                const submittedOrApproved = taskAssignments.filter(a => a.status === 'submitted' || a.status === 'approved' || a.status === 'accepted');
+                const pendingSettlementList = taskAssignments.filter(a => (a.status === 'submitted' || a.status === 'accepted') && a.payment_status !== 'paid');
+                const paidSettlementList = taskAssignments.filter(a => a.status === 'approved' || a.payment_status === 'paid' || a.payout_status === 'completed');
+
+                // Determine active verified members who did not participate
+                const participatingUserIds = new Set(taskAssignments.map(a => a.syndicate_user_id || a.syndicate_member_id));
+                const targetState = camp.target_state;
+                const notParticipatedList = members.filter(m =>
                   m.is_active &&
                   !m.is_suspended &&
-                  (targetStates.length === 0 || targetStates.includes('All') || (m.profile?.state && targetStates.includes(m.profile.state)))
+                  !participatingUserIds.has(m.user_id) &&
+                  (!targetState || targetState === 'All' || (m.profile?.state && m.profile.state.toLowerCase() === targetState.toLowerCase()))
                 );
 
-                const rate = parseInt(settings.exchange_rate) || 100;
+                // Settlement math calculation
                 const payoutPct = parseInt(settings.payout_percentage) || 70;
-                const campaignCredits = Number(camp.credits || 100);
-                const grossFiat = campaignCredits * rate;
-                const teamPoolFiat = (grossFiat * payoutPct) / 100;
-                const perMemberFiat = eligibleMembers.length > 0 ? Math.floor(teamPoolFiat / eligibleMembers.length) : 0;
-                const perMemberCredits = Math.floor(perMemberFiat / rate);
+                const settlementBase = Number(camp.total_cost || (Number(camp.cost_per_syndicate || 50) * (camp.max_syndicates || 1)));
+                const calc = calculateCampaignSettlementPreview(
+                  settlementBase,
+                  payoutPct,
+                  submittedOrApproved.length > 0 ? submittedOrApproved.length : (camp.max_syndicates || 1)
+                );
+
+                const isSettling = settlingTaskId === camp.id;
+                const isSettled = settlementRecord || (paidSettlementList.length > 0 && pendingSettlementList.length === 0);
 
                 return (
-                  <Card key={camp.id} className="border border-border/80 rounded-2xl bg-card overflow-hidden">
-                    <CardContent className="p-4 sm:p-5 space-y-4">
-                      <div className="flex justify-between items-start gap-2">
+                  <Card key={camp.id} className="border border-border/90 rounded-2xl bg-card overflow-hidden shadow-sm">
+                    {/* Campaign Header Bar */}
+                    <div className="p-4 sm:p-5 border-b border-border/80 bg-secondary/30 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-base text-foreground">{camp.title}</h4>
-                            <Badge className="bg-purple-600 text-white text-[10px] font-bold">{camp.status}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{camp.description || 'Campaign task'}</p>
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">Targets:</span>
-                            {targetStates.length > 0 ? (
-                              targetStates.map(st => (
-                                <Badge key={st} variant="secondary" className="text-[10px] py-0 px-1.5">
-                                  {st}
-                                </Badge>
-                              ))
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5">All Nigeria</Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-black text-base sm:text-lg text-foreground">{camp.title}</h4>
+                            <Badge className={`text-[10px] font-bold ${
+                              isSettled ? 'bg-emerald-600 text-white' : 'bg-purple-600 text-white'
+                            }`}>
+                              {isSettled ? 'SETTLED & PAID' : 'PENDING SETTLEMENT'}
+                            </Badge>
+                            {camp.target_state && (
+                              <Badge variant="outline" className="text-[10px] font-bold">
+                                📍 {camp.target_state}
+                              </Badge>
                             )}
                           </div>
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">{camp.description}</p>
                         </div>
 
-                        <div className="text-right">
-                          <p className="text-sm font-black text-purple-600">{campaignCredits} Cr</p>
-                          <p className="text-[10px] text-muted-foreground">≈ ₦{grossFiat.toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      {/* Deterministic Settlement Breakdown Box */}
-                      <div className="p-3.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 space-y-2 text-xs">
-                        <p className="font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                          Deterministic Settlement Calculation Preview
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-                          <div>
-                            <span className="text-muted-foreground block">Settlement Base</span>
-                            <strong>₦{grossFiat.toLocaleString()}</strong>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground block">Team Pool ({payoutPct}%)</span>
-                            <strong className="text-emerald-600">₦{teamPoolFiat.toLocaleString()}</strong>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground block">Eligible Workforce</span>
-                            <strong>{eligibleMembers.length} Active Members</strong>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground block">Individual Payout</span>
-                            <strong className="text-purple-600">₦{perMemberFiat.toLocaleString()} ({perMemberCredits} Cr)</strong>
-                          </div>
+                        {/* Cost & Capacity */}
+                        <div className="text-left sm:text-right bg-background p-2.5 rounded-xl border border-border/60">
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold">Settlement Base</p>
+                          <p className="text-base font-black text-foreground">₦{settlementBase.toLocaleString()}</p>
+                          <p className="text-[10px] text-purple-600 font-semibold">{camp.max_syndicates || 1} Total Member Slots</p>
                         </div>
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-1">
-                        <Button
-                          size="sm"
-                          disabled={eligibleMembers.length === 0}
-                          onClick={() => {
-                            toast.success(`Settlement simulator verified for ${eligibleMembers.length} active members.`);
-                          }}
-                          className="h-10 px-4 text-xs font-bold rounded-xl bg-purple-600 text-white"
-                        >
-                          Execute Collective Settlement (₦{perMemberFiat.toLocaleString()} / member)
-                        </Button>
+                      {/* Deterministic Settlement Math Display */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <span>Deterministic Direct Team Settlement Formula</span>
+                          <span className="text-purple-600 font-bold">{payoutPct}% Team Split</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+                          <div className="bg-background rounded-lg p-2 border border-border/50">
+                            <p className="text-[9px] text-muted-foreground">Settlement Base</p>
+                            <p className="text-xs font-bold text-foreground">₦{calc.settlementBase.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-background rounded-lg p-2 border border-border/50">
+                            <p className="text-[9px] text-muted-foreground">Team Payout Pool ({calc.payoutPercentage}%)</p>
+                            <p className="text-xs font-bold text-emerald-600">₦{calc.teamPayoutPool.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-background rounded-lg p-2 border border-border/50">
+                            <p className="text-[9px] text-muted-foreground">Eligible Participating Members</p>
+                            <p className="text-xs font-bold text-foreground">{calc.eligibleParticipatingCount} Verified</p>
+                          </div>
+                          <div className="bg-purple-50 dark:bg-purple-950/40 rounded-lg p-2 border border-purple-200 dark:border-purple-800">
+                            <p className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold">Individual Payout</p>
+                            <p className="text-xs font-black text-purple-700 dark:text-purple-200">₦{calc.individualPayout.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Settlement Action Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <div className="text-xs text-muted-foreground">
+                          <strong>{pendingSettlementList.length}</strong> Pending Payout • <strong>{paidSettlementList.length}</strong> Paid • <strong>{notParticipatedList.length}</strong> Not Participated
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            disabled={isSettling || pendingSettlementList.length === 0}
+                            onClick={() => handleSettleCampaign(camp, 'paystack')}
+                            className="h-10 px-4 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                          >
+                            <Zap className="h-4 w-4 mr-1.5" />
+                            {isSettling ? 'Processing Batch...' : `⚡ Settle via Paystack (₦${calc.individualPayout.toLocaleString()}/member)`}
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isSettling || pendingSettlementList.length === 0}
+                            onClick={() => handleSettleCampaign(camp, 'manual')}
+                            className="h-10 px-3 text-xs font-bold rounded-xl border-border hover:bg-muted"
+                          >
+                            <Banknote className="h-4 w-4 mr-1.5" />
+                            Settle Manually & Mark Paid
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-4 sm:p-5 space-y-6">
+                      {/* 1. PENDING SETTLEMENT SECTION */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                            <Clock className="h-4 w-4 text-amber-500" />
+                            1. Pending Settlement ({pendingSettlementList.length} Members Awaiting Payment)
+                          </h5>
+                          <span className="text-[11px] text-muted-foreground">Proof submitted & eligible</span>
+                        </div>
+
+                        {pendingSettlementList.length === 0 ? (
+                          <div className="p-3 text-center rounded-xl bg-secondary/30 text-xs text-muted-foreground">
+                            No members pending settlement for this campaign.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {pendingSettlementList.map(item => {
+                              const m = item.member;
+                              return (
+                                <div key={item.id} className="p-3 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/10 space-y-2 text-xs">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-bold text-foreground">{m?.profile?.display_name || m?.profile?.email || 'Direct Team Member'}</p>
+                                      <p className="text-[11px] text-muted-foreground">{m?.profile?.phone || m?.profile?.state || 'Verified Member'}</p>
+                                    </div>
+                                    <Badge className="bg-amber-500 text-white text-[9px] font-bold">Pending Payment</Badge>
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/40">
+                                    <span className="text-muted-foreground">Bank: {m?.bank_name || '—'}</span>
+                                    <span className="font-mono font-bold text-foreground">{maskAccountNumber(m?.account_number)}</span>
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-1 text-[11px]">
+                                    {item.proof_url ? (
+                                      <a href={item.proof_url} target="_blank" rel="noreferrer" className="text-purple-600 hover:underline flex items-center gap-1 font-semibold">
+                                        <ExternalLink className="h-3 w-3" /> View Submitted Proof
+                                      </a>
+                                    ) : (
+                                      <span className="text-muted-foreground">No proof uploaded</span>
+                                    )}
+                                    <span className="font-black text-purple-700 dark:text-purple-300">₦{calc.individualPayout.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. PAID SETTLEMENT SECTION */}
+                      <div className="space-y-2.5 pt-2 border-t border-border/60">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                            <CheckCircle className="h-4 w-4 text-emerald-600" />
+                            2. Paid Settlement ({paidSettlementList.length} Members Paid)
+                          </h5>
+                          <span className="text-[11px] text-emerald-600 font-bold">Successfully Settled</span>
+                        </div>
+
+                        {paidSettlementList.length === 0 ? (
+                          <div className="p-3 text-center rounded-xl bg-secondary/30 text-xs text-muted-foreground">
+                            No settled payouts recorded yet for this campaign.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {paidSettlementList.map(item => {
+                              const m = item.member;
+                              const paidAmount = Number(item.payout_amount || calc.individualPayout);
+                              return (
+                                <div key={item.id} className="p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-2 text-xs">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-bold text-foreground">{m?.profile?.display_name || m?.profile?.email || 'Direct Team Member'}</p>
+                                      <p className="text-[11px] text-muted-foreground">{m?.bank_name} • {maskAccountNumber(m?.account_number)}</p>
+                                    </div>
+                                    <Badge className="bg-emerald-600 text-white text-[9px] font-bold">PAID</Badge>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center justify-between gap-1 pt-1 border-t border-border/40 text-[10px] text-muted-foreground font-mono">
+                                    <span>Ref: {item.transfer_reference || item.paystack_transfer_reference || 'MANUAL-SETTLED'}</span>
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-300 font-sans text-xs">₦{paidAmount.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. NOT PARTICIPATED SECTION */}
+                      <div className="space-y-2.5 pt-2 border-t border-border/60">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs sm:text-sm font-bold text-muted-foreground flex items-center gap-1.5">
+                            <Users className="h-4 w-4" />
+                            3. Not Participated ({notParticipatedList.length} Active Verified Members)
+                          </h5>
+                          <span className="text-[11px] text-muted-foreground">Visible on date, did not participate</span>
+                        </div>
+
+                        {notParticipatedList.length === 0 ? (
+                          <div className="p-3 text-center rounded-xl bg-secondary/30 text-xs text-muted-foreground">
+                            All eligible active members participated in this campaign!
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {notParticipatedList.slice(0, 9).map(m => (
+                              <div key={m.user_id} className="p-2.5 rounded-xl border border-border/60 bg-muted/30 flex items-center justify-between text-xs opacity-75">
+                                <div className="truncate">
+                                  <p className="font-semibold text-foreground truncate">{m.profile?.display_name || m.profile?.email}</p>
+                                  <p className="text-[10px] text-muted-foreground">{m.profile?.state || 'Nigeria'}</p>
+                                </div>
+                                <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                  ₦0 (No proof)
+                                </span>
+                              </div>
+                            ))}
+                            {notParticipatedList.length > 9 && (
+                              <div className="p-2.5 rounded-xl border border-dashed text-center text-xs text-muted-foreground flex items-center justify-center">
+                                +{notParticipatedList.length - 9} more active members
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

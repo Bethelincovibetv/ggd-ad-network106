@@ -446,6 +446,16 @@ const SyndicateWallet = () => {
                 </div>
               </div>
 
+              {/* Settlement Info Box */}
+              <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-purple-600" /> Automated Direct Team Settlement
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  When daily campaigns are settled, your collective earnings are automatically calculated and paid directly to this locked Paystack bank account.
+                </p>
+              </div>
+
               {/* Pending change request banner if present */}
               {pendingChangeRequest && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 text-xs space-y-1">
@@ -655,121 +665,37 @@ const SyndicateWallet = () => {
         </Card>
       )}
 
-      {/* Security PINs */}
-      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-bold flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-orange-600" /> Withdrawal Security PIN
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label className="text-xs font-semibold">{profile?.withdraw_pin_hash ? 'Change' : 'Set'} Withdrawal PIN</Label>
-            <div className="flex gap-2 mt-1">
-              <Input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
-                value={newWithdrawPin}
-                onChange={e => setNewWithdrawPin(e.target.value)}
-                className="h-10 text-sm"
-                placeholder="4-6 digit numeric PIN"
-              />
-              <Button onClick={saveWithdrawPin} className="h-10 px-4 text-xs font-bold rounded-xl bg-orange-600 text-white">
-                Save PIN
-              </Button>
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground">Required to authorize any credit withdrawal request.</p>
-        </CardContent>
-      </Card>
-
-      {/* Request Withdrawal */}
-      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-bold">💸 Request Bank Withdrawal</CardTitle>
-            {autoPayoutEnabled && (
-              <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30 text-[10px] font-bold">
-                <Zap className="h-3 w-3 mr-1 text-cyan-600" /> Paystack Auto-Payout Active
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label className="text-xs font-semibold">Amount to Withdraw (₦)</Label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="5000"
-              className="mt-1 h-12 text-lg font-bold text-center"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-            />
-          </div>
-
-          {profile?.withdraw_pin_hash ? (
-            <div>
-              <Label className="text-xs font-semibold">Withdrawal PIN</Label>
-              <Input
-                type="password"
-                inputMode="numeric"
-                placeholder="••••"
-                className="mt-1 h-11 text-base text-center font-mono"
-                value={withdrawPin}
-                onChange={e => setWithdrawPin(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="rounded-xl border border-orange-300 bg-orange-50 text-orange-800 text-xs p-3 text-center">
-              ⚠️ Please set your Withdrawal PIN above before requesting a withdrawal.
-            </div>
-          )}
-
-          {parseInt(amount) > 0 && (
-            <p className="text-xs text-center text-muted-foreground font-medium">
-              ≈ <strong>{Math.ceil(parseInt(amount) / exchangeRate)} GGG credits</strong> will be deducted
-            </p>
-          )}
-
-          <Button
-            onClick={requestWithdrawal}
-            disabled={submitting || !isBankConfigured || !profile?.withdraw_pin_hash}
-            className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold rounded-xl shadow-lg hover:opacity-95"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownCircle className="h-4 w-4 mr-2" />}
-            Request Payout to {profile?.bank_name || 'Bank'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Withdrawal History */}
+      {/* Payout & Settlement History */}
       {withdrawals.length > 0 && (
         <div className="space-y-3 pt-2">
-          <h3 className="font-bold text-base text-foreground">📜 Payout & Withdrawal History</h3>
+          <h3 className="font-bold text-base text-foreground">📜 Direct Team Settlement & Payout History</h3>
           <div className="space-y-2.5">
             {withdrawals.map(w => {
-              const isCompleted = w.status === 'completed';
+              const isCompleted = w.status === 'completed' || w.status === 'paid';
               const isFailed = ['failed', 'rejected', 'cancelled'].includes(w.status);
               return (
                 <Card key={w.id} className="border-0 shadow-sm rounded-2xl overflow-hidden bg-card">
                   <CardContent className="p-4 flex justify-between items-center">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">₦{Number(w.amount)?.toLocaleString()}</span>
+                        <span className="font-bold text-sm text-foreground">₦{Number(w.amount || w.payout_amount || 0)?.toLocaleString()}</span>
                         <Badge className={`text-[10px] border-0 font-bold ${
                           isCompleted ? 'bg-emerald-100 text-emerald-800' :
                           isFailed ? 'bg-red-100 text-red-800' :
                           w.status === 'processing' ? 'bg-cyan-100 text-cyan-800' :
                           'bg-amber-100 text-amber-800'
                         }`}>
-                          {isCompleted ? 'Settled' : isFailed ? 'Failed / Refunded' : w.status === 'processing' ? 'Processing Transfer' : 'Pending Review'}
+                          {isCompleted ? 'Settled & Paid' : isFailed ? 'Failed' : w.status === 'processing' ? 'Processing Transfer' : 'Pending Settlement'}
                         </Badge>
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        {w.bank_name} • {maskAccountNumber(w.account_number)}
+                        {w.bank_name || profile?.bank_name} • {maskAccountNumber(w.account_number || profile?.account_number)}
                       </p>
+                      {w.paystack_reference && (
+                        <p className="text-[10px] font-mono text-purple-600 dark:text-purple-400">
+                          Ref: {w.paystack_reference}
+                        </p>
+                      )}
                       <p className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</p>
                     </div>
                     {isCompleted && <CheckCircle className="h-5 w-5 text-emerald-600" />}

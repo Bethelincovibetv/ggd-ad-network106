@@ -10,6 +10,7 @@ export interface CreateSyndicateTaskParams {
   target_state?: string | null;
   max_syndicates: number;
   approval_mode?: "manual" | "automatic";
+  campaign_date?: string;
 }
 
 export interface SyndicateTaskResult {
@@ -71,6 +72,7 @@ export async function createSyndicateTask(
       p_target_state: target_state?.trim() || null,
       p_max_syndicates: max_syndicates,
       p_approval_mode: approval_mode || "manual",
+      p_campaign_date: params.campaign_date || new Date().toISOString().split('T')[0],
     });
 
     if (!error && data) {
@@ -171,7 +173,8 @@ export async function createSyndicateTask(
         payout_amount: payoutAmount,
         approval_mode: approval_mode || "manual",
         status: "active",
-      })
+        campaign_date: params.campaign_date || new Date().toISOString().split('T')[0],
+      } as any)
       .select()
       .single();
 
@@ -331,3 +334,85 @@ export async function reviewSyndicateAssignment(
     return { success: false, error: err.message || "Failed to review assignment" };
   }
 }
+
+/**
+ * Calculates deterministic settlement preview for a campaign task
+ */
+export function calculateCampaignSettlementPreview(
+  settlementBase: number,
+  payoutPercentage: number,
+  participatingCount: number
+) {
+  const effectivePct = Math.max(0, Math.min(100, payoutPercentage || 70));
+  const teamPayoutPool = settlementBase * (effectivePct / 100.0);
+  const eligibleCount = Math.max(0, participatingCount);
+  const individualPayout = eligibleCount > 0 ? Math.round((teamPayoutPool / eligibleCount) * 100) / 100 : 0;
+
+  return {
+    settlementBase,
+    payoutPercentage: effectivePct,
+    teamPayoutPool,
+    eligibleParticipatingCount: eligibleCount,
+    individualPayout,
+  };
+}
+
+/**
+ * Admin action to settle a syndicate campaign via Paystack transfers or manual settlement
+ */
+export async function settleSyndicateCampaign(params: {
+  taskId: string;
+  mode: 'paystack' | 'manual';
+  notes?: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: any;
+}> {
+  const { taskId, mode, notes } = params;
+
+  try {
+    // 1. Invoke Edge Function for Paystack or Server-Side Batch Execution
+    const actionName = mode === 'paystack' ? 'settle_campaign_paystack' : 'settle_campaign_manual';
+    const { data: edgeData, error: edgeErr } = await supabase.functions.invoke('process-syndicate-payout', {
+      body: {
+        action: actionName,
+        task_id: taskId,
+        notes: notes || `Direct Team Settlement (${mode.toUpperCase()})`,
+      },
+    });
+
+    if (!edgeErr && edgeData?.success) {
+      return {
+        success: true,
+        message: edgeData.message || `Campaign settled successfully (${mode.toUpperCase()})`,
+        data: edgeData,
+      };
+    }
+
+    if (edgeErr && edgeErr.message && !edgeErr.message.includes('FunctionsFetchError')) {
+      return { success: false, error: edgeErr.message };
+    }
+
+    // 2. Direct RPC Fallback
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('settle_syndicate_campaign', {
+      p_task_id: taskId,
+      p_payment_mode: mode,
+      p_admin_notes: notes || `Direct settlement (${mode})`,
+    });
+
+    if (rpcErr) {
+      return { success: false, error: rpcErr.message };
+    }
+
+    return {
+      success: true,
+      message: 'Campaign settled and recorded successfully',
+      data: rpcData,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to settle campaign' };
+  }
+}
+
