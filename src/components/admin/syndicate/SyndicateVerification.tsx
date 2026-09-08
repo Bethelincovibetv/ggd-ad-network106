@@ -60,7 +60,7 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
       if (approve) {
         // Update request status
         await supabase
-          .from('bank_change_requests')
+          .from('syndicate_bank_change_requests')
           .update({
             status: 'approved',
             reviewed_at: new Date().toISOString(),
@@ -91,7 +91,7 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
         toast.success("Bank details approved and locked for payout security!");
       } else {
         await supabase
-          .from('bank_change_requests')
+          .from('syndicate_bank_change_requests')
           .update({
             status: 'rejected',
             reviewed_at: new Date().toISOString(),
@@ -133,14 +133,10 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
         // Ensure syndicate_profile exists and is active
         await supabase
           .from('syndicate_profiles')
-          .update({ is_active: true })
+          .update({ is_suspended: false })
           .eq('user_id', userId);
 
         // Also update main user profile role
-        await supabase
-          .from('profiles')
-          .update({ syndicate_status: 'active' })
-          .eq('user_id', userId);
 
         // Notify member
         await notifyMemberOfStatusUpdate({

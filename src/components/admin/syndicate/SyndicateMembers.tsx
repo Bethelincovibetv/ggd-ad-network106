@@ -180,7 +180,7 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
     try {
       const { error } = await supabase
         .from('syndicate_profiles')
-        .update({ is_active: true })
+        .update({ is_suspended: false })
         .in('user_id', selectedIds);
       if (error) throw error;
       toast.success(`Activated ${selectedIds.length} members!`);
@@ -196,7 +196,7 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
     try {
       const { error } = await supabase
         .from('syndicate_profiles')
-        .update({ is_active: false })
+        .update({ is_suspended: true, suspended_reason: 'Deactivated by admin' })
         .in('user_id', selectedIds);
       if (error) throw error;
       toast.success(`Deactivated ${selectedIds.length} members!`);

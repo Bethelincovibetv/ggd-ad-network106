@@ -396,7 +396,7 @@ export async function settleSyndicateCampaign(params: {
     }
 
     // 2. Direct RPC Fallback
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('settle_syndicate_campaign', {
+    const { data: rpcData, error: rpcErr } = await callRpc<any>('settle_syndicate_campaign', {
       p_task_id: taskId,
       p_payment_mode: mode,
       p_admin_notes: notes || `Direct settlement (${mode})`,
