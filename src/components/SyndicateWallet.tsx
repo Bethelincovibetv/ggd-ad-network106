@@ -262,7 +262,7 @@ const SyndicateWallet = () => {
             current_account_number: profile?.account_number || null,
             current_account_name: profile?.account_name || null,
             requested_bank_name: changeBankName.trim(),
-            requested_bank_code: resolvedCode,
+            bank_code: resolvedCode,
             requested_account_number: changeAccountNumber.trim(),
             requested_account_name: changeVerifiedName,
             admin_notes: changeReason ? `Member Note: ${changeReason}` : null,
@@ -348,7 +348,7 @@ const SyndicateWallet = () => {
         status: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'pending_automatic' : 'pending_admin',
         payout_mode: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'automatic' : 'manual',
         paystack_recipient_code: profile.paystack_recipient_code || null,
-      }).select().single();
+      } as any).select().single();
 
       if (error) throw error;
 

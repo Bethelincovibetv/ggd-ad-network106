@@ -54,8 +54,8 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
   const pendingPayouts = payouts.filter(p => p.status === 'pending' || p.status === 'processing');
   const failedPayouts = payouts.filter(p => p.status === 'failed' || p.status === 'rejected');
 
-  const totalCompletedAmount = completedPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
-  const totalPendingAmount = pendingPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
+  const totalCompletedAmount = completedPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
+  const totalPendingAmount = pendingPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
 
   const handleMarkManualPaid = async (payoutId: string) => {
     try {
@@ -253,7 +253,7 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
 
                     <td className="py-3.5 px-4">
                       <p className="font-black text-foreground text-sm">
-                        ₦{Number(p.amount_naira || p.amount || 0).toLocaleString()}
+                        ₦{Number((p as any).amount_naira || p.amount || 0).toLocaleString()}
                       </p>
                     </td>
 

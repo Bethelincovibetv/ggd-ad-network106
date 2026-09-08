@@ -165,8 +165,6 @@ const TaskList: React.FC<TaskListProps> = ({ onCreditsUpdate, credits, onNavigat
 
       const activated = Boolean(
         (synProf && !synProf.is_suspended) ||
-        userRoles.includes('syndicate') ||
-        (profile as any)?.syndicate_status === 'active' ||
         synAppRes.data?.status === 'approved'
       );
       setIsActivated(activated);

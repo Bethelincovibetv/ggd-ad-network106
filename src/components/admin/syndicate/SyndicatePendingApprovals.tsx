@@ -86,7 +86,7 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
     try {
       if (approve) {
         await supabase
-          .from('bank_change_requests')
+          .from('syndicate_bank_change_requests')
           .update({
             status: 'approved',
             reviewed_at: new Date().toISOString(),
@@ -115,7 +115,7 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
         toast.success("Bank request approved and locked!");
       } else {
         await supabase
-          .from('bank_change_requests')
+          .from('syndicate_bank_change_requests')
           .update({
             status: 'rejected',
             reviewed_at: new Date().toISOString(),
@@ -155,13 +155,9 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
 
         await supabase
           .from('syndicate_profiles')
-          .update({ is_active: true })
+          .update({ is_suspended: false })
           .eq('user_id', userId);
 
-        await supabase
-          .from('profiles')
-          .update({ syndicate_status: 'active' })
-          .eq('user_id', userId);
 
         await notifyMemberOfStatusUpdate({
           userId,

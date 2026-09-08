@@ -134,7 +134,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
         supabase.from('syndicate_profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('user_roles').select('user_id, role').eq('role', 'syndicate'),
         supabase.from('syndicate_applications').select('user_id, status, state').eq('status', 'approved'),
-        supabase.from('profiles').select('user_id, display_name, email, phone, avatar_url, credits, business_name, syndicate_status').eq('syndicate_status', 'active'),
+        supabase.from('profiles').select('user_id, display_name, email, whatsapp_number, avatar_url, credits, business_name').limit(0),
       ]);
 
       const spList = spRes.data || [];
@@ -153,7 +153,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       if (allUserIds.length > 0) {
         const { data: profs } = await supabase
           .from('profiles')
-          .select('user_id, display_name, email, phone, avatar_url, credits, business_name, syndicate_status')
+          .select('user_id, display_name, email, whatsapp_number, avatar_url, credits, business_name')
           .in('user_id', allUserIds);
         (profs || []).forEach(p => { profilesMap[p.user_id] = p; });
       }
@@ -169,7 +169,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
           user_profile: p,
           display_name: p.display_name || p.business_name || m.account_name || 'Syndicate Member',
           email: p.email || '—',
-          phone: p.phone || null,
+          phone: (p as any).whatsapp_number || null,
           avatar_url: p.avatar_url || null,
         };
       });
@@ -194,7 +194,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
             user_profile: p,
             display_name: p.display_name || p.business_name || 'Syndicate Member',
             email: p.email || '—',
-            phone: p.phone || null,
+            phone: (p as any).whatsapp_number || null,
             avatar_url: p.avatar_url || null,
           });
         }
@@ -265,7 +265,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
         bankData = sBankData;
       } else {
         const { data: bData } = await supabase
-          .from('bank_change_requests')
+          .from('syndicate_bank_change_requests')
           .select('*')
           .order('created_at', { ascending: false });
         bankData = bData || [];
@@ -298,13 +298,13 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       if (applicantUserIds.length > 0) {
         const { data: aProfs } = await supabase
           .from('profiles')
-          .select('user_id, display_name, email, phone')
+          .select('user_id, display_name, email, whatsapp_number')
           .in('user_id', applicantUserIds);
         (aProfs || []).forEach(p => { appProfMap[p.user_id] = p; });
       }
       const enrichedApplications = appRaw.map(a => ({
         ...a,
-        profiles: appProfMap[a.user_id] || { display_name: a.full_name || 'Applicant', email: '—', phone: a.phone_number || null },
+        profiles: appProfMap[a.user_id] || { display_name: 'Applicant', email: '—', phone: null },
       }));
       setApplications(enrichedApplications);
 
@@ -313,13 +313,13 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       const pendingBankCount = enrichedBankRequests.filter(b => b.status === 'pending').length;
       const pendingAppCount = enrichedApplications.filter(a => a.status === 'pending').length;
       
-      const dateFilteredTasks = allTasks.filter(t => (t.campaign_date || t.created_at?.split('T')[0]) === selectedDate);
+      const dateFilteredTasks = allTasks.filter(t => t.status === 'active');
       const pendingProofsCount = allAssignments.filter(a => a.status === 'submitted' || a.status === 'pending').length;
       
       const completedPayouts = allPayouts.filter(p => p.status === 'completed' || p.status === 'paid' || p.status === 'success');
       const pendingPayouts = allPayouts.filter(p => p.status === 'pending' || p.status === 'processing');
-      const totalDisbursed = completedPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
-      const pendingAmount = pendingPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
+      const totalDisbursed = completedPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
+      const pendingAmount = pendingPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
 
       const dateTaskIds = new Set(dateFilteredTasks.map(t => t.id));
       const dateParticipating = new Set(allAssignments.filter(a => dateTaskIds.has(a.task_id)).map(a => a.syndicate_user_id)).size;
@@ -343,7 +343,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       completedPayouts.slice(0, 3).forEach(p => {
         activities.push({
           type: 'settlement',
-          title: `Settlement Disbursed: ₦${Number(p.amount_naira || p.amount || 0).toLocaleString()}`,
+          title: `Settlement Disbursed: ₦${Number((p as any).amount_naira || p.amount || 0).toLocaleString()}`,
           subtitle: `To ${p.account_name || 'Member'} (${p.bank_name || 'Bank'})`,
           time: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
