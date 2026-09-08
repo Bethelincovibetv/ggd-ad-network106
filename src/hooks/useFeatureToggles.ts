@@ -31,6 +31,13 @@ const fetchToggles = (): Promise<Record<string, boolean>> => {
   return inflight;
 };
 
+export const setFeatureToggleLocally = (key: string, enabled: boolean) => {
+  if (!cache) cache = loadCached() || {};
+  cache[key] = enabled;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
+  listeners.forEach(l => l({ ...cache! }));
+};
+
 export const useFeatureToggles = () => {
   const initial = loadCached();
   const [features, setFeatures] = useState<Record<string, boolean>>(initial || {});

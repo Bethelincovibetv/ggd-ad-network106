@@ -2,52 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  ClipboardList, 
-  Gift, 
-  CheckCircle, 
-  Share2, 
-  Coins, 
-  Wallet, 
-  ArrowRight, 
-  X, 
-  Crown, 
-  Zap, 
-  Lock, 
-  Megaphone, 
-  Users, 
-  Upload, 
-  Image as ImageIcon, 
-  Loader2, 
-  Timer, 
-  Facebook, 
-  Instagram, 
-  Send, 
-  MessageCircle, 
-  Copy, 
-  Check, 
-  Download, 
-  Eye, 
-  Sparkles, 
-  ShieldCheck, 
-  AlertCircle, 
-  RefreshCw,
-  ExternalLink,
-  Clock
-} from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 import SlideCarousel from "@/components/SlideCarousel";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import { playRewardSound } from "@/lib/soundEffects";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
-import {
-  CreditTask,
-  getOrEnsurePlatformShareTask,
-  executeCompleteTask,
-} from "@/services/creditTaskService";
+import { playRewardSound } from "@/lib/soundEffects";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -55,201 +21,215 @@ interface TaskListProps {
   onNavigate?: (tab: string) => void;
 }
 
-const SHARE_PLATFORMS = [
-  {
-    key: 'whatsapp',
-    label: 'WhatsApp Status',
-    icon: MessageCircle,
-    color: 'bg-[#25D366] hover:bg-[#20bd5a]',
-    build: (text: string, url: string) =>
-      `https://api.whatsapp.com/send?text=${encodeURIComponent(`${text}\n\n👉 View & Join: ${url}`)}`,
-  },
-  {
-    key: 'facebook',
-    label: 'Facebook Post',
-    icon: Facebook,
-    color: 'bg-[#1877F2] hover:bg-[#166fe5]',
-    build: (text: string, url: string) =>
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`,
-  },
-  {
-    key: 'x',
-    label: 'X (Twitter)',
-    icon: Share2,
-    color: 'bg-black hover:bg-neutral-800',
-    build: (text: string, url: string) =>
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-  },
-  {
-    key: 'telegram',
-    label: 'Telegram',
-    icon: Send,
-    color: 'bg-[#229ED9] hover:bg-[#1f8ec3]',
-    build: (text: string, url: string) =>
-      `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
-  },
-];
+type TaskType = 'share' | 'social' | 'youtube';
 
-const TaskList: React.FC<TaskListProps> = ({ onCreditsUpdate, credits, onNavigate }) => {
+const PLATFORM_100_CREDIT_TASK = {
+  id: 'platform-ggd-share-100-credits',
+  title: 'Share GGD Ad Network — Earn 100 Credits',
+  description: 'Share the GGD Ad Network platform on WhatsApp, Facebook, Telegram or Instagram. Earn 100 promotional credits instantly to advertise your business!',
+  reward_credits: 100,
+  task_type: 'share',
+  share_url: typeof window !== 'undefined' ? `${window.location.origin}/?ref=share_task` : 'https://ggdadnetwork.com',
+  is_official: true,
+  max_completions: null,
+};
+
+const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [completions, setCompletions] = useState<string[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState<TaskType | null>(null);
+  const [isBusiness, setIsBusiness] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', description: '', reward_credits: '5', share_url: '', max_completions: '10' });
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
+  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
+  const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
+  const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [uid, setUid] = useState<string | null>(null);
 
-  // Activation & Syndicate Profile State
-  const [isActivated, setIsActivated] = useState<boolean | null>(null);
-  const [hasPendingApp, setHasPendingApp] = useState(false);
-  const [syndicateProfile, setSyndicateProfile] = useState<any>(null);
+  useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
 
-  // Official Platform Task State
-  const [platformTask, setPlatformTask] = useState<CreditTask | null>(null);
-  const [completions, setCompletions] = useState<string[]>([]);
-  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
-  const [platformShareTarget, setPlatformShareTarget] = useState<CreditTask | null>(null);
+  const fetchMyShortLinks = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('short_links').select('*').eq('user_id', user.id).eq('is_active', true).order('created_at', { ascending: false });
+    setMyShortLinks(data || []);
+  };
 
-  // Syndicate Broadcast Campaigns State
-  const [syndicateTasks, setSyndicateTasks] = useState<any[]>([]);
-  const [myAssignments, setMyAssignments] = useState<any[]>([]);
+  const checkBusinessStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('business_name').eq('user_id', user.id).single();
+    setIsBusiness(!!data?.business_name);
+  };
 
-  // Proof Submission Modal State
-  const [selectedTaskForProof, setSelectedTaskForProof] = useState<any | null>(null);
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofFilePreview, setProofFilePreview] = useState<string | null>(null);
-  const [proofPostLink, setProofPostLink] = useState('');
-  const [submittingProof, setSubmittingProof] = useState(false);
-  const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
+  const fetchTasks = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setUid(user.id);
+    // Owner Mode: a user's own campaigns are shown with management tools,
+    // never with "do this task" actions.
+    const [{ data: othersData }, { data: mineData }] = await Promise.all([
+      supabase.from('tasks').select('*').eq('is_active', true).neq('creator_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').eq('creator_id', user.id).order('created_at', { ascending: false }),
+    ]);
+    setTasks([...(mineData || []), ...(othersData || [])]);
+    const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
+    const completedIds = (comps || []).map(c => c.task_id);
 
-  // Load all foundation data
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      setUid(user.id);
+    // Also check persistent platform share completion
+    const { data: notifs } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('type', 'platform_share_100_completed')
+      .limit(1);
 
-      // 1. Fetch Official Platform Task
-      try {
-        const pTask = await getOrEnsurePlatformShareTask();
-        setPlatformTask(pTask);
-      } catch (err) {
-        console.warn("Platform share task check note:", err);
-      }
-
-      // 2. Fetch User Platform Completions
-      const { data: comps } = await supabase
-        .from('task_completions')
-        .select('task_id')
-        .eq('user_id', user.id);
-      setCompletions((comps || []).map(c => c.task_id));
-
-      // 3. Check Syndicate Activation Status
-      const [synProfRes, synAppRes] = await Promise.all([
-        supabase
-          .from('syndicate_profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('syndicate_applications')
-          .select('id, status')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
-
-      const synProf = synProfRes.data;
-      setSyndicateProfile(synProf);
-
-      const activated = Boolean(
-        (synProf && !synProf.is_suspended) ||
-        synAppRes.data?.status === 'approved'
-      );
-      setIsActivated(activated);
-      setHasPendingApp(synAppRes.data?.status === 'pending');
-
-      // 4. If user is activated (or has profile), fetch active Syndicate Broadcast Campaigns and user assignments
-      const [tasksRes, assignmentsRes] = await Promise.all([
-        supabase
-          .from('syndicate_tasks')
-          .select('*')
-          .eq('status', 'active')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('syndicate_task_assignments')
-          .select('*')
-          .eq('syndicate_user_id', user.id)
-          .order('created_at', { ascending: false }),
-      ]);
-
-      setSyndicateTasks(tasksRes.data || []);
-      setMyAssignments(assignmentsRes.data || []);
-    } catch (err) {
-      console.error("Error loading task data:", err);
-    } finally {
-      setLoading(false);
+    if (notifs && notifs.length > 0) {
+      completedIds.push(PLATFORM_100_CREDIT_TASK.id);
     }
+    setCompletions(completedIds);
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Copy caption helper
-  const copyCaption = (text: string, taskId: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedTaskId(taskId);
-    toast.success("Caption & instructions copied to clipboard!");
-    setTimeout(() => setCopiedTaskId(null), 2500);
+  const toggleTaskActive = async (task: any) => {
+    const { error } = await supabase.from('tasks').update({ is_active: !task.is_active }).eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(task.is_active ? 'Campaign paused' : 'Campaign resumed');
+    fetchTasks();
   };
 
-  // Download flyer helper
-  const handleDownloadFlyer = async (flyerUrl: string, title: string) => {
-    try {
-      toast.info("Preparing flyer download...");
-      const response = await fetch(flyerUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Syndicate_Flyer_${title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success("Flyer downloaded successfully!");
-    } catch (e) {
-      window.open(flyerUrl, '_blank');
-      toast.info("Opened flyer in new tab. Long press or right-click to save image.");
+  const deleteTask = async (task: any) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Campaign deleted');
+    fetchTasks();
+  };
+
+  const handleFlyerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setFlyerFile(file);
+    setFlyerPreview(URL.createObjectURL(file));
+  };
+
+  const uploadFlyer = async (userId: string): Promise<{ url: string | null; failed: boolean }> => {
+    if (!flyerFile) return { url: null, failed: false };
+    setUploadingFlyer(true);
+    const ext = (flyerFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('task-flyers').upload(fileName, flyerFile, { upsert: false, contentType: flyerFile.type });
+    setUploadingFlyer(false);
+    if (error) { toast.error(`Failed to upload image: ${error.message}`); return { url: null, failed: true }; }
+    const { data: urlData } = supabase.storage.from('task-flyers').getPublicUrl(fileName);
+    return { url: urlData.publicUrl, failed: false };
+  };
+
+  const createTask = async () => {
+    if (!newTask.title.trim()) { toast.error("Title required"); return; }
+    if (selectedTaskType === 'youtube' && !newTask.share_url.trim()) { toast.error("YouTube URL required"); return; }
+    const rewardPerPerson = parseInt(newTask.reward_credits) || 5;
+    const maxPeople = parseInt(newTask.max_completions) || 1;
+    const totalCost = rewardPerPerson * maxPeople;
+
+    if (credits < totalCost) {
+      toast.error(`Insufficient credits! You need ${totalCost} credits (${rewardPerPerson} × ${maxPeople} people) but have ${credits}.`);
+      return;
     }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Upload flyer if selected
+    const { url: flyerUrl, failed } = await uploadFlyer(user.id);
+    if (failed) return; // do not deduct credits if image upload failed
+
+    const newCredits = credits - totalCost;
+    const { error: creditError } = await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
+    if (creditError) { toast.error("Failed to deduct credits"); return; }
+
+    const { error } = await supabase.from('tasks').insert([{
+      title: newTask.title,
+      description: newTask.description || null,
+      reward_credits: rewardPerPerson,
+      task_type: selectedTaskType || 'share',
+      share_url: newTask.share_url || null,
+      creator_id: user.id,
+      funded: true,
+      max_completions: maxPeople,
+      flyer_url: flyerUrl,
+    }]);
+    if (error) {
+      await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
+      toast.error("Failed to create task");
+      return;
+    }
+
+    onCreditsUpdate(newCredits);
+    toast.success(`Task created! ${totalCost} credits deducted (${rewardPerPerson} × ${maxPeople} people).`);
+    setNewTask({ title: '', description: '', reward_credits: '5', share_url: '', max_completions: '10' });
+    setFlyerFile(null);
+    setFlyerPreview(null);
+    setShowCreate(false);
+    setSelectedTaskType(null);
+    fetchTasks();
   };
 
-  // Quick share to external platform for syndicate task
-  const openPlatformShare = (task: any, platformKey: string) => {
+  const SHARE_PLATFORMS = [
+    { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'bg-green-500', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}` },
+    { key: 'facebook', label: 'Facebook', icon: Facebook, color: 'bg-blue-600', build: (_text: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
+    { key: 'telegram', label: 'Telegram', icon: Send, color: 'bg-sky-500', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
+    { key: 'twitter', label: 'X / Twitter', icon: Share2, color: 'bg-black', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
+    { key: 'pinterest', label: 'Pinterest', icon: Image, color: 'bg-red-600', build: (text: string, url: string, img?: string) => `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(text)}${img ? `&media=${encodeURIComponent(img)}` : ''}` },
+    { key: 'instagram', label: 'Instagram (copy)', icon: Instagram, color: 'bg-pink-600', build: () => '' /* IG has no web share — copy + open */ },
+  ];
+
+  const openShare = async (task: any, platformKey: string) => {
     const platform = SHARE_PLATFORMS.find(p => p.key === platformKey);
-    if (!platform) return;
-
-    const shareUrl = task.link_url || window.location.origin;
-    const caption = task.caption || task.description || task.title;
-    const fullText = `${task.title}\n\n${caption}`;
-
-    const finalUrl = platform.build(fullText, shareUrl);
-    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-    toast.success(`Opened ${platform.label}. Share to your feed or status, then submit your proof!`);
+    if (!platform || !task.share_url) return;
+    // Generate (or reuse) a tracked smart share URL that shows the banner before redirect
+    const smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url;
+    const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
+    if (platformKey === 'instagram') {
+      navigator.clipboard.writeText(`${text}\n${smartUrl}`);
+      toast.success('Caption copied! Open Instagram to paste.');
+      window.open('https://www.instagram.com/', '_blank');
+    } else {
+      window.open(platform.build(text, smartUrl, task.flyer_url), '_blank', 'noopener,noreferrer');
+    }
   };
 
-  // Official Platform Task Verification Flow
-  const startPlatformVerification = (task: CreditTask, platformKey: string) => {
-    const platform = SHARE_PLATFORMS.find(p => p.key === platformKey);
-    if (platform && task.share_url) {
-      const text = `${task.title} — ${task.description || ''}`;
-      window.open(platform.build(text, task.share_url), '_blank', 'noopener,noreferrer');
+  const completeTask = async (task: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (completions.includes(task.id)) {
+      toast.info("You have already completed this task!");
+      return;
     }
-    setPlatformShareTarget(null);
+
+    if (!task.is_official && task.creator_id === user.id) {
+      toast.error("You can't complete your own task!");
+      return;
+    }
+    if (task.max_completions && task.completions_count >= task.max_completions) {
+      toast.error("This task has reached its maximum number of completions.");
+      return;
+    }
+    // Open share platform picker first — user must actually share before reward
+    setShareTarget({ task });
+  };
+
+  const startVerification = (task: any, platformKey: string) => {
+    openShare(task, platformKey);
+    setShareTarget(null);
+
     setVerifyingTaskId(task.id);
-    toast.info("⏳ Sharing... Verifying in 15 seconds. Stay on page!", { duration: 15000 });
+    toast.info("⏳ Sharing... Verifying in 15 seconds. Stay on the share page!", { duration: 15000 });
 
     setTimeout(async () => {
       try {
@@ -259,268 +239,481 @@ const TaskList: React.FC<TaskListProps> = ({ onCreditsUpdate, credits, onNavigat
           return;
         }
 
-        const res = await executeCompleteTask(task.id);
-        setVerifyingTaskId(null);
+        // 1. Dedicated idempotent handler for the Official 100-Credit Platform Share Task
+        if (task.id === PLATFORM_100_CREDIT_TASK.id || task.is_official) {
+          const { data: existingClaims } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('type', 'platform_share_100_completed')
+            .limit(1);
 
-        if (res.alreadyCompleted) {
-          toast.info(res.error || "You have already completed this task today!");
+          if (existingClaims && existingClaims.length > 0) {
+            setVerifyingTaskId(null);
+            toast.info("100-credit sharing reward has already been claimed!");
+            setCompletions(prev => Array.from(new Set([...prev, task.id])));
+            return;
+          }
+
+          // Persist the completion record idempotently
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            title: '100 Credits Awarded',
+            message: 'You earned 100 promotional credits for sharing GGD Ad Network!',
+            type: 'platform_share_100_completed',
+            read: true,
+          });
+
+          // Fetch fresh credits and add 100
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('credits')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          const currentCredits = Number(prof?.credits || 0);
+          const updatedCredits = currentCredits + 100;
+
+          // Real-time update in database
+          await supabase
+            .from('profiles')
+            .update({ credits: updatedCredits })
+            .eq('user_id', user.id);
+
+          // Real-time update in UI state
+          onCreditsUpdate(updatedCredits);
           setCompletions(prev => Array.from(new Set([...prev, task.id])));
+          setVerifyingTaskId(null);
+          playRewardSound();
+          toast.success("🎉 Incredible! 100 Credits have been added to your balance!");
           return;
         }
 
-        if (!res.success) {
-          toast.error(res.error || "Failed to complete task");
+        // 2. Handler for community and advertiser tasks via complete_credit_task RPC
+        const { data, error } = await callRpc('complete_credit_task', {
+          p_task_id: task.id,
+        });
+
+        if (error) {
+          if ((error as any).code === '23505') {
+            setVerifyingTaskId(null);
+            toast.info("Already completed!");
+            setCompletions(prev => Array.from(new Set([...prev, task.id])));
+            return;
+          }
+
+          // Fallback: direct database insertion with unique constraint protection
+          const { error: insErr } = await supabase.from('task_completions').insert({
+            task_id: task.id,
+            user_id: user.id,
+          });
+
+          if (insErr) {
+            setVerifyingTaskId(null);
+            if ((insErr as any).code === '23505') {
+              toast.info("Already completed!");
+              setCompletions(prev => Array.from(new Set([...prev, task.id])));
+              return;
+            }
+            toast.error(insErr.message || "Failed to complete task");
+            return;
+          }
+
+          const awarded = task.reward_credits || 5;
+          const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+          const currentCredits = Number(prof?.credits || 0);
+          const updatedCredits = currentCredits + awarded;
+          await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
+
+          await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+          if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+            await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
+          }
+
+          onCreditsUpdate(updatedCredits);
+          setCompletions(prev => Array.from(new Set([...prev, task.id])));
+          setVerifyingTaskId(null);
+          playRewardSound();
+          toast.success(`🎉 Earned ${awarded} credits!`);
+          fetchTasks();
           return;
         }
 
-        if (res.newBalance !== undefined) {
-          onCreditsUpdate(res.newBalance);
+        const res = data as any;
+        if (res && !res.success) {
+          setVerifyingTaskId(null);
+          toast.info(res.error || "Could not complete task");
+          return;
         }
+
+        const awarded = res?.credits_awarded || task.reward_credits || 5;
+        const updatedCredits = credits + awarded;
+        onCreditsUpdate(updatedCredits);
         setCompletions(prev => Array.from(new Set([...prev, task.id])));
-        playRewardSound();
-        toast.success(`🎉 Task completed! +${res.rewardAwarded} credits credited to your wallet!`);
-        loadData();
-      } catch (err) {
         setVerifyingTaskId(null);
-        toast.error("Verification timed out. Please try again.");
+        playRewardSound();
+        toast.success(`🎉 Earned ${awarded} credits!`);
+        fetchTasks();
+      } catch (err: any) {
+        setVerifyingTaskId(null);
+        toast.error(err.message || "Task verification failed");
       }
     }, 15000);
   };
 
-  // Proof Submission Handler
-  const handleSubmitProof = async () => {
-    if (!selectedTaskForProof) return;
-    if (!proofFile && !proofPostLink.trim()) {
-      toast.error("Please upload a screenshot or paste a link to your post/status");
-      return;
-    }
-
-    setSubmittingProof(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      let uploadedProofUrl: string | null = null;
-      let proofHash = '';
-
-      // Upload screenshot if provided
-      if (proofFile) {
-        // Calculate hash to prevent duplicate submissions
-        try {
-          const buf = await proofFile.arrayBuffer();
-          const h = await crypto.subtle.digest('SHA-256', buf);
-          proofHash = Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-          const { data: dupe } = await supabase
-            .from('syndicate_task_assignments')
-            .select('id, syndicate_user_id')
-            .eq('proof_hash', proofHash)
-            .in('status', ['submitted', 'approved'])
-            .limit(1)
-            .maybeSingle();
-
-          if (dupe && dupe.syndicate_user_id !== user.id) {
-            toast.error("This exact screenshot has already been submitted by another member. Please upload your own original screenshot.");
-            setSubmittingProof(false);
-            return;
-          }
-        } catch (e) {
-          console.warn("Hash computation note:", e);
-        }
-
-        const ext = proofFile.name.split('.').pop() || 'jpg';
-        const fileName = `${user.id}/${selectedTaskForProof.id}_${Date.now()}.${ext}`;
-
-        let uploadRes = await supabase.storage
-          .from('syndicate-proofs')
-          .upload(fileName, proofFile, { upsert: true });
-
-        // Fallback to task-flyers bucket if syndicate-proofs is not configured
-        if (uploadRes.error) {
-          uploadRes = await supabase.storage
-            .from('task-flyers')
-            .upload(fileName, proofFile, { upsert: true });
-        }
-
-        if (uploadRes.error) {
-          throw new Error("Failed to upload screenshot: " + uploadRes.error.message);
-        }
-
-        const { data: urlData } = supabase.storage
-          .from(uploadRes.data ? 'syndicate-proofs' : 'task-flyers')
-          .getPublicUrl(fileName);
-        uploadedProofUrl = urlData.publicUrl;
-      }
-
-      // Check existing assignment
-      const existingAssign = myAssignments.find(a => a.task_id === selectedTaskForProof.id);
-      const executionDate = selectedTaskForProof.campaign_date || new Date().toISOString().split('T')[0];
-
-      if (existingAssign) {
-        const { error: updateErr } = await supabase
-          .from('syndicate_task_assignments')
-          .update({
-            proof_url: uploadedProofUrl || existingAssign.proof_url,
-            proof_link: proofPostLink.trim() || existingAssign.proof_link || null,
-            proof_hash: proofHash || existingAssign.proof_hash || null,
-            status: 'submitted',
-            submitted_at: new Date().toISOString(),
-          } as any)
-          .eq('id', existingAssign.id);
-
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase
-          .from('syndicate_task_assignments')
-          .insert({
-            task_id: selectedTaskForProof.id,
-            syndicate_user_id: user.id,
-            proof_url: uploadedProofUrl,
-            proof_link: proofPostLink.trim() || null,
-            proof_hash: proofHash || null,
-            status: 'submitted',
-            submitted_at: new Date().toISOString(),
-            execution_date: executionDate,
-          } as any);
-
-        if (insertErr) throw insertErr;
-      }
-
-      toast.success("✓ Proof submitted successfully! Admin will verify and settle your payout.");
-      playRewardSound();
-      setSelectedTaskForProof(null);
-      setProofFile(null);
-      setProofFilePreview(null);
-      setProofPostLink('');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to submit proof. Please try again.");
-    } finally {
-      setSubmittingProof(false);
-    }
-  };
+  const totalCost = (parseInt(newTask.reward_credits) || 5) * (parseInt(newTask.max_completions) || 1);
 
   return (
-    <div className="space-y-4 max-w-full min-w-0">
-      {/* Optional Slides Carousel */}
+    <div className="space-y-4">
+      {/* Slides at top of task feed */}
       {isEnabled('slides') && <SlideCarousel />}
 
-      {/* Top Universal Status Header */}
-      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
-            <ClipboardList className="h-5 w-5" />
+      {/* Earn summary header */}
+      <div className="rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 text-white p-3.5 flex items-center justify-between shadow-lg shadow-orange-500/20">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+            <Wallet className="h-4 w-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-foreground">Tasks & Campaigns</h2>
-              {isActivated ? (
-                <Badge className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5">
-                  <ShieldCheck className="h-3 w-3 mr-1" />
-                  Activated
-                </Badge>
-              ) : hasPendingApp ? (
-                <Badge variant="outline" className="text-amber-600 border-amber-600/40 text-[10px] font-bold px-2 py-0.5">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Review Pending
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground text-[10px] font-semibold px-2 py-0.5">
-                  Standard Member
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Official platform promotions & verified syndicate broadcasts
-            </p>
+            <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Your Credits</p>
+            <p className="text-lg font-black leading-tight">{credits.toLocaleString()}</p>
           </div>
         </div>
-
-        {/* User Balance & Refresh */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/80 border border-border text-xs font-bold text-foreground">
-            <Wallet className="h-3.5 w-3.5 text-purple-600" />
-            <span>{credits.toLocaleString()} Credits</span>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={loadData}
-            disabled={loading}
-            className="h-8 w-8 p-0 rounded-xl border-border"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => { setShowCreate(!showCreate); setSelectedTaskType(null); }} className="bg-white text-orange-600 hover:bg-white/90 text-xs rounded-full px-4 font-bold shadow-md">
+          <Plus className="h-3 w-3 mr-1" />New Task
+        </Button>
       </div>
 
-      {/* 1. FEATURED OFFICIAL PLATFORM TASK (Available to all users to earn credits) */}
-      {platformTask && (() => {
-        const platformCompleted = completions.includes(platformTask.id);
-        const isVerifying = verifyingTaskId === platformTask.id;
-        const rewardAmount = platformTask.reward_credits || 100;
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+          <Gift className="h-5 w-5 text-orange-500" />Credit Tasks (Community Promotion)
+        </h2>
+      </div>
 
+      {/* Task Type Selector / Creator */}
+      {showCreate && !selectedTaskType && (
+        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="text-center mb-1">
+            <h3 className="text-sm font-bold text-foreground">Create Credit Task</h3>
+            <p className="text-[10px] text-muted-foreground">Select a community promotion task to reward users with GGD Credits</p>
+          </div>
+
+          {/* Normal Share Task */}
+          <Card
+            className="border border-border/50 hover:border-orange-500/40 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/5 overflow-hidden group"
+            onClick={() => setSelectedTaskType('share')}
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Share2 className="h-6 w-6 text-orange-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">📢 Community Share Task</h4>
+                  <span className="text-[9px] font-bold bg-green-500/15 text-green-600 px-2 py-0.5 rounded-full">CREDITS</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Community promotion using GGD Credits. Community members share your flyer, link, or product to earn credits.</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Community members</span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-orange-500 transition-colors shrink-0" />
+            </CardContent>
+          </Card>
+
+          {/* YouTube Video Task — reuses the credit task system */}
+          <Card
+            className="border border-red-500/30 hover:border-red-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/10 overflow-hidden group"
+            onClick={() => setSelectedTaskType('youtube')}
+          >
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Eye className="h-6 w-6 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-foreground">▶️ YouTube Video Task</h4>
+                  <span className="text-[9px] font-bold bg-red-500/15 text-red-500 px-2 py-0.5 rounded-full">CREDITS</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Promote your YouTube video — community members watch and share it to earn credits.</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-red-500 transition-colors shrink-0" />
+            </CardContent>
+          </Card>
+
+          <Button variant="ghost" onClick={() => setShowCreate(false)} className="w-full text-xs text-muted-foreground h-9 rounded-xl">Cancel</Button>
+        </div>
+      )}
+
+      {/* Create Task Form */}
+      {showCreate && selectedTaskType && (
+        <Card className={`border overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300 ${
+          selectedTaskType === 'social'
+            ? 'border-purple-500/30 bg-gradient-to-b from-purple-500/5 to-transparent'
+            : 'border-orange-500/30 bg-gradient-to-b from-orange-500/5 to-transparent'
+        }`}>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                {selectedTaskType === 'social' ? (
+                  <><Crown className="h-4 w-4 text-purple-500" />Premium Social Task</>
+                ) : selectedTaskType === 'youtube' ? (
+                  <><Eye className="h-4 w-4 text-red-500" />YouTube Video Task</>
+                ) : (
+                  <><ClipboardList className="h-4 w-4 text-orange-500" />Share Task</>
+                )}
+              </h3>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedTaskType(null)} className="h-7 text-[10px] text-muted-foreground rounded-full px-2">
+                  Change type
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowCreate(false); setSelectedTaskType(null); }} className="h-7 w-7 p-0 rounded-full">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Credit wallet info */}
+            <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${
+              selectedTaskType === 'social' ? 'bg-purple-500/10' : 'bg-orange-500/10'
+            }`}>
+              <Wallet className={`h-4 w-4 ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`} />
+              <span className="text-xs text-muted-foreground">Your balance:</span>
+              <span className={`text-sm font-bold ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`}>{credits} credits</span>
+            </div>
+
+            <Input placeholder="Task title *" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30 font-medium" />
+            <Textarea placeholder="Describe what needs to be done..." value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} rows={2} className="text-sm rounded-2xl border-border/40 bg-muted/30 resize-none" />
+
+            {/* Flyer / Image Upload */}
+            <div>
+              <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Task Flyer / Image</Label>
+              <input type="file" id="taskFlyerInput" accept="image/*" onChange={handleFlyerSelect} className="hidden" />
+              {flyerPreview ? (
+                <div className="relative rounded-2xl overflow-hidden border border-border/40">
+                  <img loading="lazy" src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
+                  <Button variant="ghost" size="sm" onClick={() => { setFlyerFile(null); setFlyerPreview(null); }} className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/50 hover:bg-black/70 text-white">
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('taskFlyerInput')?.click()}
+                  className="w-full h-24 rounded-2xl border-dashed border-2 border-border/40 bg-muted/20 hover:bg-muted/30 flex flex-col items-center justify-center gap-1.5"
+                >
+                  <Image className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">Upload flyer or image</span>
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Credits/Person</Label>
+                <div className="relative">
+                  <Coins className={`absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`} />
+                  <Input
+                    type="number"
+                    min={selectedTaskType === 'social' ? 20 : 1}
+                    value={newTask.reward_credits}
+                    onChange={e => setNewTask({ ...newTask, reward_credits: e.target.value })}
+                    className="h-11 text-sm pl-9 rounded-2xl border-border/40 bg-muted/30 font-medium"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Max People</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newTask.max_completions}
+                    onChange={e => setNewTask({ ...newTask, max_completions: e.target.value })}
+                    className="h-11 text-sm pl-9 rounded-2xl border-border/40 bg-muted/30 font-medium"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">
+                  {selectedTaskType === 'youtube' ? 'YouTube URL' : 'Share Link'}
+                </Label>
+                <div className="flex gap-1 mb-1">
+                  <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Paste URL</button>
+                  {selectedTaskType !== 'youtube' && (
+                    <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
+                  )}
+                </div>
+                {shareLinkMode === 'manual' || selectedTaskType === 'youtube' ? (
+                  <Input
+                    placeholder={selectedTaskType === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
+                    value={newTask.share_url}
+                    onChange={e => setNewTask({ ...newTask, share_url: e.target.value })}
+                    className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30"
+                  />
+                ) : myShortLinks.length > 0 ? (
+                  <Select value={newTask.share_url} onValueChange={v => setNewTask({ ...newTask, share_url: v })}>
+                    <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-sm"><SelectValue placeholder="Pick smart link" /></SelectTrigger>
+                    <SelectContent>
+                      {myShortLinks.map((sl: any) => (
+                        <SelectItem key={sl.id} value={`${window.location.origin}/r/${sl.slug}`} className="text-xs">
+                          {sl.title || sl.slug} ({sl.clicks} clicks)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground bg-muted/30 rounded-xl p-2">No smart links yet. Create one in Smart Links menu.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Cost Summary */}
+            <div className={`rounded-xl px-3 py-2.5 border ${selectedTaskType === 'social' ? 'bg-purple-500/5 border-purple-500/20' : 'bg-orange-500/5 border-orange-500/20'}`}>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Credits per person</span>
+                <span className="font-semibold text-foreground">{parseInt(newTask.reward_credits) || 5}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs mt-1">
+                <span className="text-muted-foreground">Number of people</span>
+                <span className="font-semibold text-foreground">× {parseInt(newTask.max_completions) || 1}</span>
+              </div>
+              <div className="border-t border-border/30 my-1.5" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-foreground">Total Cost</span>
+                <span className={`font-black ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`}>{totalCost} credits</span>
+              </div>
+            </div>
+
+            {totalCost > credits && (
+              <div className="flex items-center gap-2 bg-red-500/10 rounded-xl px-3 py-2">
+                <Zap className="h-3.5 w-3.5 text-red-500" />
+                <p className="text-xs text-red-500 font-medium">Not enough credits. You need {totalCost} but have {credits}.</p>
+              </div>
+            )}
+
+            <Button
+              onClick={createTask}
+              disabled={totalCost > credits || uploadingFlyer}
+              className={`w-full text-white text-sm h-12 rounded-2xl font-bold shadow-lg transition-all ${
+                selectedTaskType === 'social'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-purple-500/25'
+                  : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/25'
+              }`}
+            >
+              {uploadingFlyer ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : (
+                <><Wallet className="h-4 w-4 mr-2" />Fund & Create — {totalCost} credits</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Share Platform Picker Dialog */}
+      <Dialog open={!!shareTarget} onOpenChange={o => { if (!o) setShareTarget(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base">Where will you share?</DialogTitle>
+          </DialogHeader>
+          {shareTarget?.task && (
+            <div className="space-y-3">
+              {shareTarget.task.flyer_url && (
+                <img loading="lazy" src={shareTarget.task.flyer_url} alt="" className="w-full h-32 object-cover rounded-xl" />
+              )}
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-sm font-bold text-foreground">{shareTarget.task.title}</p>
+                {shareTarget.task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{shareTarget.task.description}</p>}
+                <p className="text-[10px] text-blue-500 mt-1 truncate">{shareTarget.task.share_url}</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground text-center">Pick a platform — sharing opens with title, image & link.</p>
+              <div className="grid grid-cols-3 gap-2">
+                {SHARE_PLATFORMS.map(p => {
+                  const Icon = p.icon;
+                  return (
+                    <button
+                      key={p.key}
+                      onClick={() => startVerification(shareTarget.task, p.key)}
+                      className={`${p.color} text-white rounded-2xl p-3 flex flex-col items-center gap-1.5 hover:opacity-90 active:scale-95 transition`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px] font-semibold">{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-orange-500 text-center font-medium">⏳ You'll earn credits 15s after sharing.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Featured Platform 100-Credit Task */}
+      {(() => {
+        const platformCompleted = completions.includes(PLATFORM_100_CREDIT_TASK.id);
+        const isVerifying = verifyingTaskId === PLATFORM_100_CREDIT_TASK.id;
         return (
-          <Card className="overflow-hidden border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/10 shadow-xs rounded-2xl">
+          <Card className="overflow-hidden border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/10 shadow-md shadow-orange-500/5 transition-all rounded-2xl">
             <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-3.5 py-1.5 flex items-center justify-between text-white">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-yellow-200 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-wider">Official Platform Mission</span>
+                <span className="text-[11px] font-black uppercase tracking-wider">Featured Platform Task</span>
               </div>
-              <span className="text-[11px] font-black bg-white text-orange-600 px-2 py-0.5 rounded-full shadow-xs">
-                +{rewardAmount} CREDITS
+              <span className="text-[11px] font-black bg-white text-orange-600 px-2.5 py-0.5 rounded-full shadow-xs">
+                +100 CREDITS
               </span>
             </div>
-
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-orange-500/15 text-orange-600 flex items-center justify-center shrink-0">
+                <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/20">
                   <Share2 className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-bold text-foreground leading-snug">
-                    {platformTask.title}
+                    {PLATFORM_100_CREDIT_TASK.title}
                   </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    {platformTask.description}
+                  <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                    {PLATFORM_100_CREDIT_TASK.description}
                   </p>
                 </div>
               </div>
 
-              <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/70">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                  <Coins className="h-3.5 w-3.5 text-orange-500" />
-                  <span>Instant reward: <strong className="text-foreground font-bold">{rewardAmount} Credits</strong></span>
+              <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/70">
+                <div className="flex items-center gap-1.5 text-xs text-foreground/85 font-medium">
+                  <Coins className="h-4 w-4 text-orange-500" />
+                  <span>Reward: <strong className="text-foreground font-bold">100 Credits</strong> (Instant)</span>
                 </div>
 
                 {platformCompleted ? (
                   <Button
                     size="sm"
                     disabled
-                    className="bg-green-600 text-white font-bold text-xs rounded-xl px-3.5 h-8 opacity-95"
+                    className="bg-green-600 text-white font-bold text-xs rounded-full px-4 h-8 cursor-not-allowed opacity-95"
                   >
                     <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                    Completed Today ✓
+                    Claimed ✓
                   </Button>
                 ) : isVerifying ? (
                   <Button
                     size="sm"
                     disabled
-                    className="bg-orange-500 text-white font-bold text-xs rounded-xl px-3.5 h-8"
+                    className="bg-orange-500 text-white font-bold text-xs rounded-full px-4 h-8"
                   >
                     <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                    Verifying (15s)...
+                    Verifying...
                   </Button>
                 ) : (
                   <Button
                     size="sm"
-                    onClick={() => setPlatformShareTarget(platformTask)}
-                    className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl px-3.5 h-8 shadow-xs"
+                    onClick={() => completeTask(PLATFORM_100_CREDIT_TASK)}
+                    className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-full px-4 h-8 shadow-md shadow-orange-500/20"
                   >
-                    <Share2 className="h-3.5 w-3.5 mr-1.5" />
-                    Share & Earn {rewardAmount} Credits
+                    <Share2 className="h-3.5 w-3.5 mr-1" />
+                    Share & Earn 100 Credits
                   </Button>
                 )}
               </div>
@@ -529,484 +722,117 @@ const TaskList: React.FC<TaskListProps> = ({ onCreditsUpdate, credits, onNavigat
         );
       })()}
 
-      {/* 2. SYNDICATE BROADCAST CAMPAIGNS SECTION */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-purple-600 animate-ping" />
-            <h3 className="text-sm font-bold text-foreground">Syndicate Paid Broadcast Campaigns</h3>
-          </div>
-          {isActivated && (
-            <span className="text-xs font-semibold text-muted-foreground">
-              {syndicateTasks.length} Active {syndicateTasks.length === 1 ? 'Campaign' : 'Campaigns'}
-            </span>
-          )}
-        </div>
-
-        {/* ACTIVATION CHECK: What users see based on their activation status */}
-        {!isActivated ? (
-          <Card className="border border-purple-500/30 bg-gradient-to-br from-purple-500/5 via-background to-purple-500/10 rounded-2xl overflow-hidden">
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-start gap-3.5">
-                <div className="h-11 w-11 rounded-2xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-bold text-foreground">
-                      {hasPendingApp ? 'Syndicate Activation Under Review' : 'Syndicate Activation Required'}
-                    </h4>
-                    <Badge variant="outline" className="text-purple-600 border-purple-500/30 text-[10px] font-bold">
-                      Direct Payouts
-                    </Badge>
+      {/* Community & Advertiser Tasks */}
+      <div className="space-y-2">
+        {tasks.map(task => {
+          const completed = completions.includes(task.id);
+          const isPremium = task.task_type === 'social';
+          const isVerifying = verifyingTaskId === task.id;
+          const spotsLeft = task.max_completions ? task.max_completions - (task.completions_count || 0) : null;
+          const isOwner = !!uid && task.creator_id === uid;
+          return (
+            <Card key={task.id} className={`transition-all ${completed && !isOwner ? 'opacity-60' : 'hover:shadow-md'} ${isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' : isPremium ? 'border-purple-500/20' : ''}`}>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl ${
+                    completed
+                      ? 'bg-green-100 dark:bg-green-500/20'
+                      : isPremium
+                        ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-500/20 dark:to-pink-500/20'
+                        : 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20'
+                  }`}>
+                    {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
+                     isPremium ? <Crown className="h-4 w-4 text-purple-600" /> :
+                     <Gift className="h-4 w-4 text-orange-600" />}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    {hasPendingApp 
-                      ? 'Your application to become a verified Syndicate member is currently being reviewed by administrators. Once approved, all active paid broadcast campaigns will appear directly here for participation and daily settlements.'
-                      : 'Paid broadcast campaigns on GGD are distributed directly to verified Syndicate members. When a campaign is broadcast, members share the flyer to their WhatsApp status and social channels, submit proof, and receive direct cash settlements.'
-                    }
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
-                <div className="p-2.5 rounded-xl bg-card border border-border flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center font-bold text-xs">1</div>
-                  <span className="font-semibold text-foreground">Activate Profile</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-card border border-border flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-purple-500/15 text-purple-600 flex items-center justify-center font-bold text-xs">2</div>
-                  <span className="font-semibold text-foreground">Broadcast Daily</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-card border border-border flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-blue-500/15 text-blue-600 flex items-center justify-center font-bold text-xs">3</div>
-                  <span className="font-semibold text-foreground">Direct Bank Payout</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex flex-wrap items-center gap-2.5">
-                {hasPendingApp ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onNavigate?.('syndicate')}
-                    className="h-9 px-4 rounded-xl text-xs font-bold border-border"
-                  >
-                    View Application Status
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      onClick={() => onNavigate?.('syndicate-join')}
-                      className="h-9 px-4 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs flex items-center gap-1.5"
-                    >
-                      <Crown className="h-3.5 w-3.5" />
-                      Apply for Syndicate Activation
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => onNavigate?.('syndicate')}
-                      className="h-9 px-3.5 rounded-xl text-xs font-bold border-border"
-                    >
-                      Learn More
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          /* ACTIVATED USER: DIRECT ACCESS TO BROADCAST CAMPAIGNS (No assignment barriers) */
-          <div className="space-y-3">
-            {syndicateTasks.length === 0 ? (
-              <div className="p-8 text-center bg-card rounded-2xl border border-border">
-                <Megaphone className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
-                <h4 className="text-sm font-bold text-foreground">No Broadcast Campaigns Active Right Now</h4>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  New verified campaigns are broadcast throughout the day. Check back soon or ensure your notifications are on!
-                </p>
-              </div>
-            ) : (
-              syndicateTasks.map(task => {
-                const userAssign = myAssignments.find(a => a.task_id === task.id);
-                const isSubmitted = userAssign && userAssign.status === 'submitted';
-                const isApproved = userAssign && userAssign.status === 'approved';
-                const isRejected = userAssign && userAssign.status === 'rejected';
-
-                const rewardText = task.reward_amount 
-                  ? `₦${Number(task.reward_amount).toLocaleString()}` 
-                  : 'Cash Reward';
-
-                const platforms = Array.isArray(task.target_platforms) 
-                  ? task.target_platforms 
-                  : (task.target_platforms || 'WhatsApp, Facebook').split(',');
-
-                return (
-                  <Card key={task.id} className="border border-border bg-card rounded-2xl overflow-hidden shadow-xs hover:border-purple-500/30 transition-all">
-                    <CardContent className="p-4 sm:p-5 space-y-4">
-                      {/* Top Bar: Title & Reward */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-500/10 px-2 py-0.5 rounded-md">
-                              Syndicate Campaign
-                            </span>
-                            {task.target_state && task.target_state !== 'ALL' && (
-                              <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                                📍 {task.target_state} State
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-sm sm:text-base font-bold text-foreground leading-snug">
-                            {task.title}
-                          </h4>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="text-sm sm:text-base font-black text-emerald-600 block">
-                            {rewardText}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">per verified post</span>
-                        </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-foreground">{task.title}</p>
+                      {isPremium && <span className="text-[8px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>}
+                      {isOwner && <span className="text-[8px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
+                      {isOwner && !task.is_active && <span className="text-[8px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
+                    </div>
+                    {task.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-1">
+                        <Coins className="h-3 w-3 text-green-500" />
+                        <p className="text-[10px] text-green-600 font-bold">+{task.reward_credits} credits</p>
                       </div>
-
-                      {/* Flyer / Visual Preview (if available) */}
-                      {task.flyer_url && (
-                        <div className="relative rounded-xl overflow-hidden border border-border/60 bg-muted/30">
-                          <img 
-                            loading="lazy" 
-                            src={task.flyer_url} 
-                            alt={task.title} 
-                            className="w-full max-h-56 object-cover" 
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleDownloadFlyer(task.flyer_url, task.title)}
-                            className="absolute bottom-2 right-2 h-7 px-2.5 rounded-lg text-[11px] font-bold bg-black/70 hover:bg-black/90 text-white backdrop-blur flex items-center gap-1 shadow-md"
-                          >
-                            <Download className="h-3 w-3" />
-                            Download Flyer
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Description / Post Caption */}
-                      {(task.caption || task.description) && (
-                        <div className="p-3 rounded-xl bg-muted/50 border border-border/60 space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-foreground">
-                            <span>Caption to Broadcast:</span>
-                            <button
-                              type="button"
-                              onClick={() => copyCaption(task.caption || task.description, task.id)}
-                              className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-[11px] font-semibold"
-                            >
-                              {copiedTaskId === task.id ? (
-                                <><Check className="h-3 w-3 text-emerald-600" /> Copied!</>
-                              ) : (
-                                <><Copy className="h-3 w-3" /> Copy Caption</>
-                              )}
-                            </button>
-                          </div>
-                          <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-4">
-                            {task.caption || task.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Quick 1-Tap Share Bar */}
-                      <div className="space-y-1.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground block">
-                          Broadcast to your audience:
+                      {spotsLeft !== null && (
+                        <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+                          {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
                         </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openPlatformShare(task, 'whatsapp')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] text-white text-xs font-bold shadow-2xs hover:opacity-95 transition"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            WhatsApp Status
-                          </button>
+                      )}
+                    </div>
+                  </div>
+                  {isOwner ? (
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                      {task.completions_count || 0}/{task.max_completions || '∞'} done
+                    </span>
+                  ) : isVerifying ? (
+                    <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full">
+                      <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
+                      <span className="text-[10px] text-yellow-600 font-medium">Verifying...</span>
+                    </div>
+                  ) : !completed ? (
+                    <Button size="sm" className={`h-8 text-xs rounded-full text-white px-4 ${
+                      isPremium ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-orange-500 to-red-600'
+                    }`} onClick={() => completeTask(task)} disabled={spotsLeft !== null && spotsLeft <= 0}>
+                      {task.share_url ? <><Share2 className="h-3 w-3 mr-1" />Share</> : <>Do it <ArrowRight className="h-3 w-3 ml-1" /></>}
+                    </Button>
+                  ) : (
+                    <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full">Done ✓</span>
+                  )}
+                </div>
 
-                          <button
-                            type="button"
-                            onClick={() => openPlatformShare(task, 'facebook')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1877F2] text-white text-xs font-bold shadow-2xs hover:opacity-95 transition"
-                          >
-                            <Facebook className="h-3.5 w-3.5" />
-                            Facebook
-                          </button>
+                {/* Task flyer image */}
+                {task.flyer_url && (
+                  <div className="rounded-xl overflow-hidden border border-border/30">
+                    <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
+                  </div>
+                )}
 
-                          <button
-                            type="button"
-                            onClick={() => openPlatformShare(task, 'telegram')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#229ED9] text-white text-xs font-bold shadow-2xs hover:opacity-95 transition"
-                          >
-                            <Send className="h-3.5 w-3.5" />
-                            Telegram
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openPlatformShare(task, 'x')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-bold shadow-2xs hover:opacity-95 transition"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                            X / Twitter
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Bottom Status / Direct Submission Bar */}
-                      <div className="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2">
-                          {isApproved ? (
-                            <Badge className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1">
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                              Approved & Paid ({rewardText})
-                            </Badge>
-                          ) : isSubmitted ? (
-                            <Badge className="bg-amber-600 text-white text-xs font-bold px-2.5 py-1">
-                              <Clock className="h-3.5 w-3.5 mr-1" />
-                              Proof Submitted — In Review
-                            </Badge>
-                          ) : isRejected ? (
-                            <Badge variant="destructive" className="text-xs font-bold px-2.5 py-1">
-                              <AlertCircle className="h-3.5 w-3.5 mr-1" />
-                              Rejected ({userAssign?.rejection_reason || 'Incomplete proof'})
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5 text-purple-600" />
-                              Ready for submission
-                            </span>
-                          )}
-                        </div>
-
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTaskForProof(task);
-                            setProofFile(null);
-                            setProofFilePreview(null);
-                            setProofPostLink(userAssign?.proof_link || '');
-                          }}
-                          className={`h-9 px-4 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 ${
-                            isApproved 
-                              ? 'bg-muted text-muted-foreground hover:bg-muted' 
-                              : isSubmitted 
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                                : 'bg-purple-600 hover:bg-purple-700 text-white'
-                          }`}
-                        >
-                          <Upload className="h-3.5 w-3.5" />
-                          {isSubmitted ? 'Update Proof' : isRejected ? 'Re-submit Proof' : 'Submit Proof of Broadcast'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
+                {/* Preview share page (everyone can preview) */}
+                {isOwner ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleTaskActive(task)}>
+                      {task.is_active ? 'Pause' : 'Resume'}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={async () => {
+                      const u = await getOrCreateTaskShareUrl(task.id);
+                      if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
+                    }}>
+                      <Eye className="h-3 w-3 mr-1" />View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl text-red-600 border-red-500/30" onClick={() => deleteTask(task)}>
+                      Delete
+                    </Button>
+                  </div>
+                ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[10px] rounded-full"
+                  onClick={async () => {
+                    const u = await getOrCreateTaskShareUrl(task.id);
+                    if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
+                  }}
+                >
+                  <Eye className="h-3 w-3 mr-1" />Preview Share Page
+                </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+        {tasks.length === 0 && (
+          <div className="text-center py-10 text-muted-foreground">
+            <Gift className="h-12 w-12 mx-auto mb-3 opacity-20" />
+            <p className="text-sm font-medium">No tasks available yet</p>
+            <p className="text-xs opacity-60">Create one or check back later!</p>
           </div>
         )}
       </div>
-
-      {/* 3. BUSINESS / ADVERTISER FOOTER SECTION */}
-      <Card className="border border-border/80 bg-muted/40 rounded-2xl p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold shrink-0">
-              <Megaphone className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="text-xs sm:text-sm font-bold text-foreground">Want to Broadcast Your Own Business?</h4>
-              <p className="text-[11px] text-muted-foreground">
-                Launch an official Syndicate Campaign to broadcast your flyer across thousands of verified Nigerian status viewers.
-              </p>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate?.('business-tasks')}
-            className="h-8 px-3.5 text-xs font-bold rounded-xl border-border shrink-0 self-start sm:self-auto"
-          >
-            Launch Campaign
-          </Button>
-        </div>
-      </Card>
-
-      {/* Proof Submission Dialog */}
-      <Dialog open={!!selectedTaskForProof} onOpenChange={(open) => { if (!open) setSelectedTaskForProof(null); }}>
-        <DialogContent className="max-w-md rounded-2xl p-5 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Upload className="h-4 w-4 text-purple-600" />
-              Submit Proof of Broadcast
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedTaskForProof && (
-            <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-muted/50 border border-border text-xs space-y-1">
-                <p className="font-bold text-foreground">{selectedTaskForProof.title}</p>
-                <p className="text-muted-foreground text-[11px]">
-                  Eligible Payout: <strong className="text-emerald-600 font-bold">₦{Number(selectedTaskForProof.reward_amount || 0).toLocaleString()}</strong>
-                </p>
-              </div>
-
-              {/* Upload Screenshot / Image */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-foreground block">
-                  1. Upload Screenshot of Your Status / Post *
-                </label>
-                <input
-                  type="file"
-                  id="proofScreenshotInput"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setProofFile(file);
-                      setProofFilePreview(URL.createObjectURL(file));
-                    }
-                  }}
-                  className="hidden"
-                />
-
-                {proofFilePreview ? (
-                  <div className="relative rounded-xl overflow-hidden border border-border">
-                    <img 
-                      src={proofFilePreview} 
-                      alt="Proof preview" 
-                      className="w-full max-h-48 object-cover" 
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setProofFile(null);
-                        setProofFilePreview(null);
-                      }}
-                      className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/60 text-white hover:bg-black/80"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById('proofScreenshotInput')?.click()}
-                    className="w-full h-24 rounded-xl border-dashed border-2 border-border/80 flex flex-col items-center justify-center gap-1 hover:bg-muted/40"
-                  >
-                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Tap to upload screenshot (PNG, JPG)
-                    </span>
-                  </Button>
-                )}
-              </div>
-
-              {/* Post Link (Optional) */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground block">
-                  2. Post Link (Optional for Facebook / X / TikTok)
-                </label>
-                <Input
-                  placeholder="https://facebook.com/... or https://x.com/..."
-                  value={proofPostLink}
-                  onChange={(e) => setProofPostLink(e.target.value)}
-                  className="h-10 text-xs rounded-xl"
-                />
-              </div>
-
-              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[11px] text-muted-foreground space-y-1">
-                <p className="font-bold text-foreground flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />
-                  Proof Verification Note:
-                </p>
-                <p>
-                  Screenshots are verified using image fingerprinting. Make sure your screenshot clearly shows the flyer posted to your audience or status viewers.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setSelectedTaskForProof(null)}
-                  className="flex-1 h-10 rounded-xl text-xs font-bold"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleSubmitProof}
-                  disabled={submittingProof || (!proofFile && !proofPostLink.trim())}
-                  className="flex-1 h-10 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {submittingProof ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-3.5 w-3.5 mr-1.5" />
-                      Confirm Submission
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Platform Task Share Platform Picker Dialog */}
-      <Dialog open={!!platformShareTarget} onOpenChange={(o) => { if (!o) setPlatformShareTarget(null); }}>
-        <DialogContent className="max-w-sm rounded-2xl p-5 space-y-3">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold">Select Sharing Platform</DialogTitle>
-          </DialogHeader>
-          {platformShareTarget && (
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-muted/60 text-xs space-y-1">
-                <p className="font-bold text-foreground">{platformShareTarget.title}</p>
-                <p className="text-[11px] text-muted-foreground line-clamp-2">{platformShareTarget.description}</p>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Pick a platform to share the official GGD mission. Return in 15 seconds to claim credits!
-              </p>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {SHARE_PLATFORMS.map(p => {
-                  const Icon = p.icon;
-                  return (
-                    <button
-                      key={p.key}
-                      onClick={() => startPlatformVerification(platformShareTarget, p.key)}
-                      className={`${p.color} text-white rounded-xl p-3 flex flex-col items-center gap-1.5 hover:opacity-95 transition text-xs font-bold`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span>{p.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

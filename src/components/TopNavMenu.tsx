@@ -21,7 +21,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     ...(isEnabled('ads') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
     { id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] },
     { id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] },
-    ...(isEnabled('tasks') ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
+    ...(isEnabled('nav_credit_tasks') && isEnabled('tasks') ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
     ...(isEnabled('syndicate') ? [{
       id: isSyndicate ? 'syndicate' : 'syndicate-join',
       icon: Users,

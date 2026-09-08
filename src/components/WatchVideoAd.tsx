@@ -7,6 +7,7 @@ import { Youtube, Coins, CheckCircle2, Loader2, Clock, Sparkles, Award, Play } f
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playRewardSound } from '@/lib/soundEffects';
+import confetti from 'canvas-confetti';
 
 interface WatchAd {
   id: string;
@@ -110,6 +111,15 @@ const WatchVideoAdItem: React.FC<{
 
       // Trigger reward sound and celebration feedback
       playRewardSound();
+      try {
+        confetti({
+          particleCount: 70,
+          spread: 60,
+          origin: { y: 0.7 },
+        });
+      } catch (confettiErr) {
+        console.warn("Confetti effect skipped:", confettiErr);
+      }
       onClaimed(ad.reward_credits);
     } catch (e: any) {
       console.error("Watch reward claim error:", e);
@@ -283,6 +293,15 @@ const WatchVideoAds: React.FC = () => {
             onClaimed={(creditsAwarded) => {
               setClaimed(prev => new Set([...prev, a.id]));
               setCelebrationReward(creditsAwarded);
+              try {
+                confetti({
+                  particleCount: 100,
+                  spread: 80,
+                  origin: { y: 0.5 },
+                });
+              } catch (e) {
+                console.warn(e);
+              }
             }}
           />
         ))}
