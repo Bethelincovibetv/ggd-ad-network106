@@ -1358,6 +1358,63 @@ export type Database = {
         }
         Relationships: []
       }
+      syndicate_bank_change_requests: {
+        Row: {
+          account_name: string
+          account_number: string
+          admin_notes: string | null
+          bank_code: string | null
+          bank_name: string
+          created_at: string
+          id: string
+          old_account_name: string | null
+          old_account_number: string | null
+          old_bank_name: string | null
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          admin_notes?: string | null
+          bank_code?: string | null
+          bank_name: string
+          created_at?: string
+          id?: string
+          old_account_name?: string | null
+          old_account_number?: string | null
+          old_bank_name?: string | null
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          admin_notes?: string | null
+          bank_code?: string | null
+          bank_name?: string
+          created_at?: string
+          id?: string
+          old_account_name?: string | null
+          old_account_number?: string | null
+          old_bank_name?: string | null
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       syndicate_profiles: {
         Row: {
           account_name: string | null
