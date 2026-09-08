@@ -23,9 +23,11 @@ import {
   Sparkles,
   UserCheck,
   ChevronRight,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import {
   verifyRecipient,
   executeTransfer,
@@ -72,6 +74,8 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [history, setHistory] = useState<TransferRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [activeHistoryReceipt, setActiveHistoryReceipt] = useState<ReceiptData | null>(null);
+  const [historyReceiptModalOpen, setHistoryReceiptModalOpen] = useState(false);
 
   // Channel ref for cleanup
   const channelRef = useRef<any>(null);

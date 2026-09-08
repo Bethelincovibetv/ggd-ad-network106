@@ -258,11 +258,14 @@ export async function executeTransfer(
 
     // D. Notify receiver (non-blocking)
     try {
+      const senderName = senderProfile.display_name || 'A GGD member';
       await supabase.from('notifications').insert({
         user_id: recipient.userId,
         title: '💰 GGG Credits Received',
-        message: `You received ${amount} GGG credits from ${senderProfile.display_name || 'a member'}.`,
-        type: 'credit',
+        message: `You received ${amount.toLocaleString()} GGG credits from ${senderName}. Click to view your receipt.`,
+        type: 'credit_transfer',
+        nav_target: `receipt:${transferRecord?.id || ''}`,
+        is_read: false,
       });
     } catch {
       // Notification insertion may be restricted by RLS for non-admins; non-blocking
@@ -366,14 +369,32 @@ export async function syncPendingTransfersForUser(userId: string): Promise<{
       return { credited: false, totalAdded: 0, newBalance: currentCredits };
     }
 
-    // 7. Mark each transfer as claimed idempotently in notifications table
-    const claimInserts = uncredited.map(t => ({
-      user_id: userId,
-      title: '💰 GGG Credits Received',
-      message: `transfer:${t.id}:${t.amount}`,
-      type: 'transfer_credited',
-      is_read: true,
-    }));
+    // 7. Fetch sender profiles to show who sent them money
+    const senderIds = Array.from(new Set(uncredited.map(t => t.sender_id)));
+    const { data: senderProfiles } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, business_slug, referral_code')
+      .in('user_id', senderIds);
+
+    const senderMap = new Map<string, string>();
+    senderProfiles?.forEach(p => {
+      const name = p.display_name || 'A GGD member';
+      const handle = p.business_slug ? `@${p.business_slug}` : p.referral_code ? `@${p.referral_code}` : '';
+      senderMap.set(p.user_id, handle ? `${name} (${handle})` : name);
+    });
+
+    // Mark each transfer as claimed idempotently in notifications table
+    const claimInserts = uncredited.map(t => {
+      const senderInfo = senderMap.get(t.sender_id) || 'A member';
+      return {
+        user_id: userId,
+        title: '💰 GGG Credits Received',
+        message: `You received ${t.amount.toLocaleString()} GGG credits from ${senderInfo}.\ntransfer:${t.id}:${t.amount}`,
+        type: 'transfer_credited',
+        nav_target: `receipt:${t.id}`,
+        is_read: false,
+      };
+    });
 
     await supabase.from('notifications').insert(claimInserts);
 
