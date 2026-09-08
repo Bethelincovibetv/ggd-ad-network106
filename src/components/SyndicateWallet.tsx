@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
 import { resolveBankAccountPaystack } from "@/utils/paystackBank";
+import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
 async function sha256Hex(s: string): Promise<string> {
   const buf = new TextEncoder().encode(s);
@@ -270,6 +271,15 @@ const SyndicateWallet = () => {
 
         if (insErr) throw insErr;
       }
+
+      // Notify Admins in real database
+      await notifyAdminsOfApprovalRequired({
+        title: "🏦 Bank Account Change Request",
+        message: `A Syndicate member requested a bank update to ${changeBankName.trim()} (${maskAccountNumber(changeAccountNumber)}).`,
+        type: 'syndicate_approval',
+        tab: 'verification',
+        linkUrl: '/admin?section=syndicate&tab=verification',
+      });
 
       toast.success("Bank change request submitted for Admin verification!");
       setShowChangeModal(false);

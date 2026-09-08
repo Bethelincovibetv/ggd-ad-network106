@@ -8,6 +8,7 @@ import { Users, CheckCircle, Clock, XCircle, Loader2, Sparkles, TrendingUp, Doll
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
+import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
 interface SyndicateApplicationFormProps {
   onApplied: () => void;
@@ -56,6 +57,15 @@ const SyndicateApplicationForm = ({ onApplied }: SyndicateApplicationFormProps) 
       setSubmitting(false);
       return;
     }
+
+    // Create real database notification for all authorized Admins
+    await notifyAdminsOfApprovalRequired({
+      title: "📋 New Syndicate Application",
+      message: `A new applicant (${form.state}) applied to join the Syndicate Direct Team.`,
+      type: 'syndicate_approval',
+      tab: 'verification',
+      linkUrl: '/admin?section=syndicate&tab=verification',
+    });
 
     toast.success("Application submitted! Admin will review it.");
     onApplied();

@@ -12,6 +12,7 @@ import {
   BarChart2, 
   Bell, 
   FileText, 
+  FileCheck,
   Settings, 
   RefreshCw, 
   Calendar,
@@ -35,18 +36,22 @@ import { SyndicateVerification } from "./admin/syndicate/SyndicateVerification";
 import { SyndicateNotifications } from "./admin/syndicate/SyndicateNotifications";
 import { SyndicateAudit } from "./admin/syndicate/SyndicateAudit";
 import { SyndicateSettings } from "./admin/syndicate/SyndicateSettings";
+import { SyndicatePendingApprovals } from "./admin/syndicate/SyndicatePendingApprovals";
 
 export type SyndicateAdminTab = 
   | 'overview' 
-  | 'campaigns' 
+  | 'pending-approvals'
   | 'members' 
+  | 'campaigns' 
   | 'participation' 
   | 'proofs' 
-  | 'payouts' 
-  | 'verification' 
+  | 'payments' 
+  | 'bank-requests'
   | 'notifications' 
   | 'audit' 
-  | 'settings';
+  | 'settings'
+  | 'payouts'
+  | 'verification';
 
 interface AdminSyndicateManagerProps {
   initialCampaignId?: string;
@@ -226,46 +231,80 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
     fetchData();
   }, [fetchData]);
 
-  // Tab navigation items
+  const totalPendingApprovals = (stats.pendingProofs || 0) + (stats.pendingBankChanges || 0) + (stats.pendingApps || 0);
+
+  // Tab navigation items exactly as specified
   const navItems = [
     { id: 'overview', label: 'Overview', icon: Layers, badge: null },
-    { id: 'campaigns', label: 'Campaigns', icon: Briefcase, badge: stats.activeCampaigns ? `${stats.activeCampaigns}` : null },
-    { id: 'members', label: 'Team Members', icon: Users, badge: `${stats.activeMembers}/${stats.totalMembers}` },
+    { 
+      id: 'pending-approvals', 
+      label: 'Pending Approvals', 
+      icon: Clock, 
+      badge: totalPendingApprovals > 0 ? `${totalPendingApprovals}` : null, 
+      badgeColor: 'bg-amber-600' 
+    },
+    { 
+      id: 'members', 
+      label: 'Syndicate Members', 
+      icon: Users, 
+      badge: `${stats.activeMembers}/${stats.totalMembers}` 
+    },
+    { 
+      id: 'campaigns', 
+      label: 'Campaigns', 
+      icon: Briefcase, 
+      badge: stats.activeCampaigns ? `${stats.activeCampaigns}` : null 
+    },
     { id: 'participation', label: 'Participation', icon: BarChart2, badge: null },
-    { id: 'proofs', label: 'Proof Audits', icon: Clock, badge: stats.pendingProofs ? `${stats.pendingProofs}` : null, badgeColor: 'bg-amber-600' },
-    { id: 'payouts', label: 'Settlements', icon: Banknote, badge: stats.pendingSettlements ? `${stats.pendingSettlements}` : null, badgeColor: 'bg-emerald-600' },
-    { id: 'verification', label: 'Bank & KYC', icon: ShieldCheck, badge: (stats.pendingBankChanges + stats.pendingApps) ? `${stats.pendingBankChanges + stats.pendingApps}` : null, badgeColor: 'bg-indigo-600' },
-    { id: 'notifications', label: 'Broadcasts', icon: Bell, badge: null },
-    { id: 'audit', label: 'Audit Trail', icon: FileText, badge: null },
+    { 
+      id: 'proofs', 
+      label: 'Proofs', 
+      icon: FileCheck, 
+      badge: stats.pendingProofs ? `${stats.pendingProofs}` : null, 
+      badgeColor: 'bg-amber-600' 
+    },
+    { 
+      id: 'payments', 
+      label: 'Payments', 
+      icon: Banknote, 
+      badge: stats.pendingSettlements ? `${stats.pendingSettlements}` : null, 
+      badgeColor: 'bg-emerald-600' 
+    },
+    { 
+      id: 'bank-requests', 
+      label: 'Bank Requests', 
+      icon: ShieldCheck, 
+      badge: stats.pendingBankChanges ? `${stats.pendingBankChanges}` : null, 
+      badgeColor: 'bg-indigo-600' 
+    },
+    { id: 'notifications', label: 'Notifications', icon: Bell, badge: null },
+    { id: 'audit', label: 'Audit', icon: FileText, badge: null },
     { id: 'settings', label: 'Settings', icon: Settings, badge: null },
   ];
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-5">
       {/* Top Universal Control & Context Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center font-black shadow-md flex-shrink-0">
-            <ShieldCheck className="h-6 w-6" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
+            <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-black tracking-tight text-foreground">Syndicate Direct Team</h2>
-              <Badge className="bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                Command Engine
-              </Badge>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">Syndicate</h2>
               <Badge variant="outline" className="text-[11px] font-semibold">
                 Payout Split: <span className="font-mono text-purple-600 ml-1">{payoutPct}%</span>
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Coordinated broadcast operations, proof auditing, and deterministic Paystack batch payouts.
+              Manage campaigns, member participation, approvals, and payouts.
             </p>
           </div>
         </div>
 
         {/* Global Date Filter & Sync Actions */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 bg-muted/80 px-3 py-1.5 rounded-xl border border-border text-xs">
             <Calendar className="h-4 w-4 text-purple-600" />
             <span className="font-bold text-foreground">Date:</span>
@@ -304,29 +343,32 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       </div>
 
       {/* Modern Top Horizontal Tab Navigation Bar */}
-      <div className="border-b border-border bg-card/60 rounded-2xl p-1.5 backdrop-blur-xs">
+      <div className="border border-border bg-card rounded-2xl p-1.5">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isTabActive = 
+              activeTab === item.id || 
+              (item.id === 'payments' && activeTab === 'payouts') ||
+              (item.id === 'bank-requests' && activeTab === 'verification');
 
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(item.id as SyndicateAdminTab)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
-                  isActive
-                    ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30'
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+                  isTabActive
+                    ? 'bg-purple-600 text-white shadow-xs'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-purple-600'}`} />
+                <Icon className={`h-4 w-4 ${isTabActive ? 'text-white' : 'text-purple-600'}`} />
                 <span>{item.label}</span>
 
                 {item.badge && (
                   <Badge className={`text-[9px] font-bold px-1.5 py-0 ${
-                    isActive 
+                    isTabActive 
                       ? 'bg-white/20 text-white border-0' 
                       : item.badgeColor ? `${item.badgeColor} text-white` : 'bg-muted text-muted-foreground border-border'
                   }`}>
@@ -346,10 +388,23 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
             stats={stats}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
-            onNavigateTab={(tab) => setActiveTab(tab as SyndicateAdminTab)}
+            onNavigateTab={(tab) => {
+              if (tab === 'verification') setActiveTab('bank-requests');
+              else if (tab === 'payouts') setActiveTab('payments');
+              else setActiveTab(tab as SyndicateAdminTab);
+            }}
             onRefresh={fetchData}
             recentActivity={recentActivity}
             payoutPct={payoutPct}
+          />
+        )}
+
+        {activeTab === 'pending-approvals' && (
+          <SyndicatePendingApprovals
+            assignments={assignments}
+            bankRequests={bankRequests}
+            applications={applications}
+            onRefresh={fetchData}
           />
         )}
 
@@ -393,7 +448,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
           />
         )}
 
-        {activeTab === 'payouts' && (
+        {(activeTab === 'payments' || activeTab === 'payouts') && (
           <SyndicatePayouts
             payouts={payouts}
             onRefresh={fetchData}
@@ -403,11 +458,12 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
           />
         )}
 
-        {activeTab === 'verification' && (
+        {(activeTab === 'bank-requests' || activeTab === 'verification') && (
           <SyndicateVerification
             bankRequests={bankRequests}
             applications={applications}
             onRefresh={fetchData}
+            defaultTab="bank"
           />
         )}
 

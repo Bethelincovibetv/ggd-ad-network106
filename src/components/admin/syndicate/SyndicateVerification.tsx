@@ -22,11 +22,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyMemberOfStatusUpdate } from "@/services/adminNotificationHelper";
 
 interface SyndicateVerificationProps {
   bankRequests: any[];
   applications: any[];
   onRefresh: () => void;
+  defaultTab?: 'bank' | 'kyc';
 }
 
 const maskAccountNumber = (acc?: string | null) => {
@@ -40,9 +42,16 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
   bankRequests,
   applications,
   onRefresh,
+  defaultTab = 'bank',
 }) => {
-  const [activeTab, setActiveTab] = useState<'bank' | 'kyc'>('bank');
+  const [activeTab, setActiveTab] = useState<'bank' | 'kyc'>(defaultTab);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   // Bank Change Request Actions
   const handleReviewBankRequest = async (requestId: string, approve: boolean, userId: string, reqData: any) => {
@@ -70,6 +79,15 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
           })
           .eq('user_id', userId);
 
+        // Notify member of approval
+        await notifyMemberOfStatusUpdate({
+          userId,
+          title: "✅ Bank Details Approved & Locked",
+          message: `Your updated bank account (${reqData.requested_bank_name || reqData.bank_name || 'Bank'}) has been verified and locked for secure payouts.`,
+          type: 'syndicate_bank',
+          navTarget: 'wallet',
+        });
+
         toast.success("Bank details approved and locked for payout security!");
       } else {
         await supabase
@@ -79,6 +97,15 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
             reviewed_at: new Date().toISOString(),
           })
           .eq('id', requestId);
+
+        // Notify member of rejection
+        await notifyMemberOfStatusUpdate({
+          userId,
+          title: "⚠️ Bank Change Request Rejected",
+          message: "Your bank details change request was reviewed and could not be verified by Admin.",
+          type: 'syndicate_bank',
+          navTarget: 'wallet',
+        });
 
         toast.info("Bank change request rejected");
       }
@@ -115,6 +142,15 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
           .update({ syndicate_status: 'active' })
           .eq('user_id', userId);
 
+        // Notify member
+        await notifyMemberOfStatusUpdate({
+          userId,
+          title: "🎉 Syndicate Application Approved!",
+          message: "Congratulations! Your application to join the Syndicate Direct Team has been approved. You can now execute campaigns and earn daily.",
+          type: 'syndicate_status',
+          navTarget: 'syndicate',
+        });
+
         toast.success("Member approved to join Syndicate Direct Team!");
       } else {
         await supabase
@@ -124,6 +160,15 @@ export const SyndicateVerification: React.FC<SyndicateVerificationProps> = ({
             reviewed_at: new Date().toISOString(),
           })
           .eq('id', appId);
+
+        // Notify member
+        await notifyMemberOfStatusUpdate({
+          userId,
+          title: "❌ Syndicate Application Update",
+          message: "Your application to join the Syndicate Direct Team was reviewed and could not be approved at this time.",
+          type: 'syndicate_status',
+          navTarget: 'syndicate',
+        });
 
         toast.info("Application rejected");
       }

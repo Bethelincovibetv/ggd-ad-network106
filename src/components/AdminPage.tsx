@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -87,6 +87,7 @@ const allNavItems = navGroups.flatMap(g => g.items);
 
 const AdminPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState('syndicate');
   const [syndicateProps, setSyndicateProps] = useState<{ initialCampaignId?: string; initialTab?: any }>({});
   const [isAdmin, setIsAdmin] = useState(false);
@@ -105,6 +106,46 @@ const AdminPage = () => {
     };
     checkAdmin();
   }, [navigate]);
+
+  // Sync with URL query parameters (e.g. ?section=syndicate&tab=verification&id=...)
+  useEffect(() => {
+    const sectionParam = searchParams.get('section');
+    const tabParam = searchParams.get('tab');
+    const idParam = searchParams.get('id');
+
+    if (sectionParam) {
+      setActiveSection(sectionParam);
+      if (sectionParam === 'syndicate') {
+        setSyndicateProps({
+          initialTab: (tabParam as any) || 'overview',
+          initialCampaignId: idParam || undefined,
+        });
+      }
+    }
+  }, [searchParams]);
+
+  // Listen for in-app navigation events
+  useEffect(() => {
+    const handleNav = (e: any) => {
+      const detail = e.detail;
+      if (typeof detail === 'string') {
+        if (detail.startsWith('admin:')) {
+          const parts = detail.split(':');
+          const section = parts[1] || 'syndicate';
+          const tab = parts[2];
+          setActiveSection(section);
+          if (section === 'syndicate' && tab) {
+            setSyndicateProps({ initialTab: tab as any });
+          }
+        } else if (detail === 'admin') {
+          setActiveSection('syndicate');
+        }
+      }
+    };
+
+    window.addEventListener('ggd-nav' as any, handleNav);
+    return () => window.removeEventListener('ggd-nav' as any, handleNav);
+  }, []);
 
   if (loading) {
     return (

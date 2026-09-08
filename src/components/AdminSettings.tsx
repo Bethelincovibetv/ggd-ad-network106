@@ -20,6 +20,7 @@ const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' 
 const AdminSettings = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [savingAll, setSavingAll] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [promos, setPromos] = useState<any[]>([]);
   const [newPromo, setNewPromo] = useState({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users' });
@@ -45,27 +46,77 @@ const AdminSettings = () => {
     setSettings(map);
     setLoading(false);
   };
+
   const fetchPromos = async () => {
     const { data } = await supabase.from('promotional_materials' as any).select('*').order('created_at', { ascending: false });
     setPromos(data || []);
   };
+
   const saveSetting = async (key: string, value: string) => {
-    const { data: existing } = await supabase.from('app_settings').select('key').eq('key', key).maybeSingle();
-    if (existing) { await supabase.from('app_settings').update({ value }).eq('key', key); }
-    else { await supabase.from('app_settings').insert({ key, value }); }
+    const { error } = await supabase.from('app_settings').upsert({ key, value }, { onConflict: 'key' });
+    if (error) {
+      console.error(`Failed to save setting ${key}:`, error);
+      throw error;
+    }
     setSettings(prev => ({ ...prev, [key]: value }));
   };
+
   const saveAllSettings = async () => {
-    const keys = ['login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits',
-      'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
-      'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
-      'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
-      'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
-      'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
-      'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact',
-      'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template'];
-    for (const key of keys) { if (settings[key] !== undefined) await saveSetting(key, settings[key]); }
-    toast.success('All settings saved!');
+    setSavingAll(true);
+    try {
+      const keys = [
+        'login_credits', 'ad_cost_credits', 'credit_exchange_rate', 'premium_upgrade_credits',
+        'whatsapp_group_link', 'admin_whatsapp', 'admin_bio',
+        'paystack_public_key', 'paystack_secret_key', 'vendor_wallet_bonus', 'directory_listing_cost',
+        'premium_system_enabled', 'auto_convert_ads_to_tasks', 'referral_percentage',
+        'premium_tier1_price', 'premium_tier2_price', 'premium_tier3_price',
+        'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
+        'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact',
+        'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template',
+        'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours'
+      ];
+
+      const upsertPayload = keys
+        .filter(key => settings[key] !== undefined)
+        .map(key => ({ key, value: String(settings[key]) }));
+
+      if (upsertPayload.length > 0) {
+        const { error } = await supabase
+          .from('app_settings')
+          .upsert(upsertPayload, { onConflict: 'key' });
+
+        if (error) throw error;
+      }
+
+      toast.success('All settings successfully saved to database!');
+    } catch (err: any) {
+      toast.error('Failed to save settings: ' + (err.message || 'Unknown database error'));
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
+  const saveSection = async (keys: string[], sectionName: string) => {
+    setSavingAll(true);
+    try {
+      const upsertPayload = keys
+        .filter(key => settings[key] !== undefined)
+        .map(key => ({ key, value: String(settings[key]) }));
+
+      if (upsertPayload.length > 0) {
+        const { error } = await supabase
+          .from('app_settings')
+          .upsert(upsertPayload, { onConflict: 'key' });
+
+        if (error) throw error;
+      }
+
+      toast.success(`${sectionName} changes saved successfully!`);
+    } catch (err: any) {
+      toast.error('Failed to save changes: ' + (err.message || 'Database error'));
+    } finally {
+      setSavingAll(false);
+    }
   };
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -108,11 +159,34 @@ const AdminSettings = () => {
   return (
     <div className="space-y-5">
       {/* Hero */}
-      <div className="rounded-2xl bg-gradient-to-br from-slate-700 via-gray-800 to-slate-900 p-5 text-white relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl" />
-        <Settings className="h-8 w-8 mb-2 drop-shadow-lg" />
-        <h3 className="text-base font-black relative">Platform Settings</h3>
-        <p className="text-[11px] opacity-80 relative">Configure pricing, keys, and branding</p>
+      <div className="rounded-2xl bg-gradient-to-br from-slate-700 via-gray-800 to-slate-900 p-5 text-white relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1">
+            <Settings className="h-6 w-6 text-orange-400 drop-shadow" />
+            <h3 className="text-base font-black">Platform Settings</h3>
+          </div>
+          <p className="text-[11px] opacity-80">Configure pricing, keys, rates, and platform branding</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-2">
+          <Button
+            onClick={saveAllSettings}
+            disabled={savingAll}
+            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold text-xs h-10 px-5 rounded-xl shadow-md border-0"
+          >
+            {savingAll ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin text-white" />
+                Saving to Database...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2 text-white" />
+                Save All Changes
+              </>
+            )}
+          </Button>
+        </div>
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl pointer-events-none" />
       </div>
 
       {/* Credits & Pricing */}
@@ -142,6 +216,21 @@ const AdminSettings = () => {
             <input type="checkbox" className="h-5 w-5 accent-orange-500" checked={settings.landing_search_enabled !== 'false'}
               onChange={e => setSettings(p => ({ ...p, landing_search_enabled: e.target.checked ? 'true' : 'false' }))} />
           </div>
+          <div className="col-span-2 flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection([
+                'login_credits', 'ad_cost_credits', 'credit_exchange_rate', 
+                'premium_upgrade_credits', 'directory_listing_cost', 
+                'referral_percentage', 'syndicate_payout_percentage', 'landing_search_enabled'
+              ], 'Credits & Pricing')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -156,6 +245,17 @@ const AdminSettings = () => {
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Admin Bio</Label>
             <Textarea value={settings.admin_bio || ''} onChange={e => setSettings(p => ({ ...p, admin_bio: e.target.value }))} rows={2} className="rounded-xl bg-secondary/30 border-0" />
+          </div>
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection(['admin_whatsapp', 'whatsapp_group_link', 'admin_bio'], 'Communication')}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -232,6 +332,21 @@ const AdminSettings = () => {
               <p>• Withdrawals above the Max limit or when disabled route safely to Admin Manual Review.</p>
             </div>
           </div>
+
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection([
+                'paystack_public_key', 'paystack_secret_key', 'auto_payout_enabled', 
+                'max_auto_payout_amount', 'min_auto_payout_amount'
+              ], 'Paystack & Payouts')}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -272,6 +387,23 @@ const AdminSettings = () => {
               <p className="text-[10px] text-muted-foreground mt-1">All paid plans automatically expire after 1 month. Admin can subscribe any user from User Management.</p>
             </div>
           </div>
+
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection([
+                'premium_system_enabled', 'auto_convert_ads_to_tasks', 'premium_tier0_days', 
+                'premium_tier1_price', 'premium_tier1_days', 'premium_tier2_price', 
+                'premium_tier2_days', 'premium_tier3_price', 'premium_tier3_days', 
+                'premium_business_contact'
+              ], 'Premium System')}
+              className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -299,11 +431,37 @@ const AdminSettings = () => {
               );
             })}
           </div>
+
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection(['ad_display_template'], 'Ad Display')}
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <Button onClick={saveAllSettings} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white h-12 rounded-xl shadow-lg font-bold text-sm">
-        <Save className="h-4 w-4 mr-2" />Save All Settings
+      <Button 
+        onClick={saveAllSettings} 
+        disabled={savingAll}
+        className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white h-12 rounded-xl shadow-lg font-bold text-sm"
+      >
+        {savingAll ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin text-white" />
+            Saving Settings to Database...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4 mr-2" />
+            Save All Settings to Database
+          </>
+        )}
       </Button>
 
       {/* Promo Materials */}

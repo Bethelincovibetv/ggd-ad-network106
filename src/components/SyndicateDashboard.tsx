@@ -45,6 +45,7 @@ import YouTubeEmbed from "@/components/YouTubeEmbed";
 import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
 import SyndicateWallet from "@/components/SyndicateWallet";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
 const isVideoProof = (url?: string | null) => {
   if (!url) return false;
@@ -374,6 +375,15 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         if (insertErr) throw insertErr;
       }
 
+      // Notify Admins to review this campaign proof
+      await notifyAdminsOfApprovalRequired({
+        title: "📸 New Syndicate Proof Submitted",
+        message: `A member submitted execution proof for campaign: "${task.title || 'Syndicate Campaign'}". Review and approve for payout.`,
+        type: 'syndicate_approval',
+        tab: 'proofs',
+        linkUrl: '/admin?section=syndicate&tab=proofs',
+      });
+
       toast.success("🎉 Proof submitted successfully! Your participation is recorded for team settlement.");
       
       // Clear per-task form state
@@ -427,111 +437,61 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   });
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16 px-3 sm:px-4">
-      {/* Top Header & Operator Profile Card */}
-      <div className="rounded-3xl bg-gradient-to-br from-purple-800 via-indigo-900 to-slate-950 p-5 sm:p-7 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 w-64 h-64 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-10 -bottom-10 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <img
-                src={mainProfile?.avatar_url || profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${userEmail}`}
-                alt="Profile"
-                className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover border-2 border-white/20 shadow-md bg-white/10"
-                onError={(e: any) => {
-                  e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${userEmail}`;
-                }}
-              />
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadAvatar(file);
-                }}
-              />
-              <button 
-                onClick={() => avatarInputRef.current?.click()} 
-                disabled={uploadingAvatar}
-                aria-label="Upload photo"
-                className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white text-purple-900 flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition"
-              >
-                {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-              </button>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-yellow-400/20 text-yellow-200 border-yellow-400/40 text-[10px] font-extrabold uppercase tracking-wider">
-                  <Award className="h-3 w-3 mr-1 text-yellow-300" /> Direct Team Operator
-                </Badge>
-                {profile?.is_bank_locked && (
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
-                    <ShieldCheck className="h-3 w-3 mr-1" /> Bank Locked
-                  </Badge>
-                )}
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black truncate mt-1">
-                {profile?.display_name || mainProfile?.display_name || 'Syndicate Member'}
-              </h2>
-              <div className="flex flex-wrap items-center gap-3 text-xs opacity-90 mt-0.5">
-                {profile?.state && (
-                  <p className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-yellow-300" />
-                    <span>{profile.state} Station</span>
-                  </p>
-                )}
-                {profile?.bank_name && (
-                  <p className="text-slate-300">
-                    {profile.bank_name} ({maskAccountNumber(profile.account_number)})
-                  </p>
-                )}
-              </div>
-            </div>
+    <div className="space-y-4 max-w-4xl mx-auto pb-16 px-3 sm:px-4">
+      {/* Mobile-Friendly Clean App Header */}
+      <div className="rounded-2xl bg-card border border-border/80 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
+            <Award className="h-6 w-6 text-white" />
           </div>
-
-          {/* Quick Info Badge */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10 flex sm:flex-col justify-between items-center sm:items-end gap-2">
-            <div className="text-left sm:text-right">
-              <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">Automated Team Split</p>
-              <p className="text-base sm:text-lg font-black text-yellow-300">{payoutPct}% Payout Pool</p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">Syndicate</h1>
+              <Badge className="bg-purple-600 text-white text-[10px] font-bold">
+                {profile?.state ? `${profile.state} Station` : 'Nationwide'}
+              </Badge>
+              {profile?.bank_name && (
+                <Badge variant="outline" className="text-[10px] font-semibold border-emerald-500 text-emerald-600 dark:text-emerald-400">
+                  Bank Verified
+                </Badge>
+              )}
             </div>
-            <p className="text-[10px] text-slate-300">No manual withdrawal requests needed</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Available campaigns for member broadcast and automated settlement
+            </p>
           </div>
         </div>
 
-        {/* 3 Metric Cards */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 mt-5 relative">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/10">
-            <div className="text-lg sm:text-2xl font-black">{tasks.length}</div>
-            <div className="text-[11px] opacity-80 mt-0.5 font-medium">Active Campaigns</div>
+        {/* Compact Quick Stats Strip */}
+        <div className="flex items-center gap-2 bg-muted/60 p-1.5 rounded-xl border border-border/60 self-start sm:self-auto">
+          <div className="px-2.5 py-1 text-center">
+            <span className="text-[10px] text-muted-foreground block">Campaigns</span>
+            <span className="text-xs font-black text-foreground">{tasks.length}</span>
           </div>
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/10">
-            <div className="text-lg sm:text-2xl font-black">{myAssignments.length}</div>
-            <div className="text-[11px] opacity-80 mt-0.5 font-medium">Submissions</div>
+          <div className="h-6 w-px bg-border/80" />
+          <div className="px-2.5 py-1 text-center">
+            <span className="text-[10px] text-muted-foreground block">Participated</span>
+            <span className="text-xs font-black text-purple-600">{myAssignments.length}</span>
           </div>
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/10">
-            <div className="text-lg sm:text-2xl font-black">₦{(wallet?.balance || 0).toLocaleString()}</div>
-            <div className="text-[11px] opacity-80 mt-0.5 font-medium">Direct Earnings</div>
+          <div className="h-6 w-px bg-border/80" />
+          <div className="px-2.5 py-1 text-center">
+            <span className="text-[10px] text-muted-foreground block">Earnings</span>
+            <span className="text-xs font-black text-emerald-600">₦{(wallet?.balance || 0).toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       {/* PRIMARY SEGMENTED NAVIGATION TABS */}
-      <Tabs value={mainTab} onValueChange={setMainTab} className="w-full space-y-5">
-        <TabsList className="w-full grid grid-cols-4 h-14 p-1.5 bg-muted/80 rounded-2xl border border-border">
+      <Tabs value={mainTab} onValueChange={setMainTab} className="w-full space-y-4">
+        <TabsList className="w-full grid grid-cols-4 h-12 p-1 bg-muted/80 rounded-xl border border-border">
           <TabsTrigger 
             value="campaigns" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl h-11 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
-            <Briefcase className="h-4 w-4 text-purple-600" />
-            <span className="hidden sm:inline">Active</span> Campaigns
+            <Briefcase className="h-3.5 w-3.5 text-purple-600" />
+            <span className="hidden sm:inline">Available</span> Campaigns
             {tasks.length > 0 && (
-              <Badge className="h-5 px-1.5 text-[10px] bg-purple-600 text-white font-bold ml-0.5">
+              <Badge className="h-4 px-1 text-[9px] bg-purple-600 text-white font-bold ml-0.5">
                 {tasks.length}
               </Badge>
             )}
@@ -539,12 +499,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
           <TabsTrigger 
             value="submissions" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl h-11 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
-            <CheckSquare className="h-4 w-4 text-blue-600" />
+            <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
             Submissions
             {myAssignments.length > 0 && (
-              <Badge className="h-5 px-1.5 text-[10px] bg-blue-600 text-white font-bold ml-0.5">
+              <Badge className="h-4 px-1 text-[9px] bg-blue-600 text-white font-bold ml-0.5">
                 {myAssignments.length}
               </Badge>
             )}
@@ -552,37 +512,37 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
           <TabsTrigger 
             value="wallet" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl h-11 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
-            <Wallet className="h-4 w-4 text-green-600" />
+            <Wallet className="h-3.5 w-3.5 text-green-600" />
             Payout Bank
           </TabsTrigger>
 
           <TabsTrigger 
             value="profile" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl h-11 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
-            <ShieldCheck className="h-4 w-4 text-orange-600" />
+            <ShieldCheck className="h-3.5 w-3.5 text-orange-600" />
             Profile
           </TabsTrigger>
         </TabsList>
 
-        {/* VIEW 1: ACTIVE CAMPAIGNS & PARTICIPATION */}
+        {/* VIEW 1: AVAILABLE CAMPAIGNS & PARTICIPATION */}
         <TabsContent value="campaigns" className="space-y-4 outline-none">
           {/* Date Selector & Status Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-purple-200 dark:border-purple-900/40 bg-card shadow-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border border-border bg-card shadow-2xs">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
               <Calendar className="h-4 w-4 text-purple-600" />
-              <span className="text-xs font-bold text-foreground">Filter Campaign Date:</span>
+              <span>Available Campaigns</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 type="button"
                 size="sm"
                 variant={dateFilterMode === 'today' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('today')}
-                className={`h-8 text-xs font-bold rounded-lg ${dateFilterMode === 'today' ? 'bg-purple-600 text-white' : ''}`}
+                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'today' ? 'bg-purple-600 text-white' : 'border-border'}`}
               >
                 Today
               </Button>
@@ -592,7 +552,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                 size="sm"
                 variant={dateFilterMode === 'yesterday' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('yesterday')}
-                className={`h-8 text-xs font-bold rounded-lg ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white' : ''}`}
+                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white' : 'border-border'}`}
               >
                 Yesterday
               </Button>
@@ -602,12 +562,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                 size="sm"
                 variant={dateFilterMode === 'all' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('all')}
-                className={`h-8 text-xs font-bold rounded-lg ${dateFilterMode === 'all' ? 'bg-purple-600 text-white' : ''}`}
+                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'all' ? 'bg-purple-600 text-white' : 'border-border'}`}
               >
                 All Dates
               </Button>
 
-              <div className="flex items-center gap-1.5 bg-muted/70 px-2 py-1 rounded-lg border border-border">
+              <div className="flex items-center gap-1 bg-muted/70 px-2 py-0.5 rounded-lg border border-border">
                 <input
                   type="date"
                   value={selectedDate}
@@ -616,14 +576,14 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                       setDateFilter('custom', e.target.value);
                     }
                   }}
-                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
                 />
               </div>
             </div>
           </div>
 
           {/* Campaigns Feed */}
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {tasks.map((task) => {
               const userAssignment = assignmentByTaskId[task.id];
               const hasParticipated = Boolean(userAssignment && ['submitted', 'approved', 'paid'].includes(userAssignment.status));
@@ -642,300 +602,263 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
               return (
                 <Card 
                   key={task.id} 
-                  className={`border shadow-sm overflow-hidden transition-all bg-card ${
+                  className={`border shadow-xs overflow-hidden transition-all bg-card rounded-2xl ${
                     hasParticipated 
-                      ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/10' 
-                      : 'border-border/80 hover:border-purple-400'
+                      ? 'border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/15 dark:bg-emerald-950/10' 
+                      : 'border-border/80 hover:border-purple-300'
                   }`}
                 >
-                  <CardContent className="p-4 sm:p-6 space-y-4">
-                    {/* Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                      <div className="flex flex-wrap items-center gap-2">
+                  <CardContent className="p-4 sm:p-5 space-y-3.5">
+                    {/* Header: Title, Date, Location */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-black text-foreground">{task.title}</h3>
+                          <Badge variant="outline" className="text-[11px] font-semibold flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-purple-600" />
+                            {task.target_state || 'Nationwide'}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[10px] font-medium">
+                            <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
+                            {task.campaign_date || selectedDate}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2">
                         {hasParticipated ? (
-                          <Badge className="bg-emerald-600 text-white text-xs font-bold px-3 py-1 flex items-center gap-1">
-                            <CheckCircle className="h-3.5 w-3.5" /> Proof Submitted · Participating
+                          <Badge className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 flex items-center gap-1">
+                            <CheckCircle className="h-3.5 w-3.5" /> ✓ Participated
                           </Badge>
                         ) : (
-                          <Badge className="bg-purple-600 text-white text-xs font-bold px-3 py-1 flex items-center gap-1">
-                            <Zap className="h-3.5 w-3.5" /> Active Direct Campaign
+                          <Badge className="bg-purple-600 text-white text-xs font-bold px-2.5 py-0.5">
+                            Available
                           </Badge>
-                        )}
-
-                        <Badge variant="outline" className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300">
-                          ₦{taskPayoutNaira.toLocaleString()} Member Payout
-                        </Badge>
-
-                        {task.target_state ? (
-                          <Badge variant="outline" className="text-xs font-semibold flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" /> {task.target_state}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs font-semibold">
-                            Nationwide
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Date: <strong>{task.campaign_date || selectedDate}</strong></span>
-                      </div>
-                    </div>
-
-                    {/* Main Content Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Left 2 Cols: Details, Copy, Links */}
-                      <div className="md:col-span-2 space-y-3">
-                        <div>
-                          <h3 className="text-base sm:text-lg font-black text-foreground">{task.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">
-                            {task.description}
-                          </p>
-                        </div>
-
-                        {/* Placements Badges */}
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <span className="text-[11px] font-bold text-muted-foreground mr-1">Target Channels:</span>
-                          {(task.placements || []).map((p: string) => (
-                            <Badge key={p} variant="secondary" className="text-[10px] font-semibold uppercase">
-                              {p.replace(/_/g, ' ')}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        {/* Action Tools: Copy Text, Download Flyer, Open Link */}
-                        <div className="flex flex-wrap items-center gap-2 pt-2">
-                          {task.description && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyText(task.description)}
-                              className="h-9 text-xs font-bold rounded-xl"
-                            >
-                              <Copy className="h-3.5 w-3.5 mr-1.5 text-purple-600" /> Copy Caption
-                            </Button>
-                          )}
-
-                          {task.smart_link && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyText(task.smart_link)}
-                              className="h-9 text-xs font-bold rounded-xl"
-                            >
-                              <Share2 className="h-3.5 w-3.5 mr-1.5 text-blue-600" /> Copy Smart Link
-                            </Button>
-                          )}
-
-                          {task.smart_link && (
-                            <a 
-                              href={task.smart_link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center h-9 px-3 text-xs font-bold rounded-xl border border-input bg-background hover:bg-muted transition"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5 mr-1 text-slate-500" /> Open Target URL
-                            </a>
-                          )}
-
-                          {task.flyer_url && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => downloadFlyer(task.flyer_url, task.title)}
-                              className="h-9 text-xs font-bold rounded-xl text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20"
-                            >
-                              <Download className="h-3.5 w-3.5 mr-1.5" /> Download Flyer
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Deterministic Settlement Model breakdown */}
-                        <div className="rounded-xl p-2.5 bg-muted/60 border border-border/60 text-[11px] text-muted-foreground flex flex-wrap items-center justify-between gap-2">
-                          <span>Settlement Formula: ₦{settlementBase.toLocaleString()} Base × {payoutPct}% Pool = ₦{teamPayoutPool.toLocaleString()} ÷ {eligibleMembersCount} Slots</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">₦{taskPayoutNaira.toLocaleString()} per Member</span>
-                        </div>
-                      </div>
-
-                      {/* Right Col: Flyer Visual Preview */}
-                      <div className="flex flex-col items-center justify-center">
-                        {task.flyer_url ? (
-                          <div className="w-full h-44 rounded-2xl overflow-hidden border border-border bg-muted/40 shadow-xs relative group">
-                            <img 
-                              src={task.flyer_url} 
-                              alt={task.title} 
-                              className="w-full h-full object-cover transition group-hover:scale-105 duration-300" 
-                            />
-                            <button
-                              type="button"
-                              onClick={() => downloadFlyer(task.flyer_url, task.title)}
-                              aria-label="Download high resolution flyer"
-                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5"
-                            >
-                              <Download className="h-4 w-4" /> Download High-Res Flyer
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="w-full h-44 rounded-2xl border border-dashed border-border flex flex-col items-center justify-center text-muted-foreground text-xs p-4 text-center">
-                            <Briefcase className="h-8 w-8 mb-1.5 opacity-40 text-purple-600" />
-                            <span>No flyer image attached</span>
-                          </div>
                         )}
                       </div>
                     </div>
 
-                    {/* SUBMISSION / PARTICIPATION PANEL */}
-                    <div className="pt-3 border-t border-border/60">
+                    {/* Member Experience Status & Payout Grid */}
+                    <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-muted/40 border border-border/50 text-center">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block font-medium">Participation</span>
+                        <span className={`text-xs font-bold ${hasParticipated ? 'text-emerald-600' : 'text-foreground'}`}>
+                          {hasParticipated ? '✓ Participated' : 'Not Participated'}
+                        </span>
+                      </div>
+                      <div className="border-x border-border/60">
+                        <span className="text-[10px] text-muted-foreground block font-medium">Proof Status</span>
+                        <span className={`text-xs font-bold ${hasParticipated ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {hasParticipated 
+                            ? (userAssignment.status === 'approved' || userAssignment.status === 'paid' ? 'Settled & Paid' : 'Submitted') 
+                            : 'Not Submitted'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block font-medium">Payout</span>
+                        <span className={`text-xs font-black ${hasParticipated ? 'text-emerald-600' : 'text-foreground'}`}>
+                          {hasParticipated ? `₦${taskPayoutNaira.toLocaleString()}` : '₦0'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Short Description */}
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                        {task.description}
+                      </p>
+                    )}
+
+                    {/* Campaign Materials & Actions */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {task.description && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyText(task.description)}
+                          className="h-8 text-xs font-bold rounded-xl border-border"
+                        >
+                          <Copy className="h-3 w-3 mr-1 text-purple-600" /> Copy Caption
+                        </Button>
+                      )}
+
+                      {task.smart_link && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyText(task.smart_link)}
+                          className="h-8 text-xs font-bold rounded-xl border-border"
+                        >
+                          <Share2 className="h-3 w-3 mr-1 text-blue-600" /> Copy Link
+                        </Button>
+                      )}
+
+                      {task.smart_link && (
+                        <a 
+                          href={task.smart_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center h-8 px-2.5 text-xs font-bold rounded-xl border border-border bg-background hover:bg-muted transition"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1 text-slate-500" /> Open Link
+                        </a>
+                      )}
+
+                      {task.flyer_url && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadFlyer(task.flyer_url, task.title)}
+                          className="h-8 text-xs font-bold rounded-xl text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20"
+                        >
+                          <Download className="h-3 w-3 mr-1" /> Download Flyer
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Visual Flyer Thumbnail (if attached) */}
+                    {task.flyer_url && (
+                      <div className="relative rounded-xl overflow-hidden border border-border/70 max-w-sm max-h-48 bg-muted/40">
+                        <img 
+                          src={task.flyer_url} 
+                          alt={task.title} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
+
+                    {/* PARTICIPATION & PROOF PANEL */}
+                    <div className="pt-2 border-t border-border/50">
                       {hasParticipated ? (
-                        /* ALREADY PARTICIPATED STATE */
-                        <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 p-4 space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle className="h-5 w-5 text-emerald-600" />
-                              <div>
-                                <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                                  Participation Recorded & Verified
-                                </h4>
-                                <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                                  Submitted on {new Date(userAssignment.submitted_at || userAssignment.created_at).toLocaleString()}
-                                </p>
-                              </div>
+                        /* ALREADY PARTICIPATED VIEW */
+                        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                              <CheckCircle className="h-4 w-4 text-emerald-600" />
+                              <span>Participation Recorded</span>
                             </div>
-
-                            <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1">
-                              {userAssignment.status === 'approved' || userAssignment.status === 'paid' 
-                                ? 'Settled & Paid' 
-                                : 'Pending Admin Settlement'}
-                            </Badge>
+                            <span className="text-[11px] text-muted-foreground">
+                              {new Date(userAssignment.submitted_at || userAssignment.created_at).toLocaleDateString()}
+                            </span>
                           </div>
 
                           {userAssignment.proof_url && (
-                            <div className="flex items-center gap-3 pt-2">
+                            <div className="flex items-center gap-3 pt-1">
                               <a 
                                 href={userAssignment.proof_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="h-16 w-24 rounded-xl overflow-hidden border border-emerald-300 dark:border-emerald-800 bg-background flex-shrink-0 block hover:opacity-80 transition"
+                                className="h-12 w-16 rounded-lg overflow-hidden border border-border bg-background flex-shrink-0 block"
                               >
                                 {isVideoProof(userAssignment.proof_url) ? (
                                   <div className="h-full w-full bg-slate-900 flex items-center justify-center text-white">
-                                    <Video className="h-5 w-5 text-emerald-400" />
+                                    <Video className="h-4 w-4 text-emerald-400" />
                                   </div>
                                 ) : (
                                   <img 
                                     src={userAssignment.proof_url} 
-                                    alt="Submitted proof" 
+                                    alt="Proof" 
                                     className="h-full w-full object-cover" 
                                   />
                                 )}
                               </a>
-                              <div className="text-xs space-y-1">
+                              <div className="text-xs">
                                 <a 
                                   href={userAssignment.proof_url} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
-                                  className="font-bold text-emerald-800 dark:text-emerald-300 hover:underline flex items-center gap-1"
+                                  className="font-bold text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1"
                                 >
-                                  View Uploaded Proof <ExternalLink className="h-3 w-3" />
+                                  View Submitted Proof <ExternalLink className="h-3 w-3" />
                                 </a>
                                 {userAssignment.proof_link && (
-                                  <a 
-                                    href={userAssignment.proof_link} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-muted-foreground hover:underline text-[11px] block truncate max-w-xs"
-                                  >
-                                    Post URL: {userAssignment.proof_link}
-                                  </a>
+                                  <p className="text-[11px] text-muted-foreground truncate max-w-xs">
+                                    Post: {userAssignment.proof_link}
+                                  </p>
                                 )}
                               </div>
                             </div>
                           )}
                         </div>
                       ) : (
-                        /* DIRECT SUBMISSION FORM (NO CLAIM REQUIRED) */
-                        <div className="rounded-2xl bg-secondary/40 border border-border/70 p-4 sm:p-5 space-y-4">
+                        /* DIRECT SUBMISSION FORM - NO CLAIMING OR FETCHING */
+                        <div className="rounded-xl bg-muted/40 border border-border/70 p-3 sm:p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                              <Upload className="h-4 w-4 text-purple-600" /> Submit Proof of Broadcast
+                            <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                              <Upload className="h-3.5 w-3.5 text-purple-600" /> Submit Proof to Participate
                             </h4>
-                            <span className="text-[11px] text-muted-foreground">
-                              Upload screenshot or video proof to confirm participation
+                            <span className="text-[11px] text-emerald-600 font-bold">
+                              Eligible Payout: ₦{taskPayoutNaira.toLocaleString()}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {/* Proof File Picker */}
                             <div>
-                              <label className="text-xs font-semibold text-foreground block mb-1">
-                                Upload Screenshot or Video Proof <span className="text-red-500">*</span>
+                              <label className="text-[11px] font-semibold text-foreground block mb-1">
+                                Screenshot / Video Proof <span className="text-red-500">*</span>
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="file"
-                                  id={`proof-input-${task.id}`}
-                                  accept="image/*,video/*"
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handleProofFileSelect(task.id, f);
-                                  }}
-                                  className="w-full text-xs file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer border border-input rounded-xl p-1 bg-background"
-                                />
-                              </div>
+                              <input
+                                type="file"
+                                id={`proof-input-${task.id}`}
+                                accept="image/*,video/*"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleProofFileSelect(task.id, f);
+                                }}
+                                className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer border border-input rounded-xl p-1 bg-background"
+                              />
                             </div>
 
                             {/* Social Post URL (Optional) */}
                             <div>
-                              <label className="text-xs font-semibold text-foreground block mb-1">
-                                Social Post or Channel Link (Optional)
+                              <label className="text-[11px] font-semibold text-foreground block mb-1">
+                                Social Post Link (Optional)
                               </label>
                               <Input
                                 type="url"
-                                placeholder="https://instagram.com/p/... or https://t.me/..."
+                                placeholder="https://instagram.com/p/... or https://wa.me/..."
                                 value={postLink}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   setProofLinks(prev => ({ ...prev, [task.id]: val }));
                                 }}
-                                className="h-10 text-xs rounded-xl"
+                                className="h-9 text-xs rounded-xl"
                               />
                             </div>
                           </div>
 
                           {/* Selected File Preview */}
                           {previewUrl && (
-                            <div className="flex items-center gap-3 bg-background p-2.5 rounded-xl border border-border">
-                              <img src={previewUrl} alt="Preview" className="h-12 w-16 object-cover rounded-lg" />
+                            <div className="flex items-center gap-2.5 bg-background p-2 rounded-lg border border-border">
+                              <img src={previewUrl} alt="Preview" className="h-10 w-14 object-cover rounded-md" />
                               <div className="text-xs">
                                 <p className="font-bold text-foreground truncate max-w-xs">{selectedFile?.name}</p>
-                                <p className="text-[10px] text-muted-foreground">Ready for instant upload & SHA-256 deduplication</p>
+                                <p className="text-[10px] text-muted-foreground">Ready for submission</p>
                               </div>
                             </div>
                           )}
 
                           {/* Submit Action */}
-                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-                            <p className="text-[11px] text-muted-foreground">
-                              ⚡ Earnings are disbursed directly to your locked bank account upon settlement.
-                            </p>
-
+                          <div className="flex items-center justify-end pt-1">
                             <Button
                               type="button"
+                              size="sm"
                               onClick={() => submitProofDirect(task)}
                               disabled={!selectedFile || isSubmittingThis}
-                              className="w-full sm:w-auto h-11 px-6 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:opacity-95 flex items-center justify-center gap-2"
+                              className="h-9 px-5 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs flex items-center gap-1.5 text-xs"
                             >
                               {isSubmittingThis ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin" /> Submitting Proof...
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting...
                                 </>
                               ) : (
                                 <>
-                                  <FileCheck className="h-4 w-4" /> Submit Proof & Participate
+                                  <FileCheck className="h-3.5 w-3.5" /> Submit Proof
                                 </>
                               )}
                             </Button>
@@ -949,18 +872,19 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             })}
 
             {tasks.length === 0 && (
-              <div className="text-center py-16 px-4 space-y-3 bg-card rounded-3xl border border-dashed border-border shadow-xs">
-                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground/40" />
+              <div className="text-center py-14 px-4 space-y-3 bg-card rounded-2xl border border-dashed border-border shadow-2xs">
+                <Briefcase className="h-10 w-10 mx-auto text-muted-foreground/40" />
                 <div className="space-y-1">
-                  <h4 className="text-base font-bold text-foreground">No Campaigns for {selectedDate}</h4>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                    There are no active campaigns scheduled for this date. Check another date above or tap "All Dates" to view other campaigns.
+                  <h4 className="text-sm font-bold text-foreground">No Campaigns for {selectedDate}</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    There are no active campaigns scheduled for this date. Check another date above or tap "All Dates".
                   </p>
                 </div>
                 <Button 
                   type="button"
+                  size="sm"
                   onClick={() => setDateFilter('all')} 
-                  className="h-10 px-5 rounded-xl font-bold bg-purple-600 text-white"
+                  className="h-9 px-4 rounded-xl font-bold bg-purple-600 text-white text-xs"
                 >
                   View All Campaigns
                 </Button>

@@ -97,8 +97,18 @@ const NotificationBell = () => {
 
     setOpen(false);
     if (navTarget) {
-      // Switch dashboard tab
-      window.dispatchEvent(new CustomEvent('ggd-nav', { detail: navTarget }));
+      if (navTarget.startsWith('admin:')) {
+        const parts = navTarget.split(':');
+        const section = parts[1] || 'syndicate';
+        const tab = parts[2] || 'overview';
+        if (window.location.pathname.startsWith('/admin')) {
+          window.dispatchEvent(new CustomEvent('ggd-nav', { detail: navTarget }));
+        } else {
+          window.location.assign(`/admin?section=${section}&tab=${tab}`);
+        }
+      } else {
+        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: navTarget }));
+      }
     } else if (link) {
       // Internal links open in same tab, external in new
       try {
