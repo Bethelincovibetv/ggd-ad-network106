@@ -61,12 +61,18 @@ interface AdminSyndicateManagerProps {
 
 export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
   initialCampaignId,
-  initialTab = 'overview',
+  initialTab = 'members',
   onNavigateSection,
 }) => {
-  const [activeTab, setActiveTab] = useState<SyndicateAdminTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<SyndicateAdminTab>(initialTab || 'members');
   const [loading, setLoading] = useState(true);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(initialCampaignId || null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Date Filter (Default: Today)
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -113,7 +119,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       setPayoutPct(curPct);
       setExchangeRate(curRate);
 
-      // 2. Fetch Syndicate Tasks (with campaign_date support)
+      // 2. Fetch Syndicate Tasks (Campaigns)
       const { data: tasksData, error: tasksErr } = await supabase
         .from('syndicate_tasks')
         .select('*')
@@ -123,55 +129,189 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       const allTasks = tasksData || [];
       setCampaigns(allTasks);
 
-      // 3. Fetch Members
-      const { data: membersData, error: memErr } = await supabase
-        .from('syndicate_profiles')
-        .select('*, user_profile:profiles!syndicate_profiles_user_id_fkey(display_name, email, phone, avatar_url, credits)')
-        .order('created_at', { ascending: false });
+      // 3. Fetch Syndicate Members safely (immune to PostgREST relationship naming issues)
+      const [spRes, rolesRes, appRes, profRes] = await Promise.all([
+        supabase.from('syndicate_profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('user_roles').select('user_id, role').eq('role', 'syndicate'),
+        supabase.from('syndicate_applications').select('user_id, status, state').eq('status', 'approved'),
+        supabase.from('profiles').select('user_id, display_name, email, phone, avatar_url, credits, business_name, syndicate_status').eq('syndicate_status', 'active'),
+      ]);
 
-      if (memErr) console.warn("Failed to fetch members:", memErr);
-      const allMembers = membersData || [];
-      setMembers(allMembers);
+      const spList = spRes.data || [];
+      const roleUserIds = (rolesRes.data || []).map(r => r.user_id);
+      const appUserIds = (appRes.data || []).map(a => a.user_id);
+      const activeProfUserIds = (profRes.data || []).map(p => p.user_id);
 
-      // 4. Fetch Assignments / Proofs
+      const allUserIds = [...new Set([
+        ...spList.map(s => s.user_id), 
+        ...roleUserIds,
+        ...appUserIds,
+        ...activeProfUserIds
+      ])].filter(Boolean);
+
+      let profilesMap: Record<string, any> = {};
+      if (allUserIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, email, phone, avatar_url, credits, business_name, syndicate_status')
+          .in('user_id', allUserIds);
+        (profs || []).forEach(p => { profilesMap[p.user_id] = p; });
+      }
+
+      const existingUserIds = new Set(spList.map(s => s.user_id));
+      const enrichedMembers: any[] = spList.map(m => {
+        const p = profilesMap[m.user_id] || {};
+        const isActive = !m.is_suspended;
+        return {
+          ...m,
+          is_active: isActive,
+          is_bank_locked: Boolean(m.bank_name && m.account_number),
+          user_profile: p,
+          display_name: p.display_name || p.business_name || m.account_name || 'Syndicate Member',
+          email: p.email || '—',
+          phone: p.phone || null,
+          avatar_url: p.avatar_url || null,
+        };
+      });
+
+      // Include syndicate role or approved members who haven't initialized their profile table record
+      allUserIds.forEach(uid => {
+        if (!existingUserIds.has(uid)) {
+          const p = profilesMap[uid] || {};
+          enrichedMembers.push({
+            user_id: uid,
+            is_active: true,
+            is_suspended: false,
+            wallet_frozen: false,
+            is_bank_locked: false,
+            tasks_completed: 0,
+            ranking_score: 0,
+            state: p.state || 'National',
+            verified_platforms: [],
+            account_name: null,
+            account_number: null,
+            bank_name: null,
+            user_profile: p,
+            display_name: p.display_name || p.business_name || 'Syndicate Member',
+            email: p.email || '—',
+            phone: p.phone || null,
+            avatar_url: p.avatar_url || null,
+          });
+        }
+      });
+
+      setMembers(enrichedMembers);
+
+      // 4. Fetch Assignments / Proofs safely
       const { data: assignData, error: assignErr } = await supabase
         .from('syndicate_task_assignments')
-        .select('*, syndicate_tasks(title, campaign_date, payout_amount, total_cost, cost_per_syndicate), profiles:syndicate_user_id(display_name, email)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (assignErr) console.warn("Failed to fetch assignments:", assignErr);
-      const allAssignments = assignData || [];
+      const allAssignsRaw = assignData || [];
+      const taskMap: Record<string, any> = {};
+      allTasks.forEach(t => { taskMap[t.id] = t; });
+
+      const assignUserIds = allAssignsRaw.map(a => a.syndicate_user_id).filter(Boolean);
+      let assignProfMap: Record<string, any> = {};
+      if (assignUserIds.length > 0) {
+        const { data: aProfs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, email')
+          .in('user_id', assignUserIds);
+        (aProfs || []).forEach(p => { assignProfMap[p.user_id] = p; });
+      }
+
+      const allAssignments = allAssignsRaw.map(a => ({
+        ...a,
+        syndicate_tasks: taskMap[a.task_id] || null,
+        profiles: assignProfMap[a.syndicate_user_id] || { display_name: 'Syndicate Member', email: '—' },
+      }));
       setAssignments(allAssignments);
 
-      // 5. Fetch Payouts / Withdrawals
+      // 5. Fetch Payouts / Withdrawals safely
       const { data: payData, error: payErr } = await supabase
         .from('withdrawal_requests')
-        .select('*, profiles:user_id(display_name, email)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (payErr) console.warn("Failed to fetch payouts:", payErr);
-      const allPayouts = payData || [];
+      const allPayRaw = payData || [];
+      const payUserIds = allPayRaw.map(p => p.user_id).filter(Boolean);
+      let payProfMap: Record<string, any> = {};
+      if (payUserIds.length > 0) {
+        const { data: pProfs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, email')
+          .in('user_id', payUserIds);
+        (pProfs || []).forEach(p => { payProfMap[p.user_id] = p; });
+      }
+
+      const allPayouts = allPayRaw.map(p => ({
+        ...p,
+        profiles: payProfMap[p.user_id] || { display_name: p.account_name || 'Member', email: '—' },
+      }));
       setPayouts(allPayouts);
 
-      // 6. Fetch Bank Requests & Applications
-      const [bankRes, appRes] = await Promise.all([
-        supabase
-          .from('bank_change_requests')
-          .select('*, profiles:user_id(display_name, email)')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('syndicate_applications')
-          .select('*, profiles:user_id(display_name, email, phone)')
-          .order('created_at', { ascending: false }),
-      ]);
+      // 6. Fetch Bank Requests & Applications safely
+      let bankData: any[] = [];
+      const { data: sBankData, error: sBankErr } = await supabase
+        .from('syndicate_bank_change_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      setBankRequests(bankRes.data || []);
-      setApplications(appRes.data || []);
+      if (!sBankErr && sBankData && sBankData.length > 0) {
+        bankData = sBankData;
+      } else {
+        const { data: bData } = await supabase
+          .from('bank_change_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+        bankData = bData || [];
+      }
+
+      const bankUserIds = bankData.map(b => b.user_id).filter(Boolean);
+      let bankProfMap: Record<string, any> = {};
+      if (bankUserIds.length > 0) {
+        const { data: bProfs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, email')
+          .in('user_id', bankUserIds);
+        (bProfs || []).forEach(p => { bankProfMap[p.user_id] = p; });
+      }
+      const enrichedBankRequests = bankData.map(b => ({
+        ...b,
+        profiles: bankProfMap[b.user_id] || { display_name: b.account_name || 'Member', email: '—' },
+      }));
+      setBankRequests(enrichedBankRequests);
+
+      // Fetch syndicate applications
+      const { data: appData } = await supabase
+        .from('syndicate_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const appRaw = appData || [];
+      const applicantUserIds = appRaw.map(a => a.user_id).filter(Boolean);
+      let appProfMap: Record<string, any> = {};
+      if (applicantUserIds.length > 0) {
+        const { data: aProfs } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, email, phone')
+          .in('user_id', applicantUserIds);
+        (aProfs || []).forEach(p => { appProfMap[p.user_id] = p; });
+      }
+      const enrichedApplications = appRaw.map(a => ({
+        ...a,
+        profiles: appProfMap[a.user_id] || { display_name: a.full_name || 'Applicant', email: '—', phone: a.phone_number || null },
+      }));
+      setApplications(enrichedApplications);
 
       // 7. Calculate Stats
-      const activeMemCount = allMembers.filter(m => m.is_active && !m.is_suspended).length;
-      const pendingBankCount = (bankRes.data || []).filter(b => b.status === 'pending').length;
-      const pendingAppCount = (appRes.data || []).filter(a => a.status === 'pending').length;
+      const activeMemCount = enrichedMembers.filter(m => m.is_active && !m.is_suspended).length;
+      const pendingBankCount = enrichedBankRequests.filter(b => b.status === 'pending').length;
+      const pendingAppCount = enrichedApplications.filter(a => a.status === 'pending').length;
       
       const dateFilteredTasks = allTasks.filter(t => (t.campaign_date || t.created_at?.split('T')[0]) === selectedDate);
       const pendingProofsCount = allAssignments.filter(a => a.status === 'submitted' || a.status === 'pending').length;
@@ -181,12 +321,11 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
       const totalDisbursed = completedPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
       const pendingAmount = pendingPayouts.reduce((acc, p) => acc + Number(p.amount_naira || p.amount || 0), 0);
 
-      // Distinct participating users for date
       const dateTaskIds = new Set(dateFilteredTasks.map(t => t.id));
       const dateParticipating = new Set(allAssignments.filter(a => dateTaskIds.has(a.task_id)).map(a => a.syndicate_user_id)).size;
 
       setStats({
-        totalMembers: allMembers.length,
+        totalMembers: enrichedMembers.length,
         activeMembers: activeMemCount,
         pendingApps: pendingAppCount,
         pendingBankChanges: pendingBankCount,
@@ -213,7 +352,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
         activities.push({
           type: 'proof',
           title: `Proof Submitted: "${a.syndicate_tasks?.title || 'Campaign'}"`,
-          subtitle: `By ${a.profiles?.display_name || 'Operator'}`,
+          subtitle: `By ${a.profiles?.display_name || 'Member'}`,
           time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
       });
@@ -233,83 +372,99 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
 
   const totalPendingApprovals = (stats.pendingProofs || 0) + (stats.pendingBankChanges || 0) + (stats.pendingApps || 0);
 
-  // Tab navigation items exactly as specified
+  // Streamlined primary tabs for seamless syndicate navigation
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: Layers, badge: null },
-    { 
-      id: 'pending-approvals', 
-      label: 'Pending Approvals', 
-      icon: Clock, 
-      badge: totalPendingApprovals > 0 ? `${totalPendingApprovals}` : null, 
-      badgeColor: 'bg-amber-600' 
-    },
     { 
       id: 'members', 
       label: 'Syndicate Members', 
+      shortLabel: 'Members',
       icon: Users, 
       badge: `${stats.activeMembers}/${stats.totalMembers}` 
     },
     { 
       id: 'campaigns', 
-      label: 'Campaigns', 
+      label: 'Campaigns & Tasks', 
+      shortLabel: 'Campaigns',
       icon: Briefcase, 
       badge: stats.activeCampaigns ? `${stats.activeCampaigns}` : null 
     },
-    { id: 'participation', label: 'Participation', icon: BarChart2, badge: null },
+    { 
+      id: 'pending-approvals', 
+      label: 'Pending Approvals', 
+      shortLabel: 'Approvals',
+      icon: Clock, 
+      badge: totalPendingApprovals ? `${totalPendingApprovals}` : null,
+      badgeColor: 'bg-amber-600'
+    },
     { 
       id: 'proofs', 
-      label: 'Proofs', 
+      label: 'Proofs & Reviews', 
+      shortLabel: 'Proofs',
       icon: FileCheck, 
       badge: stats.pendingProofs ? `${stats.pendingProofs}` : null, 
       badgeColor: 'bg-amber-600' 
     },
     { 
       id: 'payments', 
-      label: 'Payments', 
+      label: 'Payouts & Settlements', 
+      shortLabel: 'Payouts',
       icon: Banknote, 
       badge: stats.pendingSettlements ? `${stats.pendingSettlements}` : null, 
       badgeColor: 'bg-emerald-600' 
     },
     { 
       id: 'bank-requests', 
-      label: 'Bank Requests', 
+      label: 'Bank Verification', 
+      shortLabel: 'Bank KYC',
       icon: ShieldCheck, 
-      badge: stats.pendingBankChanges ? `${stats.pendingBankChanges}` : null, 
+      badge: (stats.pendingBankChanges + stats.pendingApps) ? `${stats.pendingBankChanges + stats.pendingApps}` : null, 
       badgeColor: 'bg-indigo-600' 
     },
-    { id: 'notifications', label: 'Notifications', icon: Bell, badge: null },
-    { id: 'audit', label: 'Audit', icon: FileText, badge: null },
-    { id: 'settings', label: 'Settings', icon: Settings, badge: null },
+    { 
+      id: 'overview', 
+      label: 'Executive Overview', 
+      shortLabel: 'Overview',
+      icon: Layers, 
+      badge: null 
+    },
+    { 
+      id: 'settings', 
+      label: 'Settings', 
+      shortLabel: 'Settings',
+      icon: Settings, 
+      badge: null 
+    },
   ];
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-4 sm:space-y-5">
       {/* Top Universal Control & Context Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-5 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">Syndicate</h2>
-              <Badge variant="outline" className="text-[11px] font-semibold">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground truncate">Syndicate Management</h2>
+              <Badge variant="outline" className="text-[11px] font-semibold flex-shrink-0">
                 Payout Split: <span className="font-mono text-purple-600 ml-1">{payoutPct}%</span>
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Manage campaigns, member participation, approvals, and payouts.
+            <p className="text-xs text-muted-foreground truncate">
+              Manage syndicate members, campaigns, proof approvals, and settlements.
             </p>
           </div>
         </div>
 
         {/* Global Date Filter & Sync Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-muted/80 px-3 py-1.5 rounded-xl border border-border text-xs">
-            <Calendar className="h-4 w-4 text-purple-600" />
+        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 bg-muted/80 px-2.5 py-1.5 rounded-xl border border-border text-xs">
+            <Calendar className="h-3.5 w-3.5 text-purple-600 flex-shrink-0" />
             <span className="font-bold text-foreground">Date:</span>
             <input
               type="date"
+              aria-label="Filter execution date"
               value={selectedDate}
               onChange={(e) => {
                 if (e.target.value) setSelectedDate(e.target.value);
@@ -323,7 +478,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
             size="sm"
             variant="outline"
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-            className="h-9 px-3 rounded-xl text-xs font-bold border-border"
+            className="h-8 px-2.5 rounded-xl text-xs font-bold border-border"
           >
             Today
           </Button>
@@ -334,7 +489,7 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
             size="sm"
             onClick={fetchData}
             disabled={loading}
-            className="h-9 px-3.5 rounded-xl border-border text-xs font-bold flex items-center gap-1.5 shadow-xs"
+            className="h-8 px-3 rounded-xl border-border text-xs font-bold flex items-center gap-1.5 shadow-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 text-purple-600 ${loading ? 'animate-spin' : ''}`} />
             <span>Sync</span>
@@ -342,9 +497,9 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
         </div>
       </div>
 
-      {/* Modern Top Horizontal Tab Navigation Bar */}
-      <div className="border border-border bg-card rounded-2xl p-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+      {/* Modern Top Horizontal Tab Navigation Bar (Mobile-friendly, no overflow or padding break) */}
+      <div className="border border-border bg-card rounded-2xl p-1.5 w-full max-w-full overflow-hidden">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth snap-x">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isTabActive = 
@@ -357,14 +512,15 @@ export const AdminSyndicateManager: React.FC<AdminSyndicateManagerProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(item.id as SyndicateAdminTab)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 snap-start ${
                   isTabActive
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isTabActive ? 'text-white' : 'text-purple-600'}`} />
-                <span>{item.label}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+                <span className="sm:hidden">{item.shortLabel || item.label}</span>
 
                 {item.badge && (
                   <Badge className={`text-[9px] font-bold px-1.5 py-0 ${

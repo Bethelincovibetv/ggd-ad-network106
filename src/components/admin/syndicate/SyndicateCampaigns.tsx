@@ -190,54 +190,44 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Action Header & Date Filter Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-xl border border-border">
-            <Calendar className="h-4 w-4 text-purple-600" />
-            <span className="text-xs font-bold text-foreground">Date:</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                if (e.target.value) onSelectDate(e.target.value);
-              }}
-              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
-            />
+    <div className="space-y-4">
+      {/* Compact Action Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold shrink-0">
+            <Briefcase className="h-4 w-4" />
           </div>
-
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onSelectDate(new Date().toISOString().split('T')[0])}
-            className="h-9 text-xs font-bold rounded-xl"
-          >
-            Today
-          </Button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-foreground text-sm">Campaigns & Tasks</h3>
+              <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0">
+                {filteredCampaigns.length} Total
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground truncate">Broadcast promotional tasks to verified syndicate members</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
           <Button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="h-11 px-5 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-md flex items-center gap-2 text-xs"
+            className="h-9 px-3.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs flex items-center gap-1.5 text-xs"
           >
-            <Plus className="h-4 w-4" /> Create New Campaign
+            <Plus className="h-3.5 w-3.5" /> Create Campaign
           </Button>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="relative flex-1 max-w-md">
-          <Search className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search campaigns by title or description..."
+            placeholder="Search campaigns by title..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 text-xs rounded-xl bg-card"
+            className="pl-9 h-9 text-xs rounded-xl bg-card"
           />
         </div>
 
@@ -246,9 +236,9 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
             aria-label="Filter State"
             value={stateFilter}
             onChange={e => setStateFilter(e.target.value)}
-            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-3 focus:ring-2 focus:ring-purple-500"
+            className="h-9 text-xs font-semibold rounded-xl border border-input bg-card px-2.5 focus:ring-2 focus:ring-purple-500"
           >
-            <option value="ALL">All States / Nationwide</option>
+            <option value="ALL">Nationwide / All States</option>
             {NIGERIAN_STATES.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
@@ -258,7 +248,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
             aria-label="Filter Status"
             value={statusFilter}
             onChange={(e: any) => setStatusFilter(e.target.value)}
-            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-3 focus:ring-2 focus:ring-purple-500"
+            className="h-9 text-xs font-semibold rounded-xl border border-input bg-card px-2.5 focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Statuses</option>
             <option value="active">Active</option>
@@ -268,9 +258,103 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
         </div>
       </div>
 
-      {/* Full-Width Large Campaigns Table */}
+      {/* Full-Width Large Campaigns Table / Mobile Card List */}
       <Card className="border border-border shadow-xs rounded-2xl overflow-hidden bg-card">
-        <div className="overflow-x-auto">
+        {/* Mobile View: Cards */}
+        <div className="md:hidden divide-y divide-border/60">
+          {filteredCampaigns.map((camp) => {
+            const settlementBase = Number(camp.total_cost || ((camp.cost_per_syndicate || 50) * (camp.max_syndicates || 1)));
+            const pool = Math.round(settlementBase * (payoutPct / 100));
+            const slots = Number(camp.max_syndicates || 1);
+            const explicit = Number(camp.payout_amount || 0);
+            const payoutPerMember = explicit > 0 ? explicit : Math.max(1, Math.round(pool / slots));
+
+            return (
+              <div key={camp.id} className="p-3.5 sm:p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {camp.flyer_url ? (
+                      <img 
+                        src={camp.flyer_url} 
+                        alt={camp.title} 
+                        className="h-12 w-12 object-cover rounded-xl border border-border flex-shrink-0" 
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold flex-shrink-0">
+                        <Briefcase className="h-5 w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground text-sm truncate">{camp.title}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 text-purple-600" />
+                        <span>{camp.campaign_date || camp.created_at?.split('T')[0]}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Badge className={`text-[10px] font-bold flex-shrink-0 ${
+                    camp.status === 'active' ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
+                    'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                  }`}>
+                    {camp.status?.toUpperCase()}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2.5 rounded-xl">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Target State</span>
+                    <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      {camp.target_state || 'Nationwide'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Budget Pool</span>
+                    <span className="font-bold text-foreground mt-0.5 block">₦{settlementBase.toLocaleString()}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between pt-1 border-t border-border/40">
+                    <span className="text-xs text-muted-foreground">Member Payout:</span>
+                    <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                      ₦{payoutPerMember.toLocaleString()} / member
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-wrap gap-1">
+                    {(camp.placements || []).map((p: string) => (
+                      <Badge key={p} variant="secondary" className="text-[9px] px-1.5 py-0">
+                        {p}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openCampaignDetails(camp)}
+                      className="h-8 text-xs font-bold rounded-lg border-border"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Inspect
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleCampaignStatus(camp)}
+                      className="h-8 w-8 p-0 rounded-lg"
+                    >
+                      {camp.status === 'active' ? <Pause className="h-3.5 w-3.5 text-amber-600" /> : <Play className="h-3.5 w-3.5 text-emerald-600" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View: Full Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-bold uppercase tracking-wider text-[10px]">
@@ -375,15 +459,15 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
               })}
             </tbody>
           </table>
-
-          {filteredCampaigns.length === 0 && (
-            <div className="text-center py-16 px-4 space-y-2">
-              <Briefcase className="h-10 w-10 mx-auto text-muted-foreground/40" />
-              <p className="text-sm font-bold text-foreground">No campaigns found</p>
-              <p className="text-xs text-muted-foreground">Adjust your search or create a new campaign for {selectedDate}.</p>
-            </div>
-          )}
         </div>
+
+        {filteredCampaigns.length === 0 && (
+          <div className="text-center py-16 px-4 space-y-2">
+            <Briefcase className="h-10 w-10 mx-auto text-muted-foreground/40" />
+            <p className="text-sm font-bold text-foreground">No campaigns found</p>
+            <p className="text-xs text-muted-foreground">Adjust your search or create a new campaign for {selectedDate}.</p>
+          </div>
+        )}
       </Card>
 
       {/* CREATE CAMPAIGN MODAL */}

@@ -51,7 +51,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'DIRECT TEAM / SYNDICATE',
     items: [
-      { id: 'syndicate', icon: Briefcase, label: 'Syndicate Command', sublabel: 'Team campaigns, proofs & payouts', color: 'text-white', gradient: 'from-purple-600 to-indigo-700' },
+      { id: 'syndicate', icon: Briefcase, label: 'Syndicate Management', sublabel: 'Team campaigns, proofs & payouts', color: 'text-white', gradient: 'from-purple-600 to-indigo-700' },
     ]
   },
   {
@@ -117,7 +117,7 @@ const AdminPage = () => {
       setActiveSection(sectionParam);
       if (sectionParam === 'syndicate') {
         setSyndicateProps({
-          initialTab: (tabParam as any) || 'overview',
+          initialTab: (tabParam as any) || 'members',
           initialCampaignId: idParam || undefined,
         });
       }
@@ -339,7 +339,7 @@ const AdminPage = () => {
 
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
-        <div className="w-full max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-6">
+        <div className="w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-5">
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
             <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3`}>

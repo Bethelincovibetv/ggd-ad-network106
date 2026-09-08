@@ -83,9 +83,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   const [credits, setCredits] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(false);
   
-  // Date Filtering (Default: Today)
+  // Date Filtering (Default: All active campaigns)
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'all' | 'custom'>('today');
+  const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'all' | 'custom'>('all');
   
   // Submission Form State (per-task)
   const [proofFiles, setProofFiles] = useState<Record<string, File>>({});
@@ -102,7 +102,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
   useEffect(() => { 
     fetchData(); 
-  }, [selectedDate]);
+  }, [selectedDate, dateFilterMode]);
 
   const setDateFilter = (mode: 'today' | 'yesterday' | 'all' | 'custom', customDate?: string) => {
     setDateFilterMode(mode);
@@ -135,7 +135,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         .order('created_at', { ascending: false });
 
       if (dateFilterMode !== 'all') {
-        tasksQuery = tasksQuery.or(`campaign_date.eq.${selectedDate},created_at.gte.${selectedDate}T00:00:00,created_at.lte.${selectedDate}T23:59:59`);
+        tasksQuery = tasksQuery
+          .gte('created_at', `${selectedDate}T00:00:00`)
+          .lte('created_at', `${selectedDate}T23:59:59`);
       }
 
       const [

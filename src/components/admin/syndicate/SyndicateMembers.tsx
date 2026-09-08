@@ -93,13 +93,26 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
       const nextActive = !member.is_active;
       const { error } = await supabase
         .from('syndicate_profiles')
-        .update({ is_active: nextActive })
+        .update({ is_suspended: !nextActive } as any)
         .eq('user_id', member.user_id);
+
+      // Sync status with profiles
+      await supabase
+        .from('profiles')
+        .update({ syndicate_status: nextActive ? 'active' : 'suspended' } as any)
+        .eq('user_id', member.user_id);
+
+      // If activating, ensure role exists in user_roles
+      if (nextActive) {
+        await supabase
+          .from('user_roles')
+          .upsert({ user_id: member.user_id, role: 'syndicate' as any });
+      }
 
       if (error) throw error;
       toast.success(`Member ${nextActive ? 'activated' : 'deactivated'}!`);
       if (viewingMember && viewingMember.user_id === member.user_id) {
-        setViewingMember({ ...viewingMember, is_active: nextActive });
+        setViewingMember({ ...viewingMember, is_active: nextActive, is_suspended: !nextActive });
       }
       onRefresh();
     } catch (err: any) {
@@ -118,14 +131,18 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
         .update({ 
           is_suspended: nextSuspended,
           suspended_reason: nextSuspended ? 'Suspended by admin review' : null,
-          suspended_at: nextSuspended ? new Date().toISOString() : null,
-        })
+        } as any)
+        .eq('user_id', member.user_id);
+
+      await supabase
+        .from('profiles')
+        .update({ syndicate_status: nextSuspended ? 'suspended' : 'active' } as any)
         .eq('user_id', member.user_id);
 
       if (error) throw error;
       toast.success(`Member ${nextSuspended ? 'suspended' : 'unsuspended'}!`);
       if (viewingMember && viewingMember.user_id === member.user_id) {
-        setViewingMember({ ...viewingMember, is_suspended: nextSuspended });
+        setViewingMember({ ...viewingMember, is_suspended: nextSuspended, is_active: !nextSuspended });
       }
       onRefresh();
     } catch (err: any) {
@@ -218,9 +235,10 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
 
   // Filtered members list
   const filteredMembers = members.filter(m => {
+    const isActive = !m.is_suspended && m.is_active !== false;
     if (stateFilter !== 'ALL' && m.state !== stateFilter) return false;
-    if (statusFilter === 'active' && (!m.is_active || m.is_suspended)) return false;
-    if (statusFilter === 'inactive' && (m.is_active || m.is_suspended)) return false;
+    if (statusFilter === 'active' && !isActive) return false;
+    if (statusFilter === 'inactive' && (isActive || m.is_suspended)) return false;
     if (statusFilter === 'suspended' && !m.is_suspended) return false;
     if (statusFilter === 'frozen' && !m.wallet_frozen) return false;
     if (statusFilter === 'verified_bank' && (!m.account_number || !m.is_bank_locked)) return false;
@@ -240,25 +258,25 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="relative flex-1 max-w-md">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Search & Filter Toolbar (Mobile-friendly, responsive) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 sm:p-5 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="relative w-full md:max-w-md">
           <Search className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search member name, email, phone, state..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 text-xs rounded-xl"
+            className="pl-10 h-11 text-xs rounded-xl w-full"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
           <select
             aria-label="Filter State"
             value={stateFilter}
             onChange={e => setStateFilter(e.target.value)}
-            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-3 focus:ring-2 focus:ring-purple-500"
+            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-2.5 sm:px-3 focus:ring-2 focus:ring-purple-500 w-full sm:w-auto"
           >
             <option value="ALL">All States (36 + FCT)</option>
             {NIGERIAN_STATES.map(s => (
@@ -270,9 +288,9 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
             aria-label="Filter Status"
             value={statusFilter}
             onChange={(e: any) => setStatusFilter(e.target.value)}
-            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-3 focus:ring-2 focus:ring-purple-500"
+            className="h-11 text-xs font-semibold rounded-xl border border-input bg-card px-2.5 sm:px-3 focus:ring-2 focus:ring-purple-500 w-full sm:w-auto"
           >
-            <option value="all">All Member Statuses</option>
+            <option value="all">All Statuses</option>
             <option value="active">Active Members Only</option>
             <option value="inactive">Inactive Members Only</option>
             <option value="suspended">Suspended Members</option>
@@ -285,7 +303,7 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
             type="button"
             variant="outline"
             onClick={exportMembersCSV}
-            className="h-11 px-4 text-xs font-bold rounded-xl border-border flex items-center gap-1.5"
+            className="col-span-2 sm:col-span-1 h-11 px-4 text-xs font-bold rounded-xl border-border flex items-center justify-center gap-1.5"
           >
             <Download className="h-3.5 w-3.5 text-purple-600" /> Export CSV
           </Button>
@@ -327,9 +345,121 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
         </div>
       )}
 
-      {/* Full-Width Large Members Table */}
+      {/* Full-Width Large Members Table / Mobile Card List */}
       <Card className="border border-border shadow-xs rounded-2xl overflow-hidden bg-card">
-        <div className="overflow-x-auto">
+        {/* Mobile View: Cards */}
+        <div className="md:hidden divide-y divide-border/60">
+          {filteredMembers.map((member) => {
+            const isSelected = selectedIds.includes(member.user_id);
+            const displayName = member.display_name || member.user_profile?.display_name || 'Syndicate Member';
+            const email = member.email || member.user_profile?.email || '—';
+            const avatar = member.avatar_url || member.user_profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user_id}`;
+
+            return (
+              <div 
+                key={member.user_id} 
+                className={`p-3.5 sm:p-4 space-y-3 transition-colors ${isSelected ? 'bg-purple-50/40 dark:bg-purple-950/20' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${displayName}`}
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(prev => [...prev, member.user_id]);
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => id !== member.user_id));
+                        }
+                      }}
+                      className="rounded border-input text-purple-600 focus:ring-purple-500 cursor-pointer h-4 w-4 flex-shrink-0"
+                    />
+                    <img 
+                      src={avatar} 
+                      alt={displayName} 
+                      className="h-9 w-9 rounded-xl object-cover border border-border flex-shrink-0"
+                      onError={(e: any) => {
+                        e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user_id}`;
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground text-sm truncate">{displayName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex-shrink-0">
+                    {member.is_suspended ? (
+                      <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-0 text-[10px] font-bold">
+                        Suspended
+                      </Badge>
+                    ) : member.is_active ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-0 text-[10px] font-bold">
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-slate-500/20 text-slate-700 dark:text-slate-300 border-0 text-[10px] font-bold">
+                        Inactive
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2.5 rounded-xl">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">State</span>
+                    <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      {member.state || 'Unset'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Jobs Done</span>
+                    <span className="font-bold text-foreground mt-0.5 block">{member.tasks_completed || 0}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Bank Info</span>
+                    {member.bank_name ? (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-bold text-foreground">{member.bank_name}</span>
+                        <span className="font-mono text-muted-foreground">({maskAccountNumber(member.account_number)})</span>
+                        {member.is_bank_locked && (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold px-1.5 py-0 border-0">
+                            Locked
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-amber-600 font-medium">Unconfigured</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-wrap gap-1">
+                    {(member.verified_platforms || []).map((p: string) => (
+                      <Badge key={p} variant="secondary" className="text-[9px] px-1.5 py-0 uppercase font-semibold">
+                        {p}
+                      </Badge>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openMemberProfile(member)}
+                    className="h-8 text-xs font-bold rounded-lg border-border"
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Profile
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View: Full Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-bold uppercase tracking-wider text-[10px]">
@@ -348,7 +478,7 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
                     className="rounded border-input text-purple-600 focus:ring-purple-500 cursor-pointer"
                   />
                 </th>
-                <th className="py-3.5 px-4">Direct Team Operator</th>
+                <th className="py-3.5 px-4">Syndicate Member</th>
                 <th className="py-3.5 px-4">State</th>
                 <th className="py-3.5 px-4">Channels</th>
                 <th className="py-3.5 px-4">Verified Bank (Paystack)</th>
@@ -360,7 +490,7 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
             <tbody className="divide-y divide-border/60">
               {filteredMembers.map((member) => {
                 const isSelected = selectedIds.includes(member.user_id);
-                const displayName = member.display_name || member.user_profile?.display_name || 'Syndicate Operator';
+                const displayName = member.display_name || member.user_profile?.display_name || 'Syndicate Member';
                 const email = member.email || member.user_profile?.email || '—';
                 const avatar = member.avatar_url || member.user_profile?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user_id}`;
 
@@ -469,15 +599,15 @@ export const SyndicateMembers: React.FC<SyndicateMembersProps> = ({
               })}
             </tbody>
           </table>
-
-          {filteredMembers.length === 0 && (
-            <div className="text-center py-16 px-4 space-y-2">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground/40" />
-              <p className="text-sm font-bold text-foreground">No members found</p>
-              <p className="text-xs text-muted-foreground">Try clearing your search query or state filters.</p>
-            </div>
-          )}
         </div>
+
+        {filteredMembers.length === 0 && (
+          <div className="text-center py-16 px-4 space-y-2">
+            <Users className="h-10 w-10 mx-auto text-muted-foreground/40" />
+            <p className="text-sm font-bold text-foreground">No syndicate members found</p>
+            <p className="text-xs text-muted-foreground">Try clearing your search query or state filters.</p>
+          </div>
+        )}
       </Card>
 
       {/* MEMBER PROFILE & AUDIT DRAWER */}

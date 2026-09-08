@@ -178,18 +178,26 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: roles } = await supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id);
-    const userRoles = (roles || []).map(r => r.role);
+    const [rolesRes, synProfRes, synAppRes] = await Promise.all([
+      supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
+      supabase.from('syndicate_profiles').select('id, is_suspended').eq('user_id', user.id).maybeSingle(),
+      supabase.from('syndicate_applications').select('status').eq('user_id', user.id).maybeSingle(),
+    ]);
+
+    const userRoles = (rolesRes.data || []).map(r => r.role);
     setIsAdmin(userRoles.includes('admin'));
     setIsPremium(userRoles.includes('premium'));
-    const premRow: any = (roles || []).find((r: any) => r.role === 'premium');
+    const premRow: any = (rolesRes.data || []).find((r: any) => r.role === 'premium');
     if (premRow) {
       setCurrentTier(premRow.premium_tier ?? 0);
       setPremiumExpiresAt(premRow.premium_expires_at ?? null);
     }
     // Every registered user is a business by default
     setIsBusiness(true);
-    setIsSyndicate(userRoles.includes('syndicate'));
+    const hasSyndicateAccess = userRoles.includes('syndicate') || 
+      Boolean(synProfRes.data && !synProfRes.data.is_suspended) ||
+      synAppRes.data?.status === 'approved';
+    setIsSyndicate(hasSyndicateAccess);
 
     // Automatically sync any pending incoming transfers from credit_transfers
     try {
@@ -202,11 +210,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     }
 
     let { data: profile } = await (supabase.from('profiles')
-      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits')
+      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits, syndicate_status')
       .eq('user_id', user.id)
       .maybeSingle() as any);
     if (!profile) {
       profile = await ensureUserProfileAndReferral(user);
+    }
+    if (profile?.syndicate_status === 'active') {
+      setIsSyndicate(true);
     }
     // Admins and existing complete profiles bypass the wizard.
     setProfileSetupComplete(userRoles.includes('admin') ? true : !!(profile as any)?.profile_setup_complete);

@@ -27,7 +27,7 @@ import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
 
 const ADMIN_MODULES = [
-  { id: 'syndicate', label: 'Direct Team', icon: Briefcase, color: 'from-purple-600 to-indigo-600', badge: 'Workforce' },
+  { id: 'syndicate', label: 'Syndicate Management', icon: Briefcase, color: 'from-purple-600 to-indigo-600', badge: 'Syndicate' },
   { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
   { id: 'users', label: 'Users & KYC', icon: Users, color: 'from-orange-600 to-red-600' },
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
