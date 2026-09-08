@@ -1360,17 +1360,18 @@ export type Database = {
       }
       syndicate_bank_change_requests: {
         Row: {
-          account_name: string
-          account_number: string
           admin_notes: string | null
           bank_code: string | null
-          bank_name: string
           created_at: string
+          current_account_name: string | null
+          current_account_number: string | null
+          current_bank_name: string | null
           id: string
-          old_account_name: string | null
-          old_account_number: string | null
-          old_bank_name: string | null
           reason: string | null
+          recipient_code: string | null
+          requested_account_name: string
+          requested_account_number: string
+          requested_bank_name: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -1378,17 +1379,18 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_name: string
-          account_number: string
           admin_notes?: string | null
           bank_code?: string | null
-          bank_name: string
           created_at?: string
+          current_account_name?: string | null
+          current_account_number?: string | null
+          current_bank_name?: string | null
           id?: string
-          old_account_name?: string | null
-          old_account_number?: string | null
-          old_bank_name?: string | null
           reason?: string | null
+          recipient_code?: string | null
+          requested_account_name: string
+          requested_account_number: string
+          requested_bank_name: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -1396,17 +1398,18 @@ export type Database = {
           user_id: string
         }
         Update: {
-          account_name?: string
-          account_number?: string
           admin_notes?: string | null
           bank_code?: string | null
-          bank_name?: string
           created_at?: string
+          current_account_name?: string | null
+          current_account_number?: string | null
+          current_bank_name?: string | null
           id?: string
-          old_account_name?: string | null
-          old_account_number?: string | null
-          old_bank_name?: string | null
           reason?: string | null
+          recipient_code?: string | null
+          requested_account_name?: string
+          requested_account_number?: string
+          requested_bank_name?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -1427,7 +1430,9 @@ export type Database = {
           created_at: string
           failed_streak: number
           id: string
+          is_bank_locked: boolean
           is_suspended: boolean
+          paystack_recipient_code: string | null
           ranking_score: number | null
           rejected_count: number
           state: string | null
@@ -1449,7 +1454,9 @@ export type Database = {
           created_at?: string
           failed_streak?: number
           id?: string
+          is_bank_locked?: boolean
           is_suspended?: boolean
+          paystack_recipient_code?: string | null
           ranking_score?: number | null
           rejected_count?: number
           state?: string | null
@@ -1471,7 +1478,9 @@ export type Database = {
           created_at?: string
           failed_streak?: number
           id?: string
+          is_bank_locked?: boolean
           is_suspended?: boolean
+          paystack_recipient_code?: string | null
           ranking_score?: number | null
           rejected_count?: number
           state?: string | null
@@ -2171,6 +2180,7 @@ export type Database = {
         Row: {
           account_name: string | null
           account_number: string | null
+          admin_notes: string | null
           amount: number
           bank_name: string | null
           created_at: string
@@ -2182,6 +2192,7 @@ export type Database = {
         Insert: {
           account_name?: string | null
           account_number?: string | null
+          admin_notes?: string | null
           amount: number
           bank_name?: string | null
           created_at?: string
@@ -2193,6 +2204,7 @@ export type Database = {
         Update: {
           account_name?: string | null
           account_number?: string | null
+          admin_notes?: string | null
           amount?: number
           bank_name?: string | null
           created_at?: string
