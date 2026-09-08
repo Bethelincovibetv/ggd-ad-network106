@@ -12,7 +12,7 @@ The repository (Bethelincovibetv/ggd-ad-network106) is a complete, scalable Sing
 
 Core Capabilities Matrix:
 • Display & Banner Advertising Engine: In-platform banners and external embeddable JavaScript widgets (/embed.js, /api-docs) delivering real-time impressions and click tracking with state-level geo-targeting (all 36 Nigerian States + FCT).
-• Syndicate (Social Share & Earn) Engine: Businesses publish task campaigns with flyers, copy, and payout budgets; vetted syndicates claim tasks, share unique attribution links (/s/:slug), submit image proof & URLs, undergo business/admin approval, and receive direct bank transfer or wallet payouts.
+• Syndicate (Social Share & Earn) Engine: Businesses publish task campaigns with flyers, copy, and payout budgets; vetted syndicates receive automatic campaign assignments, share unique attribution links (/s/:slug), submit image proof & URLs, undergo business/admin approval, and receive direct bank transfer or wallet payouts.
 • Watch-to-Earn Video Ads: Users watch YouTube video advertisements for a configured duration to claim credit rewards backed by advertiser budgets.
 • Dual Wallet & Financial System: Virtual credits (for creating ads/tasks) and Task Wallets (Naira balances for task funding, creator rewards, and bank withdrawals). Integrated with Paystack for fiat on-ramp.
 • Business Directory & Showcase: Profiles, digital business cards, product listings, category filters, and lead generation.
@@ -64,7 +64,7 @@ Business Lifecycle:
 Register -> Auto-generate business_slug -> Create Banner/Watch Ad or Syndicate Task -> Fund with Credits/Task Wallet -> Admin Approval -> Display/Rotator Delivery -> Real-time Click & Impression Tracking.
 
 Syndicate Lifecycle:
-Register & KYC (WhatsApp, Socials, Nigerian Bank Account) -> Admin Review & Approval -> Browse Tasks -> Claim Task (generates unique attribution shortlink /s/:slug) -> Post to Social Media -> Upload Screenshot Proof & Link -> Business/Admin Approval -> Task Wallet Credited -> Bank Withdrawal Request.
+Register & KYC (WhatsApp, Socials, Nigerian Bank Account) -> Admin Review & Approval -> Automatic Campaign Assignment -> Post to Social Media -> Upload Screenshot Proof & Link -> Admin Verification & Deterministic Batch Settlement -> Direct Paystack Payout.
 
 ==================================================
 5. FINANCIAL & ESCROW ARCHITECTURE

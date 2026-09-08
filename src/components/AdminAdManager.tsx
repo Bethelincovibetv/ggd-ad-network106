@@ -35,7 +35,11 @@ interface Ad {
   budget_credits?: number | null;
 }
 
-const AdminAdManager = () => {
+interface AdminAdManagerProps {
+  onNavigateSyndicate?: (ad: Ad) => void;
+}
+
+const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) => {
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -319,6 +323,9 @@ const AdminAdManager = () => {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleAdStatus(ad)} title={ad.is_active ? 'Pause' : 'Activate'}>
                         {ad.is_active ? <Pause className="h-3.5 w-3.5 text-yellow-500" /> : <Play className="h-3.5 w-3.5 text-green-500" />}
                       </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-purple-600 hover:text-purple-700" onClick={() => onNavigateSyndicate?.(ad)} title="View Syndicate Broadcasts">
+                        <CalendarPlus className="h-3.5 w-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteAd(ad.id)} title="Delete">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -425,6 +432,16 @@ const AdminAdManager = () => {
                 >
                   {selectedAd.is_active ? <><Pause className="h-3 w-3 mr-1" /> Pause</> : <><Play className="h-3 w-3 mr-1" /> Activate</>}
                 </Button>
+                {onNavigateSyndicate && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs border-purple-500/30 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                    onClick={() => onNavigateSyndicate(selectedAd)}
+                  >
+                    <CalendarPlus className="h-3 w-3 mr-1" /> Syndicate
+                  </Button>
+                )}
                 <Button size="sm" variant="destructive" className="text-xs" onClick={() => deleteAd(selectedAd.id)}>
                   <Trash2 className="h-3 w-3 mr-1" /> Delete
                 </Button>
