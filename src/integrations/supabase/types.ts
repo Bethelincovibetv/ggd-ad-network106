@@ -1499,6 +1499,7 @@ export type Database = {
         Row: {
           approval_mode: string
           business_user_id: string
+          campaign_date: string
           cost_per_syndicate: number | null
           created_at: string
           description: string | null
@@ -1517,6 +1518,7 @@ export type Database = {
         Insert: {
           approval_mode?: string
           business_user_id: string
+          campaign_date?: string
           cost_per_syndicate?: number | null
           created_at?: string
           description?: string | null
@@ -1535,6 +1537,7 @@ export type Database = {
         Update: {
           approval_mode?: string
           business_user_id?: string
+          campaign_date?: string
           cost_per_syndicate?: number | null
           created_at?: string
           description?: string | null
@@ -2198,7 +2201,6 @@ export type Database = {
         Args: { p_referrer?: string; p_slug: string; p_user_agent?: string }
         Returns: Json
       }
-      release_expired_syndicate_assignments: { Args: never; Returns: number }
       request_whatsapp_promoter_withdrawal: {
         Args: {
           p_account_name: string
