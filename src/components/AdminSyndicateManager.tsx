@@ -284,7 +284,7 @@ const AdminSyndicateManager = () => {
       if (userIds.length > 0) {
         const [pRes, spRes] = await Promise.all([
           supabase.from('profiles').select('user_id, display_name, email, avatar_url').in('user_id', userIds),
-          supabase.from('syndicate_profiles').select('user_id, ranking_score, state, completed_tasks').in('user_id', userIds),
+          supabase.from('syndicate_profiles').select('user_id, ranking_score, state, tasks_completed').in('user_id', userIds),
         ]);
 
         const pMap: Record<string, any> = {};

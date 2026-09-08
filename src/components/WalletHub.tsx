@@ -9,11 +9,12 @@ import TaskWalletFunding from "@/components/TaskWalletFunding";
 interface WalletHubProps {
   credits: number;
   onCreditsUpdate: (c: number) => void;
+  onWalletUpdate?: (bal: number) => void;
   isPremium: boolean;
   initialTab?: 'task-wallet' | 'buy' | 'transfer';
 }
 
-const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wallet' }: WalletHubProps) => {
+const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initialTab = 'task-wallet' }: WalletHubProps) => {
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer'>(initialTab);
   const [taskWallet, setTaskWallet] = useState<any>(null);
@@ -46,13 +47,30 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wal
         const uid = authData.user.id;
 
         // Fetch task wallet
-        const { data: wData } = await supabase
+        let { data: wData } = await supabase
           .from('task_wallets')
           .select('*')
           .eq('user_id', uid)
           .maybeSingle();
+
+        // Auto-initialize wallet row if user doesn't have one yet
+        if (!wData) {
+          try {
+            await supabase.from('task_wallets').insert({ user_id: uid, balance: 0, total_funded: 0 } as any);
+            const { data: createdW } = await supabase
+              .from('task_wallets')
+              .select('*')
+              .eq('user_id', uid)
+              .maybeSingle();
+            wData = createdW;
+          } catch (e) {
+            console.warn('Wallet initialization check:', e);
+          }
+        }
+
         if (isMounted && wData) {
           setTaskWallet(wData);
+          onWalletUpdate?.(Number(wData.balance || 0));
         }
 
         // Real-time task wallet changes
@@ -69,6 +87,7 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wal
             (payload) => {
               if (payload.new && isMounted) {
                 setTaskWallet(payload.new);
+                onWalletUpdate?.(Number((payload.new as any)?.balance || 0));
               }
             }
           )
@@ -108,7 +127,7 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wal
         supabase.removeChannel(walletChannelRef.current);
       }
     };
-  }, [onCreditsUpdate]);
+  }, [onCreditsUpdate, onWalletUpdate]);
 
   const nairaEquivalent = credits * exchangeRate;
 
@@ -124,9 +143,18 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wal
               <Wallet className="h-5 w-5 opacity-90" />
               <span className="text-xs font-semibold uppercase tracking-wider opacity-80">GGD Digital Wallets</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-medium">
-              <TrendingUp className="h-3.5 w-3.5 opacity-90" />
-              <span>Realtime Synced</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-emerald-500/30 text-emerald-100 border border-emerald-400/40 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-bold shadow-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <span>Wallet Connected & Live</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 bg-white/20 backdrop-blur px-2.5 py-1 rounded-full text-[11px] font-medium">
+                <TrendingUp className="h-3.5 w-3.5 opacity-90" />
+                <span>Realtime Synced</span>
+              </div>
             </div>
           </div>
 
@@ -144,6 +172,13 @@ const WalletHub = ({ credits, onCreditsUpdate, isPremium, initialTab = 'task-wal
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/15 text-[11px] opacity-90">
                 <span>Total Funded</span>
                 <span className="font-semibold">₦{Number(taskWallet?.total_funded || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between mt-1 text-[11px] opacity-90">
+                <span>Account Status</span>
+                <span className="font-semibold text-emerald-200 flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Connected & Active
+                </span>
               </div>
             </div>
 

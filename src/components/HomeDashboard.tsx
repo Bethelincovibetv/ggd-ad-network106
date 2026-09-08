@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal } from "lucide-react";
+import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import WatchVideoAds from "@/components/WatchVideoAd";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface HomeDashboardProps {
   credits: number;
+  walletBalance?: number;
   isAdmin: boolean;
   onNavigate: (tab: string) => void;
 }
 
-const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavigate }) => {
+const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, isAdmin, onNavigate }) => {
   const { isEnabled } = useFeatureToggles();
   const [loading, setLoading] = useState(true);
+  const [localWallet, setLocalWallet] = useState(0);
   const [stats, setStats] = useState({ impressions: 0, clicks: 0, shareClicks: 0, spent: 0 });
   const [insights, setInsights] = useState({
     todayViews: 0, todayClicks: 0, running: 0, completed: 0,
@@ -42,6 +44,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
     const clicks = ads.reduce((s, a) => s + (a.clicks || 0), 0);
     const shareClicks = shares.reduce((s, sh) => s + (sh.clicks || 0), 0);
     const spent = Number(walletRes.data?.total_spent || 0);
+    setLocalWallet(Number(walletRes.data?.balance || 0));
 
     setStats({ impressions, clicks, shareClicks, spent });
 
@@ -136,22 +139,28 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, isAdmin, onNavig
             <p className="text-2xl font-black mt-2">{(stats.clicks + stats.shareClicks).toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg">
+        <Card className="border-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('wallet')}>
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <Coins className="h-5 w-5 opacity-80" />
-              <span className="text-[10px] opacity-80 font-bold uppercase">Spent</span>
+              <Banknote className="h-5 w-5 opacity-80" />
+              <div className="flex items-center gap-1">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                </span>
+                <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Cash Wallet</span>
+              </div>
             </div>
-            <p className="text-2xl font-black mt-2">{stats.spent.toLocaleString()}</p>
+            <p className="text-2xl font-black mt-2">₦{(walletBalance ?? localWallet).toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-purple-500 to-pink-600 text-white shadow-lg cursor-pointer" onClick={() => onNavigate('wallet')}>
+        <Card className="border-0 bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('wallet')}>
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <Wallet className="h-5 w-5 opacity-80" />
-              <span className="text-[10px] opacity-80 font-bold uppercase">Credits</span>
+              <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credits</span>
             </div>
-            <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()}</p>
+            <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
           </CardContent>
         </Card>
       </div>

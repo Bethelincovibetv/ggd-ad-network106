@@ -32,7 +32,7 @@ const ADMIN_MODULES = [
   { id: 'users', label: 'Users & KYC', icon: Users, color: 'from-orange-600 to-red-600' },
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
   { id: 'features', label: 'Toggles', icon: Settings2, color: 'from-fuchsia-600 to-purple-600' },
-  { id: 'tasks', label: 'Task Hub', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },
+  { id: 'tasks', label: 'Credit Tasks', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },
   { id: 'slides', label: 'Banners', icon: Image, color: 'from-violet-600 to-indigo-600' },
   { id: 'api', label: 'API Keys', icon: Key, color: 'from-amber-600 to-yellow-600' },
   { id: 'apps', label: 'Apps', icon: Megaphone, color: 'from-rose-600 to-pink-600' },

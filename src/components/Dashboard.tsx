@@ -131,6 +131,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [isBusiness, setIsBusiness] = useState(false);
   const [isSyndicate, setIsSyndicate] = useState(false);
   const [credits, setCredits] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [activeTab, setActiveTab] = useState('ads');
   const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
@@ -168,6 +169,42 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
   useEffect(() => { initDashboard(); }, []);
 
+  // Real-time synchronization for task_wallets (₦ cash) and profiles (credits)
+  useEffect(() => {
+    let subChannel: any = null;
+    let isMounted = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !isMounted) return;
+      subChannel = supabase
+        .channel(`dashboard-wallet-sync-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'task_wallets', filter: `user_id=eq.${user.id}` },
+          (payload: any) => {
+            if (payload.new && typeof payload.new.balance === 'number' && isMounted) {
+              setWalletBalance(payload.new.balance);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
+          (payload: any) => {
+            if (payload.new && typeof payload.new.credits === 'number' && isMounted) {
+              setCredits(payload.new.credits);
+            }
+          }
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      isMounted = false;
+      if (subChannel) supabase.removeChannel(subChannel);
+    };
+  }, []);
+
   useEffect(() => {
     const handler = (e: any) => { if (e?.detail) handleTabChange(e.detail); };
     window.addEventListener('ggd-nav', handler);
@@ -177,6 +214,19 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const initDashboard = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Securely ensure task wallet exists & load latest balance
+    try {
+      let { data: tw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+      if (!tw) {
+        await supabase.from('task_wallets').insert({ user_id: user.id, balance: 0, total_funded: 0 } as any);
+        const { data: createdTw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+        tw = createdTw;
+      }
+      setWalletBalance(Number(tw?.balance || 0));
+    } catch (e) {
+      console.warn('Dashboard task wallet sync:', e);
+    }
 
     const [rolesRes, synProfRes, synAppRes] = await Promise.all([
       supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
@@ -509,7 +559,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             {/* Slider directly under the search bar */}
             {isEnabled('slides') && <SlideCarousel />}
 
-            <HomeDashboard credits={credits} isAdmin={isAdmin} onNavigate={handleTabChange} />
+            <HomeDashboard credits={credits} walletBalance={walletBalance} isAdmin={isAdmin} onNavigate={handleTabChange} />
 
             {/* Ad Display Preview */}
             {isEnabled('ads') && <AdDisplayPreview />}
@@ -741,7 +791,15 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'transfer':
       case 'task-wallet':
       case 'wallet':
-        return <WalletHub credits={credits} onCreditsUpdate={setCredits} isPremium={isPremium} initialTab={activeTab === 'transfer' ? 'transfer' : 'buy'} />;
+        return (
+          <WalletHub
+            credits={credits}
+            onCreditsUpdate={setCredits}
+            onWalletUpdate={(bal) => setWalletBalance(bal)}
+            isPremium={isPremium}
+            initialTab={activeTab === 'transfer' ? 'transfer' : (activeTab === 'fund-credits' ? 'buy' : 'task-wallet')}
+          />
+        );
 
       case 'premium':
         return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
@@ -927,7 +985,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     GGD AD NETWORK
                   </h1>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                  {/* Live Connected Wallet Pill */}
+                  <button
+                    onClick={() => handleTabChange('wallet')}
+                    className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-orange-500/10 hover:from-emerald-500/20 hover:to-orange-500/20 border border-emerald-500/30 px-2 sm:px-3 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
+                    title="Connected Wallet: Click to open Naira & Credits"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-black">₦{walletBalance.toLocaleString()}</span>
+                      <span className="hidden sm:inline text-muted-foreground/50 font-normal">|</span>
+                      <span className="hidden sm:inline text-orange-600 dark:text-orange-400 font-extrabold">{credits.toLocaleString()} cr</span>
+                    </div>
+                    <Wallet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                  </button>
+
                   {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
                   {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
                   {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
