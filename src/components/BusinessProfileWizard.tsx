@@ -48,10 +48,35 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from('profiles')
-        .select('business_name, business_category, business_phone, business_description, business_logo_url, state')
+        .select('business_name, business_category, business_phone, business_description, business_logo_url, state, profile_setup_complete')
         .eq('user_id', user.id).maybeSingle();
       const { data: bp } = await (supabase.from('business_profiles') as any)
-        .select('category_id').eq('user_id', user.id).maybeSingle();
+        .select('category_id, id').eq('user_id', user.id).maybeSingle();
+
+      // If user is already activated in any way, immediately bypass wizard
+      const isUserAlreadyActivated =
+        Boolean((data as any)?.profile_setup_complete) ||
+        Boolean((data as any)?.business_name && (data as any).business_name.trim().length > 0) ||
+        Boolean(bp?.id) ||
+        localStorage.getItem('ggd_wizard_seen') === 'true' ||
+        localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
+        localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
+        localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
+
+      if (isUserAlreadyActivated) {
+        try {
+          localStorage.setItem('ggd_wizard_seen', 'true');
+          localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
+          localStorage.setItem('ggd_profile_setup_complete', 'true');
+          localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
+        } catch {}
+        if (!(data as any)?.profile_setup_complete) {
+          await supabase.from('profiles').update({ profile_setup_complete: true } as any).eq('user_id', user.id);
+        }
+        onComplete();
+        return;
+      }
+
       if (data || bp) setForm(f => ({
         ...f,
         ...Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [k, v ?? ''])),
@@ -137,7 +162,32 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
         .update({ category_id: form.category_id || null }).eq('user_id', user.id);
     }
     setSaving(false);
+    try {
+      localStorage.setItem('ggd_wizard_seen', 'true');
+      localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
+      localStorage.setItem('ggd_profile_setup_complete', 'true');
+      localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
+    } catch {}
     toast.success('🎉 Business storefront created! Your public site is live.');
+    onComplete();
+  };
+
+  const handleSkipOrAlreadyDone = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          localStorage.setItem('ggd_wizard_seen', 'true');
+          localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
+          localStorage.setItem('ggd_profile_setup_complete', 'true');
+          localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
+        } catch {}
+        await supabase.from('profiles').update({ profile_setup_complete: true } as any).eq('user_id', user.id);
+      }
+    } catch {}
+    setSaving(false);
+    toast.success('Welcome! Taking you to dashboard.');
     onComplete();
   };
 
@@ -186,9 +236,14 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
       <header className="bg-card/80 backdrop-blur border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-2">
-          <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
-          <h1 className="text-base font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">Activate Your Business</h1>
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg" />
+            <h1 className="text-base font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">Activate Your Business</h1>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleSkipOrAlreadyDone} disabled={saving} className="text-xs text-muted-foreground hover:text-foreground">
+            Skip to Dashboard →
+          </Button>
         </div>
       </header>
 
@@ -242,6 +297,17 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
         </Card>
 
         <p className="text-center text-[11px] text-muted-foreground">Step {step + 1} of {STEPS.length}</p>
+
+        <div className="text-center pt-1">
+          <button
+            type="button"
+            onClick={handleSkipOrAlreadyDone}
+            disabled={saving}
+            className="text-xs text-muted-foreground hover:text-orange-600 underline underline-offset-4 transition-colors"
+          >
+            I already activated / Skip setup for now
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,16 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
     account_number: initialBank?.account_number || '',
     account_name: initialBank?.account_name || '',
   });
+
+  useEffect(() => {
+    // If bank is already filled, this user is already activated - bypass wizard immediately
+    if (initialBank?.bank_name && initialBank?.account_number) {
+      try {
+        localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+      } catch {}
+      onComplete();
+    }
+  }, [initialBank, onComplete]);
 
   const slides = [
     {
@@ -81,15 +91,22 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
       setSaving(false);
       if (error) { toast.error("Could not save bank details"); return; }
       toast.success("Bank details saved! You're ready to earn.");
-      localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+      try {
+        localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+        if (user?.id) localStorage.setItem(`ggd_syndicate_wizard_seen_${user.id}`, 'true');
+      } catch {}
       onComplete();
     } else {
       setStep(step + 1);
     }
   };
 
-  const skip = () => {
-    localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+  const skip = async () => {
+    try {
+      localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) localStorage.setItem(`ggd_syndicate_wizard_seen_${user.id}`, 'true');
+    } catch {}
     onComplete();
   };
 

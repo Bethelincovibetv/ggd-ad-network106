@@ -175,9 +175,26 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       const h = Number(settingRes.data?.value);
       if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
 
-      // Show onboarding wizard for newly approved syndicates (only once)
-      const seen = localStorage.getItem('ggd_syndicate_wizard_seen') === 'true';
-      if (profileRes.data && !seen) setShowWizard(true);
+      // Show onboarding wizard for newly approved syndicates (only once, never for activated syndicates)
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const userSeen = currentUser?.id ? localStorage.getItem(`ggd_syndicate_wizard_seen_${currentUser.id}`) === 'true' : false;
+      const globalSeen = localStorage.getItem('ggd_syndicate_wizard_seen') === 'true';
+      const hasBank = Boolean(profileRes.data?.bank_name && profileRes.data?.account_number);
+      const hasHistory = Number(profileRes.data?.tasks_completed || 0) > 0 || Number(profileRes.data?.approved_count || 0) > 0;
+      const isBankLocked = Boolean(profileRes.data?.is_bank_locked);
+
+      // An already activated syndicate member has bank details, history, or has seen the wizard
+      const isAlreadyActivated = hasBank || hasHistory || isBankLocked || userSeen || globalSeen;
+
+      if (profileRes.data && !isAlreadyActivated) {
+        setShowWizard(true);
+      } else {
+        setShowWizard(false);
+        try {
+          localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+          if (currentUser?.id) localStorage.setItem(`ggd_syndicate_wizard_seen_${currentUser.id}`, 'true');
+        } catch {}
+      }
     } catch (err) {
       console.error('Error fetching syndicate data:', err);
     } finally {
@@ -418,7 +435,13 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           account_number: profile?.account_number,
           account_name: profile?.account_name,
         }}
-        onComplete={() => { setShowWizard(false); fetchData(); }}
+        onComplete={() => {
+          setShowWizard(false);
+          try {
+            localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
+          } catch {}
+          fetchData();
+        }}
       />
     );
   }

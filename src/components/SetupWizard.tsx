@@ -11,6 +11,23 @@ interface SetupWizardProps {
 const SetupWizard = ({ onComplete, onNavigate }: SetupWizardProps) => {
   const [step, setStep] = useState(0);
 
+  const handleFinish = () => {
+    try {
+      localStorage.setItem('ggd_wizard_seen', 'true');
+      localStorage.setItem('ggd_profile_setup_complete', 'true');
+    } catch {}
+    onComplete();
+  };
+
+  const handleAction = (tab: string) => {
+    try {
+      localStorage.setItem('ggd_wizard_seen', 'true');
+      localStorage.setItem('ggd_profile_setup_complete', 'true');
+    } catch {}
+    onNavigate(tab);
+    onComplete();
+  };
+
   const steps = [
     {
       icon: Sparkles, color: 'from-orange-500 to-red-600',
@@ -169,7 +186,7 @@ const SetupWizard = ({ onComplete, onNavigate }: SetupWizardProps) => {
           </ul>
 
           {current.action && (
-            <Button onClick={() => { onNavigate(current.action!.tab); onComplete(); }}
+            <Button onClick={() => handleAction(current.action!.tab)}
               className={`w-full h-14 text-base font-bold bg-gradient-to-r ${current.color} text-white rounded-xl shadow-lg hover:shadow-xl transition-all`}>
               {current.action.label} <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
@@ -186,13 +203,13 @@ const SetupWizard = ({ onComplete, onNavigate }: SetupWizardProps) => {
                 Next <ArrowRight className="h-5 w-5 ml-1" />
               </Button>
             ) : (
-              <Button onClick={onComplete} className="flex-1 h-12 text-base font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md">
+              <Button onClick={handleFinish} className="flex-1 h-12 text-base font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md">
                 <Sparkles className="h-5 w-5 mr-1" />Get Started!
               </Button>
             )}
           </div>
 
-          <button onClick={onComplete} className="w-full text-sm text-muted-foreground underline-offset-2 hover:underline">
+          <button onClick={handleFinish} className="w-full text-sm text-muted-foreground underline-offset-2 hover:underline">
             Skip walkthrough
           </button>
         </CardContent>

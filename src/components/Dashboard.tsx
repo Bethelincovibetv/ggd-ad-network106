@@ -260,17 +260,73 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     }
 
     let { data: profile } = await (supabase.from('profiles')
-      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, profile_setup_complete, login_bonus_credits, syndicate_status')
+      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, business_phone, business_slug, profile_setup_complete, login_bonus_credits, syndicate_status')
       .eq('user_id', user.id)
       .maybeSingle() as any);
     if (!profile) {
-      profile = await ensureUserProfileAndReferral(user);
+      const ensured = await ensureUserProfileAndReferral(user);
+      profile = (ensured as any)?.profile || ensured;
     }
     if (profile?.syndicate_status === 'active') {
       setIsSyndicate(true);
     }
-    // Admins and existing complete profiles bypass the wizard.
-    setProfileSetupComplete(userRoles.includes('admin') ? true : !!(profile as any)?.profile_setup_complete);
+
+    // Check if user already has an active business storefront or ads
+    let hasExistingBusinessProfile = false;
+    try {
+      const { data: bp } = await (supabase.from('business_profiles') as any)
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (bp?.id) hasExistingBusinessProfile = true;
+    } catch {}
+
+    let hasExistingAds = false;
+    try {
+      const { count } = await supabase
+        .from('ads')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      if (count && count > 0) hasExistingAds = true;
+    } catch {}
+
+    // An activated user is any user who:
+    // - Is an admin
+    // - Has profile_setup_complete marked true
+    // - Already has business_name, business_phone, or business_slug configured
+    // - Has active syndicate status or syndicate access
+    // - Has a business profile or has created ads
+    // - Or has already completed/seen the wizard previously in localStorage
+    const isAlreadyActivated = 
+      userRoles.includes('admin') ||
+      Boolean((profile as any)?.profile_setup_complete) ||
+      Boolean((profile as any)?.business_name && (profile as any).business_name.trim().length > 0) ||
+      Boolean((profile as any)?.business_phone && (profile as any).business_phone.trim().length > 0) ||
+      Boolean((profile as any)?.business_slug && (profile as any).business_slug.trim().length > 0) ||
+      Boolean((profile as any)?.syndicate_status === 'active') ||
+      hasSyndicateAccess ||
+      hasExistingBusinessProfile ||
+      hasExistingAds ||
+      localStorage.getItem('ggd_wizard_seen') === 'true' ||
+      localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
+      localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
+      localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
+
+    setProfileSetupComplete(isAlreadyActivated);
+
+    if (isAlreadyActivated) {
+      // Auto-heal remote profile if profile_setup_complete was not set in DB
+      if (profile && !(profile as any).profile_setup_complete) {
+        supabase.from('profiles').update({ profile_setup_complete: true } as any).eq('user_id', user.id).then(() => {});
+      }
+      try {
+        localStorage.setItem('ggd_wizard_seen', 'true');
+        localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
+        localStorage.setItem('ggd_profile_setup_complete', 'true');
+        localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
+      } catch {}
+    }
+
     const { data: settings } = await supabase.from('app_settings').select('*');
     
     const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
@@ -521,7 +577,19 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
   // MANDATORY: business profile setup must be completed before any other UI is shown.
   if (profileSetupComplete === false) {
-    return <BusinessProfileWizard onComplete={() => { setProfileSetupComplete(true); setShowWizard(false); localStorage.setItem('ggd_wizard_seen', 'true'); initDashboard(); }} />;
+    return (
+      <BusinessProfileWizard
+        onComplete={() => {
+          setProfileSetupComplete(true);
+          setShowWizard(false);
+          try {
+            localStorage.setItem('ggd_wizard_seen', 'true');
+            localStorage.setItem('ggd_profile_setup_complete', 'true');
+          } catch {}
+          initDashboard();
+        }}
+      />
+    );
   }
 
   if (showWizard && profileSetupComplete !== true) {
