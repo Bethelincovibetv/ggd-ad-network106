@@ -175,12 +175,9 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const navItems = [
     { id: 'live-ads', label: 'Live Ads' },
     { id: 'marketing-apps', label: 'Marketing Apps' },
-    { id: 'features', label: 'What GGD Does' },
     { id: 'business', label: 'For Businesses' },
     { id: 'promote-earn', label: 'Promote & Earn' },
     { id: 'how-it-works', label: 'How It Works' },
-    { id: 'blogmate', label: 'BlogMate AI' },
-    { id: 'contact', label: 'Contact' },
   ];
 
 

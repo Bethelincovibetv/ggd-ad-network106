@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, MessageCircle, Globe, Shield, Sparkles, Package, FileText, Copy, Check, Zap } from "lucide-react";
+import { Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, MessageCircle, Globe, Shield, Sparkles, Package, FileText, Copy, Check, Zap, LayoutTemplate, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GGD_MASTER_AUDIT_REPORT } from "@/data/auditReportText";
+import { WEBSITE_TEMPLATES, getWebsiteTemplate } from "@/utils/websiteTemplates";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -73,6 +74,7 @@ const AdminSettings = () => {
         'premium_tier1_days', 'premium_tier2_days', 'premium_tier3_days',
         'premium_tier0_days', 'ad_duration_free_days', 'premium_business_contact',
         'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template',
+        'default_business_website_template',
         'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours'
       ];
 
@@ -441,6 +443,74 @@ const AdminSettings = () => {
               className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5"
             >
               <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Business Website Templates & Brand Harmony */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 p-3 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <LayoutTemplate className="h-4 w-4" />
+            <h4 className="text-sm font-bold">Business Website Templates & Brand Harmony</h4>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20">Admin Controlled</span>
+        </div>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Select the platform default template for merchant websites. All templates are designed with clean, light-mode palettes balanced with GGD Ad Network's visual identity (no harsh pitch-black backgrounds, crisp typography, and responsive sidebar navigation).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {Object.values(WEBSITE_TEMPLATES).map(t => {
+              const active = (settings.default_business_website_template || 'corporate-orange') === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSettings(p => ({ ...p, default_business_website_template: t.id }))}
+                  className={`p-3 rounded-xl border-2 text-left transition relative flex flex-col justify-between cursor-pointer ${
+                    active ? 'border-orange-500 bg-orange-500/10 shadow-xs' : 'border-border bg-secondary/30 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.previewColor }} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.accentColor }} />
+                      </div>
+                      {active && (
+                        <span className="text-[9px] font-black uppercase tracking-wider text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-black text-foreground">{t.name}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{t.description}</p>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[9px] text-muted-foreground">
+                    <span className="capitalize">{t.tone}</span>
+                    <span className="font-semibold text-slate-700">Light / Modern</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border/40">
+            <p className="text-[10px] text-muted-foreground">
+              Current default: <span className="font-bold text-foreground">
+                {WEBSITE_TEMPLATES[settings.default_business_website_template || 'corporate-orange']?.name || 'Corporate Orange (GGD Brand)'}
+              </span>
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={() => saveSection(['default_business_website_template'], 'Business Website Template')}
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Template as Platform Default
             </Button>
           </div>
         </CardContent>
