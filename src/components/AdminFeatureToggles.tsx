@@ -19,6 +19,7 @@ interface Feature {
 const DEFAULT_SYSTEM_TOGGLES = [
   // Platform Features
   { feature_key: 'tasks', feature_name: 'Credit Tasks System', description: 'Credit task economy & reward tasks. If switched off, buttons are hidden while maintaining background tasks.', is_enabled: true },
+  { feature_key: 'social_tasks', feature_name: 'Social Tasks System', description: 'Master toggle for social & credit task activity across the platform', is_enabled: true },
   { feature_key: 'community', feature_name: 'Community Feed', description: 'Social feed and discussions', is_enabled: true },
   { feature_key: 'ads', feature_name: 'Banner Advertisements', description: 'Display and creation of banner advertisements', is_enabled: true },
   { feature_key: 'syndicate', feature_name: 'Syndicate Network', description: 'Paid promoter network and promoter tasks', is_enabled: true },
@@ -39,6 +40,7 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'create_post', feature_name: 'Create: Community Post', description: 'Quick action to write a community post', is_enabled: true },
 
   // Navigation Menu
+  { feature_key: 'nav_social_tasks', feature_name: 'Menu: Social Tasks Button', description: 'Hide or show Social / Credit Tasks buttons from menus (Side Nav, Top Nav, Mobile Menu) without permanently disabling the task system backend', is_enabled: true },
   { feature_key: 'nav_credit_tasks', feature_name: 'Menu: Credit Tasks Button', description: 'Hide or show the Credit Tasks button on side nav, top nav, and mobile footer menu without disabling the underlying task system', is_enabled: true },
   { feature_key: 'nav_home', feature_name: 'Menu: Home Button', description: 'Show or hide Home button on menus', is_enabled: true },
   { feature_key: 'nav_campaigns', feature_name: 'Menu: Banner Ads Button', description: 'Show or hide Banner Ads button on menus', is_enabled: true },

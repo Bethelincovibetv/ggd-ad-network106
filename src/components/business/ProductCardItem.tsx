@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { BlazingBadge } from "@/components/BlazingBadge";
+import { broadcastFeaturedProductNotification } from "@/services/pushNotificationService";
 
 interface ProductCardItemProps {
   item: any;
@@ -97,7 +99,15 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
         .eq('id', item.id);
       if (listErr) throw listErr;
 
-      toast.success("Featured for 7 days! Spotlighted at top of storefront & directory ⭐");
+      // Broadcast real-time push notification for the newly featured product
+      await broadcastFeaturedProductNotification({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        image_url: item.image_url,
+      });
+
+      toast.success("🔥 Product is now Blazing Featured! Push notification broadcasted to users.");
       onRefresh();
     } catch (err: any) {
       toast.error("Failed to feature: " + err.message);
@@ -188,10 +198,7 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                         {item.title}
                       </h4>
                       {isFeatured && (
-                        <Badge className="bg-amber-400 text-amber-950 font-black text-[9px] px-1.5 py-0 h-4 border-0">
-                          <Crown className="h-2.5 w-2.5 mr-0.5 fill-amber-950" />
-                          FEATURED
-                        </Badge>
+                        <BlazingBadge label="BLAZING FEATURED" size="sm" />
                       )}
                     </div>
 

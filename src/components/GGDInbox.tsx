@@ -14,8 +14,12 @@ import {
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import VoiceNoteRecorder from "@/components/chat/VoiceNoteRecorder";
+import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
+import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
+import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 
-type Kind = "text" | "proof" | "system" | "action";
+type Kind = "text" | "proof" | "system" | "action" | "voice";
 
 interface Msg {
   id: string;
@@ -87,6 +91,8 @@ const GGDInbox: React.FC = () => {
   const [assignment, setAssignment] = useState<AssignmentMeta | null>(null);
   const [taskTitle, setTaskTitle] = useState<string>("");
   const [uploading, setUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const sendingRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -147,7 +153,27 @@ const GGDInbox: React.FC = () => {
         const m = payload.new as Msg;
         if (m.sender_id !== me && m.receiver_id !== me) return;
         if (activeOther && (m.sender_id === activeOther || m.receiver_id === activeOther)) {
-          setMessages((prev) => [...prev, m]);
+          setMessages((prev) => {
+            // If already present by real DB id, ignore
+            if (prev.some((x) => x.id === m.id)) return prev;
+
+            // If we sent this, replace any matching optimistic tmp- message
+            if (m.sender_id === me) {
+              const tmpIdx = prev.findIndex(
+                (x) =>
+                  x.id.startsWith("tmp-") &&
+                  x.sender_id === m.sender_id &&
+                  (x.message === m.message || (m.kind === "voice" && x.kind === "voice"))
+              );
+              if (tmpIdx !== -1) {
+                const next = [...prev];
+                next[tmpIdx] = m;
+                return next;
+              }
+            }
+
+            return [...prev, m];
+          });
           if (m.receiver_id === me) {
             supabase.from("p2p_messages").update({ is_read: true }).eq("id", m.id);
           }
@@ -328,7 +354,9 @@ const GGDInbox: React.FC = () => {
   // ---- Send text ----
   const send = async () => {
     const text = input.trim();
-    if (!text || !activeOther) return;
+    if (!text || !activeOther || isSending || sendingRef.current) return;
+    sendingRef.current = true;
+    setIsSending(true);
     setInput("");
 
     const currentTag = activeInquiryTag;
@@ -339,20 +367,106 @@ const GGDInbox: React.FC = () => {
       : null;
     const action_payload = isTag ? currentTag : null;
 
+    const optimisticId = `tmp-${Date.now()}`;
     const optimistic: any = {
-      id: `tmp-${Date.now()}`,
-      sender_id: me, receiver_id: activeOther, task_id: activeTaskId, assignment_id: null,
-      kind, message: text, image_url: null, action_type, action_payload,
-      is_read: false, created_at: new Date().toISOString(),
+      id: optimisticId,
+      sender_id: me,
+      receiver_id: activeOther,
+      task_id: activeTaskId,
+      assignment_id: null,
+      kind,
+      message: text,
+      image_url: null,
+      action_type,
+      action_payload,
+      is_read: false,
+      created_at: new Date().toISOString(),
     };
     setMessages((p) => [...p, optimistic]);
     setActiveInquiryTag(null);
 
-    const { error } = await supabase.from("p2p_messages").insert({
-      sender_id: me, receiver_id: activeOther, task_id: activeTaskId, kind, message: text,
-      action_type, action_payload,
-    });
-    if (error) toast.error("Failed to send");
+    try {
+      const { data, error } = await supabase
+        .from("p2p_messages")
+        .insert({
+          sender_id: me,
+          receiver_id: activeOther,
+          task_id: activeTaskId,
+          kind,
+          message: text,
+          action_type,
+          action_payload,
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        toast.error("Failed to send message");
+        setMessages((p) => p.filter((x) => x.id !== optimisticId));
+      } else if (data) {
+        setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
+      }
+    } catch (err) {
+      toast.error("Network error sending message");
+      setMessages((p) => p.filter((x) => x.id !== optimisticId));
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+    }
+  };
+
+  // ---- Retain Voice Note in Chat ----
+  const sendVoiceNote = async (audioDataUrl: string, durationSeconds: number) => {
+    if (!activeOther || isSending || sendingRef.current) return;
+    sendingRef.current = true;
+    setIsSending(true);
+
+    const optimisticId = `tmp-${Date.now()}`;
+    const optimistic: any = {
+      id: optimisticId,
+      sender_id: me,
+      receiver_id: activeOther,
+      task_id: activeTaskId,
+      assignment_id: null,
+      kind: "voice",
+      message: "Voice Note",
+      image_url: audioDataUrl,
+      action_type: "voice_note",
+      action_payload: { audio_url: audioDataUrl, duration: durationSeconds },
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((p) => [...p, optimistic]);
+
+    try {
+      const { data, error } = await supabase
+        .from("p2p_messages")
+        .insert({
+          sender_id: me,
+          receiver_id: activeOther,
+          task_id: activeTaskId,
+          kind: "voice",
+          message: "Voice Note",
+          image_url: audioDataUrl,
+          action_type: "voice_note",
+          action_payload: { audio_url: audioDataUrl, duration: durationSeconds },
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        toast.error("Failed to send voice note");
+        setMessages((p) => p.filter((x) => x.id !== optimisticId));
+      } else if (data) {
+        setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
+      }
+    } catch (err) {
+      toast.error("Network error sending voice note");
+      setMessages((p) => p.filter((x) => x.id !== optimisticId));
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+    }
   };
 
   // ---- Upload proof screenshot & embed into chat ----
@@ -475,145 +589,197 @@ const GGDInbox: React.FC = () => {
           </div>
         )}
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
-          {messages.length === 0 && (
-            <p className="text-center text-xs text-muted-foreground py-8">Say hello — start the conversation.</p>
-          )}
-          {messages.map((m) => {
-            const mine = m.sender_id === me;
-            if (m.kind === "system") {
-              return (
-                <div key={m.id} className="text-center">
-                  <span className="inline-block text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
-                    {m.message}
-                  </span>
-                </div>
-              );
-            }
-            return (
-              <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
-                <div className={`rounded-2xl px-3 py-2 text-sm ${mine ? "bg-orange-500 text-white rounded-br-sm" : "bg-background border rounded-bl-sm"}`}>
-                  {/* Tagged product or service inquiry banner */}
-                  {(m.action_type === "product_inquiry" || m.action_type === "service_inquiry" || m.action_payload?.title) && (
-                    <div className={`mb-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
-                      {m.action_payload?.image_url && (
-                        <img src={m.action_payload.image_url} alt="" className="h-11 w-11 rounded-lg object-cover flex-shrink-0 border border-white/20" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}`}>
-                            {m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "⚡ Service Inquiry" : "🛍️ Product Inquiry"}
-                          </span>
-                          <span className="font-bold truncate text-xs">{m.action_payload?.title || "Item Inquiry"}</span>
-                        </div>
-                        {m.action_payload?.price && (
-                          <p className={`font-black text-xs mt-0.5 ${mine ? "text-white font-extrabold" : "text-orange-600 font-bold"}`}>
-                            ₦{Number(m.action_payload.price).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                      {m.action_payload?.id && (
-                        <button
-                          type="button"
-                          className={`h-7 px-2.5 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors ${mine ? "bg-white/20 hover:bg-white/30 text-white border border-white/40" : "bg-card border border-orange-500/30 text-orange-600 hover:bg-orange-500/10"}`}
-                          onClick={() => window.open(`/product/${m.action_payload.id}`, "_blank")}
-                        >
-                          <ExternalLink className="h-3 w-3" /> View
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {m.image_url && (
-                    <a href={m.image_url} target="_blank" rel="noreferrer" className="block mb-1">
-                      <img loading="lazy" src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
-                    </a>
-                  )}
-                  {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}
-
-                  {/* Approve & Pay action button — only for the receiver (business owner) */}
-                  {m.kind === "proof" && m.action_type === "approve_pay" && !mine && (
-                    <Button
-                      size="sm"
-                      onClick={() => approveAndPay(m)}
-                      className="mt-2 h-8 bg-green-500 hover:bg-green-600 text-white text-xs"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve & Pay
-                    </Button>
-                  )}
-                  <p className={`text-[9px] mt-1 ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                <EmojiReactionBar targetType="message" targetId={m.id} currentUserId={me} className="mt-0.5" />
-                </div>
-              </div>
-            );
-          })}
-          <div ref={endRef} />
+        {/* Mobile Business Connect Margin Banner */}
+        <div className="px-3 pt-2 lg:hidden">
+          <BusinessConnectMargin
+            businessUserId={activeOther}
+            isCompact
+            onApplyPrompt={(txt) => setInput(txt)}
+          />
         </div>
 
-        {/* Composer */}
-        <div className="p-2 border-t bg-background space-y-2">
-          {activeInquiryTag && (
-            <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2.5">
-              {activeInquiryTag.image_url && (
-                <img src={activeInquiryTag.image_url} alt="" className="h-10 w-10 rounded-lg object-cover border flex-shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Badge className={`text-[9px] font-black uppercase px-1.5 py-0 border-0 ${activeInquiryTag.type === 'service' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
-                    {activeInquiryTag.type === 'service' ? '⚡ Tagged Service' : '🛍️ Tagged Product'}
-                  </Badge>
-                  <span className="font-bold text-xs truncate text-foreground">{activeInquiryTag.title}</span>
+        {/* Main Content Area with Desktop Business Connect Margin */}
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
+              {messages.length === 0 && (
+                <div className="text-center py-10 space-y-2">
+                  <MessageCircle className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+                  <p className="text-xs font-semibold text-foreground">Say hello — start the conversation.</p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                    Check the recommendations above or type a message below.
+                  </p>
                 </div>
-                {activeInquiryTag.price && (
-                  <p className="text-xs font-black text-orange-600 mt-0.5">₦{Number(activeInquiryTag.price).toLocaleString()}</p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveInquiryTag(null)}
-                className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                title="Remove Tag"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+              )}
+              {messages.map((m) => {
+                const mine = m.sender_id === me;
+                if (m.kind === "system") {
+                  return (
+                    <div key={m.id} className="text-center">
+                      <span className="inline-block text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">
+                        {m.message}
+                      </span>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                      <WhatsAppSlideMessage messageId={m.id} currentUserId={me} isMine={mine}>
+                        <div className={`rounded-2xl px-3 py-2 text-sm shadow-xs ${mine ? "bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-br-sm" : "bg-card border border-border/80 rounded-bl-sm"}`}>
+                          {/* Tagged product or service inquiry banner */}
+                          {(m.action_type === "product_inquiry" || m.action_type === "service_inquiry" || m.action_payload?.title) && (
+                            <div className={`mb-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
+                              {m.action_payload?.image_url && (
+                                <img src={m.action_payload.image_url} alt="" className="h-11 w-11 rounded-lg object-cover flex-shrink-0 border border-white/20" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}`}>
+                                    {m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "⚡ Service Inquiry" : "🛍️ Product Inquiry"}
+                                  </span>
+                                  <span className="font-bold truncate text-xs">{m.action_payload?.title || "Item Inquiry"}</span>
+                                </div>
+                                {m.action_payload?.price && (
+                                  <p className={`font-black text-xs mt-0.5 ${mine ? "text-white font-extrabold" : "text-orange-600 font-bold"}`}>
+                                    ₦{Number(m.action_payload.price).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                              {m.action_payload?.id && (
+                                <button
+                                  type="button"
+                                  className={`h-7 px-2.5 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors ${mine ? "bg-white/20 hover:bg-white/30 text-white border border-white/40" : "bg-card border border-orange-500/30 text-orange-600 hover:bg-orange-500/10"}`}
+                                  onClick={() => window.open(`/product/${m.action_payload.id}`, "_blank")}
+                                >
+                                  <ExternalLink className="h-3 w-3" /> View
+                                </button>
+                              )}
+                            </div>
+                          )}
 
-          <div className="flex gap-2 items-center">
-            {activeTaskId && (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.currentTarget.value = ""; }}
+                          {/* Voice Note Player */}
+                          {m.kind === "voice" && (
+                            <div className="mb-1 min-w-[210px]">
+                              <VoiceNotePlayer
+                                src={m.action_payload?.audio_url || m.image_url || ''}
+                                duration={m.action_payload?.duration || 0}
+                                isMine={mine}
+                              />
+                            </div>
+                          )}
+
+                          {m.image_url && m.kind !== "voice" && (
+                            <a href={m.image_url} target="_blank" rel="noreferrer" className="block mb-1">
+                              <img loading="lazy" src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
+                            </a>
+                          )}
+
+                          {m.message && m.kind !== "voice" && (
+                            <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                          )}
+
+                          {/* Approve & Pay action button — only for the receiver (business owner) */}
+                          {m.kind === "proof" && m.action_type === "approve_pay" && !mine && (
+                            <Button
+                              size="sm"
+                              onClick={() => approveAndPay(m)}
+                              className="mt-2 h-8 bg-green-500 hover:bg-green-600 text-white text-xs"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve & Pay
+                            </Button>
+                          )}
+                          <p className={`text-[9px] mt-1 text-right ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
+                            {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </WhatsAppSlideMessage>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={endRef} />
+            </div>
+
+            {/* Composer */}
+            <div className="p-2 border-t bg-background space-y-2">
+              {activeInquiryTag && (
+                <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2.5">
+                  {activeInquiryTag.image_url && (
+                    <img src={activeInquiryTag.image_url} alt="" className="h-10 w-10 rounded-lg object-cover border flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge className={`text-[9px] font-black uppercase px-1.5 py-0 border-0 ${activeInquiryTag.type === 'service' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                        {activeInquiryTag.type === 'service' ? '⚡ Tagged Service' : '🛍️ Tagged Product'}
+                      </Badge>
+                      <span className="font-bold text-xs truncate text-foreground">{activeInquiryTag.title}</span>
+                    </div>
+                    {activeInquiryTag.price && (
+                      <p className="text-xs font-black text-orange-600 mt-0.5">₦{Number(activeInquiryTag.price).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveInquiryTag(null)}
+                    className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                    title="Remove Tag"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2 items-center">
+                {activeTaskId && (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.currentTarget.value = ""; }}
+                    />
+                    <Button
+                      variant="outline" size="icon"
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                      title="Upload proof screenshot"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+
+                <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
+
+                <Input
+                  value={input}
+                  disabled={isSending}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
+                  placeholder="Type a message..."
+                  className="flex-1"
                 />
                 <Button
-                  variant="outline" size="icon"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                  title="Upload proof screenshot"
+                  onClick={send}
+                  disabled={isSending || !input.trim()}
+                  size="icon"
+                  className="bg-orange-500 hover:bg-orange-600 shrink-0"
                 >
-                  <Upload className="h-4 w-4" />
+                  <Send className="h-4 w-4" />
                 </Button>
-              </>
-            )}
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
-              placeholder="Type a message..."
-              className="flex-1"
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Right Margin: Business Connect Margin */}
+          <div className="w-80 border-l p-3.5 overflow-y-auto hidden lg:block bg-card/30">
+            <BusinessConnectMargin
+              businessUserId={activeOther}
+              onApplyPrompt={(txt) => setInput(txt)}
             />
-            <Button onClick={send} size="icon" className="bg-orange-500 hover:bg-orange-600 shrink-0">
-              <Send className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </Card>

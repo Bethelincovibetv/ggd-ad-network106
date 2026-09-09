@@ -23,17 +23,6 @@ interface TaskListProps {
 
 type TaskType = 'share' | 'social' | 'youtube';
 
-const PLATFORM_100_CREDIT_TASK = {
-  id: 'platform-ggd-share-100-credits',
-  title: 'Share GGD Ad Network — Earn 100 Credits',
-  description: 'Share the GGD Ad Network platform on WhatsApp, Facebook, Telegram or Instagram. Earn 100 promotional credits instantly to advertise your business!',
-  reward_credits: 100,
-  task_type: 'share',
-  share_url: typeof window !== 'undefined' ? `${window.location.origin}/?ref=share_task` : 'https://ggdadnetwork.com',
-  is_official: true,
-  max_completions: null,
-};
-
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
   const [tasks, setTasks] = useState<any[]>([]);
@@ -80,18 +69,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     setTasks([...(mineData || []), ...(othersData || [])]);
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     const completedIds = (comps || []).map(c => c.task_id);
-
-    // Also check persistent platform share completion
-    const { data: notifs } = await supabase
-      .from('notifications')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('type', 'platform_share_100_completed')
-      .limit(1);
-
-    if (notifs && notifs.length > 0) {
-      completedIds.push(PLATFORM_100_CREDIT_TASK.id);
-    }
     setCompletions(completedIds);
   };
 
@@ -239,8 +216,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           return;
         }
 
-        // 1. Dedicated idempotent handler for the Official 100-Credit Platform Share Task
-        if (task.id === PLATFORM_100_CREDIT_TASK.id || task.is_official) {
+        // 1. Dedicated idempotent handler for official platform tasks
+        if (task.is_official) {
           const { data: existingClaims } = await supabase
             .from('notifications')
             .select('id')
@@ -651,76 +628,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Featured Platform 100-Credit Task */}
-      {(() => {
-        const platformCompleted = completions.includes(PLATFORM_100_CREDIT_TASK.id);
-        const isVerifying = verifyingTaskId === PLATFORM_100_CREDIT_TASK.id;
-        return (
-          <Card className="overflow-hidden border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 via-background to-amber-500/10 shadow-md shadow-orange-500/5 transition-all rounded-2xl">
-            <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-3.5 py-1.5 flex items-center justify-between text-white">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-yellow-200 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-wider">Featured Platform Task</span>
-              </div>
-              <span className="text-[11px] font-black bg-white text-orange-600 px-2.5 py-0.5 rounded-full shadow-xs">
-                +100 CREDITS
-              </span>
-            </div>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/20">
-                  <Share2 className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-foreground leading-snug">
-                    {PLATFORM_100_CREDIT_TASK.title}
-                  </h3>
-                  <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
-                    {PLATFORM_100_CREDIT_TASK.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/70">
-                <div className="flex items-center gap-1.5 text-xs text-foreground/85 font-medium">
-                  <Coins className="h-4 w-4 text-orange-500" />
-                  <span>Reward: <strong className="text-foreground font-bold">100 Credits</strong> (Instant)</span>
-                </div>
-
-                {platformCompleted ? (
-                  <Button
-                    size="sm"
-                    disabled
-                    className="bg-green-600 text-white font-bold text-xs rounded-full px-4 h-8 cursor-not-allowed opacity-95"
-                  >
-                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                    Claimed ✓
-                  </Button>
-                ) : isVerifying ? (
-                  <Button
-                    size="sm"
-                    disabled
-                    className="bg-orange-500 text-white font-bold text-xs rounded-full px-4 h-8"
-                  >
-                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                    Verifying...
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => completeTask(PLATFORM_100_CREDIT_TASK)}
-                    className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-full px-4 h-8 shadow-md shadow-orange-500/20"
-                  >
-                    <Share2 className="h-3.5 w-3.5 mr-1" />
-                    Share & Earn 100 Credits
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
 
       {/* Community & Advertiser Tasks */}
       <div className="space-y-2">

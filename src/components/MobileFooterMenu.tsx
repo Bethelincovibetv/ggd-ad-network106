@@ -39,7 +39,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
       grad: 'from-pink-500 via-fuchsia-500 to-purple-600',
       matches: ['feed']
     }] : []),
-    ...(isEnabled('nav_credit_tasks') && isEnabled('tasks') ? [{
+    ...(isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') ? [{
       id: 'tasks',
       icon: CheckSquare,
       label: 'Tasks',

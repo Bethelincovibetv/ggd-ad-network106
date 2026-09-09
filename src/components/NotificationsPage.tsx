@@ -14,6 +14,13 @@ import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import { getTransferHistory, TransferRecord } from '@/services/transferService';
+import {
+  isPushSupported,
+  isPushEnabled,
+  requestPushPermission,
+  showPushNotification,
+  getPushPermission,
+} from '@/services/pushNotificationService';
 
 interface NotificationsPageProps {
 
@@ -30,6 +37,26 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [transfers, setTransfers] = useState<TransferRecord[]>([]);
   const [loadingTransfers, setLoadingTransfers] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(getPushPermission());
+
+  const handleEnablePush = async () => {
+    const granted = await requestPushPermission();
+    setPushPermission(getPushPermission());
+    if (granted) {
+      toast.success("Push notifications enabled! You'll receive real-time alerts.");
+    } else {
+      toast.error("Push notifications were not granted. Check browser site permissions.");
+    }
+  };
+
+  const handleSendTestPush = () => {
+    showPushNotification({
+      title: '🔥 GGD Ad Network Alert',
+      body: 'Push notifications are working perfectly! You will receive instant new arrival and task alerts.',
+      url: '/',
+    });
+    toast.success("Test notification sent!");
+  };
 
   // Initialize and load
   const loadNotifications = useCallback(async (uid: string) => {
@@ -104,6 +131,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           const newNotif = payload.new as any;
           setNotifications((prev) => [newNotif, ...prev]);
           playNotificationChime();
+          showPushNotification({
+            title: newNotif.title || 'New Notification',
+            body: newNotif.message || '',
+            url: '/',
+          });
         }
       )
       .subscribe();
@@ -359,6 +391,63 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           </div>
         </div>
       </div>
+
+      {/* Push Notification System Card */}
+      {isPushSupported() && (
+        <Card className="border-border/70 shadow-sm rounded-2xl bg-card overflow-hidden">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                pushPermission === 'granted'
+                  ? 'bg-emerald-500/15 text-emerald-600'
+                  : 'bg-orange-500/15 text-orange-600'
+              }`}>
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground">Browser Push Notifications</h3>
+                  {pushPermission === 'granted' ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-600 border-0 text-[10px] font-bold">
+                      ACTIVE ✓
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-orange-500/15 text-orange-600 border-0 text-[10px] font-bold">
+                      OPT-IN REQUIRED
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {pushPermission === 'granted'
+                    ? "You'll receive instant native alerts for new arrivals, blazing featured products, and credit transfers."
+                    : "Turn on push notifications to get alerted about blazing new arrivals, credit tasks, and incoming chat messages."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              {pushPermission === 'granted' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendTestPush}
+                  className="rounded-xl text-xs font-bold h-9"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" /> Send Test Push
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={handleEnablePush}
+                  className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl text-xs font-bold h-9 shadow-md"
+                >
+                  <Bell className="h-3.5 w-3.5 mr-1.5" /> Enable Push Notifications
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filter and Search Controls */}
       <Card className="border-border/70 shadow-sm rounded-2xl bg-card">

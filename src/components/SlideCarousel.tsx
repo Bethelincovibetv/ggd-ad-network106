@@ -58,15 +58,15 @@ const SlideCarousel = () => {
   };
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl">
-      <div className="flex transition-transform duration-500" style={{ transform: `translateX(-${current * 100}%)` }}>
+    <div className="relative w-full overflow-hidden rounded-2xl shadow-md bg-neutral-900/10 dark:bg-black/40 border border-border/40">
+      <div className="flex transition-transform duration-500 items-center" style={{ transform: `translateX(-${current * 100}%)` }}>
         {list.map(slide => {
           const isClickable = Boolean(slide.link_url);
           return (
-            <div key={slide.id} className="min-w-full flex-shrink-0">
+            <div key={slide.id} className="min-w-full flex-shrink-0 flex items-center justify-center">
               <div
                 onClick={(e) => isClickable ? handleSlideNavigation(e, slide.link_url) : undefined}
-                className={`relative w-full block overflow-hidden rounded-xl ${isClickable ? 'cursor-pointer hover:opacity-95 transition-opacity' : ''}`}
+                className={`relative w-full flex items-center justify-center overflow-hidden rounded-2xl ${isClickable ? 'cursor-pointer hover:opacity-95 transition-opacity' : ''}`}
                 role={isClickable ? 'button' : undefined}
                 tabIndex={isClickable ? 0 : undefined}
               >
@@ -74,11 +74,16 @@ const SlideCarousel = () => {
                   loading="lazy"
                   src={slide.image_url}
                   alt={slide.title || 'Slide advertisement'}
-                  className="w-full h-36 sm:h-44 object-cover rounded-xl"
+                  className="w-full max-h-[380px] h-auto object-contain rounded-2xl"
                 />
                 {slide.title && slide.title !== 'GGD Ad Network' && (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 text-white">
-                    <p className="text-xs sm:text-sm font-bold truncate">{slide.title}</p>
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 sm:p-4 text-white">
+                    <p className="text-xs sm:text-base font-black drop-shadow truncate">{slide.title}</p>
+                    {isClickable && (
+                      <span className="inline-block mt-1 text-[10px] sm:text-xs font-bold text-orange-400">
+                        Tap to view offer →
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -87,13 +92,13 @@ const SlideCarousel = () => {
         })}
       </div>
       {list.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/40 px-2 py-1 rounded-full backdrop-blur-xs">
           {list.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
               aria-label={`Go to slide ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all ${i === current ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
+              className={`h-1.5 rounded-full transition-all ${i === current ? 'w-5 bg-orange-500' : 'w-1.5 bg-white/70'}`}
             />
           ))}
         </div>

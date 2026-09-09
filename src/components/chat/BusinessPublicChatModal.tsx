@@ -11,6 +11,10 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
+import VoiceNoteRecorder from '@/components/chat/VoiceNoteRecorder';
+import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
+import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
+import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
 
 interface BusinessPublicChatModalProps {
   businessUserId: string;
@@ -196,6 +200,48 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
     }
   };
 
+  const handleSendVoiceNote = async (audioDataUrl: string, durationSeconds: number) => {
+    if (!currentUserId || !businessUserId || sending) return;
+    setSending(true);
+
+    const optimisticMsg: any = {
+      id: `tmp-${Date.now()}`,
+      sender_id: currentUserId,
+      receiver_id: businessUserId,
+      message: 'Voice Note',
+      kind: 'voice',
+      action_type: 'voice_note',
+      action_payload: { audio_url: audioDataUrl, duration: durationSeconds },
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      const { data, error } = await supabase.from('p2p_messages').insert({
+        sender_id: currentUserId,
+        receiver_id: businessUserId,
+        message: 'Voice Note',
+        kind: 'voice',
+        image_url: audioDataUrl,
+        action_type: 'voice_note',
+        action_payload: { audio_url: audioDataUrl, duration: durationSeconds },
+        is_read: false,
+      }).select().maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as any) : m)));
+      }
+      toast.success('Voice note sent to business');
+    } catch (err) {
+      toast.error('Failed to send voice note');
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -230,6 +276,15 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
           </div>
         </div>
 
+        {/* Smart Business Connect Margin */}
+        <div className="px-3 pt-2.5 pb-1 border-b border-border/50 bg-muted/20">
+          <BusinessConnectMargin
+            businessUserId={businessUserId}
+            isCompact
+            onApplyPrompt={(t) => setInputText(t)}
+          />
+        </div>
+
         {/* Message Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-muted/20 to-card">
           {loadingHistory ? (
@@ -237,7 +292,7 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-3">
               <div className="h-12 w-12 rounded-2xl bg-orange-500/15 text-orange-600 flex items-center justify-center">
                 <MessageCircle className="h-6 w-6" />
               </div>
@@ -278,15 +333,27 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                     key={m.id}
                     className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                   >
-                    <div
-                      className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
-                        isMe
-                          ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-br-none'
-                          : 'bg-muted/80 text-foreground border border-border/70 rounded-bl-none'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                    </div>
+                    <WhatsAppSlideMessage messageId={m.id} currentUserId={currentUserId} isMine={isMe}>
+                      <div
+                        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
+                          isMe
+                            ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-br-none'
+                            : 'bg-muted/80 text-foreground border border-border/70 rounded-bl-none'
+                        }`}
+                      >
+                        {m.kind === 'voice' ? (
+                          <div className="min-w-[200px]">
+                            <VoiceNotePlayer
+                              src={(m as any).action_payload?.audio_url || m.image_url || ''}
+                              duration={(m as any).action_payload?.duration || 0}
+                              isMine={isMe}
+                            />
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                        )}
+                      </div>
+                    </WhatsAppSlideMessage>
                     <div className="flex items-center gap-1 mt-1 px-1">
                       <span className="text-[9px] text-muted-foreground">
                         {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -306,12 +373,13 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
         {/* Input Bar */}
         <div className="p-3 bg-card border-t border-border/70 space-y-2">
           <div className="flex items-center gap-2">
+            <VoiceNoteRecorder onSendVoice={handleSendVoiceNote} disabled={sending} />
             <Input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${businessName}...`}
-              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500"
+              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500 flex-1"
               disabled={sending}
             />
             <Button
@@ -329,7 +397,7 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
           </div>
           <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
             <span>Powered by GGD Unified Inbox</span>
-            <span>Real-time delivery</span>
+            <span>Slide message right to react</span>
           </div>
         </div>
       </DialogContent>

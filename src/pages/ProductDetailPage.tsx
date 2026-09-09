@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import SeoHead from '@/components/SeoHead';
+import BlazingBadge from '@/components/BlazingBadge';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -109,7 +110,9 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
           ) : activeImg ? (
-            <img loading="lazy" src={activeImg} alt={listing.title} className="w-full aspect-square md:aspect-video object-cover" />
+            <div className="w-full bg-neutral-900/5 dark:bg-black/30 flex items-center justify-center p-2">
+              <img loading="lazy" src={activeImg} alt={listing.title} className="w-full max-h-[540px] h-auto object-contain rounded-xl" />
+            </div>
           ) : (
             <div className="w-full aspect-video bg-muted flex items-center justify-center">
               <Store className="h-16 w-16 text-muted-foreground/30" />
@@ -132,7 +135,7 @@ const ProductDetailPage: React.FC = () => {
             <Badge className={isService ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
               {isService ? 'Service' : 'Product'}
             </Badge>
-            {listing.is_featured && <Badge className="bg-amber-400 text-amber-950 gap-1"><Crown className="h-3 w-3" />Featured</Badge>}
+            {listing.is_featured && <BlazingBadge label="BLAZING FEATURED" size="md" />}
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-foreground">{listing.title}</h1>
           {Number(listing.price) > 0 ? (

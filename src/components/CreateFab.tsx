@@ -258,7 +258,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
           },
         }]
       : []),
-    ...(isEnabled("tasks") && isEnabled("create_credit_task")
+    ...(isEnabled("tasks") && isEnabled("social_tasks") && isEnabled("nav_social_tasks") && isEnabled("nav_credit_tasks") && isEnabled("create_credit_task")
       ? [{
           id: "task",
           icon: ClipboardList,

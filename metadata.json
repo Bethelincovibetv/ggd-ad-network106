@@ -1,6 +1,6 @@
 {
   "name": "GGD Ad Network",
   "description": "Digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote their products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

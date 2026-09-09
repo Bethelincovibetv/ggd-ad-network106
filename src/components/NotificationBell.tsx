@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { playNotificationChime, cancelOngoingSpeech } from "@/utils/audio";
+import { showPushNotification } from "@/services/pushNotificationService";
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 
 
@@ -53,6 +54,11 @@ const NotificationBell = () => {
           lastNotifIdRef.current = n.id;
           setNotifications(prev => [n, ...prev]);
           playSound();
+          showPushNotification({
+            title: n.title || 'Notification',
+            body: n.message || '',
+            url: '/',
+          });
         }
       })
       .subscribe();

@@ -76,7 +76,7 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slo
     return (
       <div className="max-w-sm mx-auto">
         <Card className="overflow-hidden cursor-pointer bg-white" onClick={() => window.open('/', '_self')}>
-          <img src={defaultAdImg} alt="Promote your business on GGD Ad Network" className="w-full h-48 object-cover" loading="lazy" />
+          <img src={defaultAdImg} alt="Promote your business on GGD Ad Network" className="w-full max-h-72 h-auto object-contain bg-neutral-900/5 dark:bg-black/20" loading="lazy" />
           <div className="p-4 space-y-2">
             <h3 className="font-bold text-base text-gray-800">Promote Your Business Here</h3>
             <p className="text-xs text-gray-600">Reach thousands daily on the GGD Ad Network. Create your first ad in seconds.</p>
@@ -99,13 +99,13 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slo
         onClick={() => handleAdClick(currentAd)}
       >
         {currentAd.imageUrl && (
-          <div className="relative">
+          <div className="relative bg-neutral-900/5 dark:bg-black/20">
             <img loading="lazy" 
               src={currentAd.imageUrl} 
               alt={currentAd.title}
-              className="w-full h-48 object-cover"
+              className="w-full max-h-72 h-auto object-contain"
             />
-            <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+            <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-[10px] font-black shadow-sm">
               HOT!
             </div>
           </div>

@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star, Sparkles, Play, Package, Briefcase } from "lucide-react";
+import { Search, Store, Globe, Phone, Facebook, Instagram, Send, ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star, Sparkles, Play, Package, Briefcase, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import directoryHero from "@/assets/directory-hero.jpg";
 import SlideCarousel from "@/components/SlideCarousel";
+import BlazingBadge from "@/components/BlazingBadge";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -19,6 +20,7 @@ interface BusinessDirectoryProps {
 
 const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: BusinessDirectoryProps) => {
   const navigate = useNavigate();
+  const [directoryTab, setDirectoryTab] = useState<'all' | 'products' | 'services' | 'businesses'>('all');
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
@@ -106,6 +108,9 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
     return matchesSearch && matchesCategory;
   });
   const featuredListings = filteredListings.filter(l => l.is_featured);
+
+  const productListings = filteredListings.filter(l => l.listing_type !== 'service');
+  const serviceListings = filteredListings.filter(l => l.listing_type === 'service');
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
@@ -259,50 +264,181 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
         </p>
       </div>
 
-      {/* All Products & Services (Featured at the Top) */}
-      {filteredListings.length > 0 && (
-        <div className="space-y-3 pt-1">
+      {/* Directory Category Segment Controls */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <Button
+          size="sm"
+          variant={directoryTab === 'all' ? 'default' : 'outline'}
+          onClick={() => setDirectoryTab('all')}
+          className={`rounded-full h-9 px-4 text-xs font-bold gap-1.5 transition-all ${
+            directoryTab === 'all'
+              ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-sm'
+              : 'hover:border-orange-500/50'
+          }`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          All Items
+          <span className="ml-1 opacity-80 text-[10px]">({filteredListings.length + filtered.length})</span>
+        </Button>
+
+        <Button
+          size="sm"
+          variant={directoryTab === 'products' ? 'default' : 'outline'}
+          onClick={() => setDirectoryTab('products')}
+          className={`rounded-full h-9 px-4 text-xs font-bold gap-1.5 transition-all ${
+            directoryTab === 'products'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm'
+              : 'hover:border-emerald-500/50'
+          }`}
+        >
+          <Package className="h-3.5 w-3.5" />
+          Products
+          <span className="ml-1 opacity-80 text-[10px]">({productListings.length})</span>
+        </Button>
+
+        <Button
+          size="sm"
+          variant={directoryTab === 'services' ? 'default' : 'outline'}
+          onClick={() => setDirectoryTab('services')}
+          className={`rounded-full h-9 px-4 text-xs font-bold gap-1.5 transition-all ${
+            directoryTab === 'services'
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+              : 'hover:border-blue-500/50'
+          }`}
+        >
+          <Briefcase className="h-3.5 w-3.5" />
+          Services
+          <span className="ml-1 opacity-80 text-[10px]">({serviceListings.length})</span>
+        </Button>
+
+        <Button
+          size="sm"
+          variant={directoryTab === 'businesses' ? 'default' : 'outline'}
+          onClick={() => setDirectoryTab('businesses')}
+          className={`rounded-full h-9 px-4 text-xs font-bold gap-1.5 transition-all ${
+            directoryTab === 'businesses'
+              ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-sm'
+              : 'hover:border-red-500/50'
+          }`}
+        >
+          <Store className="h-3.5 w-3.5" />
+          Businesses
+          <span className="ml-1 opacity-80 text-[10px]">({filtered.length})</span>
+        </Button>
+      </div>
+
+      {/* Catalog Display for All / Products / Services */}
+      {(directoryTab === 'all' || directoryTab === 'products' || directoryTab === 'services') && (
+        <div className="space-y-4 pt-1">
+          {/* Header */}
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 grid place-items-center shadow-md">
-                <Package className="h-4 w-4 text-white" strokeWidth={2.6} />
+              <div className={`h-7 w-7 rounded-lg grid place-items-center shadow-md ${
+                directoryTab === 'services'
+                  ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white'
+                  : directoryTab === 'products'
+                  ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white'
+                  : 'bg-gradient-to-br from-orange-500 to-red-600 text-white'
+              }`}>
+                {directoryTab === 'services' ? <Briefcase className="h-4 w-4" /> : <Package className="h-4 w-4" strokeWidth={2.6} />}
               </div>
-              <h3 className="text-sm font-black text-foreground">Products & Services Catalog</h3>
+              <h3 className="text-sm font-black text-foreground">
+                {directoryTab === 'services' ? 'Services Directory' : directoryTab === 'products' ? 'Products Catalog' : 'Products & Services Catalog'}
+              </h3>
               <Badge variant="secondary" className="text-[11px] font-bold">
-                {filteredListings.length}
+                {directoryTab === 'services' ? serviceListings.length : directoryTab === 'products' ? productListings.length : filteredListings.length}
               </Badge>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredListings.map(l => (
-              <button key={l.id} onClick={() => navigate(`/product/${l.id}`)}
-                className="text-left rounded-2xl overflow-hidden shadow-md bg-card border border-border/40 hover:border-orange-500/60 active:scale-[0.97] transition-all flex flex-col justify-between">
-                <div>
-                  <div className="relative aspect-[4/3] bg-gradient-to-br from-orange-400 to-red-500">
-                    {l.image_url && <img src={l.image_url} alt={l.title} className="w-full h-full object-cover" loading="lazy" />}
-                    {l.video_url && <div className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 grid place-items-center"><Play className="h-3.5 w-3.5 text-white" fill="white" /></div>}
-                    <div className="absolute bottom-1.5 left-1.5">
-                      <Badge className={`text-[8px] font-bold border-0 rounded-full px-1.5 ${l.listing_type === 'service' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
-                        {l.listing_type === 'service' ? 'Service' : 'Product'}
-                      </Badge>
+
+          {/* Grid of Listings */}
+          {(() => {
+            const listToShow = directoryTab === 'services'
+              ? serviceListings
+              : directoryTab === 'products'
+              ? productListings
+              : filteredListings;
+
+            if (listToShow.length === 0) {
+              return (
+                <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center bg-card/50">
+                  <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-foreground">
+                    {directoryTab === 'services' ? 'No services found in this category' : 'No products found in this category'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Try selecting another industry or clearing search filter</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
+                {listToShow.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => navigate(`/product/${l.id}`)}
+                    className="text-left rounded-2xl overflow-hidden shadow-md bg-card border border-border/40 hover:border-orange-500/60 active:scale-[0.97] transition-all flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="relative aspect-[4/3] bg-gradient-to-br from-orange-400 to-red-500 overflow-hidden">
+                        {l.image_url && (
+                          <img
+                            src={l.image_url}
+                            alt={l.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        )}
+                        {l.is_featured && (
+                          <div className="absolute top-1.5 left-1.5 z-10">
+                            <BlazingBadge label="BLAZING" size="sm" />
+                          </div>
+                        )}
+                        {l.video_url && (
+                          <div className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/60 grid place-items-center z-10">
+                            <Play className="h-3.5 w-3.5 text-white" fill="white" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-1.5 left-1.5 z-10">
+                          <Badge className={`text-[8px] font-bold border-0 rounded-full px-1.5 shadow-sm ${
+                            l.listing_type === 'service' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
+                          }`}>
+                            {l.listing_type === 'service' ? '💼 Service' : '📦 Product'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="p-2.5">
+                        <p className="text-xs font-black line-clamp-1 group-hover:text-orange-500 transition-colors">
+                          {l.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                          {l.business_profiles?.business_name || 'Accredited Business'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-2.5">
-                    <p className="text-xs font-black line-clamp-1">{l.title}</p>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{l.business_profiles?.business_name}</p>
-                  </div>
-                </div>
-                <div className="p-2.5 pt-0">
-                  {l.price && <p className="text-xs font-black text-orange-600">₦{Number(l.price).toLocaleString()}</p>}
-                </div>
-              </button>
-            ))}
-          </div>
+                    <div className="p-2.5 pt-0 flex items-center justify-between">
+                      {l.price ? (
+                        <p className="text-xs font-black text-orange-600">
+                          ₦{Number(l.price).toLocaleString()}
+                        </p>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-muted-foreground">Contact for Rate</span>
+                      )}
+                      <span className="text-[10px] font-bold text-orange-500 hover:underline">
+                        View offer →
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
-      {/* Verified Businesses Directory (Positioned below products) */}
-      <div className="space-y-3 pt-4 border-t border-border/40">
+      {/* Verified Businesses Directory */}
+      {(directoryTab === 'all' || directoryTab === 'businesses') && (
+        <div className={`space-y-3 ${directoryTab === 'all' ? 'pt-4 border-t border-border/40' : 'pt-1'}`}>
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 grid place-items-center shadow-md">
@@ -406,7 +542,8 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
