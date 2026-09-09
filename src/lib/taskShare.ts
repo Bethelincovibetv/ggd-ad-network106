@@ -1,6 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
 /**
  * Get or create a smart share link for a task.

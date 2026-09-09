@@ -56,7 +56,13 @@ const SyndicateRegister = () => {
       toast.success("Account created! Check your email to verify, then come back to complete your application.");
       setStep('application');
     } catch (error: any) {
-      toast.error(error.message || "Registration failed");
+      console.error("Syndicate auth error:", error);
+      const rawMsg = error?.message || error?.error_description || String(error);
+      if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError") || rawMsg.includes("Load failed")) {
+        toast.error("Database connection failure. Could not reach the authentication server. Please check your internet connection or try again shortly.");
+      } else {
+        toast.error(rawMsg || "Registration failed");
+      }
     } finally {
       setIsLoading(false);
     }

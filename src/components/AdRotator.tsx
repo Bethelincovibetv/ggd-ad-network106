@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Code, Eye, Plus, Edit, Trash2, BarChart3, Calendar, CreditCard, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PROJECT_ID } from "@/integrations/supabase/client";
 import AdCreationForm from "./AdCreationForm";
 import AdDisplayPreview from "./AdDisplayPreview";
 
@@ -132,8 +132,7 @@ const AdRotator = () => {
   };
 
   const generateRotatorCode = () => {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const apiEndpoint = `https://${projectId}.supabase.co/functions/v1/serve-ads`;
+    const apiEndpoint = `${SUPABASE_URL}/functions/v1/serve-ads`;
 
     const rotatorHtml = `<!-- GGD Ad Network - Paste this anywhere on your site -->
 <div id="ggd-ad-rotator" style="max-width:300px;margin:20px auto;font-family:Arial,sans-serif;"></div>

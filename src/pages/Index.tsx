@@ -11,18 +11,37 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
-      if (session) setShowAuth(false);
+      if (mounted) {
+        setSession(session);
+        setLoading(false);
+        if (session) setShowAuth(false);
+      }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (mounted) {
+          setSession(session);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Session retrieval error:", err);
+        if (mounted) setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    // Safety timeout: prevent indefinite spinner if network is degraded
+    const timer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 4000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {

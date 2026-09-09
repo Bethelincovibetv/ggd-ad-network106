@@ -85,7 +85,17 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
         onAuthSuccess();
       }
     } catch (error: any) {
-      toast.error(error.message || "Authentication failed");
+      console.error("Auth error:", error);
+      const rawMsg = error?.message || error?.error_description || String(error);
+      if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError") || rawMsg.includes("Load failed")) {
+        toast.error("Database connection failure. Could not reach the authentication server. Please check your internet connection or try again shortly.", { duration: 6000 });
+      } else if (rawMsg.includes("Invalid login credentials")) {
+        toast.error("Invalid email or password. Please check your credentials.");
+      } else if (rawMsg.includes("Email not confirmed")) {
+        toast.error("Email not confirmed. Please check your inbox for the verification link.");
+      } else {
+        toast.error(rawMsg || "Authentication failed");
+      }
     } finally {
       setIsLoading(false);
     }

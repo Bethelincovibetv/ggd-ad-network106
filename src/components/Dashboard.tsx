@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight, Megaphone, Coins, Banknote } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
@@ -167,7 +167,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   // Effective premium (paid): master toggle off, admin, or active paid tier (1-4)
   const effectivePremium = !premium.enabled || isAdmin || (subscriptionActive && currentTier >= 1);
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseUrl = SUPABASE_URL;
   const dailyLoginCheckedUsersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { initDashboard(); }, []);

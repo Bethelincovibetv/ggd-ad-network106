@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Copy, Code, Globe, Zap, Shield, BookOpen, ClipboardCopy } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const API_BASE = `${supabaseUrl}/functions/v1/ad-network-api`;
+const API_BASE = `${SUPABASE_URL}/functions/v1/ad-network-api`;
 
 const CodeBlock = ({ code, language = 'javascript' }: { code: string; language?: string }) => {
   const copy = () => { navigator.clipboard.writeText(code); toast.success('Copied!'); };
