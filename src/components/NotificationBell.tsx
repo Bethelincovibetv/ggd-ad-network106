@@ -6,8 +6,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { playNotificationChime } from "@/utils/audio";
+import { playNotificationChime, cancelOngoingSpeech } from "@/utils/audio";
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
+
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -23,14 +24,9 @@ const NotificationBell = () => {
   }, []);
 
   const speakNotification = useCallback((title: string, message: string) => {
+    // Graceful, non-repeating notification speech: cancel previous utterance first
     if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(`Notification: ${title}`);
-      u.rate = 1;
-      u.volume = 0.7;
-      u.lang = 'en-US';
-      try {
-        window.speechSynthesis.speak(u);
-      } catch {}
+      cancelOngoingSpeech();
     }
   }, []);
 
@@ -57,12 +53,14 @@ const NotificationBell = () => {
           lastNotifIdRef.current = n.id;
           setNotifications(prev => [n, ...prev]);
           playSound();
-          speakNotification(n.title, n.message || '');
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [userId, playSound, speakNotification]);
+    return () => { 
+      cancelOngoingSpeech();
+      supabase.removeChannel(channel); 
+    };
+  }, [userId, playSound]);
 
   const fetchNotifications = async (uid: string) => {
     const { data } = await supabase
@@ -94,10 +92,14 @@ const NotificationBell = () => {
     await supabase.from('notifications').delete().eq('id', id);
   };
 
-  const handleOpenReceipt = (n: any) => {
+  const handleOpenReceipt = async (n: any) => {
     markAsRead(n.id);
     let amount = 0;
     let senderName = 'Sender';
+    let senderHandle = '';
+    let receiverName = 'You';
+    let receiverHandle = '';
+
     const amountMatch = n.message?.match(/(\d+[\d,]*)\s*GGG credits/i) || n.message?.match(/(\d+[\d,]*)\s*credits/i);
     if (amountMatch) {
       amount = parseInt(amountMatch[1].replace(/,/g, ''), 10) || 0;
@@ -106,13 +108,43 @@ const NotificationBell = () => {
     if (fromMatch) {
       senderName = fromMatch[1].trim();
     }
-    const transferId = n.nav_target?.replace('receipt:', '') || `TRX-${n.id.slice(0, 8).toUpperCase()}`;
+
+    const rawTrxId = n.nav_target?.replace('receipt:', '').trim();
+    const transferId = rawTrxId || `TRX-${n.id.slice(0, 8).toUpperCase()}`;
+
+    // Query credit_transfers record for authenticated sender info
+    if (rawTrxId) {
+      try {
+        const { data: ct } = await supabase.from('credit_transfers').select('*').eq('id', rawTrxId).maybeSingle();
+        if (ct) {
+          if (ct.amount) amount = ct.amount;
+          const [senderRes, recvRes] = await Promise.all([
+            supabase.from('profiles').select('display_name, business_name, business_slug, referral_code').eq('user_id', ct.sender_id).maybeSingle(),
+            supabase.from('profiles').select('display_name, business_name, business_slug, referral_code').eq('user_id', ct.receiver_id).maybeSingle(),
+          ]);
+          if (senderRes.data) {
+            senderName = senderRes.data.business_name || senderRes.data.display_name || senderName;
+            senderHandle = senderRes.data.business_slug ? `@${senderRes.data.business_slug}` : senderRes.data.referral_code ? `@${senderRes.data.referral_code}` : '';
+          }
+          if (recvRes.data) {
+            receiverName = recvRes.data.business_name || recvRes.data.display_name || 'You';
+            receiverHandle = recvRes.data.business_slug ? `@${recvRes.data.business_slug}` : recvRes.data.referral_code ? `@${recvRes.data.referral_code}` : '';
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load deep transfer receipt:', err);
+      }
+    }
 
     setSelectedReceipt({
       transferId,
       amount: amount || 100,
       direction: 'received',
       counterpartyName: senderName,
+      senderName,
+      senderHandle,
+      receiverName,
+      receiverHandle,
       timestamp: n.created_at,
       status: 'Settled & Verified',
     });
@@ -133,7 +165,13 @@ const NotificationBell = () => {
       navTarget?.toLowerCase().includes('guide') ||
       navTarget?.startsWith('step_')
     ) {
-      window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'guide' }));
+      setOpen(false);
+      playGuideSuccessSound();
+      if (window.location.pathname === '/') {
+        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'guide' }));
+      } else {
+        window.location.assign('/guide');
+      }
       return;
     }
 
@@ -177,33 +215,39 @@ const NotificationBell = () => {
 
   const navigateToAllNotifications = () => {
     setOpen(false);
-    window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'notifications' }));
+    if (window.location.pathname === '/') {
+      window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'notifications' }));
+    } else {
+      window.location.assign('/notifications');
+    }
   };
+
 
   return (
     <div className="relative">
       {/* Enhanced 3D Tactile Notification Button */}
       <button
         type="button"
-        className="relative h-11 w-11 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center transition-all duration-200
-          bg-gradient-to-b from-white via-neutral-50 to-neutral-100 dark:from-neutral-800 dark:via-neutral-850 dark:to-neutral-900
-          border border-neutral-200/90 dark:border-neutral-700
-          shadow-[0_4px_12px_-2px_rgba(0,0,0,0.14),0_2px_4px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(0,0,0,0.05)]
-          hover:shadow-[0_6px_16px_-2px_rgba(230,126,34,0.35),0_2px_6px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,1)]
-          hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.15)]
-          focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+        className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer
+          bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 dark:from-amber-500 dark:via-orange-600 dark:to-orange-700
+          border-2 border-amber-300/60 dark:border-orange-400/40
+          shadow-[0_6px_0_0_#c2410c,0_10px_20px_rgba(234,88,12,0.38),inset_0_2px_1px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.2)]
+          hover:shadow-[0_4px_0_0_#c2410c,0_8px_16px_rgba(234,88,12,0.45),inset_0_2px_1px_rgba(255,255,255,0.85)]
+          hover:-translate-y-0.5 active:translate-y-1.5 active:shadow-[0_1px_0_0_#c2410c,0_2px_4px_rgba(234,88,12,0.2),inset_0_2px_4px_rgba(0,0,0,0.25)]
+          focus:outline-none focus:ring-2 focus:ring-orange-400"
         onClick={() => setOpen(o => !o)}
         aria-label="Open notifications"
       >
         <div className="relative">
-          <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-700 dark:text-neutral-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" strokeWidth={2.4} />
+          <Bell className={`h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] ${unreadCount > 0 ? 'animate-[ring_2s_ease-in-out_infinite]' : ''}`} strokeWidth={2.5} />
           {unreadCount > 0 && (
-            <span className="absolute -top-2 -right-2.5 h-5 min-w-[20px] px-1 bg-gradient-to-r from-red-500 via-rose-500 to-orange-500 text-white text-[11px] rounded-full flex items-center justify-center font-black shadow-[0_2px_8px_rgba(239,68,68,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] ring-2 ring-white dark:ring-neutral-900 animate-pulse">
+            <span className="absolute -top-2.5 -right-3 h-5.5 min-w-[22px] px-1.5 bg-gradient-to-b from-red-500 via-rose-600 to-red-700 text-white text-[11px] rounded-full flex items-center justify-center font-black shadow-[0_2.5px_0_0_#991b1b,0_4px_8px_rgba(239,68,68,0.5),inset_0_1px_1px_rgba(255,255,255,0.6)] ring-2 ring-white dark:ring-neutral-900">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </div>
       </button>
+
 
       {/* Popover Dropdown */}
       {open && (

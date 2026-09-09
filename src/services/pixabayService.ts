@@ -1,6 +1,6 @@
 
 // Using a public Pixabay API key - in production, this should be stored securely
-const PIXABAY_API_KEY = '47598442-ead9bf76ada46ed96edc4f2c9';
+const PIXABAY_API_KEY = import.meta.env.VITE_PIXABAY_API_KEY || '47598442-ead9bf76ada46ed96edc4f2c9';
 const PIXABAY_API_URL = 'https://pixabay.com/api/';
 
 export interface PixabayImage {

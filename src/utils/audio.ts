@@ -3,6 +3,9 @@
  * Generates a clean, modern, pleasant chime without external audio file dependencies.
  */
 let audioCtx: AudioContext | null = null;
+let lastNotificationTime = 0;
+let lastTransferTime = 0;
+let lastGuideSoundTime = 0;
 
 function getAudioContext(): AudioContext | null {
   try {
@@ -22,9 +25,27 @@ function getAudioContext(): AudioContext | null {
 }
 
 /**
+ * Cancel any ongoing speech synthesis or audio
+ */
+export function cancelOngoingSpeech() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
+  }
+}
+
+/**
  * Plays a bright, warm two-tone notification chime (D5 -> A5)
+ * Guarded by a 2000ms cooldown to prevent repeated or duplicate chimes.
  */
 export function playNotificationChime() {
+  const nowMs = Date.now();
+  if (nowMs - lastNotificationTime < 2000) {
+    return; // Block duplicate chime
+  }
+  lastNotificationTime = nowMs;
+
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -40,7 +61,7 @@ export function playNotificationChime() {
     osc1.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
 
     gain1.gain.setValueAtTime(0, now);
-    gain1.gain.linearRampToValueAtTime(0.28, now + 0.02);
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.02);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
     osc1.connect(gain1);
@@ -58,7 +79,7 @@ export function playNotificationChime() {
     osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.22); // E6
 
     gain2.gain.setValueAtTime(0, now + 0.08);
-    gain2.gain.linearRampToValueAtTime(0.15, now + 0.11);
+    gain2.gain.linearRampToValueAtTime(0.12, now + 0.11);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
 
     osc2.connect(gain2);
@@ -70,3 +91,84 @@ export function playNotificationChime() {
     console.warn('Notification audio chime failed:', err);
   }
 }
+
+/**
+ * Plays a triumphant cash/coin sound for verified money transfers
+ * Guarded by a 2500ms cooldown to cancel and prevent repeated audio.
+ */
+export function playMoneyTransferSound() {
+  const nowMs = Date.now();
+  if (nowMs - lastTransferTime < 2500) {
+    return; // Cancel repeated transfer audio
+  }
+  lastTransferTime = nowMs;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // Fast arpeggio mimicking gold coins/cash register (C5 -> E5 -> G5 -> C6)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.22, now + idx * 0.08 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.35);
+    });
+  } catch (err) {
+    console.warn('Money sound failed:', err);
+  }
+}
+
+/**
+ * Plays a bright completion chime for guide progress
+ * Guarded by a 1500ms cooldown.
+ */
+export function playGuideSuccessSound() {
+  const nowMs = Date.now();
+  if (nowMs - lastGuideSoundTime < 1500) {
+    return;
+  }
+  lastGuideSoundTime = nowMs;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const notes = [440, 554.37, 659.25, 880]; // A4 -> C#5 -> E5 -> A5
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.06);
+      gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.06 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.3);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.06);
+      osc.stop(now + idx * 0.06 + 0.3);
+    });
+  } catch (err) {
+    console.warn('Guide sound failed:', err);
+  }
+}
+

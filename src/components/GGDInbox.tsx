@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Send, Search, ArrowLeft, User, MessageCircle, Copy, ExternalLink,
-  CheckCircle2, Upload, Pin, Briefcase, Users, Globe,
+  CheckCircle2, Upload, Pin, Briefcase, Users, Globe, ShoppingBag, Zap, Sparkles, X,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
@@ -88,6 +89,44 @@ const GGDInbox: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [searchParams] = useSearchParams();
+  const [activeInquiryTag, setActiveInquiryTag] = useState<{
+    type: string;
+    title: string;
+    price?: string;
+    id?: string;
+    image_url?: string;
+  } | null>(null);
+
+  // Parse search params for direct seller chat or product inquiry
+  useEffect(() => {
+    const targetUid = searchParams.get("chatWith");
+    const tType = searchParams.get("tagType");
+    const tTitle = searchParams.get("tagTitle");
+    const tPrice = searchParams.get("tagPrice");
+    const tId = searchParams.get("tagId");
+    const tImg = searchParams.get("tagImage");
+
+    if (tType && tTitle) {
+      setActiveInquiryTag({
+        type: tType,
+        title: tTitle,
+        price: tPrice || undefined,
+        id: tId || undefined,
+        image_url: tImg || undefined,
+      });
+      setInput(
+        `Hello! I would like to inquire about your ${
+          tType === "service" ? "service" : "product"
+        } "${tTitle}"${tPrice ? ` (₦${Number(tPrice).toLocaleString()})` : ""}. Is this available?`
+      );
+    }
+
+    if (targetUid && me && targetUid !== me) {
+      openThread(targetUid, null);
+    }
+  }, [searchParams, me]);
 
   // ---- Init & load threads ----
   useEffect(() => {
@@ -184,6 +223,30 @@ const GGDInbox: React.FC = () => {
         scope,
       });
     }
+
+    // If chatWith was provided via searchParams, ensure it appears in thread list
+    const targetUid = searchParams.get("chatWith");
+    if (targetUid && targetUid !== uid && !built.some((t) => t.otherId === targetUid)) {
+      const { data: targetProf } = await supabase
+        .from("profiles")
+        .select("user_id, email, display_name, avatar_url, business_name")
+        .eq("user_id", targetUid)
+        .maybeSingle();
+      if (targetProf) {
+        built.unshift({
+          otherId: targetUid,
+          displayName: (targetProf as any).business_name || (targetProf as any).display_name || "Business Member",
+          email: (targetProf as any).email || undefined,
+          avatarUrl: (targetProf as any).avatar_url || undefined,
+          lastMessage: "Product / Business Inquiry",
+          lastAt: new Date().toISOString(),
+          unread: 0,
+          taskId: null,
+          scope: "business",
+        });
+      }
+    }
+
     setThreads(built);
   };
 
@@ -267,15 +330,27 @@ const GGDInbox: React.FC = () => {
     const text = input.trim();
     if (!text || !activeOther) return;
     setInput("");
+
+    const currentTag = activeInquiryTag;
+    const isTag = !!currentTag;
+    const kind: Kind = isTag ? "action" : "text";
+    const action_type = isTag
+      ? (currentTag.type === "service" ? "service_inquiry" : "product_inquiry")
+      : null;
+    const action_payload = isTag ? currentTag : null;
+
     const optimistic: any = {
       id: `tmp-${Date.now()}`,
       sender_id: me, receiver_id: activeOther, task_id: activeTaskId, assignment_id: null,
-      kind: "text", message: text, image_url: null, action_type: null, action_payload: null,
+      kind, message: text, image_url: null, action_type, action_payload,
       is_read: false, created_at: new Date().toISOString(),
     };
     setMessages((p) => [...p, optimistic]);
+    setActiveInquiryTag(null);
+
     const { error } = await supabase.from("p2p_messages").insert({
-      sender_id: me, receiver_id: activeOther, task_id: activeTaskId, kind: "text", message: text,
+      sender_id: me, receiver_id: activeOther, task_id: activeTaskId, kind, message: text,
+      action_type, action_payload,
     });
     if (error) toast.error("Failed to send");
   };
@@ -420,6 +495,37 @@ const GGDInbox: React.FC = () => {
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
                 <div className={`rounded-2xl px-3 py-2 text-sm ${mine ? "bg-orange-500 text-white rounded-br-sm" : "bg-background border rounded-bl-sm"}`}>
+                  {/* Tagged product or service inquiry banner */}
+                  {(m.action_type === "product_inquiry" || m.action_type === "service_inquiry" || m.action_payload?.title) && (
+                    <div className={`mb-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
+                      {m.action_payload?.image_url && (
+                        <img src={m.action_payload.image_url} alt="" className="h-11 w-11 rounded-lg object-cover flex-shrink-0 border border-white/20" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}`}>
+                            {m.action_type === "service_inquiry" || m.action_payload?.type === 'service' ? "⚡ Service Inquiry" : "🛍️ Product Inquiry"}
+                          </span>
+                          <span className="font-bold truncate text-xs">{m.action_payload?.title || "Item Inquiry"}</span>
+                        </div>
+                        {m.action_payload?.price && (
+                          <p className={`font-black text-xs mt-0.5 ${mine ? "text-white font-extrabold" : "text-orange-600 font-bold"}`}>
+                            ₦{Number(m.action_payload.price).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      {m.action_payload?.id && (
+                        <button
+                          type="button"
+                          className={`h-7 px-2.5 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors ${mine ? "bg-white/20 hover:bg-white/30 text-white border border-white/40" : "bg-card border border-orange-500/30 text-orange-600 hover:bg-orange-500/10"}`}
+                          onClick={() => window.open(`/product/${m.action_payload.id}`, "_blank")}
+                        >
+                          <ExternalLink className="h-3 w-3" /> View
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {m.image_url && (
                     <a href={m.image_url} target="_blank" rel="noreferrer" className="block mb-1">
                       <img loading="lazy" src={m.image_url} alt="proof" className="rounded-lg max-h-64 object-cover" />
@@ -450,7 +556,34 @@ const GGDInbox: React.FC = () => {
         </div>
 
         {/* Composer */}
-        <div className="p-2 border-t bg-background">
+        <div className="p-2 border-t bg-background space-y-2">
+          {activeInquiryTag && (
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2.5">
+              {activeInquiryTag.image_url && (
+                <img src={activeInquiryTag.image_url} alt="" className="h-10 w-10 rounded-lg object-cover border flex-shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge className={`text-[9px] font-black uppercase px-1.5 py-0 border-0 ${activeInquiryTag.type === 'service' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
+                    {activeInquiryTag.type === 'service' ? '⚡ Tagged Service' : '🛍️ Tagged Product'}
+                  </Badge>
+                  <span className="font-bold text-xs truncate text-foreground">{activeInquiryTag.title}</span>
+                </div>
+                {activeInquiryTag.price && (
+                  <p className="text-xs font-black text-orange-600 mt-0.5">₦{Number(activeInquiryTag.price).toLocaleString()}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveInquiryTag(null)}
+                className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="Remove Tag"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-2 items-center">
             {activeTaskId && (
               <>

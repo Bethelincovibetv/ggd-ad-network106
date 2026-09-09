@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { playMoneyTransferSound } from "@/utils/audio";
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import {
   verifyRecipient,
@@ -151,6 +152,7 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
 
             // If we are the receiver, sync and credit profile immediately
             if (newRow.receiver_id === uid) {
+              playMoneyTransferSound();
               const syncRes = await syncPendingTransfersForUser(uid);
               if (syncRes.credited) {
                 onCreditsUpdate(syncRes.newBalance);
@@ -277,6 +279,7 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
       newBalance: result.newBalance ?? (credits - parsedAmount),
     });
 
+    playMoneyTransferSound();
     toast.success(`Successfully sent ${parsedAmount} credits to ${verifiedRecipient.displayName}!`);
     setStep('success');
 

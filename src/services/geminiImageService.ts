@@ -1,7 +1,4 @@
 
-const GEMINI_API_KEY = 'AIzaSyDRi8DYi5WbJzTYIbgVe5GyRYQSKWrkhxw';
-const GEMINI_IMAGE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
-
 // Emoji mapping for different topics
 const getTopicEmojis = (topic: string): string[] => {
   const topicLower = topic.toLowerCase();

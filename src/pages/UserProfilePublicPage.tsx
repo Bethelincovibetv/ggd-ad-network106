@@ -15,6 +15,7 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import { toast } from '@/hooks/use-toast';
 
 const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
+
   let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
   if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
   el.setAttribute('content', content);
@@ -37,6 +38,34 @@ const UserProfilePublicPage: React.FC = () => {
   const [sitesEnabled, setSitesEnabled] = useState(true);
   const [premiumTier, setPremiumTier] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  const handleChatDirect = (item?: any) => {
+    if (!profile?.user_id) return;
+    if (!currentUser) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in or create an account to chat directly with this business on GGD.",
+      });
+      navigate('/?auth=signin');
+      return;
+    }
+
+    let url = `/?tab=inbox&chatWith=${profile.user_id}`;
+    if (item) {
+      const type = item.listing_type || 'product';
+      const title = encodeURIComponent(item.title || '');
+      const price = item.price ? encodeURIComponent(String(item.price)) : '';
+      const id = item.id ? encodeURIComponent(item.id) : '';
+      const image = item.image_url ? encodeURIComponent(item.image_url) : '';
+      url += `&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${id}&tagImage=${image}`;
+    }
+    navigate(url);
+  };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
+  }, []);
 
   useEffect(() => {
     if (!id && !slug) return;
@@ -236,8 +265,22 @@ const UserProfilePublicPage: React.FC = () => {
               <Badge variant="secondary" className="text-[10px] gap-0.5"><Star className="h-2.5 w-2.5 text-amber-500" />Trusted</Badge>
               {business?.paystack_enabled && <Badge variant="secondary" className="text-[10px] gap-0.5"><ShoppingBag className="h-2.5 w-2.5 text-green-600" />Accepts Payments</Badge>}
             </div>
+
+            {/* Chat With Business CTA for logged-in users */}
+            {currentUser && currentUser.id !== profile.user_id && (
+              <div className="mt-4 pt-3 border-t border-border/60">
+                <Button
+                  onClick={() => setChatOpen(true)}
+                  className="w-full sm:w-auto bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs h-11 px-5 rounded-xl shadow-md gap-2"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Chat with {name}
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
+
 
         {/* About */}
         {description && (
@@ -270,10 +313,20 @@ const UserProfilePublicPage: React.FC = () => {
                     <Globe className="h-4 w-4 text-blue-500" />{website}
                   </Button>
                 )}
+                {currentUser && currentUser.id !== profile.user_id && (
+                  <Button
+                    onClick={() => handleChatDirect()}
+                    className="justify-start gap-2 text-xs h-11 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold col-span-full shadow-sm"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Chat Directly on GGD
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
+
 
         {/* Social channels */}
         {socials.length > 0 && (
@@ -368,10 +421,22 @@ const UserProfilePublicPage: React.FC = () => {
                           ) : listing.listing_type === 'service' ? (
                             <p className="text-xs font-bold text-muted-foreground">Quote on request</p>
                           ) : <span />}
-                          <Button size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white gap-1 h-10"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
-                            View Details
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            {currentUser && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-orange-500/30 text-orange-600 hover:bg-orange-500/10 font-bold h-10 gap-1"
+                                onClick={(e) => { e.stopPropagation(); handleChatDirect(listing); }}
+                              >
+                                <MessageCircle className="h-4 w-4" /> Inquire
+                              </Button>
+                            )}
+                            <Button size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 text-white gap-1 h-10"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}>
+                              View Details
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -477,8 +542,26 @@ const UserProfilePublicPage: React.FC = () => {
           <AdDisplayPreview />
         </div>
       </article>
+
+      {/* Floating Direct Chat Launcher for Registered Platform Users Only */}
+      {currentUser && profile?.user_id && currentUser.id !== profile.user_id && (
+        <aside aria-label="Chat with business" className="fixed bottom-6 right-6 z-40">
+          <button
+            type="button"
+            onClick={() => handleChatDirect()}
+            className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white font-black text-xs sm:text-sm shadow-[0_6px_0_0_#c2410c,0_10px_25px_rgba(234,88,12,0.4),inset_0_2px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_4px_0_0_#c2410c,0_6px_16px_rgba(234,88,12,0.45)] hover:-translate-y-0.5 active:translate-y-1 active:shadow-[0_1px_0_0_#c2410c] transition-all cursor-pointer ring-2 ring-white/40"
+          >
+            <div className="relative">
+              <MessageCircle className="h-5 w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
+            </div>
+            <span className="truncate max-w-[140px] sm:max-w-[180px]">Chat with {name}</span>
+          </button>
+        </aside>
+      )}
     </div>
   );
 };
+
 
 export default UserProfilePublicPage;

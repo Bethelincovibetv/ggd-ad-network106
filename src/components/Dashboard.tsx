@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +43,9 @@ import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
 import BusinessStorefront from "@/components/BusinessStorefront";
 import BusinessDirectory from "@/components/BusinessDirectory";
 import UserGuide from "@/components/UserGuide";
+import NotificationsPage from "@/components/NotificationsPage";
 import ApiDocumentation from "@/components/ApiDocumentation";
+
 import BusinessGuide from "@/components/BusinessGuide";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import UserProfilePage from "@/components/UserProfilePage";
@@ -166,6 +168,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const effectivePremium = !premium.enabled || isAdmin || (subscriptionActive && currentTier >= 1);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const dailyLoginCheckedUsersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { initDashboard(); }, []);
 
@@ -204,6 +207,15 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       if (subChannel) supabase.removeChannel(subChannel);
     };
   }, []);
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      handleTabChange(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handler = (e: any) => { if (e?.detail) handleTabChange(e.detail); };
@@ -346,16 +358,43 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
       }
       const currentCredits = profile.credits || 0;
-      // Only grant free daily credits if user has 0 credits (like Lovable credits system)
-      // Credits don't stack - user must use them before getting more
-      if (currentCredits === 0 && profile.last_credit_date !== new Date().toISOString().split('T')[0] && !userRoles.includes('admin')) {
+      const today = new Date().toISOString().split('T')[0];
+      const userKey = `${user.id}_${today}`;
+      const isAlreadyCreditedToday = 
+        profile.last_credit_date === today || 
+        dailyLoginCheckedUsersRef.current.has(userKey) ||
+        (typeof window !== 'undefined' && localStorage.getItem(`ggd_daily_credit_${userKey}`) === 'true');
+
+      // Only grant free daily credits once per day per user account when credits balance is 0
+      if (!isAlreadyCreditedToday && currentCredits === 0 && !userRoles.includes('admin')) {
+        dailyLoginCheckedUsersRef.current.add(userKey);
+        try {
+          localStorage.setItem(`ggd_daily_credit_${userKey}`, 'true');
+        } catch {}
+
         const newCredits = loginCreditsAmount;
-        const today = new Date().toISOString().split('T')[0];
         const newLoginBonus = Number((profile as any).login_bonus_credits || 0) + newCredits;
-        await supabase.from('profiles').update({ credits: newCredits, last_credit_date: today, login_bonus_credits: newLoginBonus } as any).eq('user_id', user.id);
-        setCredits(newCredits);
-        toast.success(`🎉 You received ${loginCreditsAmount} free credits! (Bonus credits cannot be used to fund syndicate tasks.)`);
+
+        // Perform atomic update conditioned on last_credit_date != today to prevent duplicate credits
+        const { data: updatedRows } = await supabase
+          .from('profiles')
+          .update({ 
+            credits: newCredits, 
+            last_credit_date: today, 
+            login_bonus_credits: newLoginBonus 
+          } as any)
+          .eq('user_id', user.id)
+          .or(`last_credit_date.is.null,last_credit_date.neq.${today}`)
+          .select('credits, last_credit_date');
+
+        if (updatedRows && updatedRows.length > 0) {
+          setCredits(newCredits);
+          toast.success(`🎉 You received ${loginCreditsAmount} free daily credits!`);
+        } else {
+          setCredits(currentCredits);
+        }
       } else {
+        dailyLoginCheckedUsersRef.current.add(userKey);
         setCredits(currentCredits);
       }
     }
@@ -886,7 +925,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'user-guide':
       case 'business-guide':
       case 'syndicate-guide':
-        return isEnabled('quick_guide') || isEnabled('nav_guide') ? <UserGuide /> : disabled;
+      case 'quick_guide':
+      case 'guide_step_completion':
+      case 'step_1':
+      case 'step_2':
+      case 'step_3':
+      case 'step_4':
+      case 'step_5':
+      case 'step_6':
+      case 'step_7':
+      case 'step_8':
+      case 'step_9':
+      case 'step_10':
+        return <UserGuide />;
+
+      case 'notifications':
+      case 'all-notifications':
+      case 'notification':
+        return <NotificationsPage onNavigate={handleTabChange} />;
+
 
       case 'wizard':
         return isEnabled('setup_wizard')
@@ -1025,9 +1082,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return null;
 
       default:
-        return null;
+        if (activeTab?.startsWith('step_') || activeTab?.toLowerCase().includes('guide')) {
+          return <UserGuide />;
+        }
+        if (activeTab?.toLowerCase().includes('notif')) {
+          return <NotificationsPage onNavigate={handleTabChange} />;
+        }
+        return <BusinessGrowthDashboard onNavigate={handleTabChange} />;
     }
   };
+
 
   return (
     <SidebarProvider>

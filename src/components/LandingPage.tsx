@@ -1,19 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   Globe, Zap, BarChart3, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, 
   Briefcase, TrendingUp, Target, Building2, Store, Megaphone, Sparkles, Coins, CheckCircle2,
-  Share2, Eye, PenTool, Layers
+  Share2, Eye, PenTool, Layers, ShoppingBag, BadgeCheck, MapPin,
+  ExternalLink, Phone, ArrowUpRight
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GlobalSearchBar from "@/components/GlobalSearchBar";
+import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
 import ggdLogo from '@/assets/ggd-logo.png';
 import businessImg from '@/assets/landing-business.jpg';
 import syndicateImg from '@/assets/landing-syndicate.jpg';
+import defaultSlider from '@/assets/default-slider.jpg';
+import directoryHero from '@/assets/directory-hero.jpg';
+import coOwnerBanner from '@/assets/co-owner-banner.jpg';
+import defaultAd from '@/assets/default-ad.jpg';
 import { supabase } from "@/integrations/supabase/client";
+import BusinessDirectory from "@/components/BusinessDirectory";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -53,9 +61,10 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
-  const [sampleAds, setSampleAds] = useState<any[]>([]);
-  const [currentAdIdx, setCurrentAdIdx] = useState(0);
   const [searchEnabled, setSearchEnabled] = useState(true);
+
+  // Live Ads Showcase State (Full Page Display)
+  const [banners, setBanners] = useState<any[]>([]);
 
   const impressions = useCountUp(liveStats.impressions || 100, 2500);
   const campaigns = useCountUp(liveStats.campaigns || 1, 2000);
@@ -84,17 +93,80 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     };
     fetchStats();
 
-    // Fetch sample ads for display
-    supabase.from('ads').select('*').eq('is_active', true).limit(5)
-      .then(({ data }) => { if (data?.length) setSampleAds(data); });
-  }, []);
+    // 1. Fetch live banners & combine with wide fallback platform banners
+    const fetchBanners = async () => {
+      try {
+        const { data: ads } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(6);
 
-  // Rotate sample ads
-  useEffect(() => {
-    if (sampleAds.length <= 1) return;
-    const interval = setInterval(() => setCurrentAdIdx(prev => (prev + 1) % sampleAds.length), 6000);
-    return () => clearInterval(interval);
-  }, [sampleAds]);
+        const defaultBanners = [
+          {
+            id: 'banner-platform-1',
+            title: 'Scale Your Brand Across Nigeria & Beyond',
+            description: 'Broadcast high-impact banner campaigns across hundreds of verified publisher sites with real-time conversion tracking.',
+            image_url: defaultSlider,
+            target_url: '#business',
+            sponsor: 'GGD Commercial Ad Engine',
+            tag: 'Featured Partner',
+            ctaText: 'Launch Campaign Now',
+          },
+          {
+            id: 'banner-platform-2',
+            title: 'Verified Business Directory & Digital Storefronts',
+            description: 'Showcase your products, services, and WhatsApp contact to 50,000+ targeted customers looking for verified merchants.',
+            image_url: directoryHero,
+            target_url: '#business',
+            sponsor: 'GGD Merchant Growth Hub',
+            tag: 'Storefront Directory',
+            ctaText: 'Claim Your Storefront',
+          },
+          {
+            id: 'banner-platform-3',
+            title: 'Syndicate Distribution & Paid Promoter Campaigns',
+            description: 'Deploy thousands of micro-promoters across WhatsApp statuses, Instagram reels, and TikTok to drive instant brand buzz.',
+            image_url: syndicateImg,
+            target_url: '#promote-earn',
+            sponsor: 'Syndicate Promoter Engine',
+            tag: 'Promoter Network',
+            ctaText: 'Discover Syndicate',
+          },
+          {
+            id: 'banner-platform-4',
+            title: 'Earn & Trade with GGG Community Credits',
+            description: 'Complete promotional tasks, watch videos, refer friends, and trade verified credits within the flourishing GGD economy.',
+            image_url: coOwnerBanner,
+            target_url: '#promote-earn',
+            sponsor: 'GGG Credit Economy',
+            tag: 'Instant Rewards',
+            ctaText: 'Start Earning Credits',
+          },
+        ];
+
+        if (ads && ads.length > 0) {
+          const liveAdsFormatted = ads.map((a) => ({
+            id: a.id,
+            title: a.title,
+            description: a.description || 'Verified commercial advertisement on GGD Ad Network.',
+            image_url: a.image_url || defaultAd,
+            target_url: a.target_url || '#',
+            sponsor: a.advertiser_name || 'Verified Advertiser',
+            tag: 'Live Ad Campaign',
+            ctaText: 'Visit Advertiser →',
+          }));
+          setBanners([...liveAdsFormatted, ...defaultBanners]);
+        } else {
+          setBanners(defaultBanners);
+        }
+      } catch (err) {
+        console.warn('Error fetching banners:', err);
+      }
+    };
+    fetchBanners();
+  }, []);
 
   const scrollTo = (id: string) => {
     setMenuOpen(false);
@@ -102,6 +174,9 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   };
 
   const navItems = [
+    { id: 'live-ads', label: 'Live Ads' },
+    { id: 'business-directory', label: 'Business Directory' },
+    { id: 'marketing-apps', label: 'Marketing Apps' },
     { id: 'features', label: 'What GGD Does' },
     { id: 'business', label: 'For Businesses' },
     { id: 'promote-earn', label: 'Promote & Earn' },
@@ -109,6 +184,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     { id: 'blogmate', label: 'BlogMate AI' },
     { id: 'contact', label: 'Contact' },
   ];
+
 
   const coreCapabilities = [
     {
@@ -162,7 +238,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a]">
+    <div className="min-h-screen bg-[#1a1a1a] dark text-foreground">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -305,43 +381,238 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </div>
       </div>
 
-      {/* Live Ad Display Sample */}
-      {sampleAds.length > 0 && (
-        <div className="container mx-auto px-4 py-12">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Live Ad Campaigns</h2>
-            <p className="text-gray-400 text-sm">See real commercial banner ads running on GGD Ad Network right now</p>
+      {/* 1. Full Display Live Ads Section (No Slider - Full Page Display) */}
+      <div id="live-ads" className="container mx-auto px-4 py-14">
+        <span id="featured-banner" className="sr-only" />
+        <div className="text-center mb-10 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-[#e67e22]/10 border border-[#e67e22]/30 text-[#e67e22] rounded-full px-4 py-1.5 text-xs font-bold tracking-wide uppercase">
+            <Megaphone className="h-3.5 w-3.5" /> Live Ad Network • Full Display
           </div>
-          <div className="max-w-sm mx-auto">
-            <Card className="overflow-hidden bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-500">
-              {sampleAds[currentAdIdx]?.image_url && (
-                <div className="relative">
-                  <img src={sampleAds[currentAdIdx].image_url} alt={sampleAds[currentAdIdx].title} className="w-full h-48 object-cover" />
-                  <div className="absolute top-2 right-2 bg-[#e67e22] text-white px-2 py-1 rounded-full text-[10px] font-bold">LIVE AD</div>
+          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
+            Active Live Commercial Ads
+          </h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
+            Commercial ad campaigns broadcasting live across verified publisher websites, high-traffic portals, and the GGD partner network.
+          </p>
+        </div>
+
+        {banners.length > 0 && (
+          <div className="max-w-6xl mx-auto space-y-8">
+            {/* Premier Featured Live Ad Banner */}
+            {banners[0] && (
+              <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-gradient-to-br from-neutral-900 via-stone-900 to-neutral-950 group">
+                <div className="relative h-80 sm:h-96 md:h-[440px] w-full overflow-hidden">
+                  <img 
+                    src={banners[0].image_url} 
+                    alt={banners[0].title} 
+                    className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700 ease-out" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent pointer-events-none" />
+                  
+                  {/* Floating Live Badge */}
+                  <div className="absolute top-4 sm:top-6 left-4 sm:left-6 flex flex-wrap items-center gap-2 z-10">
+                    <span className="inline-flex items-center gap-1.5 bg-[#e67e22] text-white px-3.5 py-1.5 rounded-full text-xs font-black shadow-lg shadow-[#e67e22]/40 uppercase tracking-wider">
+                      <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+                      LIVE NETWORK AD
+                    </span>
+                    <span className="bg-black/60 backdrop-blur-md text-gray-200 border border-white/20 px-3 py-1 rounded-full text-xs font-medium">
+                      {banners[0].tag || 'Featured Campaign'}
+                    </span>
+                  </div>
+
+                  {/* Sponsor Pill */}
+                  <div className="absolute top-4 sm:top-6 right-4 sm:right-6 hidden sm:flex items-center gap-2 z-10 bg-black/60 backdrop-blur-md text-gray-300 border border-white/10 px-3.5 py-1.5 rounded-full text-xs">
+                    <Store className="h-3.5 w-3.5 text-orange-400" />
+                    <span className="font-semibold text-white">{banners[0].sponsor}</span>
+                  </div>
+
+                  {/* Bottom Content Area */}
+                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10 z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+                    <div className="space-y-3 max-w-2xl">
+                      <h3 className="text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight drop-shadow-md">
+                        {banners[0].title}
+                      </h3>
+                      <p className="text-sm sm:text-base text-gray-200 line-clamp-2 leading-relaxed drop-shadow">
+                        {banners[0].description}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-orange-300/90 font-medium">
+                        <span>✓ Verified Network Broadcast</span>
+                        <span>•</span>
+                        <span>✓ 100,000+ Reach</span>
+                        <span>•</span>
+                        <span>✓ Direct Click-Through</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
+                      <Button 
+                        size="lg"
+                        className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white font-bold px-6 py-6 rounded-xl shadow-xl shadow-[#e67e22]/30 hover:scale-105 transition-all text-base gap-2"
+                        onClick={() => {
+                          const url = banners[0].target_url;
+                          if (url?.startsWith('#')) {
+                            scrollTo(url.slice(1));
+                          } else if (url && url !== '#') {
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          } else {
+                            onGetStarted();
+                          }
+                        }}
+                      >
+                        {banners[0].ctaText || 'Visit Advertiser →'}
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="lg"
+                        className="border-white/30 bg-black/40 backdrop-blur text-white hover:bg-black/60 font-semibold px-5 py-6 rounded-xl text-base"
+                        onClick={onGetStarted}
+                      >
+                        Place Your Ad
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div className="p-4 space-y-2">
-                <h3 className="font-bold text-white line-clamp-2">{sampleAds[currentAdIdx]?.title}</h3>
-                <p className="text-gray-400 text-sm line-clamp-2">{sampleAds[currentAdIdx]?.description}</p>
-                <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white px-4 py-2 rounded-lg text-center text-sm font-medium cursor-pointer"
-                  onClick={() => window.open(sampleAds[currentAdIdx]?.target_url, '_blank')}>
-                  Visit Ad →
-                </div>
-              </div>
-              <div className="bg-[#111] px-4 py-2 text-center border-t border-[#333]">
-                <p className="text-[10px] text-gray-500">Commercial Banner Ads powered by <span className="font-semibold text-[#e67e22]">GGD Ad Network</span></p>
-              </div>
-            </Card>
-            {sampleAds.length > 1 && (
-              <div className="flex justify-center mt-3 gap-1.5">
-                {sampleAds.map((_, i) => (
-                  <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentAdIdx ? 'bg-[#e67e22]' : 'bg-[#444]'}`} />
-                ))}
               </div>
             )}
+
+            {/* Comprehensive Live Ads Wall / Grid (All active campaigns visible simultaneously) */}
+            {banners.length > 1 && (
+              <div className="space-y-4 pt-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <h3 className="text-lg md:text-xl font-bold text-white">
+                      All Active Network Ad Campaigns ({banners.length})
+                    </h3>
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">Full Live Broadcast</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {banners.map((ad, idx) => (
+                    <Card 
+                      key={ad.id || idx}
+                      className="bg-[#12151b] border-white/10 overflow-hidden hover:border-[#e67e22]/50 transition-all duration-300 group flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Ad Banner Image */}
+                        <div className="relative h-48 w-full overflow-hidden bg-neutral-900">
+                          <img 
+                            src={ad.image_url} 
+                            alt={ad.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                            <Badge className="bg-[#e67e22] text-white border-0 text-[10px] font-bold px-2 py-0.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping mr-1" />
+                              LIVE
+                            </Badge>
+                            <Badge variant="outline" className="bg-black/60 backdrop-blur text-gray-300 border-white/20 text-[10px]">
+                              {ad.tag || 'Ad Campaign'}
+                            </Badge>
+                          </div>
+                          {ad.sponsor && (
+                            <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-xs text-gray-300 drop-shadow">
+                              <span className="truncate font-semibold text-white flex items-center gap-1">
+                                <Store className="h-3 w-3 text-orange-400 shrink-0" />
+                                {ad.sponsor}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ad Details */}
+                        <CardContent className="p-5 space-y-2.5">
+                          <h4 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors line-clamp-1">
+                            {ad.title}
+                          </h4>
+                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {ad.description}
+                          </p>
+                        </CardContent>
+                      </div>
+
+                      {/* Card Action Footer */}
+                      <div className="p-5 pt-0">
+                        <Button 
+                          className="w-full bg-white/5 hover:bg-[#e67e22] hover:text-white text-gray-200 border border-white/10 font-medium text-xs h-9 gap-1.5 transition-all duration-200"
+                          onClick={() => {
+                            const url = ad.target_url;
+                            if (url?.startsWith('#')) {
+                              scrollTo(url.slice(1));
+                            } else if (url && url !== '#') {
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            } else {
+                              onGetStarted();
+                            }
+                          }}
+                        >
+                          <span>{ad.ctaText || 'Visit Advertiser'}</span>
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Network Broadcast Banner CTA */}
+            <div className="rounded-2xl bg-gradient-to-r from-orange-950/40 via-neutral-900 to-stone-900 border border-[#e67e22]/20 p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="space-y-1.5 text-center sm:text-left">
+                <h4 className="text-lg md:text-xl font-bold text-white flex items-center justify-center sm:justify-start gap-2">
+                  <Megaphone className="h-5 w-5 text-[#e67e22]" /> Want your ad broadcast live across the GGD network?
+                </h4>
+                <p className="text-xs md:text-sm text-gray-400 max-w-xl">
+                  Reach 100,000+ real buyers, blog readers, and active shoppers. Launch a commercial banner campaign in minutes with live real-time impression analytics.
+                </p>
+              </div>
+              <Button 
+                onClick={onGetStarted}
+                className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white font-bold px-6 py-5 rounded-xl shadow-lg shadow-[#e67e22]/20 hover:scale-105 transition-all text-sm shrink-0"
+              >
+                Place Your Live Ad Now
+              </Button>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* 2. Main Business Directory Section */}
+      <div id="business-directory" className="container mx-auto px-4 py-16">
+        <span id="featured-products" className="sr-only" />
+        <span id="directory" className="sr-only" />
+        <div className="text-center mb-8 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide">
+            <Store className="h-3.5 w-3.5" /> Official Business Directory
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
+            Main Business Directory
+          </h2>
+          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
+            Discover verified Nigerian enterprises, explore corporate storefronts, search across industries, and browse active commercial catalogs.
+          </p>
         </div>
-      )}
+
+        <div className="max-w-6xl mx-auto">
+          <BusinessDirectory isBusiness={false} onRequireAuth={onGetStarted} hideCarousel={true} />
+        </div>
+      </div>
+
+      {/* 3. Official Marketing & Growth Apps Marketplace Section (Admin Configured) */}
+      <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
+        <div className="max-w-6xl mx-auto">
+          <MarketingAppsMarketplace
+            pagePlacement="landing"
+            onRequireAuth={onGetStarted}
+            title="Official Growth & Marketing Apps"
+            subtitle="Admin-curated commercial applications and marketing solutions to accelerate enterprise growth on GGD"
+          />
+        </div>
+      </div>
+
 
       {/* For Businesses Section */}
       <div id="business" className="container mx-auto px-4 py-16">

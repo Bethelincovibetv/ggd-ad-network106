@@ -11,21 +11,25 @@ import {
   ShieldCheck, Loader2, RefreshCw, Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { playNotificationChime } from '@/utils/audio';
+import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
+import { getTransferHistory, TransferRecord } from '@/services/transferService';
 
 interface NotificationsPageProps {
+
   onNavigate?: (tab: string) => void;
 }
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'transfers' | 'guide' | 'system'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'transfers' | 'history' | 'guide' | 'system'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [transfers, setTransfers] = useState<TransferRecord[]>([]);
+  const [loadingTransfers, setLoadingTransfers] = useState(false);
 
   // Initialize and load
   const loadNotifications = useCallback(async (uid: string) => {
@@ -48,17 +52,39 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     }
   }, []);
 
+  const loadHistory = useCallback(async (uid: string) => {
+    setLoadingTransfers(true);
+    try {
+      const data = await getTransferHistory(uid);
+      setTransfers(data);
+    } catch (err) {
+      console.warn('Failed to load transfers:', err);
+    } finally {
+      setLoadingTransfers(false);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       const { data: authData } = await supabase.auth.getUser();
       if (authData.user) {
         setUserId(authData.user.id);
-        await loadNotifications(authData.user.id);
+        await Promise.all([
+          loadNotifications(authData.user.id),
+          loadHistory(authData.user.id),
+        ]);
       } else {
         setLoading(false);
       }
     })();
-  }, [loadNotifications]);
+  }, [loadNotifications, loadHistory]);
+
+  useEffect(() => {
+    if (userId && (filterTab === 'history' || filterTab === 'transfers')) {
+      loadHistory(userId);
+    }
+  }, [userId, filterTab, loadHistory]);
+
 
   // Realtime subscription
   useEffect(() => {
@@ -122,12 +148,16 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   };
 
   // Open receipt for a transfer notification
-  const handleOpenReceipt = (n: any) => {
+  const handleOpenReceipt = async (n: any) => {
     markAsRead(n.id);
 
     // Extract transfer amount & details
     let amount = 0;
     let senderName = 'Sender';
+    let senderHandle = '';
+    let receiverName = 'You';
+    let receiverHandle = '';
+
     const amountMatch = n.message?.match(/(\d+[\d,]*)\s*GGG credits/i) || n.message?.match(/(\d+[\d,]*)\s*credits/i);
     if (amountMatch) {
       amount = parseInt(amountMatch[1].replace(/,/g, ''), 10) || 0;
@@ -138,14 +168,59 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       senderName = fromMatch[1].trim();
     }
 
-    let transferId = n.nav_target?.replace('receipt:', '') || `TRX-${n.id.slice(0, 8).toUpperCase()}`;
+    const rawTrxId = n.nav_target?.replace('receipt:', '').trim();
+    const transferId = rawTrxId || `TRX-${n.id.slice(0, 8).toUpperCase()}`;
+
+    // Deep query credit_transfers if rawTrxId exists
+    if (rawTrxId) {
+      try {
+        const { data: ct } = await supabase.from('credit_transfers').select('*').eq('id', rawTrxId).maybeSingle();
+        if (ct) {
+          if (ct.amount) amount = ct.amount;
+          const [sRes, rRes] = await Promise.all([
+            supabase.from('profiles').select('display_name, business_name, business_slug, referral_code').eq('user_id', ct.sender_id).maybeSingle(),
+            supabase.from('profiles').select('display_name, business_name, business_slug, referral_code').eq('user_id', ct.receiver_id).maybeSingle(),
+          ]);
+          if (sRes.data) {
+            senderName = sRes.data.business_name || sRes.data.display_name || senderName;
+            senderHandle = sRes.data.business_slug ? `@${sRes.data.business_slug}` : sRes.data.referral_code ? `@${sRes.data.referral_code}` : '';
+          }
+          if (rRes.data) {
+            receiverName = rRes.data.business_name || rRes.data.display_name || 'You';
+            receiverHandle = rRes.data.business_slug ? `@${rRes.data.business_slug}` : rRes.data.referral_code ? `@${rRes.data.referral_code}` : '';
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to deep query transfer details:', err);
+      }
+    }
 
     setSelectedReceipt({
       transferId,
       amount: amount || 100,
       direction: 'received',
       counterpartyName: senderName,
+      senderName,
+      senderHandle,
+      receiverName,
+      receiverHandle,
       timestamp: n.created_at,
+      status: 'Settled & Verified',
+    });
+    setReceiptModalOpen(true);
+  };
+
+  const handleOpenTransferHistoryReceipt = (trx: TransferRecord) => {
+    setSelectedReceipt({
+      transferId: trx.id,
+      amount: trx.amount,
+      direction: trx.direction,
+      counterpartyName: trx.counterpartyName,
+      senderName: trx.direction === 'received' ? trx.counterpartyName : 'You',
+      senderHandle: trx.direction === 'received' ? trx.counterpartyHandle : '',
+      receiverName: trx.direction === 'sent' ? trx.counterpartyName : 'You',
+      receiverHandle: trx.direction === 'sent' ? trx.counterpartyHandle : '',
+      timestamp: trx.created_at,
       status: 'Settled & Verified',
     });
     setReceiptModalOpen(true);
@@ -174,10 +249,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     }
 
     if (isGuide) {
+      playGuideSuccessSound();
       if (onNavigate) onNavigate('guide');
       else window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'guide' }));
       return;
     }
+
 
     if (navTarget) {
       if (navTarget.startsWith('receipt:')) {
@@ -302,9 +379,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                 <TabsTrigger value="transfers" className="rounded-lg text-xs font-bold py-1.5 px-3 text-emerald-600 dark:text-emerald-400">
                   💰 Transfers
                 </TabsTrigger>
+                <TabsTrigger value="history" className="rounded-lg text-xs font-bold py-1.5 px-3 text-amber-600 dark:text-amber-400">
+                  🧾 Receipts & History ({transfers.length})
+                </TabsTrigger>
                 <TabsTrigger value="guide" className="rounded-lg text-xs font-bold py-1.5 px-3 text-indigo-600 dark:text-indigo-400">
                   📘 Guide
                 </TabsTrigger>
+
                 <TabsTrigger value="system" className="rounded-lg text-xs font-bold py-1.5 px-3">
                   System
                 </TabsTrigger>
@@ -338,7 +419,120 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       </Card>
 
       {/* Notifications Listing */}
-      {loading ? (
+      {filterTab === 'history' ? (
+        loadingTransfers ? (
+          <div className="py-20 text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-amber-500 mx-auto" />
+            <p className="text-xs font-semibold text-muted-foreground">Loading verified transaction ledger...</p>
+          </div>
+        ) : transfers.length === 0 ? (
+          <Card className="border-dashed border-2 rounded-2xl bg-muted/20">
+            <CardContent className="py-16 text-center space-y-3">
+              <div className="h-14 w-14 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                <Receipt className="h-7 w-7 opacity-70" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">No Transactions Yet</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                When you transfer or receive GGG credits, your complete ledger and verifiable receipts will be listed here with counterparty details.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Showing {transfers.length} verified transaction{transfers.length === 1 ? '' : 's'}
+              </p>
+              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                Rate: 1 GGG = ₦10.00
+              </span>
+            </div>
+
+            {transfers.map((trx) => {
+              const isReceived = trx.direction === 'received';
+              return (
+                <Card
+                  key={trx.id}
+                  className="transition-all duration-200 border rounded-2xl overflow-hidden shadow-sm hover:shadow-md bg-card border-border/70 hover:border-border"
+                >
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                      {/* Direction Icon */}
+                      <div
+                        className={`h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+                          isReceived
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        }`}
+                      >
+                        {isReceived ? (
+                          <ArrowDownLeft className="h-6 w-6" />
+                        ) : (
+                          <ArrowUpRight className="h-6 w-6" />
+                        )}
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            className={`text-[10px] font-black uppercase tracking-wider ${
+                              isReceived
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                            }`}
+                          >
+                            {isReceived ? 'Received From' : 'Sent To'}
+                          </Badge>
+                          <span className="text-sm font-black text-foreground">
+                            {trx.counterpartyName}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {trx.counterpartyHandle}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap pt-0.5">
+                          <span className="font-mono">Ref: TRX-{trx.id.slice(0, 8).toUpperCase()}</span>
+                          <span>•</span>
+                          <span>{new Date(trx.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Amount & Receipt Button */}
+                      <div className="flex flex-col sm:items-end justify-between gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50">
+                        <div className="sm:text-right">
+                          <div
+                            className={`text-base sm:text-lg font-black tracking-tight ${
+                              isReceived
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {isReceived ? '+' : '-'}{trx.amount.toLocaleString()} GGG
+                          </div>
+                          <div className="text-[11px] font-semibold text-muted-foreground">
+                            ≈ ₦{(trx.amount * 10).toLocaleString()} NGN
+                          </div>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenTransferHistoryReceipt(trx)}
+                          className="h-8.5 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-sm gap-1.5"
+                        >
+                          <Receipt className="h-3.5 w-3.5" /> View Official Receipt
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
+      ) : loading ? (
+
         <div className="py-20 text-center space-y-3">
           <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
           <p className="text-xs font-semibold text-muted-foreground">Loading your notifications...</p>

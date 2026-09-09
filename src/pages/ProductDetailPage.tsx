@@ -17,6 +17,11 @@ const ProductDetailPage: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -156,25 +161,60 @@ const ProductDetailPage: React.FC = () => {
         )}
 
         {/* Order actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {waPhone && (
-            <Button className="bg-green-600 hover:bg-green-700 text-white h-12 gap-2 text-sm font-bold"
-              onClick={() => {
-                const text = listing.listing_type === 'service'
-                  ? `Hello! I saw your service "${listing.title}" on GGD Ad Network and would like to make an inquiry.`
-                  : `Hello! I saw your product "${listing.title}" on GGD Ad Network and would like to place an order.`;
-                window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
-              }}>
-              <MessageCircle className="h-5 w-5" />
-              {listing.listing_type === 'service' ? 'Inquire on WhatsApp' : 'Order on WhatsApp'}
-            </Button>
-          )}
-          {(business?.phone_number || profile?.business_phone) && (
-            <Button variant="outline" className="h-12 gap-2 text-sm font-bold"
-              onClick={() => window.open(`tel:${business?.phone_number || profile?.business_phone}`)}>
-              <Phone className="h-5 w-5 text-orange-500" />Call Seller
-            </Button>
-          )}
+        <div className="space-y-2">
+          {/* Direct GGD Chat for Registered Platform Users */}
+          <Button
+            className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white h-12 gap-2 text-sm font-black shadow-md"
+            onClick={() => {
+              if (!currentUser) {
+                toast({
+                  title: "Sign in required",
+                  description: "Please sign in or register to chat with this seller directly on GGD.",
+                });
+                navigate('/?auth=signin');
+                return;
+              }
+              const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
+              if (!sellerId) {
+                toast({ title: "Unable to reach seller", description: "Seller contact details unavailable." });
+                return;
+              }
+              if (currentUser.id === sellerId) {
+                toast({ title: "This is your listing", description: "You are the owner of this item." });
+                return;
+              }
+              const type = listing.listing_type || 'product';
+              const title = encodeURIComponent(listing.title || '');
+              const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
+              const itemId = listing.id ? encodeURIComponent(listing.id) : '';
+              const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
+              navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
+            }}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {listing.listing_type === 'service' ? 'Inquire on GGD Platform Chat' : 'Chat Seller on GGD Platform'}
+          </Button>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {waPhone && (
+              <Button className="bg-green-600 hover:bg-green-700 text-white h-11 gap-2 text-xs sm:text-sm font-bold"
+                onClick={() => {
+                  const text = listing.listing_type === 'service'
+                    ? `Hello! I saw your service "${listing.title}" on GGD Ad Network and would like to make an inquiry.`
+                    : `Hello! I saw your product "${listing.title}" on GGD Ad Network and would like to place an order.`;
+                  window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                }}>
+                <MessageCircle className="h-4 w-4" />
+                {listing.listing_type === 'service' ? 'WhatsApp Inquiry' : 'WhatsApp Order'}
+              </Button>
+            )}
+            {(business?.phone_number || profile?.business_phone) && (
+              <Button variant="outline" className="h-11 gap-2 text-xs sm:text-sm font-bold"
+                onClick={() => window.open(`tel:${business?.phone_number || profile?.business_phone}`)}>
+                <Phone className="h-4 w-4 text-orange-500" />Call Seller
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Business card */}

@@ -16,7 +16,10 @@ const SyndicateRegister = lazy(() => import("./pages/SyndicateRegister"));
 const SharePreviewPage = lazy(() => import("./pages/SharePreviewPage"));
 const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
 const IndustryPage = lazy(() => import("./pages/IndustryPage"));
+const NotificationsDedicatedPage = lazy(() => import("./pages/NotificationsDedicatedPage"));
+const GuideDedicatedPage = lazy(() => import("./pages/GuideDedicatedPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
 
 const queryClient = new QueryClient();
 
@@ -45,7 +48,10 @@ const App = () => (
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/industry/:slug" element={<IndustryPage />} />
             <Route path="/syndicate-register" element={<SyndicateRegister />} />
+            <Route path="/notifications" element={<NotificationsDedicatedPage />} />
+            <Route path="/guide" element={<GuideDedicatedPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
             <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>
