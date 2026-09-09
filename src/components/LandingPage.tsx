@@ -21,7 +21,6 @@ import directoryHero from '@/assets/directory-hero.jpg';
 import coOwnerBanner from '@/assets/co-owner-banner.jpg';
 import defaultAd from '@/assets/default-ad.jpg';
 import { supabase } from "@/integrations/supabase/client";
-import BusinessDirectory from "@/components/BusinessDirectory";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -175,7 +174,6 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
   const navItems = [
     { id: 'live-ads', label: 'Live Ads' },
-    { id: 'business-directory', label: 'Business Directory' },
     { id: 'marketing-apps', label: 'Marketing Apps' },
     { id: 'features', label: 'What GGD Does' },
     { id: 'business', label: 'For Businesses' },
@@ -580,28 +578,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         )}
       </div>
 
-      {/* 2. Main Business Directory Section */}
-      <div id="business-directory" className="container mx-auto px-4 py-16">
-        <span id="featured-products" className="sr-only" />
-        <span id="directory" className="sr-only" />
-        <div className="text-center mb-8 space-y-3">
-          <div className="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide">
-            <Store className="h-3.5 w-3.5" /> Official Business Directory
-          </div>
-          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
-            Main Business Directory
-          </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
-            Discover verified Nigerian enterprises, explore corporate storefronts, search across industries, and browse active commercial catalogs.
-          </p>
-        </div>
-
-        <div className="max-w-6xl mx-auto">
-          <BusinessDirectory isBusiness={false} onRequireAuth={onGetStarted} hideCarousel={true} />
-        </div>
-      </div>
-
-      {/* 3. Official Marketing & Growth Apps Marketplace Section (Admin Configured) */}
+      {/* Official Marketing & Growth Apps Marketplace Section (Admin Configured) */}
       <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
         <div className="max-w-6xl mx-auto">
           <MarketingAppsMarketplace
