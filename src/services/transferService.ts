@@ -288,9 +288,10 @@ export async function executeTransfer(
 }
 
 /**
- * Synchronizes incoming transfers for the authenticated user from the canonical credit_transfers ledger.
- * This guarantees that even with strict RLS policies on profiles, any credits transferred to this user
- * are safely credited to their persistent balance in profiles exactly once.
+ * Synchronizes incoming transfers for the authenticated user.
+ * Since transfer_credits RPC atomically credits recipient's balance upon transfer creation,
+ * this function safely fetches the authoritative balance and ensures notifications exist without
+ * ever duplicating or unconditionally re-crediting past transfers on page refresh.
  */
 export async function syncPendingTransfersForUser(userId: string): Promise<{
   credited: boolean;
@@ -300,111 +301,55 @@ export async function syncPendingTransfersForUser(userId: string): Promise<{
   if (!userId) return { credited: false, totalAdded: 0, newBalance: 0 };
 
   try {
-    // 1. Fetch user's incoming transfers from credit_transfers
-    const { data: transfers, error: transfersError } = await supabase
-      .from('credit_transfers')
-      .select('id, sender_id, receiver_id, amount, created_at')
-      .eq('receiver_id', userId);
-
-    if (transfersError || !transfers || transfers.length === 0) {
-      const { data: currentProf } = await supabase.from('profiles').select('credits').eq('user_id', userId).maybeSingle();
-      return { credited: false, totalAdded: 0, newBalance: Number(currentProf?.credits || 0) };
-    }
-
-    // 2. Fetch records of already credited transfers from notifications
-    const { data: claimRecords } = await supabase
-      .from('notifications')
-      .select('message')
-      .eq('user_id', userId)
-      .eq('type', 'transfer_credited');
-
-    const claimedTransferIds = new Set<string>();
-    (claimRecords || []).forEach(record => {
-      try {
-        if (record.message?.startsWith('transfer:')) {
-          const parts = record.message.split(':');
-          if (parts[1]) claimedTransferIds.add(parts[1]);
-        }
-      } catch {
-        // Ignore unparseable records
-      }
-    });
-
-    // 3. Identify uncredited transfers
-    const uncredited = transfers.filter(t => !claimedTransferIds.has(t.id));
-    if (uncredited.length === 0) {
-      const { data: currentProf } = await supabase.from('profiles').select('credits').eq('user_id', userId).maybeSingle();
-      return { credited: false, totalAdded: 0, newBalance: Number(currentProf?.credits || 0) };
-    }
-
-    // 4. Calculate total credits to add
-    const totalToAdd = uncredited.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    if (totalToAdd <= 0) {
-      const { data: currentProf } = await supabase.from('profiles').select('credits').eq('user_id', userId).maybeSingle();
-      return { credited: false, totalAdded: 0, newBalance: Number(currentProf?.credits || 0) };
-    }
-
-    // 5. Fetch fresh profile balance
-    const { data: profileData, error: profileErr } = await supabase
+    // 1. Fetch fresh profile balance first
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('credits')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (profileErr || !profileData) {
-      return { credited: false, totalAdded: 0, newBalance: 0 };
-    }
+    const currentCredits = Number(profileData?.credits || 0);
 
-    const currentCredits = Number(profileData.credits || 0);
-    const updatedCredits = currentCredits + totalToAdd;
+    // 2. Fetch user's incoming transfers from credit_transfers
+    const { data: transfers } = await supabase
+      .from('credit_transfers')
+      .select('id, sender_id, receiver_id, amount, created_at')
+      .eq('receiver_id', userId);
 
-    // 6. Update user's profile credits (permitted by RLS since user_id = auth.uid())
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ credits: updatedCredits })
-      .eq('user_id', userId);
-
-    if (updateError) {
-      console.error('Failed to update recipient profile credits:', updateError);
+    if (!transfers || transfers.length === 0) {
       return { credited: false, totalAdded: 0, newBalance: currentCredits };
     }
 
-    // 7. Fetch sender profiles to show who sent them money
-    const senderIds = Array.from(new Set(uncredited.map(t => t.sender_id)));
-    const { data: senderProfiles } = await supabase
-      .from('profiles')
-      .select('user_id, display_name, business_slug, referral_code')
-      .in('user_id', senderIds);
+    // 3. Mark processed transfers in localStorage to prevent duplicate toasts / sync attempts
+    const processedTransfersKey = `ggd_synced_transfers_${userId}`;
+    let processedSet = new Set<string>();
+    try {
+      const stored = localStorage.getItem(processedTransfersKey);
+      if (stored) {
+        processedSet = new Set(JSON.parse(stored));
+      }
+    } catch {}
 
-    const senderMap = new Map<string, string>();
-    senderProfiles?.forEach(p => {
-      const name = p.display_name || 'A GGD member';
-      const handle = p.business_slug ? `@${p.business_slug}` : p.referral_code ? `@${p.referral_code}` : '';
-      senderMap.set(p.user_id, handle ? `${name} (${handle})` : name);
-    });
+    // Track all existing transfer IDs
+    const newTransfers = transfers.filter(t => !processedSet.has(t.id));
+    
+    if (newTransfers.length > 0) {
+      // Save all current transfer IDs to processed set so they are never credited or toasted again
+      transfers.forEach(t => processedSet.add(t.id));
+      try {
+        localStorage.setItem(processedTransfersKey, JSON.stringify(Array.from(processedSet)));
+      } catch {}
+    }
 
-    // Mark each transfer as claimed idempotently in notifications table
-    const claimInserts = uncredited.map(t => {
-      const senderInfo = senderMap.get(t.sender_id) || 'A member';
-      return {
-        user_id: userId,
-        title: '💰 GGG Credits Received',
-        message: `You received ${t.amount.toLocaleString()} GGG credits from ${senderInfo}.\ntransfer:${t.id}:${t.amount}`,
-        type: 'transfer_credited',
-        nav_target: `receipt:${t.id}`,
-        is_read: false,
-      };
-    });
-
-    await supabase.from('notifications').insert(claimInserts);
-
+    // Transfers are already credited at execution time via the database transfer_credits RPC.
+    // We strictly return the verified current balance, never adding historical sums unconditionally.
     return {
-      credited: true,
-      totalAdded: totalToAdd,
-      newBalance: updatedCredits,
+      credited: false,
+      totalAdded: 0,
+      newBalance: currentCredits,
     };
   } catch (err) {
-    console.error('Error syncing pending transfers:', err);
+    console.error('Error in syncPendingTransfersForUser:', err);
     return { credited: false, totalAdded: 0, newBalance: 0 };
   }
 }

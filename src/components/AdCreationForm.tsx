@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
+import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 
 interface AdCreationFormProps {
   onAdCreated: (adData: any) => void;
@@ -31,6 +32,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
     budgetCredits: 500,
   });
   const [step, setStep] = useState(1);
+  const [linkGenOpen, setLinkGenOpen] = useState(false);
 
   const getPriceForDuration = (days: number) => days * 1.00;
 
@@ -292,16 +294,39 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Link2 className="h-3 w-3" /> Landing Page URL
-              </Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Link2 className="h-3 w-3" /> Landing Page URL
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setLinkGenOpen(true)}
+                  className="text-[11px] font-bold text-orange-600 hover:text-orange-700 dark:text-orange-400 inline-flex items-center gap-1 hover:underline transition"
+                >
+                  <Sparkles className="h-3 w-3 text-orange-500" /> Generate Link
+                </button>
+              </div>
               <Input
                 placeholder="https://your-landing-page.com"
                 value={newAd.targetUrl}
                 onChange={(e) => setNewAd({ ...newAd, targetUrl: e.target.value })}
                 className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium placeholder:text-muted-foreground/50 focus:bg-background transition-colors"
               />
+              <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <p className="text-[11px] text-orange-700 dark:text-orange-300 leading-snug">
+                  Don't have a website link? Generate a trackable WhatsApp chat link or Business Storefront link.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setLinkGenOpen(true)}
+                  className="h-8 px-3 text-xs font-bold rounded-xl border-orange-500/40 text-orange-600 dark:text-orange-300 hover:bg-orange-500/20 shrink-0 self-start sm:self-auto"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1 text-orange-500" /> Generate Link
+                </Button>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -447,6 +472,12 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
         </Card>
       )}
       </>}
+
+      <MarketingLinkGeneratorModal
+        open={linkGenOpen}
+        onOpenChange={setLinkGenOpen}
+        onSelectLink={(url) => setNewAd(prev => ({ ...prev, targetUrl: url }))}
+      />
     </div>
   );
 };

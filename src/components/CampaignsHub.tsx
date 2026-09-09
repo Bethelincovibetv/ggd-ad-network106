@@ -4,10 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio, Pause, Play, Copy, Trash2, Share2, CalendarClock, Clock } from "lucide-react";
+import { BarChart2, Megaphone, ClipboardList, Users, Eye, MousePointerClick, Coins, Loader2, Percent, Wallet, Radio, Pause, Play, Copy, Trash2, Share2, CalendarClock, Clock, Link2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import CampaignAnalytics from "@/components/CampaignAnalytics";
 import ExtendAdvertModal, { ExtendableAd } from "@/components/ExtendAdvertModal";
+import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 type Status = "active" | "expired" | "inactive";
@@ -52,6 +53,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
   const [analyticsId, setAnalyticsId] = useState<string | null>(null);
   const [balances, setBalances] = useState({ wallet: 0, credits: 0 });
   const [extendingAd, setExtendingAd] = useState<ExtendableAd | null>(null);
+  const [linkGenOpen, setLinkGenOpen] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -225,9 +227,17 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 p-4 text-white">
-        <h2 className="text-xl font-black">Campaign Manager</h2>
-        <p className="text-sm text-white/85">Every campaign you run — adverts, credit tasks and social campaigns — in one place.</p>
+      <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 p-4 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black">Campaign Manager</h2>
+          <p className="text-sm text-white/85">Every campaign you run — adverts, credit tasks and social campaigns — in one place.</p>
+        </div>
+        <Button
+          onClick={() => setLinkGenOpen(true)}
+          className="bg-white text-orange-600 hover:bg-white/95 font-bold rounded-xl shadow-md text-xs h-9 px-3.5 shrink-0"
+        >
+          <Sparkles className="h-4 w-4 mr-1.5 text-orange-500" /> Marketing Link Generator
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -398,6 +408,11 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
           } : row));
           load();
         }}
+      />
+
+      <MarketingLinkGeneratorModal
+        open={linkGenOpen}
+        onOpenChange={setLinkGenOpen}
       />
     </div>
   );

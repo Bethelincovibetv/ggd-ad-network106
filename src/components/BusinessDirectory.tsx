@@ -254,112 +254,23 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
             </Select>
           )}
         </div>
-        <p className="text-xs text-muted-foreground font-medium px-1">{filtered.length} verified businesses listed</p>
+        <p className="text-xs text-muted-foreground font-medium px-1">
+          {filteredListings.length} products & services available · {filtered.length} verified businesses listed
+        </p>
       </div>
 
-      {/* Responsive Businesses Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(biz => {
-          const bizCategory = categories.find(c => c.id === biz.category_id);
-          return (
-            <Card 
-              key={biz.id} 
-              className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer group flex flex-col justify-between" 
-              onClick={() => navigate(`/business/${biz.id}`)}
-            >
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 flex items-center gap-3">
-                  {biz.logo_url ? (
-                    <img loading="lazy" src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30 shadow-md flex-shrink-0" />
-                  ) : (
-                    <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-                      <Store className="h-7 w-7 text-white/80" />
-                    </div>
-                  )}
-                  <div className="text-white min-w-0 flex-1">
-                    <h3 className="font-black text-sm truncate group-hover:underline">{biz.business_name}</h3>
-                    {biz.description && <p className="text-[11px] text-white/85 line-clamp-2 leading-relaxed mt-0.5">{biz.description}</p>}
-                    {bizCategory && <Badge className="mt-1.5 bg-white/20 text-white border-0 text-[9px] rounded-full">{bizCategory.name}</Badge>}
-                  </div>
-                  <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                    <Eye className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-                <div className="p-3 flex flex-wrap gap-1.5">
-                  {biz.whatsapp_link && (
-                    <a
-                      href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : `https://wa.me/${biz.whatsapp_link.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Badge className="text-[10px] gap-1 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border-green-500/30 rounded-full cursor-pointer transition">
-                        <Phone className="h-3 w-3" />WhatsApp
-                      </Badge>
-                    </a>
-                  )}
-                  {biz.website_link && (
-                    <a
-                      href={biz.website_link.startsWith('http') ? biz.website_link : `https://${biz.website_link}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Badge className="text-[10px] gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border-blue-500/30 rounded-full cursor-pointer transition">
-                        <Globe className="h-3 w-3" />Website
-                      </Badge>
-                    </a>
-                  )}
-                  {biz.facebook_url && (
-                    <a
-                      href={biz.facebook_url.startsWith('http') ? biz.facebook_url : `https://${biz.facebook_url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Badge className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/30 rounded-full cursor-pointer transition">
-                        <Facebook className="h-3 w-3" />Facebook
-                      </Badge>
-                    </a>
-                  )}
-                  {biz.instagram_url && (
-                    <a
-                      href={biz.instagram_url.startsWith('http') ? biz.instagram_url : `https://instagram.com/${biz.instagram_url.replace('@', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Badge className="text-[10px] gap-1 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 border-pink-500/30 rounded-full cursor-pointer transition">
-                        <Instagram className="h-3 w-3" />Instagram
-                      </Badge>
-                    </a>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="col-span-full text-center py-16">
-            <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-              <Store className="h-10 w-10 text-muted-foreground/40" />
-            </div>
-            <p className="text-sm font-semibold text-foreground">No businesses found</p>
-            <p className="text-xs text-muted-foreground mt-1">Try adjusting your search query or selected category</p>
-          </div>
-        )}
-      </div>
-
-      {/* All Products & Services */}
+      {/* All Products & Services (Featured at the Top) */}
       {filteredListings.length > 0 && (
-        <div className="space-y-3 pt-3">
+        <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center shadow-md">
+              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 grid place-items-center shadow-md">
                 <Package className="h-4 w-4 text-white" strokeWidth={2.6} />
               </div>
-              <p className="text-sm font-black">Products & Services Catalog</p>
-              <span className="text-xs text-muted-foreground font-semibold">({filteredListings.length})</span>
+              <h3 className="text-sm font-black text-foreground">Products & Services Catalog</h3>
+              <Badge variant="secondary" className="text-[11px] font-bold">
+                {filteredListings.length}
+              </Badge>
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -389,6 +300,113 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           </div>
         </div>
       )}
+
+      {/* Verified Businesses Directory (Positioned below products) */}
+      <div className="space-y-3 pt-4 border-t border-border/40">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 grid place-items-center shadow-md">
+              <Store className="h-4 w-4 text-white" />
+            </div>
+            <h3 className="text-sm font-black text-foreground">Accredited Businesses</h3>
+            <Badge variant="secondary" className="text-[11px] font-bold">
+              {filtered.length}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(biz => {
+            const bizCategory = categories.find(c => c.id === biz.category_id);
+            return (
+              <Card 
+                key={biz.id} 
+                className="border-0 shadow-md rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer group flex flex-col justify-between" 
+                onClick={() => navigate(`/business/${biz.id}`)}
+              >
+                <CardContent className="p-0">
+                  <div className="bg-gradient-to-r from-orange-500 to-red-500 p-4 flex items-center gap-3">
+                    {biz.logo_url ? (
+                      <img loading="lazy" src={biz.logo_url} alt={biz.business_name} className="h-14 w-14 rounded-xl object-cover border-2 border-white/30 shadow-md flex-shrink-0" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                        <Store className="h-7 w-7 text-white/80" />
+                      </div>
+                    )}
+                    <div className="text-white min-w-0 flex-1">
+                      <h3 className="font-black text-sm truncate group-hover:underline">{biz.business_name}</h3>
+                      {biz.description && <p className="text-[11px] text-white/85 line-clamp-2 leading-relaxed mt-0.5">{biz.description}</p>}
+                      {bizCategory && <Badge className="mt-1.5 bg-white/20 text-white border-0 text-[9px] rounded-full">{bizCategory.name}</Badge>}
+                    </div>
+                    <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <Eye className="h-4 w-4 text-white" />
+                    </div>
+                  </div>
+                  <div className="p-3 flex flex-wrap gap-1.5">
+                    {biz.whatsapp_link && (
+                      <a
+                        href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : `https://wa.me/${biz.whatsapp_link.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Badge className="text-[10px] gap-1 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border-green-500/30 rounded-full cursor-pointer transition">
+                          <Phone className="h-3 w-3" />WhatsApp
+                        </Badge>
+                      </a>
+                    )}
+                    {biz.website_link && (
+                      <a
+                        href={biz.website_link.startsWith('http') ? biz.website_link : `https://${biz.website_link}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Badge className="text-[10px] gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border-blue-500/30 rounded-full cursor-pointer transition">
+                          <Globe className="h-3 w-3" />Website
+                        </Badge>
+                      </a>
+                    )}
+                    {biz.facebook_url && (
+                      <a
+                        href={biz.facebook_url.startsWith('http') ? biz.facebook_url : `https://${biz.facebook_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Badge className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/30 rounded-full cursor-pointer transition">
+                          <Facebook className="h-3 w-3" />Facebook
+                        </Badge>
+                      </a>
+                    )}
+                    {biz.instagram_url && (
+                      <a
+                        href={biz.instagram_url.startsWith('http') ? biz.instagram_url : `https://instagram.com/${biz.instagram_url.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Badge className="text-[10px] gap-1 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 border-pink-500/30 rounded-full cursor-pointer transition">
+                          <Instagram className="h-3 w-3" />Instagram
+                        </Badge>
+                      </a>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center py-16">
+              <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+                <Store className="h-10 w-10 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">No businesses found</p>
+              <p className="text-xs text-muted-foreground mt-1">Try adjusting your search query or selected category</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

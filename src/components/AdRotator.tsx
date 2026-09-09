@@ -5,17 +5,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Code, Eye, Plus, Edit, Trash2, BarChart3, Calendar, CreditCard, RotateCcw, Upload } from "lucide-react";
+import { Code, Eye, Plus, Edit, Trash2, BarChart3, Calendar, CreditCard, RotateCcw, Upload, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, SUPABASE_URL, SUPABASE_PROJECT_ID } from "@/integrations/supabase/client";
 import AdCreationForm from "./AdCreationForm";
 import AdDisplayPreview from "./AdDisplayPreview";
+import { MarketingLinkGeneratorModal } from "./MarketingLinkGeneratorModal";
 
 const AdRotator = () => {
   const [ads, setAds] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingAd, setEditingAd] = useState<any | null>(null);
   const [rotatorCode, setRotatorCode] = useState('');
+  const [linkGenOpen, setLinkGenOpen] = useState(false);
 
   useEffect(() => { fetchAds(); }, []);
 
@@ -260,12 +262,18 @@ const AdRotator = () => {
             </Card>
           </div>
 
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <h3 className="text-lg font-semibold">Your Ad Campaigns</h3>
-            <Button onClick={() => setIsCreating(true)} className="bg-gradient-to-r from-orange-600 to-red-600">
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Ad
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setLinkGenOpen(true)} variant="outline" className="border-orange-500/40 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30 font-semibold">
+                <Sparkles className="mr-2 h-4 w-4 text-orange-500" />
+                Marketing Link Generator
+              </Button>
+              <Button onClick={() => setIsCreating(true)} className="bg-gradient-to-r from-orange-600 to-red-600 font-semibold">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Ad
+              </Button>
+            </div>
           </div>
 
           {isCreating && (
@@ -386,6 +394,11 @@ const AdRotator = () => {
           </CardContent>
         </Card>
       )}
+
+      <MarketingLinkGeneratorModal
+        open={linkGenOpen}
+        onOpenChange={setLinkGenOpen}
+      />
     </div>
   );
 };

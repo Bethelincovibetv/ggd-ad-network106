@@ -915,7 +915,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD User';
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
-  const authorHref = `/user/${post.user_id}`;
+  const authorHref = author?.business_slug ? `/b/${author.business_slug}` : `/user/${post.user_id}`;
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const topReactions = (Object.entries(post.reactions) as [Reaction, number][])
     .filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
@@ -928,7 +928,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
       .from('post_comments').select('*').eq('post_id', post.id).order('created_at', { ascending: true });
     const userIds = Array.from(new Set((cs || []).map((c: any) => c.user_id)));
     const { data: profs } = userIds.length
-      ? await supabase.from('profiles').select('user_id, display_name, business_name, business_logo_url, avatar_url').in('user_id', userIds)
+      ? await supabase.from('profiles').select('user_id, display_name, business_name, business_logo_url, avatar_url, business_slug').in('user_id', userIds)
       : { data: [] as any[] };
     const map = new Map((profs || []).map((p: any) => [p.user_id, p]));
     setComments((cs || []).map((c: any) => ({ ...c, author: map.get(c.user_id) })));
@@ -983,8 +983,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
       <CardContent className="p-0">
         {/* Header */}
         <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
-          <Link to={authorHref}>
-            <Avatar className="h-9 w-9">
+          <Link to={authorHref} className="group shrink-0">
+            <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-orange-500 transition-all cursor-pointer">
               {authorAvatar && <AvatarImage src={authorAvatar} alt={authorName} />}
               <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
                 {authorName[0]?.toUpperCase()}
@@ -992,9 +992,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
             </Avatar>
           </Link>
           <div className="flex-1 min-w-0">
-            <Link to={authorHref} className="font-bold text-[13px] text-foreground hover:underline truncate block">
-              {authorName}
-            </Link>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Link to={authorHref} className="font-bold text-[13px] text-foreground hover:text-orange-600 hover:underline truncate">
+                {authorName}
+              </Link>
+              {author?.business_name && (
+                <Link to={authorHref} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-[10px] font-bold border border-orange-500/20 transition">
+                  <Store className="h-2.5 w-2.5" />
+                  <span>Store</span>
+                </Link>
+              )}
+            </div>
             <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
           </div>
           {currentUserId === post.user_id && (
@@ -1131,17 +1139,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
               comments.map(c => {
                 const cn = c.author?.business_name || c.author?.display_name || 'User';
                 const ca = c.author?.business_logo_url || c.author?.avatar_url;
+                const cHref = c.author?.business_slug ? `/b/${c.author.business_slug}` : `/user/${c.user_id}`;
                 return (
                   <div key={c.id} className="flex gap-2 items-start">
-                    <Avatar className="h-7 w-7">
-                      {ca && <AvatarImage src={ca} alt={cn} />}
-                      <AvatarFallback className="text-xs bg-gradient-to-br from-orange-500 to-red-600 text-white">
-                        {cn[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Link to={cHref} className="group shrink-0">
+                      <Avatar className="h-7 w-7 ring-1 ring-transparent group-hover:ring-orange-500 transition-all">
+                        {ca && <AvatarImage src={ca} alt={cn} />}
+                        <AvatarFallback className="text-xs bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                          {cn[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
                     <div className="flex-1 min-w-0">
                       <div className="bg-background rounded-2xl px-3 py-1.5 inline-block max-w-full">
-                        <p className="text-xs font-semibold">{cn}</p>
+                        <Link to={cHref} className="text-xs font-semibold hover:text-orange-600 hover:underline block truncate">
+                          {cn}
+                        </Link>
                         <p className="text-[13px] whitespace-pre-wrap break-words">{c.content}</p>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground px-2">
