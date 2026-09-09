@@ -13,7 +13,7 @@ import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, PenLine, Megaphone, ExternalLink,
-  Store,
+  Store, BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
@@ -26,11 +26,15 @@ import FeaturedListingCard from '@/components/feed/FeaturedListingCard';
 import YouTubeTaskPlayer, { youtubeId } from '@/components/feed/YouTubeTaskPlayer';
 import { isYouTubeGoal, findGoal } from '@/components/feed/creditTaskGoals';
 import { playRewardSound } from '@/lib/soundEffects';
+import { parseBlogPost, CommunityBlogPostData } from '@/types/blog';
+import BlogFeedCard from '@/components/feed/BlogFeedCard';
+import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 
-type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions';
+type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
 
 const FEED_FILTERS: { key: FeedFilter; label: string }[] = [
   { key: 'all', label: 'All Posts' },
+  { key: 'blogs', label: '📰 Blog Articles' },
   { key: 'tasks', label: 'Credit Tasks' },
   { key: 'featured', label: 'Featured Listings' },
   { key: 'products', label: 'Products' },
@@ -155,6 +159,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const [shareTarget, setShareTarget] = useState<any | null>(null);
   const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [composerMode, setComposerMode] = useState<'normal' | 'blog'>('normal');
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -176,12 +181,15 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   // Global "Create" button hooks
   useEffect(() => {
-    const openPost = () => setComposerOpen(true);
+    const openPost = () => { setComposerMode('normal'); setComposerOpen(true); };
+    const openBlog = () => { setComposerMode('blog'); setComposerOpen(true); };
     const openTask = () => { setTaskPrefill(null); setTaskComposerOpen(true); };
     window.addEventListener('ggd-open-composer', openPost);
+    window.addEventListener('ggd-open-blog-composer', openBlog);
     window.addEventListener('ggd-open-task-composer', openTask);
     return () => {
       window.removeEventListener('ggd-open-composer', openPost);
+      window.removeEventListener('ggd-open-blog-composer', openBlog);
       window.removeEventListener('ggd-open-task-composer', openTask);
     };
   }, []);
@@ -492,6 +500,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   // listings + sponsored banner adverts, filtered by the active feed tab.
   const feedItems = useMemo(() => {
     const wantPosts = feedFilter === 'all';
+    const wantBlogsOnly = feedFilter === 'blogs';
     const wantTasks = feedFilter === 'all' || feedFilter === 'tasks' || feedFilter === 'promotions';
     const wantListings =
       feedFilter === 'all' || feedFilter === 'featured' || feedFilter === 'products' || feedFilter === 'promotions';
@@ -501,8 +510,12 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       ? visibleListings.filter(l => (l.listing_type || 'product') === 'product')
       : visibleListings;
 
+    const postsToInclude = wantBlogsOnly
+      ? visiblePosts.filter(p => parseBlogPost(p.content) !== null)
+      : (wantPosts ? visiblePosts : []);
+
     const items: { kind: 'post' | 'task' | 'listing' | 'ad'; created_at: string; data: any }[] = [
-      ...(wantPosts ? visiblePosts.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })) : []),
+      ...postsToInclude.map(p => ({ kind: 'post' as const, created_at: p.created_at, data: p })),
       ...(wantTasks ? visibleTasks.map(t => ({ kind: 'task' as const, created_at: t.created_at, data: t })) : []),
       ...(wantListings ? listings.map(l => ({ kind: 'listing' as const, created_at: l.created_at, data: l })) : []),
       ...(wantAds ? visibleAds.map(a => ({ kind: 'ad' as const, created_at: a.created_at, data: a })) : []),
@@ -542,30 +555,47 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         !composerOpen ? (
           <Card className="border-0 shadow-sm overflow-hidden">
             <CardContent className="p-3 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Create</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Create in Community</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
-                  onClick={() => setComposerOpen(true)}
-                  className="flex items-center gap-3 rounded-2xl border border-border/60 hover:border-orange-500/50 p-3 text-left transition-colors"
+                  onClick={() => { setComposerMode('normal'); setComposerOpen(true); }}
+                  className="flex items-center gap-3 rounded-2xl border border-border/60 hover:border-orange-500/50 p-3 text-left transition-colors hover:bg-orange-500/5"
                 >
                   <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0">
                     <PenLine className="h-5 w-5 text-orange-500" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground">Normal Post</p>
-                    <p className="text-[11px] text-muted-foreground">Share an update with the community</p>
+                    <p className="text-[11px] text-muted-foreground">Quick text, photo or video</p>
                   </div>
                 </button>
+
+                <button
+                  onClick={() => { setComposerMode('blog'); setComposerOpen(true); }}
+                  className="flex items-center gap-3 rounded-2xl border border-purple-500/40 hover:border-purple-500/70 p-3 text-left transition-colors bg-purple-500/5 hover:bg-purple-500/10"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center shrink-0">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-foreground">Blog Article</p>
+                      <span className="text-[9px] font-black uppercase tracking-wider bg-purple-600 text-white px-1.5 py-0.5 rounded-full">New</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Cover image, story & showpage</p>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => { setTaskPrefill(null); setTaskComposerOpen(true); }}
-                  className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors"
+                  className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors hover:bg-green-500/5"
                 >
                   <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center shrink-0">
                     <Coins className="h-5 w-5 text-green-600" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-foreground">Credit Task</p>
-                    <p className="text-[11px] text-muted-foreground">Pay users to share your link or YouTube video</p>
+                    <p className="text-[11px] text-muted-foreground">Pay users to share link or video</p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 </button>
@@ -575,140 +605,194 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         ) : (
         <Card className="border-0 shadow-sm overflow-hidden">
           <CardContent className="p-3 space-y-3">
-            <div className="flex gap-2 items-start">
-              <Avatar className="h-10 w-10 flex-shrink-0">
-                {myAvatar && <AvatarImage src={myAvatar} alt={myName} />}
-                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-sm font-bold">
-                  {myName[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              {activeTpl && !imagePreview ? (
-                <div
-                  className="flex-1 rounded-xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden"
-                  style={{ background: activeTpl.background }}
-                >
-                  <textarea
-                    value={content}
-                    onChange={e => setContent(e.target.value)}
-                    placeholder="Type something…"
-                    rows={3}
-                    maxLength={300}
-                    className={`w-full bg-transparent border-0 outline-none text-center font-bold text-lg sm:text-xl resize-none placeholder:opacity-70 ${activeTpl.textColor}`}
-                  />
-                  <button
-                    onClick={() => setTemplateId(null)}
-                    type="button"
-                    className="absolute top-1.5 right-1.5 bg-black/40 text-white rounded-full p-1"
-                    aria-label="Remove template"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <Textarea
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  placeholder={`What's on your mind, ${myName.split(' ')[0]}? Use #hashtags to be discovered.`}
-                  rows={2}
-                  className="flex-1 resize-none border-muted bg-muted/30"
-                  maxLength={2000}
-                />
-              )}
-            </div>
-
-            {imagePreview && (
-              <div className="relative">
-                <img loading="lazy" src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
+            {/* Mode Switcher Tabs */}
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+              <div className="inline-flex rounded-xl bg-muted/60 p-1">
                 <button
-                  onClick={() => onPickImage(null)}
-                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
                   type="button"
+                  onClick={() => setComposerMode('normal')}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    composerMode === 'normal'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <X className="h-4 w-4" />
+                  <PenLine className="h-3.5 w-3.5 text-orange-500" />
+                  Quick Post
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposerMode('blog')}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    composerMode === 'blog'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Blog Article
+                  <span className="text-[9px] bg-white/20 px-1 rounded">PRO</span>
                 </button>
               </div>
-            )}
 
-            {showLink && (
-              <Input placeholder="https://your-link.com" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} />
-            )}
-            {showVideo && (
-              <Input placeholder="YouTube / Vimeo URL" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
-            )}
-
-            {/* Template picker */}
-            {showTemplatePicker && !imagePreview && (
-              <div className="border rounded-xl p-2 bg-muted/30">
-                <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-                  {TEMPLATE_CATEGORIES.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveTplCategory(cat)}
-                      className={`flex-shrink-0 text-[11px] font-bold px-3 py-1 rounded-full ${
-                        activeTplCategory === cat
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-background text-muted-foreground'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-1">
-                  <button
-                    onClick={() => setTemplateId(null)}
-                    className={`aspect-square rounded-lg border-2 flex items-center justify-center text-[10px] font-bold ${
-                      !templateId ? 'border-orange-500 text-orange-500' : 'border-border text-muted-foreground'
-                    }`}
-                  >
-                    None
-                  </button>
-                  {POST_TEMPLATES.filter(t => t.category === activeTplCategory).map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTemplateId(t.id)}
-                      className={`aspect-square rounded-lg border-2 overflow-hidden relative ${
-                        templateId === t.id ? 'border-orange-500 ring-2 ring-orange-300' : 'border-transparent'
-                      }`}
-                      style={{ background: t.background }}
-                      title={t.name}
-                    >
-                      <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 bg-black/30 ${t.textColor}`}>
-                        {t.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-1 flex-wrap">
-              <div className="flex gap-0.5 flex-wrap">
-                <input
-                  type="file" ref={fileRef} accept="image/*" className="hidden"
-                  onChange={e => onPickImage(e.target.files?.[0] || null)}
-                />
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => fileRef.current?.click()}>
-                  <ImageIcon className="h-4 w-4 mr-1 text-green-600" /> <span className="text-xs">Photo</span>
-                </Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2"
-                        onClick={() => setShowTemplatePicker(s => !s)}>
-                  <Palette className="h-4 w-4 mr-1 text-fuchsia-500" /> <span className="text-xs">Theme</span>
-                </Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowLink(s => !s)}>
-                  <Link2 className="h-4 w-4 mr-1 text-blue-600" /> <span className="text-xs">Link</span>
-                </Button>
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowVideo(s => !s)}>
-                  <Video className="h-4 w-4 mr-1 text-red-600" /> <span className="text-xs">Video</span>
-                </Button>
-              </div>
-              <Button onClick={submitPost} disabled={posting} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full px-4">
-                {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
-              </Button>
+              <button
+                type="button"
+                onClick={() => setComposerOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full"
+                aria-label="Close composer"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground" onClick={() => setComposerOpen(false)}>
-              Cancel
-            </Button>
+
+            {composerMode === 'blog' ? (
+              <BlogArticleComposer
+                userId={me.id}
+                authorProfile={me.profile}
+                onSuccess={() => {
+                  setComposerOpen(false);
+                  loadPosts();
+                }}
+                onCancel={() => setComposerOpen(false)}
+              />
+            ) : (
+              <>
+                <div className="flex gap-2 items-start">
+                  <Avatar className="h-10 w-10 flex-shrink-0">
+                    {myAvatar && <AvatarImage src={myAvatar} alt={myName} />}
+                    <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-sm font-bold">
+                      {myName[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {activeTpl && !imagePreview ? (
+                    <div
+                      className="flex-1 rounded-xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden"
+                      style={{ background: activeTpl.background }}
+                    >
+                      <textarea
+                        value={content}
+                        onChange={e => setContent(e.target.value)}
+                        placeholder="Type something…"
+                        rows={3}
+                        maxLength={300}
+                        className={`w-full bg-transparent border-0 outline-none text-center font-bold text-lg sm:text-xl resize-none placeholder:opacity-70 ${activeTpl.textColor}`}
+                      />
+                      <button
+                        onClick={() => setTemplateId(null)}
+                        type="button"
+                        className="absolute top-1.5 right-1.5 bg-black/40 text-white rounded-full p-1"
+                        aria-label="Remove template"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={content}
+                      onChange={e => setContent(e.target.value)}
+                      placeholder={`What's on your mind, ${myName.split(' ')[0]}? Use #hashtags to be discovered.`}
+                      rows={2}
+                      className="flex-1 resize-none border-muted bg-muted/30"
+                      maxLength={2000}
+                    />
+                  )}
+                </div>
+
+                {imagePreview && (
+                  <div className="relative">
+                    <img loading="lazy" src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
+                    <button
+                      onClick={() => onPickImage(null)}
+                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
+                      type="button"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {showLink && (
+                  <Input placeholder="https://your-link.com" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} />
+                )}
+                {showVideo && (
+                  <Input placeholder="YouTube / Vimeo URL" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+                )}
+
+                {/* Template picker */}
+                {showTemplatePicker && !imagePreview && (
+                  <div className="border rounded-xl p-2 bg-muted/30">
+                    <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+                      {TEMPLATE_CATEGORIES.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setActiveTplCategory(cat)}
+                          className={`flex-shrink-0 text-[11px] font-bold px-3 py-1 rounded-full ${
+                            activeTplCategory === cat
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-background text-muted-foreground'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-1">
+                      <button
+                        onClick={() => setTemplateId(null)}
+                        className={`aspect-square rounded-lg border-2 flex items-center justify-center text-[10px] font-bold ${
+                          !templateId ? 'border-orange-500 text-orange-500' : 'border-border text-muted-foreground'
+                        }`}
+                      >
+                        None
+                      </button>
+                      {POST_TEMPLATES.filter(t => t.category === activeTplCategory).map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setTemplateId(t.id)}
+                          className={`aspect-square rounded-lg border-2 overflow-hidden relative ${
+                            templateId === t.id ? 'border-orange-500 ring-2 ring-orange-300' : 'border-transparent'
+                          }`}
+                          style={{ background: t.background }}
+                          title={t.name}
+                        >
+                          <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 bg-black/30 ${t.textColor}`}>
+                            {t.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <div className="flex gap-0.5 flex-wrap">
+                    <input
+                      type="file" ref={fileRef} accept="image/*" className="hidden"
+                      onChange={e => onPickImage(e.target.files?.[0] || null)}
+                    />
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => fileRef.current?.click()}>
+                      <ImageIcon className="h-4 w-4 mr-1 text-green-600" /> <span className="text-xs">Photo</span>
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2"
+                            onClick={() => setShowTemplatePicker(s => !s)}>
+                      <Palette className="h-4 w-4 mr-1 text-fuchsia-500" /> <span className="text-xs">Theme</span>
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowLink(s => !s)}>
+                      <Link2 className="h-4 w-4 mr-1 text-blue-600" /> <span className="text-xs">Link</span>
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowVideo(s => !s)}>
+                      <Video className="h-4 w-4 mr-1 text-red-600" /> <span className="text-xs">Video</span>
+                    </Button>
+                  </div>
+                  <Button onClick={submitPost} disabled={posting} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full px-4">
+                    {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
+                  </Button>
+                </div>
+                <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground" onClick={() => setComposerOpen(false)}>
+                  Cancel
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
         )
@@ -752,25 +836,53 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         ) : item.kind === 'ad' ? (
           <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} />
         ) : item.kind === 'post' ? (
-          <PostCard
-            key={item.data.id}
-            post={item.data}
-            currentUserId={me?.id || null}
-            onReact={react}
-            onDelete={deletePost}
-            onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            onImageOpen={(url) => setLightboxUrl(url)}
-            onPromote={(p) => {
-              setTaskPrefill({
-                title: (p.content || 'Promote my post').slice(0, 80),
-                description: p.content || '',
-                url: p.link_url || p.video_url || '',
-                flyer_url: p.image_url || null,
-                goal: p.video_url ? 'youtube_views' : p.link_url ? 'website_visit' : 'share',
-              });
-              setTaskComposerOpen(true);
-            }}
-          />
+          (() => {
+            const blogData = parseBlogPost(item.data.content);
+            if (blogData) {
+              return (
+                <BlogFeedCard
+                  key={item.data.id}
+                  post={item.data}
+                  blog={blogData}
+                  currentUserId={me?.id || null}
+                  onReact={react}
+                  onDelete={deletePost}
+                  onPromote={(p) => {
+                    setTaskPrefill({
+                      title: (blogData.title || 'Promote my blog').slice(0, 80),
+                      description: blogData.subtitle || blogData.title || '',
+                      url: '',
+                      flyer_url: blogData.cover_image || p.image_url || null,
+                      goal: 'share',
+                    });
+                    setTaskComposerOpen(true);
+                  }}
+                  timeAgoStr={timeAgo(item.data.created_at)}
+                />
+              );
+            }
+            return (
+              <PostCard
+                key={item.data.id}
+                post={item.data}
+                currentUserId={me?.id || null}
+                onReact={react}
+                onDelete={deletePost}
+                onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                onImageOpen={(url) => setLightboxUrl(url)}
+                onPromote={(p) => {
+                  setTaskPrefill({
+                    title: (p.content || 'Promote my post').slice(0, 80),
+                    description: p.content || '',
+                    url: p.link_url || p.video_url || '',
+                    flyer_url: p.image_url || null,
+                    goal: p.video_url ? 'youtube_views' : p.link_url ? 'website_visit' : 'share',
+                  });
+                  setTaskComposerOpen(true);
+                }}
+              />
+            );
+          })()
         ) : (
           <TaskFeedCard
             key={`task-${item.data.id}`}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, X, Sparkles, ClipboardList, Megaphone, Users, Move } from "lucide-react";
+import { Plus, X, Sparkles, ClipboardList, Megaphone, Users, Move, BookOpen } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface Props {
@@ -246,17 +246,30 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
 
   const options = [
     ...(isEnabled("community") && isEnabled("create_post")
-      ? [{
-          id: "post",
-          icon: Sparkles,
-          label: "Community Post",
-          desc: "Share updates, media or insights",
-          grad: "from-pink-500 to-fuchsia-600",
-          run: () => {
-            onNavigate("feed");
-            setTimeout(() => window.dispatchEvent(new CustomEvent("ggd-open-composer")), 250);
+      ? [
+          {
+            id: "blog",
+            icon: BookOpen,
+            label: "Blog Article",
+            desc: "Publish editorial blog post with cover & images",
+            grad: "from-purple-600 to-indigo-600",
+            run: () => {
+              onNavigate("feed");
+              setTimeout(() => window.dispatchEvent(new CustomEvent("ggd-open-blog-composer")), 250);
+            },
           },
-        }]
+          {
+            id: "post",
+            icon: Sparkles,
+            label: "Community Post",
+            desc: "Share updates, media or insights",
+            grad: "from-pink-500 to-fuchsia-600",
+            run: () => {
+              onNavigate("feed");
+              setTimeout(() => window.dispatchEvent(new CustomEvent("ggd-open-composer")), 250);
+            },
+          },
+        ]
       : []),
     ...(isEnabled("tasks") && isEnabled("social_tasks") && isEnabled("nav_social_tasks") && isEnabled("nav_credit_tasks") && isEnabled("create_credit_task")
       ? [{
