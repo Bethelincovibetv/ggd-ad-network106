@@ -68,3 +68,21 @@ export const calculateReadTime = (blog: { title?: string; subtitle?: string; sec
   return `${minutes} min read`;
 };
 
+/**
+ * Serializes a structured blog post into the stored community_posts string representation.
+ */
+export const serializeBlogPost = (blog: Omit<CommunityBlogPostData, 'is_blog'> & { is_blog?: true }): string => {
+  const payload: CommunityBlogPostData = {
+    is_blog: true,
+    title: blog.title.trim(),
+    subtitle: blog.subtitle?.trim() || undefined,
+    category: blog.category || 'Business',
+    read_time: blog.read_time || calculateReadTime(blog),
+    cover_image: blog.cover_image || null,
+    sections: blog.sections || [],
+    tags: blog.tags || [],
+    author_note: blog.author_note?.trim() || undefined,
+  };
+  return JSON.stringify(payload);
+};
+

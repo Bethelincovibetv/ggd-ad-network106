@@ -13,7 +13,7 @@ import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, PenLine, Megaphone, ExternalLink,
-  Store, BookOpen,
+  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
@@ -29,6 +29,8 @@ import { playRewardSound } from '@/lib/soundEffects';
 import { parseBlogPost, CommunityBlogPostData } from '@/types/blog';
 import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
+import EditPostModal from '@/components/feed/EditPostModal';
+import { recordPostView, formatViewsCount } from '@/lib/postViews';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
 
@@ -175,7 +177,12 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handlePostUpdated = (updatedPost: any) => {
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...p, ...updatedPost } : p));
+  };
 
   useEffect(() => { init(); }, []);
 
@@ -847,6 +854,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                   currentUserId={me?.id || null}
                   onReact={react}
                   onDelete={deletePost}
+                  onEdit={(p) => setEditingPost(p)}
                   onPromote={(p) => {
                     setTaskPrefill({
                       title: (blogData.title || 'Promote my blog').slice(0, 80),
@@ -868,6 +876,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 currentUserId={me?.id || null}
                 onReact={react}
                 onDelete={deletePost}
+                onEdit={(p) => setEditingPost(p)}
                 onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 onImageOpen={(url) => setLightboxUrl(url)}
                 onPromote={(p) => {
@@ -936,6 +945,16 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Post & Blog Editor Modal */}
+      <EditPostModal
+        open={!!editingPost}
+        onOpenChange={(open) => {
+          if (!open) setEditingPost(null);
+        }}
+        post={editingPost}
+        onPostUpdated={handlePostUpdated}
+      />
     </div>
   );
 };
@@ -945,6 +964,7 @@ interface PostCardProps {
   currentUserId: string | null;
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
+  onEdit?: (p: Post) => void;
   onTagClick: (tag: string) => void;
   onImageOpen: (url: string) => void;
   /** Convert this community post into a paid Credit Task. */
@@ -1016,19 +1036,26 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
   );
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onTagClick, onImageOpen, onPromote }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onEdit, onTagClick, onImageOpen, onPromote }) => {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [heartBurst, setHeartBurst] = useState(false);
+  const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTapRef = useRef<number>(0);
+
+  useEffect(() => {
+    const v = recordPostView(post);
+    setViewsCount(v);
+  }, [post.id]);
 
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD User';
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
   const authorHref = author?.business_slug ? `/b/${author.business_slug}` : `/user/${post.user_id}`;
+  const isOwner = currentUserId === post.user_id;
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const topReactions = (Object.entries(post.reactions) as [Reaction, number][])
     .filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
@@ -1095,44 +1122,96 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
       <CardContent className="p-0">
         {/* Header */}
-        <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
-          <Link to={authorHref} className="group shrink-0">
-            <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-orange-500 transition-all cursor-pointer">
-              {authorAvatar && <AvatarImage src={authorAvatar} alt={authorName} />}
-              <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
-                {authorName[0]?.toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Link to={authorHref} className="font-bold text-[13px] text-foreground hover:text-orange-600 hover:underline truncate">
-                {authorName}
-              </Link>
-              {author?.business_name && (
-                <Link to={authorHref} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-[10px] font-bold border border-orange-500/20 transition">
-                  <Store className="h-2.5 w-2.5" />
-                  <span>Store</span>
+        <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link to={authorHref} className="group shrink-0">
+              <Avatar className="h-10 w-10 ring-2 ring-transparent group-hover:ring-orange-500 transition-all cursor-pointer">
+                {authorAvatar && <AvatarImage src={authorAvatar} alt={authorName} />}
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-xs font-bold">
+                  {authorName[0]?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Link to={authorHref} className="font-bold text-[13px] text-foreground hover:text-orange-600 hover:underline truncate">
+                  {authorName}
                 </Link>
-              )}
+                {author?.business_name && (
+                  <Link to={authorHref} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-[10px] font-bold border border-orange-500/20 transition">
+                    <Store className="h-2.5 w-2.5" />
+                    <span>Store</span>
+                  </Link>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                <span>{timeAgo(post.created_at)}</span>
+                {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
+                  <span className="text-[10px] text-muted-foreground/80 italic font-medium">(edited)</span>
+                )}
+                <span>•</span>
+                <span className="flex items-center gap-1 font-semibold text-muted-foreground">
+                  <Eye className="h-3 w-3" />
+                  {formatViewsCount(viewsCount)} views
+                </span>
+              </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
           </div>
-          {currentUserId === post.user_id && (
-            <div className="flex items-center gap-1 shrink-0">
-              {onPromote && (
-                <button
-                  onClick={() => onPromote(post)}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-500/10 hover:bg-green-500/20 px-2.5 h-8 rounded-full"
+
+          {/* Facebook-style 3-Dot Manage Menu */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-full hover:bg-muted text-muted-foreground transition"
+                  title="Post options"
                 >
-                  <Megaphone className="h-3.5 w-3.5" /> Promote
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-border bg-popover z-50">
+                {isOwner && onEdit && (
+                  <button
+                    onClick={() => onEdit(post)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-blue-600" />
+                    Edit Post
+                  </button>
+                )}
+                {isOwner && onPromote && (
+                  <button
+                    onClick={() => onPromote(post)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
+                  >
+                    <Megaphone className="h-3.5 w-3.5 text-green-600" />
+                    Promote Post
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.origin + authorHref);
+                    toast.success('Post link copied to clipboard!');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
+                >
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  Copy Link
                 </button>
-              )}
-              <button onClick={() => onDelete(post)} className="text-muted-foreground hover:text-destructive p-1.5">
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+                {isOwner && (
+                  <button
+                    onClick={() => onDelete(post)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-destructive/10 text-destructive transition text-left"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Post
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* Templated text post */}

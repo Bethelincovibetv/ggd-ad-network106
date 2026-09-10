@@ -429,45 +429,65 @@ const BusinessTaskCreator = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Max Syndicates</Label>
-                <Input type="number" value={form.max_syndicates} onChange={e => setForm({...form, max_syndicates: e.target.value})} className="mt-1" />
+            {(customCountEnabled || stateTargetingEnabled) && (
+              <div className={`grid ${customCountEnabled && stateTargetingEnabled ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                {customCountEnabled && (
+                  <div>
+                    <Label className="text-xs">Max Syndicates</Label>
+                    <Input type="number" value={form.max_syndicates} onChange={e => setForm({...form, max_syndicates: e.target.value})} className="mt-1" />
+                  </div>
+                )}
+                {stateTargetingEnabled && (
+                  <div>
+                    <Label className="text-xs">Target State</Label>
+                    <select className="w-full mt-1 h-9 rounded-md border border-input bg-background px-2 text-xs"
+                      value={form.target_state} onChange={e => setForm({...form, target_state: e.target.value})}>
+                      <option value="">All States</option>
+                      {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
-              <div>
-                <Label className="text-xs">Target State</Label>
-                <select className="w-full mt-1 h-9 rounded-md border border-input bg-background px-2 text-xs"
-                  value={form.target_state} onChange={e => setForm({...form, target_state: e.target.value})}>
-                  <option value="">All States</option>
-                  {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
+            )}
 
-            <div>
-              <Label className="text-xs font-medium mb-2 block">Approval Mode</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div role="button" tabIndex={0}
-                  onClick={() => setForm({ ...form, approval_mode: 'manual' })}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'manual' })}
-                  className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'manual' ? 'border-orange-400 bg-orange-50' : 'border-border hover:bg-muted/40'}`}>
-                  <p className="text-xs font-bold">Manual Review</p>
-                  <p className="text-[10px] text-muted-foreground">You review each proof before paying</p>
-                </div>
-                <div role="button" tabIndex={0}
-                  onClick={() => setForm({ ...form, approval_mode: 'auto' })}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'auto' })}
-                  className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'auto' ? 'border-emerald-400 bg-emerald-50' : 'border-border hover:bg-muted/40'}`}>
-                  <p className="text-xs font-bold">Auto Approve</p>
-                  <p className="text-[10px] text-muted-foreground">Pay instantly when proof is uploaded</p>
+            {!stateTargetingEnabled && (
+              <div className="p-2.5 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 text-xs text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                <Globe className="h-4 w-4 shrink-0 text-purple-600" />
+                <span><strong>Nationwide Auto-Assigned:</strong> State targeting is currently disabled by admin. All active syndicates across Nigeria will automatically receive this campaign.</span>
+              </div>
+            )}
+
+            {customCountEnabled ? (
+              <div>
+                <Label className="text-xs font-medium mb-2 block">Approval Mode</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div role="button" tabIndex={0}
+                    onClick={() => setForm({ ...form, approval_mode: 'manual' })}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'manual' })}
+                    className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'manual' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/30' : 'border-border hover:bg-muted/40'}`}>
+                    <p className="text-xs font-bold">Manual Review</p>
+                    <p className="text-[10px] text-muted-foreground">You review each proof before paying</p>
+                  </div>
+                  <div role="button" tabIndex={0}
+                    onClick={() => setForm({ ...form, approval_mode: 'auto' })}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setForm({ ...form, approval_mode: 'auto' })}
+                    className={`p-2.5 rounded-lg border cursor-pointer transition ${form.approval_mode === 'auto' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30' : 'border-border hover:bg-muted/40'}`}>
+                    <p className="text-xs font-bold">Auto Approve</p>
+                    <p className="text-[10px] text-muted-foreground">Pay instantly when proof is uploaded</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span><strong>Fixed Pricing & Auto-Confirmation:</strong> Flat rate of ₦{fixedCampaignPrice.toLocaleString()} applied. Manual review is turned off; submissions are auto-approved.</span>
+              </div>
+            )}
 
-            <Card className="bg-orange-50 border-orange-200">
+            <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
               <CardContent className="p-3">
-                <p className="text-xs text-orange-800">
-                  Total Cost: <strong>{Math.ceil(totalCostPreview / exchangeRate)} GGG credits</strong>
+                <p className="text-xs text-orange-800 dark:text-orange-300">
+                  Total Cost: <strong>{Math.ceil(totalCostPreview / exchangeRate)} GGD credits</strong>
                   <span className="opacity-70"> (≈ ₦{totalCostPreview.toLocaleString()})</span>
                 </p>
               </CardContent>

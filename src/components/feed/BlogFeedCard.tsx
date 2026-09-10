@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -6,11 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   BookOpen, Clock, Store, Trash2, ArrowRight, Share2,
-  Heart, ThumbsUp, MessageCircle, Megaphone, Sparkles, ExternalLink
+  Heart, ThumbsUp, MessageCircle, Megaphone, Sparkles, ExternalLink,
+  MoreHorizontal, Edit3, Copy, Eye
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { CommunityBlogPostData } from '@/types/blog';
 import BlogArticleReaderModal from './BlogArticleReaderModal';
+import { recordPostView, formatViewsCount } from '@/lib/postViews';
 
 interface BlogFeedCardProps {
   post: any;
@@ -18,6 +21,7 @@ interface BlogFeedCardProps {
   currentUserId: string | null;
   onReact: (post: any, reaction: any) => void;
   onDelete: (post: any) => void;
+  onEdit?: (post: any) => void;
   onPromote?: (post: any) => void;
   timeAgoStr: string;
 }
@@ -59,6 +63,14 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
 
   const coverImage = blog.cover_image || post.image_url;
   const firstSection = blog.sections?.[0];
+  const isOwner = currentUserId === post.user_id;
+
+  const [viewsCount, setViewsCount] = useState<number>(0);
+
+  useEffect(() => {
+    const v = recordPostView(post);
+    setViewsCount(v);
+  }, [post.id]);
 
   return (
     <>
@@ -93,42 +105,83 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
                     </Link>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
                   <span>{timeAgoStr}</span>
+                  {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
+                    <span className="text-[10px] text-muted-foreground/80 italic font-medium">(edited)</span>
+                  )}
                   <span>•</span>
                   <span className="flex items-center gap-1 text-purple-600 font-semibold">
                     <Clock className="h-3 w-3" />
                     {blog.read_time || '3 min read'}
                   </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 font-semibold text-muted-foreground">
+                    <Eye className="h-3 w-3" />
+                    {formatViewsCount(viewsCount)} views
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Badges & Owner Controls */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Badges & 3-Dot Manage Menu */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-[10px] uppercase tracking-wider px-2.5 py-0.5 border-0 shadow-sm hidden sm:inline-flex">
                 📰 Blog Article
               </Badge>
 
-              {currentUserId === post.user_id && (
-                <div className="flex items-center gap-1">
-                  {onPromote && (
+              {/* Facebook-style 3-dot options menu */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 rounded-full hover:bg-muted text-muted-foreground transition"
+                    title="Article options"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-1.5 rounded-xl shadow-lg border border-border bg-popover z-50">
+                  {isOwner && onEdit && (
+                    <button
+                      onClick={() => onEdit(post)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 text-purple-600" />
+                      Edit Article
+                    </button>
+                  )}
+                  {isOwner && onPromote && (
                     <button
                       onClick={() => onPromote(post)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-500/10 hover:bg-green-500/20 px-2.5 h-7 rounded-full"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
                     >
-                      <Megaphone className="h-3 w-3" /> Promote
+                      <Megaphone className="h-3.5 w-3.5 text-green-600" />
+                      Promote Article
                     </button>
                   )}
                   <button
-                    onClick={() => onDelete(post)}
-                    className="text-muted-foreground hover:text-destructive p-1.5"
-                    title="Delete Article"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.origin + authorHref);
+                      toast.success('Article link copied to clipboard!');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-muted transition text-foreground text-left"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    Copy Link
                   </button>
-                </div>
-              )}
+                  {isOwner && (
+                    <button
+                      onClick={() => onDelete(post)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-destructive/10 text-destructive transition text-left"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete Article
+                    </button>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
