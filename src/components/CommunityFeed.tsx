@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
-  Coins, Gift, Youtube, Share2, ArrowRight, PenLine, Megaphone, ExternalLink,
+  Coins, Gift, Youtube, Share2, ArrowRight, ArrowLeft, PenLine, Megaphone, ExternalLink,
   Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -557,129 +557,97 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
       <CommunitySearchResults query={filterQuery} />
 
-      {/* Composer */}
+      {/* Composer (Facebook-style Default Open Box with Top Action Bar) */}
       {me ? (
-        !composerOpen ? (
-          <Card className="border-0 shadow-sm overflow-hidden">
-            <CardContent className="p-3 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Create in Community</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  onClick={() => { setComposerMode('normal'); setComposerOpen(true); }}
-                  className="flex items-center gap-3 rounded-2xl border border-border/60 hover:border-orange-500/50 p-3 text-left transition-colors hover:bg-orange-500/5"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0">
-                    <PenLine className="h-5 w-5 text-orange-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground">Normal Post</p>
-                    <p className="text-[11px] text-muted-foreground">Quick text, photo or video</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => { setComposerMode('blog'); setComposerOpen(true); }}
-                  className="flex items-center gap-3 rounded-2xl border border-purple-500/40 hover:border-purple-500/70 p-3 text-left transition-colors bg-purple-500/5 hover:bg-purple-500/10"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center shrink-0">
-                    <BookOpen className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-bold text-foreground">Blog Article</p>
-                      <span className="text-[9px] font-black uppercase tracking-wider bg-purple-600 text-white px-1.5 py-0.5 rounded-full">New</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Cover image, story & showpage</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => { setTaskPrefill(null); setTaskComposerOpen(true); }}
-                  className="flex items-center gap-3 rounded-2xl border border-green-500/40 hover:border-green-500/70 p-3 text-left transition-colors hover:bg-green-500/5"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center shrink-0">
-                    <Coins className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">Credit Task</p>
-                    <p className="text-[11px] text-muted-foreground">Pay users to share link or video</p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-        <Card className="border-0 shadow-sm overflow-hidden">
-          <CardContent className="p-3 space-y-3">
-            {/* Mode Switcher Tabs */}
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
-              <div className="inline-flex rounded-xl bg-muted/60 p-1">
-                <button
-                  type="button"
-                  onClick={() => setComposerMode('normal')}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
-                    composerMode === 'normal'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <PenLine className="h-3.5 w-3.5 text-orange-500" />
-                  Quick Post
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setComposerMode('blog')}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
-                    composerMode === 'blog'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <BookOpen className="h-3.5 w-3.5" />
-                  Blog Article
-                  <span className="text-[9px] bg-white/20 px-1 rounded">PRO</span>
-                </button>
-              </div>
+        <Card className="border border-border/80 shadow-sm overflow-hidden bg-card rounded-2xl">
+          {/* Top Post Type Selector Bar */}
+          <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-3 py-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setComposerMode('normal')}
+                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl transition-all ${
+                  composerMode === 'normal'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                }`}
+              >
+                <PenLine className="h-3.5 w-3.5" />
+                <span>Create Post</span>
+              </button>
 
               <button
                 type="button"
-                onClick={() => setComposerOpen(false)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-full"
-                aria-label="Close composer"
+                onClick={() => setComposerMode('blog')}
+                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl transition-all ${
+                  composerMode === 'blog'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-purple-600 dark:text-purple-400 hover:bg-purple-500/10'
+                }`}
               >
-                <X className="h-4 w-4" />
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Blog Article</span>
+                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${
+                  composerMode === 'blog' ? 'bg-white/25 text-white' : 'bg-purple-600 text-white'
+                }`}>
+                  New
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setTaskPrefill(null); setTaskComposerOpen(true); }}
+                className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl text-green-700 dark:text-green-400 hover:bg-green-500/10 transition-colors"
+              >
+                <Coins className="h-3.5 w-3.5" />
+                <span>Credit Task</span>
+                <span className="text-[9px] font-black uppercase tracking-wider bg-green-600 text-white px-1.5 py-0.2 rounded-full">
+                  Earn
+                </span>
               </button>
             </div>
 
+            {composerMode === 'blog' && (
+              <button
+                type="button"
+                onClick={() => setComposerMode('normal')}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Quick Post
+              </button>
+            )}
+          </div>
+
+          <CardContent className="p-3 sm:p-4 space-y-3">
             {composerMode === 'blog' ? (
               <BlogArticleComposer
                 userId={me.id}
                 authorProfile={me.profile}
                 onSuccess={() => {
-                  setComposerOpen(false);
+                  setComposerMode('normal');
                   loadPosts();
                 }}
-                onCancel={() => setComposerOpen(false)}
+                onCancel={() => setComposerMode('normal')}
               />
             ) : (
               <>
-                <div className="flex gap-2 items-start">
-                  <Avatar className="h-10 w-10 flex-shrink-0">
+                <div className="flex gap-3 items-start">
+                  <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-border/50">
                     {myAvatar && <AvatarImage src={myAvatar} alt={myName} />}
                     <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-sm font-bold">
                       {myName[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
+
                   {activeTpl && !imagePreview ? (
                     <div
-                      className="flex-1 rounded-xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden"
+                      className="flex-1 rounded-2xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden shadow-inner"
                       style={{ background: activeTpl.background }}
                     >
                       <textarea
                         value={content}
                         onChange={e => setContent(e.target.value)}
-                        placeholder="Type something…"
+                        placeholder="Type something inspiring…"
                         rows={3}
                         maxLength={300}
                         className={`w-full bg-transparent border-0 outline-none text-center font-bold text-lg sm:text-xl resize-none placeholder:opacity-70 ${activeTpl.textColor}`}
@@ -687,7 +655,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                       <button
                         onClick={() => setTemplateId(null)}
                         type="button"
-                        className="absolute top-1.5 right-1.5 bg-black/40 text-white rounded-full p-1"
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
                         aria-label="Remove template"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -697,21 +665,22 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                     <Textarea
                       value={content}
                       onChange={e => setContent(e.target.value)}
-                      placeholder={`What's on your mind, ${myName.split(' ')[0]}? Use #hashtags to be discovered.`}
+                      placeholder={`What's on your mind, ${myName.split(' ')[0]}? Share updates, tips, offers or #hashtags...`}
                       rows={2}
-                      className="flex-1 resize-none border-muted bg-muted/30"
+                      className="flex-1 resize-none border-border/70 bg-muted/20 focus-visible:bg-background rounded-xl text-sm"
                       maxLength={2000}
                     />
                   )}
                 </div>
 
                 {imagePreview && (
-                  <div className="relative">
-                    <img loading="lazy" src={imagePreview} alt="" className="w-full max-h-72 object-cover rounded-lg" />
+                  <div className="relative rounded-2xl overflow-hidden border border-border/70 shadow-sm group">
+                    <img loading="lazy" src={imagePreview} alt="Attached upload" className="w-full max-h-80 object-cover" />
                     <button
                       onClick={() => onPickImage(null)}
-                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
+                      className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white rounded-full p-1.5 transition-colors shadow"
                       type="button"
+                      aria-label="Remove image"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -719,50 +688,73 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 )}
 
                 {showLink && (
-                  <Input placeholder="https://your-link.com" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} />
+                  <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
+                    <Link2 className="h-4 w-4 text-blue-600 shrink-0" />
+                    <Input
+                      placeholder="https://your-website.com or article link"
+                      value={linkUrl}
+                      onChange={e => setLinkUrl(e.target.value)}
+                      className="h-8 text-xs bg-background"
+                    />
+                    <button type="button" onClick={() => { setShowLink(false); setLinkUrl(''); }} className="text-muted-foreground p-1">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
+
                 {showVideo && (
-                  <Input placeholder="YouTube / Vimeo URL" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
+                  <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
+                    <Video className="h-4 w-4 text-red-600 shrink-0" />
+                    <Input
+                      placeholder="YouTube / Vimeo video URL"
+                      value={videoUrl}
+                      onChange={e => setVideoUrl(e.target.value)}
+                      className="h-8 text-xs bg-background"
+                    />
+                    <button type="button" onClick={() => { setShowVideo(false); setVideoUrl(''); }} className="text-muted-foreground p-1">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
 
                 {/* Template picker */}
                 {showTemplatePicker && !imagePreview && (
-                  <div className="border rounded-xl p-2 bg-muted/30">
-                    <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+                  <div className="border border-border/60 rounded-2xl p-3 bg-muted/30 space-y-2">
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                       {TEMPLATE_CATEGORIES.map(cat => (
                         <button
                           key={cat}
                           onClick={() => setActiveTplCategory(cat)}
-                          className={`flex-shrink-0 text-[11px] font-bold px-3 py-1 rounded-full ${
+                          className={`flex-shrink-0 text-[11px] font-bold px-3 py-1 rounded-full transition-colors ${
                             activeTplCategory === cat
                               ? 'bg-orange-500 text-white'
-                              : 'bg-background text-muted-foreground'
+                              : 'bg-background text-muted-foreground hover:text-foreground'
                           }`}
                         >
                           {cat}
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-1">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                       <button
                         onClick={() => setTemplateId(null)}
-                        className={`aspect-square rounded-lg border-2 flex items-center justify-center text-[10px] font-bold ${
-                          !templateId ? 'border-orange-500 text-orange-500' : 'border-border text-muted-foreground'
+                        className={`aspect-square rounded-xl border-2 flex items-center justify-center text-[10px] font-bold transition-all ${
+                          !templateId ? 'border-orange-500 text-orange-500 bg-orange-500/10' : 'border-border text-muted-foreground'
                         }`}
                       >
-                        None
+                        Standard
                       </button>
                       {POST_TEMPLATES.filter(t => t.category === activeTplCategory).map(t => (
                         <button
                           key={t.id}
                           onClick={() => setTemplateId(t.id)}
-                          className={`aspect-square rounded-lg border-2 overflow-hidden relative ${
+                          className={`aspect-square rounded-xl border-2 overflow-hidden relative transition-transform hover:scale-105 ${
                             templateId === t.id ? 'border-orange-500 ring-2 ring-orange-300' : 'border-transparent'
                           }`}
                           style={{ background: t.background }}
                           title={t.name}
                         >
-                          <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 bg-black/30 ${t.textColor}`}>
+                          <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 bg-black/40 text-center ${t.textColor}`}>
                             {t.name}
                           </span>
                         </button>
@@ -771,38 +763,71 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-1 flex-wrap">
-                  <div className="flex gap-0.5 flex-wrap">
+                {/* Facebook-style Action Toolbar */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <input
-                      type="file" ref={fileRef} accept="image/*" className="hidden"
+                      type="file"
+                      ref={fileRef}
+                      accept="image/*"
+                      className="hidden"
                       onChange={e => onPickImage(e.target.files?.[0] || null)}
                     />
-                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => fileRef.current?.click()}>
-                      <ImageIcon className="h-4 w-4 mr-1 text-green-600" /> <span className="text-xs">Photo</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-xl hover:bg-green-500/10 text-foreground"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <ImageIcon className="h-4 w-4 mr-1.5 text-green-600" />
+                      <span className="text-xs font-semibold">Photo</span>
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2"
-                            onClick={() => setShowTemplatePicker(s => !s)}>
-                      <Palette className="h-4 w-4 mr-1 text-fuchsia-500" /> <span className="text-xs">Theme</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-xl hover:bg-fuchsia-500/10 text-foreground"
+                      onClick={() => setShowTemplatePicker(s => !s)}
+                    >
+                      <Palette className="h-4 w-4 mr-1.5 text-fuchsia-500" />
+                      <span className="text-xs font-semibold">Color Theme</span>
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowLink(s => !s)}>
-                      <Link2 className="h-4 w-4 mr-1 text-blue-600" /> <span className="text-xs">Link</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-xl hover:bg-blue-500/10 text-foreground"
+                      onClick={() => setShowLink(s => !s)}
+                    >
+                      <Link2 className="h-4 w-4 mr-1.5 text-blue-600" />
+                      <span className="text-xs font-semibold">Link</span>
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowVideo(s => !s)}>
-                      <Video className="h-4 w-4 mr-1 text-red-600" /> <span className="text-xs">Video</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-xl hover:bg-red-500/10 text-foreground"
+                      onClick={() => setShowVideo(s => !s)}
+                    >
+                      <Video className="h-4 w-4 mr-1.5 text-red-600" />
+                      <span className="text-xs font-semibold">Video</span>
                     </Button>
                   </div>
-                  <Button onClick={submitPost} disabled={posting} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full px-4">
-                    {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1" />Post</>}
+
+                  <Button
+                    onClick={submitPost}
+                    disabled={posting || (!content.trim() && !imagePreview && !linkUrl && !videoUrl)}
+                    size="sm"
+                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold rounded-full px-5 shadow-sm h-8"
+                  >
+                    {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1.5" /> Post</>}
                   </Button>
                 </div>
-                <Button variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground" onClick={() => setComposerOpen(false)}>
-                  Cancel
-                </Button>
               </>
             )}
           </CardContent>
         </Card>
-        )
       ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 text-center text-sm text-muted-foreground">

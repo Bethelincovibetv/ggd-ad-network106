@@ -10,9 +10,18 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { BlogSection, CommunityBlogPostData, calculateReadTime } from '@/types/blog';
+import { BlogSection, CommunityBlogPostData, calculateReadTime, getCategoryCover, DEFAULT_CATEGORY_COVERS } from '@/types/blog';
 import { generateBlogPost } from '@/services/blogGenerator';
 import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal';
+
+const FEATURE_PHOTO_PRESETS = [
+  { label: 'Business Growth', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Marketing & Ads', url: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Tech & Innovation', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Finance & Strategy', url: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Store & Products', url: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=80' },
+  { label: 'Team & Success', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80' },
+];
 
 interface BlogArticleComposerProps {
   userId: string;
@@ -44,6 +53,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const [customCategory, setCustomCategory] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [selectedPresetUrl, setSelectedPresetUrl] = useState<string | null>(null);
 
   // Structured Sections
   const [sections, setSections] = useState<BlogSection[]>([
@@ -72,7 +82,15 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       return;
     }
     setCoverFile(f);
+    setSelectedPresetUrl(null);
     setCoverPreview(URL.createObjectURL(f));
+  };
+
+  const handleSelectPresetCover = (url: string) => {
+    setCoverFile(null);
+    setSelectedPresetUrl(url);
+    setCoverPreview(url);
+    toast.success('Feature photo selected!');
   };
 
   const handleAddSection = () => {
@@ -203,6 +221,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       }
 
       const activeCategory = customCategory.trim() || category;
+      const finalCoverImageUrl = coverImageUrl || selectedPresetUrl || getCategoryCover(activeCategory, null);
       const readTime = calculateReadTime({
         title,
         subtitle,
@@ -216,7 +235,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
         subtitle: subtitle.trim() || undefined,
         category: activeCategory,
         read_time: readTime,
-        cover_image: coverImageUrl,
+        cover_image: finalCoverImageUrl,
         sections: processedSections,
         author_note: authorNote.trim() || undefined,
         tags: [
@@ -238,7 +257,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       const { data: insertedData, error: insertErr } = await supabase.from('community_posts').insert({
         user_id: userId,
         content: JSON.stringify(blogData),
-        image_url: coverImageUrl,
+        image_url: finalCoverImageUrl,
         link_url: null,
         video_url: null,
         background_template: null,
@@ -427,11 +446,16 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       ) : (
         <div className="space-y-4">
           {/* Cover Photo Drag & Drop / Selector */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <ImageIcon className="h-4 w-4 text-purple-600" />
-              Cover Image (Banner)
-            </label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-purple-600" />
+                Feature Photo (Required Cover Banner)
+              </label>
+              <span className="text-[10px] font-bold text-purple-600 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                Guaranteed on Feed
+              </span>
+            </div>
 
             <input
               type="file"
@@ -442,7 +466,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
             />
 
             {coverPreview ? (
-              <div className="relative w-full aspect-[21/9] max-h-64 rounded-2xl overflow-hidden border border-border group bg-slate-900">
+              <div className="relative w-full aspect-[21/9] max-h-64 rounded-2xl overflow-hidden border border-border group bg-slate-900 shadow-md">
                 <img src={coverPreview} alt="Cover Preview" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <Button
@@ -458,6 +482,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
                     variant="destructive"
                     onClick={() => {
                       setCoverFile(null);
+                      setSelectedPresetUrl(null);
                       setCoverPreview(null);
                     }}
                     className="rounded-full text-xs font-bold"
@@ -467,18 +492,52 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
                 </div>
               </div>
             ) : (
-              <div
-                onClick={() => coverFileRef.current?.click()}
-                className="w-full border-2 border-dashed border-border hover:border-purple-500/70 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-muted/20 hover:bg-purple-500/5 flex flex-col items-center justify-center gap-2"
-              >
-                <div className="h-12 w-12 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
-                  <ImageIcon className="h-6 w-6" />
+              <div className="space-y-2.5">
+                <div
+                  onClick={() => coverFileRef.current?.click()}
+                  className="w-full border-2 border-dashed border-purple-500/40 hover:border-purple-600 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-purple-500/5 hover:bg-purple-500/10 flex flex-col items-center justify-center gap-2"
+                >
+                  <div className="h-10 w-10 rounded-full bg-purple-500/20 text-purple-600 flex items-center justify-center">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">Upload Custom Feature Photo</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Click to upload banner (16:9 or 21:9 ratio, up to 5MB)
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">Upload High-Res Cover Photo</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Recommended 16:9 or 21:9 ratio (PNG, JPG, WebP up to 5MB)
+
+                {/* 1-Tap Curated Feature Photo Presets */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Or choose 1-tap feature photo:
                   </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {FEATURE_PHOTO_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectPresetCover(preset.url)}
+                        className={`group relative aspect-[16/9] rounded-xl overflow-hidden border-2 transition-all text-left ${
+                          selectedPresetUrl === preset.url
+                            ? 'border-purple-600 ring-2 ring-purple-400 scale-[1.02]'
+                            : 'border-border/60 hover:border-purple-500/60'
+                        }`}
+                      >
+                        <img
+                          src={preset.url}
+                          alt={preset.label}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2">
+                          <span className="text-[10px] font-bold text-white line-clamp-1">
+                            {preset.label}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

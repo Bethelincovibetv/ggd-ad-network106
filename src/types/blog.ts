@@ -24,6 +24,24 @@ export interface CommunityBlogPostData {
   author_note?: string;
 }
 
+export const DEFAULT_CATEGORY_COVERS: Record<string, string> = {
+  'Business Growth': 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+  'Marketing & Ads': 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80',
+  'Tips & Guides': 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80',
+  'Technology & AI': 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+  'Product Spotlight': 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=80',
+  'Finance & Wealth': 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=1200&q=80',
+  'Success Story': 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
+  'Industry News': 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
+  'Default': 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80',
+};
+
+export const getCategoryCover = (category?: string, existingCover?: string | null): string => {
+  if (existingCover && existingCover.trim()) return existingCover;
+  if (category && DEFAULT_CATEGORY_COVERS[category]) return DEFAULT_CATEGORY_COVERS[category];
+  return DEFAULT_CATEGORY_COVERS['Default'];
+};
+
 /**
  * Parses and validates if a community post content is a structured blog article.
  */
@@ -35,13 +53,14 @@ export const parseBlogPost = (content: string | null | undefined): CommunityBlog
   try {
     const data = JSON.parse(trimmed);
     if ((data.is_blog === true || data.sections) && data.title) {
+      const category = data.category ? String(data.category).trim() : 'Business Growth';
       return {
         is_blog: true,
         title: String(data.title || '').trim(),
         subtitle: data.subtitle ? String(data.subtitle).trim() : undefined,
-        category: data.category ? String(data.category).trim() : 'Business',
+        category,
         read_time: data.read_time || calculateReadTime(data),
-        cover_image: data.cover_image || null,
+        cover_image: getCategoryCover(category, data.cover_image),
         sections: Array.isArray(data.sections) ? data.sections : [],
         tags: Array.isArray(data.tags) ? data.tags : [],
         author_note: data.author_note ? String(data.author_note).trim() : undefined,
