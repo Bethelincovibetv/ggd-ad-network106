@@ -45,6 +45,9 @@ const BusinessTaskCreator = () => {
   const [credits, setCredits] = useState<number>(0);
   const [loginBonusCredits, setLoginBonusCredits] = useState<number>(0);
   const [payoutPct, setPayoutPct] = useState<number>(70);
+  const [stateTargetingEnabled, setStateTargetingEnabled] = useState<boolean>(true);
+  const [customCountEnabled, setCustomCountEnabled] = useState<boolean>(true);
+  const [fixedCampaignPrice, setFixedCampaignPrice] = useState<number>(5000);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -52,13 +55,18 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes, pctRes] = await Promise.all([
+    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes, pctRes, configRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('credits, login_bonus_credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('platform_pricing').select('*').order('platform_name'),
       supabase.from('syndicate_task_assignments').select('*'),
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
       supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
+      supabase.from('app_settings').select('key, value').in('key', [
+        'syndicate_state_targeting_enabled',
+        'syndicate_custom_count_enabled',
+        'syndicate_fixed_campaign_price',
+      ]),
     ]);
 
     const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
@@ -67,6 +75,21 @@ const BusinessTaskCreator = () => {
     if (r > 0) setExchangeRate(r);
     const pct = parseInt(pctRes.data?.value || '') || 70;
     setPayoutPct(pct);
+
+    if (configRes.data) {
+      configRes.data.forEach(item => {
+        if (item.key === 'syndicate_state_targeting_enabled') {
+          setStateTargetingEnabled(item.value !== 'false');
+        }
+        if (item.key === 'syndicate_custom_count_enabled') {
+          setCustomCountEnabled(item.value !== 'false');
+        }
+        if (item.key === 'syndicate_fixed_campaign_price') {
+          const val = parseInt(item.value, 10);
+          if (!isNaN(val) && val > 0) setFixedCampaignPrice(val);
+        }
+      });
+    }
 
     const myTaskIds = new Set((tasksRes.data || []).map(t => t.id));
     const myAssignments = (assignmentsRes.data || []).filter(a => myTaskIds.has(a.task_id));
@@ -110,6 +133,9 @@ const BusinessTaskCreator = () => {
   };
 
   const calculateTotalCost = () => {
+    if (!customCountEnabled) {
+      return fixedCampaignPrice;
+    }
     const maxSyndicates = parseInt(form.max_syndicates) || 1;
     let perSyndicateCost = 0;
     form.placements.forEach(pKey => {
@@ -123,7 +149,9 @@ const BusinessTaskCreator = () => {
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     if (form.placements.length === 0) { toast.error("Select at least one placement"); return; }
 
-    const maxSyndicates = parseInt(form.max_syndicates) || 10;
+    const maxSyndicates = !customCountEnabled ? 50 : (parseInt(form.max_syndicates) || 10);
+    const targetState = !stateTargetingEnabled ? null : (form.target_state.trim() || null);
+    const approvalMode = !customCountEnabled ? 'automatic' : (form.approval_mode === 'auto' ? 'automatic' : 'manual');
     try {
       const res = await createSyndicateTask({
         title: form.title.trim(),
@@ -131,16 +159,16 @@ const BusinessTaskCreator = () => {
         share_link: form.share_link.trim() || null,
         flyer_url: flyerUrl || null,
         placements: form.placements,
-        target_state: form.target_state.trim() || null,
+        target_state: targetState,
         max_syndicates: maxSyndicates,
-        approval_mode: form.approval_mode === 'auto' ? 'automatic' : 'manual',
+        approval_mode: approvalMode,
       });
 
       if (!res.success) {
         throw new Error(res.error || 'Failed to create task');
       }
 
-      toast.success(`Task created! ${res?.credits_debited || ''} GGG credits debited.`);
+      toast.success(`Task created! ${res?.credits_debited || ''} GGD credits debited.`);
       setForm({ title: '', description: '', share_link: '', max_syndicates: '10', placements: [], target_state: '', approval_mode: 'manual' });
       setFlyerUrl('');
       setIsCreating(false);
