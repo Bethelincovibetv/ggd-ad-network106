@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Notification": {
+      "title": "Notification",
+      "description": "Real-time user notification and push alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 150 },
+        "body": { "type": "string", "maxLength": 1000 },
+        "icon": { "type": "string", "maxLength": 500 },
+        "url": { "type": "string", "maxLength": 500 },
+        "type": { "type": "string", "enum": ["system", "welcome", "credit_task", "chat", "syndicate", "bonus"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "title", "body", "createdAt"]
+    },
+    "PushDeviceToken": {
+      "title": "PushDeviceToken",
+      "description": "Registered FCM device token for web push",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "token": { "type": "string", "maxLength": 500 },
+        "platform": { "type": "string", "enum": ["web", "android", "ios"] },
+        "userAgent": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "token", "platform", "updatedAt"]
+    },
+    "AdminSetting": {
+      "title": "AdminSetting",
+      "description": "System-wide admin configurations including AI keys and feature flags",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "maxLength": 100 },
+        "value": { "type": "string", "maxLength": 2000 },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "value", "updatedAt"]
+    },
+    "RealtimePostView": {
+      "title": "RealtimePostView",
+      "description": "Realtime analytics view tracker for posts and blogs",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "viewsCount": { "type": "number" },
+        "lastViewedAt": { "type": "string" }
+      },
+      "required": ["postId", "viewsCount", "lastViewedAt"]
+    }
+  },
+  "firestore": {
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "User push and in-app notifications"
+    },
+    "/push_devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/PushDeviceToken" },
+      "description": "User registered push tokens"
+    },
+    "/admin_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AdminSetting" },
+      "description": "Global settings and API keys configured by platform admin"
+    },
+    "/post_views/{postId}": {
+      "schema": { "$ref": "#/entities/RealtimePostView" },
+      "description": "Live real-time view counts per post or blog"
+    }
+  }
+}

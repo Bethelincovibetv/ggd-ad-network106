@@ -11,9 +11,12 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+let customGeminiKey = '';
+let customPexelsKey = '';
+
 // Helper to get initialized GoogleGenAI client
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const apiKey = customGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     return null;
   }
@@ -26,6 +29,82 @@ function getGeminiClient(): GoogleGenAI | null {
     },
   });
 }
+
+// ----------------------------------------------------
+// API Route: Admin API Key Configuration
+// ----------------------------------------------------
+app.get('/api/admin/config', (req, res) => {
+  const activeGemini = Boolean(customGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+  const activePexels = Boolean(customPexelsKey || process.env.PEXELS_API_KEY || process.env.VITE_PEXELS_API_KEY);
+  return res.json({
+    hasGeminiKey: activeGemini,
+    hasPexelsKey: activePexels,
+  });
+});
+
+app.post('/api/admin/config', (req, res) => {
+  const { geminiApiKey, pexelsApiKey } = req.body;
+  if (typeof geminiApiKey === 'string') {
+    customGeminiKey = geminiApiKey.trim();
+  }
+  if (typeof pexelsApiKey === 'string') {
+    customPexelsKey = pexelsApiKey.trim();
+  }
+  return res.json({
+    success: true,
+    message: 'API keys updated successfully in server environment.',
+    hasGeminiKey: Boolean(customGeminiKey || process.env.GEMINI_API_KEY),
+    hasPexelsKey: Boolean(customPexelsKey || process.env.PEXELS_API_KEY),
+  });
+});
+
+// ----------------------------------------------------
+// API Route: Pexels Image Search for Blog & Flyers
+// ----------------------------------------------------
+app.get('/api/search-pexels', async (req, res) => {
+  const query = (req.query.query as string || 'business').trim();
+  const perPage = Math.min(20, Math.max(4, Number(req.query.per_page) || 12));
+  const apiKey = customPexelsKey || process.env.PEXELS_API_KEY || process.env.VITE_PEXELS_API_KEY;
+
+  if (apiKey) {
+    try {
+      const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=landscape`, {
+        headers: {
+          Authorization: apiKey,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const photos = (data.photos || []).map((p: any) => ({
+          id: String(p.id),
+          url: p.src?.large2x || p.src?.large || p.src?.medium,
+          thumbnail: p.src?.medium || p.src?.small,
+          photographer: p.photographer,
+          photographerUrl: p.photographer_url,
+          alt: p.alt || query,
+        }));
+        return res.json({ success: true, photos, source: 'pexels' });
+      }
+    } catch (err) {
+      console.warn('Pexels API fetch error:', err);
+    }
+  }
+
+  // Curated High-Definition Photo Fallback (Zero-Failure)
+  const curatedPool = [
+    { id: 'p1', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=80', photographer: 'Lukas Blazek', alt: `${query} analytics` },
+    { id: 'p2', url: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=400&q=80', photographer: 'Austin Distel', alt: `${query} team strategy` },
+    { id: 'p3', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80', photographer: 'Alexandre Debiève', alt: `${query} technology` },
+    { id: 'p4', url: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=400&q=80', photographer: 'Micheile Henderson', alt: `${query} finance growth` },
+    { id: 'p5', url: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=400&q=80', photographer: 'Mike Petrucci', alt: `${query} business store` },
+    { id: 'p6', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=400&q=80', photographer: 'Annie Spratt', alt: `${query} collaborative achievement` },
+    { id: 'p7', url: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=400&q=80', photographer: 'Amy Hirschi', alt: `${query} meeting leadership` },
+    { id: 'p8', url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80', thumbnail: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=400&q=80', photographer: 'Hunters Race', alt: `${query} modern executive` }
+  ];
+
+  return res.json({ success: true, photos: curatedPool, source: 'curated' });
+});
+
 
 // ----------------------------------------------------
 // API Route: Blog Generation

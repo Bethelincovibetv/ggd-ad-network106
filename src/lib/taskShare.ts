@@ -33,6 +33,7 @@ export async function getOrCreateTaskShareUrl(taskId: string): Promise<string | 
 
   if (!slug) return null;
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const query = appOrigin ? `?app=${encodeURIComponent(appOrigin)}` : '';
-  return `${SUPABASE_URL}/functions/v1/task-share/${slug}${query}`;
+  // Generate clean, masked in-app share URL so users never see the raw backend provider URL
+  return `${appOrigin}/s/${slug}`;
 }
+

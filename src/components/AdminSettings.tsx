@@ -191,6 +191,72 @@ const AdminSettings = () => {
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl pointer-events-none" />
       </div>
 
+      {/* AI & Media Services (Gemini & Pexels APIs) */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-violet-600 to-purple-600 p-3 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            <h4 className="text-sm font-bold">AI & Media APIs (Gemini & Pexels)</h4>
+          </div>
+          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-medium">Platform Config</span>
+        </div>
+        <CardContent className="p-4 space-y-4">
+          <div className="grid grid-cols-1 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Gemini API Key (AI Blog & Ebook Generator)</Label>
+              <Input
+                type="password"
+                value={settings.gemini_api_key || ''}
+                onChange={e => setSettings(p => ({ ...p, gemini_api_key: e.target.value }))}
+                className="h-10 rounded-xl bg-secondary/30 border-0 font-medium"
+                placeholder="AIzaSy..."
+              />
+              <p className="text-[10px] text-muted-foreground">Powers the AI blog article creator, social copy assistant, and ebook generator.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pexels API Key (High-Res Stock Photos)</Label>
+              <Input
+                type="password"
+                value={settings.pexels_api_key || ''}
+                onChange={e => setSettings(p => ({ ...p, pexels_api_key: e.target.value }))}
+                className="h-10 rounded-xl bg-secondary/30 border-0 font-medium"
+                placeholder="Enter Pexels API Key..."
+              />
+              <p className="text-[10px] text-muted-foreground">Allows users and creators to search and insert free high-resolution feature photos directly into blogs and flyers.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={async () => {
+                try {
+                  await saveSection(['gemini_api_key', 'pexels_api_key'], 'AI & Media APIs');
+                  // Also sync to server-side backend cache
+                  await fetch('/api/admin/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      geminiApiKey: settings.gemini_api_key || '',
+                      pexelsApiKey: settings.pexels_api_key || '',
+                    })
+                  });
+                  toast.success('AI & Pexels API Keys synced to backend runtime!');
+                } catch (e: any) {
+                  toast.error('Failed to update API keys: ' + e.message);
+                }
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Save className="h-3.5 w-3.5" /> Save API Keys
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Credits & Pricing */}
       <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-3 flex items-center gap-2 text-white">

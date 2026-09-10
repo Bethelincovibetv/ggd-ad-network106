@@ -75,6 +75,28 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const coverFileRef = useRef<HTMLInputElement>(null);
   const sectionFileRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
 
+  const [photoTab, setPhotoTab] = useState<'upload' | 'pexels' | 'presets'>('presets');
+  const [pexelsQuery, setPexelsQuery] = useState('business');
+  const [pexelsPhotos, setPexelsPhotos] = useState<any[]>([]);
+  const [loadingPexels, setLoadingPexels] = useState(false);
+
+  // Search Pexels / Curated Photos
+  const handleSearchPexels = async (queryToSearch?: string) => {
+    const q = (queryToSearch || pexelsQuery).trim() || 'business';
+    setLoadingPexels(true);
+    try {
+      const res = await fetch(`/api/search-pexels?query=${encodeURIComponent(q)}&per_page=12`);
+      const data = await res.json();
+      if (data.photos && data.photos.length > 0) {
+        setPexelsPhotos(data.photos);
+      }
+    } catch (e) {
+      console.warn('Pexels search note:', e);
+    } finally {
+      setLoadingPexels(false);
+    }
+  };
+
   const handlePickCover = (f: File | null) => {
     if (!f) return;
     if (f.size > 5 * 1024 * 1024) {
@@ -492,53 +514,146 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                <div
-                  onClick={() => coverFileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-purple-500/40 hover:border-purple-600 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-purple-500/5 hover:bg-purple-500/10 flex flex-col items-center justify-center gap-2"
-                >
-                  <div className="h-10 w-10 rounded-full bg-purple-500/20 text-purple-600 flex items-center justify-center">
-                    <ImageIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">Upload Custom Feature Photo</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Click to upload banner (16:9 or 21:9 ratio, up to 5MB)
-                    </p>
-                  </div>
+              <div className="space-y-3">
+                {/* Mode Tabs */}
+                <div className="flex bg-secondary/50 p-1 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPhotoTab('presets')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                      photoTab === 'presets' ? 'bg-background shadow-xs text-purple-600' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Curated Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoTab('pexels');
+                      if (pexelsPhotos.length === 0) {
+                        handleSearchPexels();
+                      }
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                      photoTab === 'pexels' ? 'bg-background shadow-xs text-purple-600' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🔍 Pexels Stock Photos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoTab('upload')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                      photoTab === 'upload' ? 'bg-background shadow-xs text-purple-600' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Custom Upload
+                  </button>
                 </div>
 
-                {/* 1-Tap Curated Feature Photo Presets */}
-                <div className="space-y-1.5">
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Or choose 1-tap feature photo:
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {FEATURE_PHOTO_PRESETS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectPresetCover(preset.url)}
-                        className={`group relative aspect-[16/9] rounded-xl overflow-hidden border-2 transition-all text-left ${
-                          selectedPresetUrl === preset.url
-                            ? 'border-purple-600 ring-2 ring-purple-400 scale-[1.02]'
-                            : 'border-border/60 hover:border-purple-500/60'
-                        }`}
-                      >
-                        <img
-                          src={preset.url}
-                          alt={preset.label}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2">
-                          <span className="text-[10px] font-bold text-white line-clamp-1">
-                            {preset.label}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                {/* Presets Tab */}
+                {photoTab === 'presets' && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Tap a high-impact feature photo:
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {FEATURE_PHOTO_PRESETS.map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectPresetCover(preset.url)}
+                          className={`group relative aspect-[16/9] rounded-xl overflow-hidden border-2 transition-all text-left ${
+                            selectedPresetUrl === preset.url
+                              ? 'border-purple-600 ring-2 ring-purple-400 scale-[1.02]'
+                              : 'border-border/60 hover:border-purple-500/60'
+                          }`}
+                        >
+                          <img
+                            src={preset.url}
+                            alt={preset.label}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2">
+                            <span className="text-[10px] font-bold text-white line-clamp-1">
+                              {preset.label}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Pexels Search Tab */}
+                {photoTab === 'pexels' && (
+                  <div className="space-y-2.5">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Search stock photos (e.g., fashion, tech, business, finance)..."
+                        value={pexelsQuery}
+                        onChange={e => setPexelsQuery(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSearchPexels()}
+                        className="bg-background text-xs h-9 rounded-xl"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleSearchPexels()}
+                        disabled={loadingPexels}
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold h-9 px-3 shrink-0"
+                      >
+                        {loadingPexels ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Search'}
+                      </Button>
+                    </div>
+
+                    {loadingPexels ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                        {pexelsPhotos.map((photo) => (
+                          <button
+                            key={photo.id}
+                            type="button"
+                            onClick={() => handleSelectPresetCover(photo.url)}
+                            className="group relative aspect-[16/9] rounded-xl overflow-hidden border border-border hover:border-purple-600 transition-all text-left"
+                          >
+                            <img
+                              src={photo.thumbnail || photo.url}
+                              alt={photo.alt}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-1.5">
+                              <span className="text-[9px] text-white/90 truncate">
+                                📷 {photo.photographer || 'Pexels'}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Upload Tab */}
+                {photoTab === 'upload' && (
+                  <div
+                    onClick={() => coverFileRef.current?.click()}
+                    className="w-full border-2 border-dashed border-purple-500/40 hover:border-purple-600 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-purple-500/5 hover:bg-purple-500/10 flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-purple-500/20 text-purple-600 flex items-center justify-center">
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Upload Custom Feature Photo</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Click or drop banner file (16:9 or 21:9 ratio, up to 5MB)
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
