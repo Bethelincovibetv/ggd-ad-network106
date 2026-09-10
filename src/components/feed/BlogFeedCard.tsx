@@ -44,6 +44,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   currentUserId,
   onReact,
   onDelete,
+  onEdit,
   onPromote,
   timeAgoStr,
 }) => {

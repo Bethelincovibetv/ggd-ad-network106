@@ -508,15 +508,15 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
       {/* PRIMARY SEGMENTED NAVIGATION TABS */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="w-full space-y-4">
-        <TabsList className="w-full grid grid-cols-4 h-12 p-1 bg-muted/80 rounded-xl border border-border">
+        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto p-1.5 bg-muted/80 rounded-2xl border border-border gap-1.5">
           <TabsTrigger 
             value="campaigns" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl min-h-[42px] px-2.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs flex items-center justify-center truncate"
           >
-            <Briefcase className="h-3.5 w-3.5 text-purple-600" />
-            <span className="hidden sm:inline">Available</span> Campaigns
+            <Briefcase className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+            <span className="truncate">Campaigns</span>
             {tasks.length > 0 && (
-              <Badge className="h-4 px-1 text-[9px] bg-purple-600 text-white font-bold ml-0.5">
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-purple-600 text-white font-bold ml-0.5 rounded-full shrink-0 flex items-center justify-center">
                 {tasks.length}
               </Badge>
             )}
@@ -524,12 +524,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
           <TabsTrigger 
             value="submissions" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl min-h-[42px] px-2.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs flex items-center justify-center truncate"
           >
-            <CheckSquare className="h-3.5 w-3.5 text-blue-600" />
-            Submissions
+            <CheckSquare className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+            <span className="truncate">Submissions</span>
             {myAssignments.length > 0 && (
-              <Badge className="h-4 px-1 text-[9px] bg-blue-600 text-white font-bold ml-0.5">
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-blue-600 text-white font-bold ml-0.5 rounded-full shrink-0 flex items-center justify-center">
                 {myAssignments.length}
               </Badge>
             )}
@@ -537,37 +537,37 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
           <TabsTrigger 
             value="wallet" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl min-h-[42px] px-2.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs flex items-center justify-center truncate"
           >
-            <Wallet className="h-3.5 w-3.5 text-green-600" />
-            Payout Bank
+            <Wallet className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            <span className="truncate">Payout Bank</span>
           </TabsTrigger>
 
           <TabsTrigger 
             value="profile" 
-            className="text-xs sm:text-sm font-bold gap-1.5 rounded-lg h-10 data-[state=active]:bg-background data-[state=active]:shadow-xs"
+            className="text-xs sm:text-sm font-bold gap-1.5 rounded-xl min-h-[42px] px-2.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs flex items-center justify-center truncate"
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-orange-600" />
-            Profile
+            <ShieldCheck className="h-3.5 w-3.5 text-orange-600 shrink-0" />
+            <span className="truncate">Profile</span>
           </TabsTrigger>
         </TabsList>
 
         {/* VIEW 1: AVAILABLE CAMPAIGNS & PARTICIPATION */}
         <TabsContent value="campaigns" className="space-y-4 outline-none">
           {/* Date Selector & Status Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border border-border bg-card shadow-2xs">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-border bg-card shadow-2xs">
+            <div className="flex items-center gap-2 text-xs font-bold text-foreground shrink-0">
               <Calendar className="h-4 w-4 text-purple-600" />
               <span>Available Campaigns</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 size="sm"
                 variant={dateFilterMode === 'today' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('today')}
-                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'today' ? 'bg-purple-600 text-white' : 'border-border'}`}
+                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'today' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
               >
                 Today
               </Button>
@@ -577,7 +577,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                 size="sm"
                 variant={dateFilterMode === 'yesterday' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('yesterday')}
-                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white' : 'border-border'}`}
+                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
               >
                 Yesterday
               </Button>
@@ -587,12 +587,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                 size="sm"
                 variant={dateFilterMode === 'all' ? 'default' : 'outline'}
                 onClick={() => setDateFilter('all')}
-                className={`h-7 px-2.5 text-xs font-bold rounded-lg ${dateFilterMode === 'all' ? 'bg-purple-600 text-white' : 'border-border'}`}
+                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
               >
                 All Dates
               </Button>
 
-              <div className="flex items-center gap-1 bg-muted/70 px-2 py-0.5 rounded-lg border border-border">
+              <div className="flex items-center gap-1.5 bg-muted/70 px-2.5 py-1 rounded-xl border border-border">
                 <input
                   type="date"
                   value={selectedDate}
@@ -921,27 +921,27 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         {/* VIEW 2: SUBMISSIONS & SETTLEMENT HISTORY */}
         <TabsContent value="submissions" className="space-y-4 outline-none">
           {/* Submissions Filter Tabs */}
-          <div className="grid grid-cols-4 gap-2 p-1.5 bg-muted/70 rounded-2xl border border-border">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 bg-muted/70 rounded-2xl border border-border">
             <button
               type="button"
               onClick={() => setSubmissionsFilter('all')}
-              className={`h-10 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`h-10 rounded-xl px-2 text-xs font-bold transition flex items-center justify-center gap-1.5 truncate ${
                 submissionsFilter === 'all' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span>All Submissions</span>
-              <Badge className="h-5 px-1.5 text-[10px] bg-slate-700 text-white">{myAssignments.length}</Badge>
+              <span className="truncate">All Submissions</span>
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-slate-700 text-white rounded-full shrink-0 flex items-center justify-center">{myAssignments.length}</Badge>
             </button>
 
             <button
               type="button"
               onClick={() => setSubmissionsFilter('submitted')}
-              className={`h-10 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`h-10 rounded-xl px-2 text-xs font-bold transition flex items-center justify-center gap-1.5 truncate ${
                 submissionsFilter === 'submitted' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span>Pending Settle</span>
-              <Badge className="h-5 px-1.5 text-[10px] bg-amber-500 text-white">
+              <span className="truncate">Pending</span>
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-amber-500 text-white rounded-full shrink-0 flex items-center justify-center">
                 {myAssignments.filter(a => a.status === 'submitted').length}
               </Badge>
             </button>
@@ -949,12 +949,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             <button
               type="button"
               onClick={() => setSubmissionsFilter('completed')}
-              className={`h-10 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`h-10 rounded-xl px-2 text-xs font-bold transition flex items-center justify-center gap-1.5 truncate ${
                 submissionsFilter === 'completed' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span>Settled & Paid</span>
-              <Badge className="h-5 px-1.5 text-[10px] bg-emerald-600 text-white">
+              <span className="truncate">Settled & Paid</span>
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-emerald-600 text-white rounded-full shrink-0 flex items-center justify-center">
                 {myAssignments.filter(a => a.status === 'approved' || a.status === 'paid').length}
               </Badge>
             </button>
@@ -962,12 +962,12 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             <button
               type="button"
               onClick={() => setSubmissionsFilter('rejected')}
-              className={`h-10 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`h-10 rounded-xl px-2 text-xs font-bold transition flex items-center justify-center gap-1.5 truncate ${
                 submissionsFilter === 'rejected' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span>Rejected</span>
-              <Badge className="h-5 px-1.5 text-[10px] bg-red-600 text-white">
+              <span className="truncate">Rejected</span>
+              <Badge className="h-4 min-w-4 px-1 text-[9px] bg-red-600 text-white rounded-full shrink-0 flex items-center justify-center">
                 {myAssignments.filter(a => a.status === 'rejected').length}
               </Badge>
             </button>

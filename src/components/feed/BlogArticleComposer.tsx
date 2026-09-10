@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { BlogSection, CommunityBlogPostData, calculateReadTime } from '@/types/blog';
 import { generateBlogPost } from '@/services/blogGenerator';
+import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal';
 
 interface BlogArticleComposerProps {
   userId: string;
@@ -57,6 +58,9 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiTopicPrompt, setAiTopicPrompt] = useState('');
   const [showAiHelper, setShowAiHelper] = useState(false);
+  const [publishedBlog, setPublishedBlog] = useState<CommunityBlogPostData | null>(null);
+  const [publishedPostId, setPublishedPostId] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const sectionFileRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
@@ -231,7 +235,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       );
 
       // 4. Save into community_posts table
-      const { error: insertErr } = await supabase.from('community_posts').insert({
+      const { data: insertedData, error: insertErr } = await supabase.from('community_posts').insert({
         user_id: userId,
         content: JSON.stringify(blogData),
         image_url: coverImageUrl,
@@ -239,18 +243,36 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
         video_url: null,
         background_template: null,
         tags,
-      });
+      }).select().maybeSingle();
 
       if (insertErr) throw insertErr;
 
-      toast.success('🎉 Your blog article is published to the community!');
-      onSuccess();
+      setPublishedBlog(blogData);
+      setPublishedPostId(insertedData?.id || null);
+      setShowSuccessModal(true);
+      toast.success('🎉 Congratulations! Your blog article is published!');
     } catch (err: any) {
       console.error('Failed to publish blog:', err);
       toast.error(err.message || 'Failed to publish blog article');
     } finally {
       setPublishing(false);
     }
+  };
+
+  const handleResetForm = () => {
+    setTitle('');
+    setSubtitle('');
+    setCategory(PRESET_CATEGORIES[0]);
+    setCustomCategory('');
+    setCoverFile(null);
+    setCoverPreview(null);
+    setSections([
+      { heading: 'Introduction & Core Insight', content: '', imageUrl: null, imageAlt: '' },
+      { heading: 'Key Strategies for Success', content: '', imageUrl: null, imageAlt: '' },
+    ]);
+    setSectionFiles({});
+    setAuthorNote('');
+    setShowPreview(false);
   };
 
   return (
@@ -662,28 +684,28 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       )}
 
       {/* Action Footer */}
-      <div className="flex items-center justify-between gap-3 pt-4 border-t border-border">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border/80">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={onCancel}
           disabled={publishing}
-          className="text-xs text-muted-foreground rounded-xl"
+          className="w-full sm:w-auto text-xs text-muted-foreground hover:text-foreground rounded-xl h-10 order-2 sm:order-1"
         >
           Cancel
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setShowPreview(s => !s)}
             disabled={publishing || !title.trim()}
-            className="rounded-xl text-xs font-bold h-10 px-4"
+            className="rounded-xl text-xs font-bold h-10 px-4 justify-center"
           >
-            <Eye className="h-3.5 w-3.5 mr-1" />
+            <Eye className="h-3.5 w-3.5 mr-1.5" />
             {showPreview ? 'Edit Article' : 'Preview Article'}
           </Button>
 
@@ -691,7 +713,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
             type="button"
             onClick={handlePublish}
             disabled={publishing || !title.trim()}
-            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs rounded-xl h-10 px-6 shadow-md"
+            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs rounded-xl h-10 px-6 shadow-md justify-center sm:min-w-[180px]"
           >
             {publishing ? (
               <>
@@ -707,6 +729,25 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
           </Button>
         </div>
       </div>
+
+      {/* Success Celebration Dialog */}
+      <BlogCreationSuccessModal
+        open={showSuccessModal}
+        onOpenChange={(isOpen) => {
+          setShowSuccessModal(isOpen);
+          if (!isOpen) {
+            onSuccess();
+          }
+        }}
+        blog={publishedBlog}
+        postId={publishedPostId}
+        onViewFeed={() => {
+          onSuccess();
+        }}
+        onCreateAnother={() => {
+          handleResetForm();
+        }}
+      />
     </div>
   );
 };

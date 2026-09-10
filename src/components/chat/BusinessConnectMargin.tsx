@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface BusinessConnectMarginProps {
   businessUserId: string;
   onApplyPrompt?: (promptText: string) => void;
+  onSendAttentionPrompt?: (promptText: string, label: string) => void;
   className?: string;
   isCompact?: boolean;
 }
@@ -18,6 +19,7 @@ interface BusinessConnectMarginProps {
 export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
   businessUserId,
   onApplyPrompt,
+  onSendAttentionPrompt,
   className = '',
   isCompact = false,
 }) => {
@@ -211,8 +213,14 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
             <button
               key={idx}
               type="button"
-              onClick={() => onApplyPrompt && onApplyPrompt(p.text)}
-              className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-secondary/80 hover:bg-orange-500/15 hover:text-orange-600 border border-border/80 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
+              onClick={() => {
+                if (onSendAttentionPrompt) {
+                  onSendAttentionPrompt(p.text, p.label);
+                } else if (onApplyPrompt) {
+                  onApplyPrompt(p.text);
+                }
+              }}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-secondary/80 hover:bg-orange-500/15 hover:text-orange-600 border border-border/80 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 active:scale-95"
             >
               <span>{p.label}</span>
               <ChevronRight className="h-3 w-3 opacity-60" />
@@ -276,8 +284,14 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
               <button
                 key={idx}
                 type="button"
-                onClick={() => onApplyPrompt && onApplyPrompt(p.text)}
-                className="w-full text-left p-2 rounded-xl text-xs font-semibold bg-muted/40 hover:bg-orange-500/10 hover:border-orange-500/40 border border-transparent transition-all flex items-center justify-between group"
+                onClick={() => {
+                  if (onSendAttentionPrompt) {
+                    onSendAttentionPrompt(p.text, p.label);
+                  } else if (onApplyPrompt) {
+                    onApplyPrompt(p.text);
+                  }
+                }}
+                className="w-full text-left p-2 rounded-xl text-xs font-semibold bg-muted/40 hover:bg-orange-500/10 hover:border-orange-500/40 border border-transparent transition-all flex items-center justify-between group active:scale-[0.99]"
               >
                 <span className="text-foreground group-hover:text-orange-600 transition-colors line-clamp-1">
                   {p.label}

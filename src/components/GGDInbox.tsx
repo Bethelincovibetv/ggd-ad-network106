@@ -18,6 +18,7 @@ import VoiceNoteRecorder from "@/components/chat/VoiceNoteRecorder";
 import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
 import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
 import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
+import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
 
 type Kind = "text" | "proof" | "system" | "action" | "voice";
 
@@ -92,6 +93,7 @@ const GGDInbox: React.FC = () => {
   const [taskTitle, setTaskTitle] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Msg | null>(null);
   const sendingRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -152,6 +154,19 @@ const GGDInbox: React.FC = () => {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "p2p_messages" }, (payload) => {
         const m = payload.new as Msg;
         if (m.sender_id !== me && m.receiver_id !== me) return;
+
+        // Trigger audio chime & notification if message is addressed to me
+        if (m.receiver_id === me && m.sender_id !== me) {
+          playMessageReceivedSound();
+          if ('vibrate' in navigator) {
+            try { navigator.vibrate([30, 50, 30]); } catch {}
+          }
+          const preview = m.kind === "voice" ? "🎤 Sent you a voice note" : (m.message?.slice(0, 75) || "New attachment received");
+          toast.info("💬 New Message", {
+            description: preview,
+          });
+        }
+
         if (activeOther && (m.sender_id === activeOther || m.receiver_id === activeOther)) {
           setMessages((prev) => {
             // If already present by real DB id, ignore
@@ -358,14 +373,25 @@ const GGDInbox: React.FC = () => {
     sendingRef.current = true;
     setIsSending(true);
     setInput("");
+    playMessageSentSound();
 
     const currentTag = activeInquiryTag;
+    const currentReply = replyingTo;
     const isTag = !!currentTag;
     const kind: Kind = isTag ? "action" : "text";
     const action_type = isTag
       ? (currentTag.type === "service" ? "service_inquiry" : "product_inquiry")
-      : null;
-    const action_payload = isTag ? currentTag : null;
+      : (currentReply ? "reply" : null);
+    const action_payload: any = {};
+    if (isTag) Object.assign(action_payload, currentTag);
+    if (currentReply) {
+      action_payload.reply_to = {
+        id: currentReply.id,
+        message: currentReply.message,
+        sender_id: currentReply.sender_id,
+        kind: currentReply.kind,
+      };
+    }
 
     const optimisticId = `tmp-${Date.now()}`;
     const optimistic: any = {
@@ -378,12 +404,13 @@ const GGDInbox: React.FC = () => {
       message: text,
       image_url: null,
       action_type,
-      action_payload,
+      action_payload: Object.keys(action_payload).length > 0 ? action_payload : null,
       is_read: false,
       created_at: new Date().toISOString(),
     };
     setMessages((p) => [...p, optimistic]);
     setActiveInquiryTag(null);
+    setReplyingTo(null);
 
     try {
       const { data, error } = await supabase
@@ -395,7 +422,7 @@ const GGDInbox: React.FC = () => {
           kind,
           message: text,
           action_type,
-          action_payload,
+          action_payload: Object.keys(action_payload).length > 0 ? action_payload : null,
         })
         .select()
         .maybeSingle();
@@ -412,6 +439,66 @@ const GGDInbox: React.FC = () => {
     } finally {
       sendingRef.current = false;
       setIsSending(false);
+    }
+  };
+
+  // ---- Send 1-Tap Attention Prompt ----
+  const sendAttentionRequest = async (promptText: string, label?: string) => {
+    if (!activeOther || isSending || sendingRef.current) return;
+    playAttentionSound();
+
+    const optimisticId = `tmp-${Date.now()}`;
+    const action_payload = { label: label || "Attention Prompt", urgent: true };
+    const optimistic: any = {
+      id: optimisticId,
+      sender_id: me,
+      receiver_id: activeOther,
+      task_id: activeTaskId,
+      assignment_id: null,
+      kind: "action",
+      message: promptText,
+      image_url: null,
+      action_type: "attention_prompt",
+      action_payload,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((p) => [...p, optimistic]);
+
+    try {
+      const { data, error } = await supabase
+        .from("p2p_messages")
+        .insert({
+          sender_id: me,
+          receiver_id: activeOther,
+          task_id: activeTaskId,
+          kind: "action",
+          message: promptText,
+          action_type: "attention_prompt",
+          action_payload,
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setMessages((prev) => prev.map((m) => (m.id === optimisticId ? (data as any) : m)));
+      }
+
+      // Dispatch urgent attention notification
+      await supabase.from("notifications").insert({
+        user_id: activeOther,
+        title: `🚨 Urgent Attention Needed`,
+        message: promptText,
+        type: "urgent_message",
+        nav_target: "inbox",
+        is_read: false,
+      });
+
+      toast.success("🔔 Attention request sent to recipient!");
+    } catch (err) {
+      toast.error("Failed to send prompt");
+      setMessages((p) => p.filter((x) => x.id !== optimisticId));
     }
   };
 
@@ -595,6 +682,7 @@ const GGDInbox: React.FC = () => {
             businessUserId={activeOther}
             isCompact
             onApplyPrompt={(txt) => setInput(txt)}
+            onSendAttentionPrompt={sendAttentionRequest}
           />
         </div>
 
@@ -626,8 +714,38 @@ const GGDInbox: React.FC = () => {
                 return (
                   <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
-                      <WhatsAppSlideMessage messageId={m.id} currentUserId={me} isMine={mine}>
+                      <WhatsAppSlideMessage
+                        messageId={m.id}
+                        currentUserId={me}
+                        isMine={mine}
+                        onReply={() => setReplyingTo(m)}
+                      >
                         <div className={`rounded-2xl px-3 py-2 text-sm shadow-xs ${mine ? "bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-br-sm" : "bg-card border border-border/80 rounded-bl-sm"}`}>
+                          {/* Quoted reply banner if this message is replying to another */}
+                          {m.action_payload?.reply_to && (
+                            <div className={`mb-2 p-1.5 px-2.5 rounded-lg text-xs border-l-3 ${mine ? 'bg-black/20 border-white text-white/95' : 'bg-muted border-orange-500 text-foreground'}`}>
+                              <p className="text-[10px] font-black uppercase tracking-wider opacity-85">
+                                {m.action_payload.reply_to.sender_id === me ? 'You' : (otherProfile?.display_name || otherProfile?.business_name || 'Contact')}
+                              </p>
+                              <p className="truncate text-xs mt-0.5 font-medium">
+                                {m.action_payload.reply_to.message || (m.action_payload.reply_to.kind === 'voice' ? '🎤 Voice Note' : '📎 Attachment')}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Attention request prompt banner */}
+                          {m.action_type === "attention_prompt" && (
+                            <div className={`mb-2 p-2 rounded-xl border text-xs flex items-center gap-2 ${mine ? "bg-white/20 border-white/30 text-white" : "bg-amber-500/15 border-amber-500/30 text-amber-900 dark:text-amber-100"}`}>
+                              <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <span className="font-extrabold text-[10px] uppercase tracking-wider block">
+                                  🚨 Attention Request
+                                </span>
+                                <span className="text-xs font-semibold">{m.action_payload?.label || "Direct Question"}</span>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Tagged product or service inquiry banner */}
                           {(m.action_type === "product_inquiry" || m.action_type === "service_inquiry" || m.action_payload?.title) && (
                             <div className={`mb-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
@@ -704,6 +822,27 @@ const GGDInbox: React.FC = () => {
 
             {/* Composer */}
             <div className="p-2 border-t bg-background space-y-2">
+              {/* Replying-to Preview Bar */}
+              {replyingTo && (
+                <div className="p-2 px-3 rounded-xl bg-muted border-l-4 border-orange-500 flex items-center justify-between gap-2 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-orange-600">
+                      Replying to {replyingTo.sender_id === me ? 'yourself' : (otherProfile?.display_name || otherProfile?.business_name || 'contact')}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {replyingTo.message || (replyingTo.kind === 'voice' ? '🎤 Voice Note' : '📎 Attachment')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
               {activeInquiryTag && (
                 <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2.5">
                   {activeInquiryTag.image_url && (
@@ -759,7 +898,7 @@ const GGDInbox: React.FC = () => {
                   disabled={isSending}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
-                  placeholder="Type a message..."
+                  placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
                   className="flex-1"
                 />
                 <Button
@@ -779,6 +918,7 @@ const GGDInbox: React.FC = () => {
             <BusinessConnectMargin
               businessUserId={activeOther}
               onApplyPrompt={(txt) => setInput(txt)}
+              onSendAttentionPrompt={sendAttentionRequest}
             />
           </div>
         </div>
