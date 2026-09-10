@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
-import { resolveBankAccountPaystack } from "@/utils/paystackBank";
+import { resolveBankAccountPaystack, registerPaystackSubaccount } from "@/utils/paystackBank";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
 async function sha256Hex(s: string): Promise<string> {
@@ -162,9 +162,9 @@ const SyndicateWallet = () => {
         savedViaEdge = false;
       }
 
-      // 2. Direct upsert fallback
+      // 2. Direct upsert fallback & register Paystack Subaccount
+      const resolvedCode = selectedBankCode || findBankCode(selectedBankName);
       if (!savedViaEdge) {
-        const resolvedCode = selectedBankCode || findBankCode(selectedBankName);
         const { error: upsertErr } = await supabase
           .from('syndicate_profiles')
           .upsert({
@@ -183,7 +183,20 @@ const SyndicateWallet = () => {
         if (upsertErr) throw upsertErr;
       }
 
-      toast.success("Bank account verified and locked for payouts!");
+      // Automatically register and sync Paystack Subaccount with Admin Percentage
+      const subRes = await registerPaystackSubaccount(
+        user.id,
+        resolvedCode,
+        selectedBankName.trim(),
+        accountNumber.trim(),
+        verifiedName
+      );
+
+      if (subRes.success) {
+        toast.success(`Bank account verified & Paystack Subaccount activated (${subRes.percentage}% split)!`);
+      } else {
+        toast.success("Bank account verified and locked for payouts!");
+      }
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Failed to save bank account");
@@ -454,6 +467,18 @@ const SyndicateWallet = () => {
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Verified Account Name</span>
                   <p className="text-sm font-semibold text-foreground mt-0.5">{profile?.account_name || profile?.bank_verified_name}</p>
                 </div>
+
+                {profile?.paystack_subaccount_code && (
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Paystack Subaccount</span>
+                      <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">{profile.paystack_subaccount_code}</p>
+                    </div>
+                    <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[10px]">
+                      ⚡ {profile.paystack_subaccount_percentage || 70}% Split Active
+                    </Badge>
+                  </div>
+                )}
               </div>
 
               {/* Settlement Info Box */}

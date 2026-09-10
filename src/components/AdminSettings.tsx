@@ -4,10 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, MessageCircle, Globe, Shield, Sparkles, Package, FileText, Copy, Check, Zap, LayoutTemplate, Palette } from "lucide-react";
+import { Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, MessageCircle, Globe, Shield, Sparkles, Package, Zap, LayoutTemplate, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { GGD_MASTER_AUDIT_REPORT } from "@/data/auditReportText";
 import { WEBSITE_TEMPLATES, getWebsiteTemplate } from "@/utils/websiteTemplates";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
@@ -25,18 +24,6 @@ const AdminSettings = () => {
   const [uploading, setUploading] = useState(false);
   const [promos, setPromos] = useState<any[]>([]);
   const [newPromo, setNewPromo] = useState({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users' });
-  const [copiedReport, setCopiedReport] = useState(false);
-
-  const copyAuditReport = async () => {
-    try {
-      await navigator.clipboard.writeText(GGD_MASTER_AUDIT_REPORT);
-      setCopiedReport(true);
-      toast.success('Master Audit & Blueprint copied to clipboard!');
-      setTimeout(() => setCopiedReport(false), 3000);
-    } catch (err) {
-      toast.error('Failed to copy to clipboard');
-    }
-  };
 
   useEffect(() => { fetchSettings(); fetchPromos(); }, []);
 
@@ -626,49 +613,6 @@ const AdminSettings = () => {
               </Button>
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      {/* Forensic Audit & GGD 2.0 Architectural Blueprint */}
-      <Card className="border-0 shadow-xl rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white">
-        <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-black text-white flex items-center gap-1.5">
-                Master Audit & GGD 2.0 Blueprint
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Ready to Copy
-                </span>
-              </h4>
-              <p className="text-[11px] text-slate-300">Complete forensic architecture, schema maps & roadmap documentation.</p>
-            </div>
-          </div>
-          <Button
-            onClick={copyAuditReport}
-            className="rounded-xl font-bold text-xs h-10 px-4 shadow-lg transition-all bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white border-0"
-          >
-            {copiedReport ? (
-              <>
-                <Check className="h-4 w-4 mr-1.5 text-white" />
-                Copied to Clipboard!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4 mr-1.5" />
-                Copy Full Audit (1-Click)
-              </>
-            )}
-          </Button>
-        </div>
-        <CardContent className="p-4">
-          <div className="relative">
-            <pre className="text-[11px] font-mono leading-relaxed bg-black/50 p-4 rounded-xl max-h-72 overflow-y-auto text-emerald-300/90 border border-white/5 whitespace-pre-wrap select-all">
-              {GGD_MASTER_AUDIT_REPORT}
-            </pre>
-          </div>
         </CardContent>
       </Card>
     </div>

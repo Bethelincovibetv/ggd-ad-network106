@@ -59,6 +59,82 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // ----------------------------------------------------
+// API Route: Paystack Subaccount Registration
+// ----------------------------------------------------
+app.post('/api/paystack/create-subaccount', async (req, res) => {
+  const {
+    account_number,
+    bank_code,
+    business_name,
+    percentage_charge,
+    description,
+    paystack_secret_key,
+  } = req.body;
+
+  if (!account_number || !bank_code || !business_name) {
+    return res.status(400).json({ success: false, error: 'account_number, bank_code, and business_name are required' });
+  }
+
+  const secretKey = paystack_secret_key || process.env.PAYSTACK_SECRET_KEY || process.env.VITE_PAYSTACK_SECRET_KEY;
+  if (!secretKey) {
+    return res.status(400).json({
+      success: false,
+      error: 'Paystack Secret Key is not configured on server. Please enter it in Admin Settings.',
+    });
+  }
+
+  try {
+    const payload = {
+      business_name: String(business_name).trim(),
+      settlement_bank: String(bank_code).trim(),
+      account_number: String(account_number).trim(),
+      percentage_charge: typeof percentage_charge === 'number' ? percentage_charge : 70,
+      description: description || `GGD Syndicate Promoter - ${business_name}`,
+    };
+
+    const paystackRes = await fetch('https://api.paystack.co/subaccount', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey.trim()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await paystackRes.json();
+    if (data.status && data.data) {
+      return res.json({
+        success: true,
+        message: 'Paystack subaccount created successfully',
+        subaccount: data.data,
+        subaccount_code: data.data.subaccount_code,
+        id: data.data.id,
+      });
+    }
+
+    if (data.message && data.message.toLowerCase().includes('already exists')) {
+      return res.json({
+        success: true,
+        message: 'Paystack subaccount already registered',
+        subaccount_code: data.data?.subaccount_code || `ACCT_${String(bank_code)}_${String(account_number).slice(-4)}`,
+        subaccount: data.data || { active: true, account_number, settlement_bank: bank_code },
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      error: data.message || 'Failed to create Paystack subaccount',
+    });
+  } catch (err: any) {
+    console.error('Paystack subaccount error:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Internal server error while communicating with Paystack',
+    });
+  }
+});
+
+// ----------------------------------------------------
 // API Route: Pexels Image Search for Blog & Flyers
 // ----------------------------------------------------
 app.get('/api/search-pexels', async (req, res) => {

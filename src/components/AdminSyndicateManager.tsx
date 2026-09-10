@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
+import { registerPaystackSubaccount } from "@/utils/paystackBank";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
@@ -50,6 +51,9 @@ const AdminSyndicateManager = () => {
   const [campaignStatusFilter, setCampaignStatusFilter] = useState<'all' | 'active' | 'paused' | 'completed'>('all');
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'submitted' | 'approved' | 'rejected' | 'assigned'>('all');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [syndicatePayoutPercentage, setSyndicatePayoutPercentage] = useState<number>(70);
+  const [savingPercentage, setSavingPercentage] = useState(false);
+  const [syncingSubaccountId, setSyncingSubaccountId] = useState<string | null>(null);
 
   // Modal Dialogs State
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
@@ -75,7 +79,7 @@ const AdminSyndicateManager = () => {
 
   const fetchData = async () => {
     try {
-      const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes, assignmentsRes] = await Promise.all([
+      const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes, assignmentsRes, pctRes] = await Promise.all([
         supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
         supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
         supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
@@ -84,7 +88,12 @@ const AdminSyndicateManager = () => {
         supabase.from('profiles').select('user_id, email, display_name, avatar_url'),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
         supabase.from('syndicate_task_assignments').select('task_id, status'),
+        supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
       ]);
+
+      if (pctRes.data?.value) {
+        setSyndicatePayoutPercentage(parseInt(pctRes.data.value, 10) || 70);
+      }
 
       const profileMap: Record<string, any> = {};
       (profilesRes.data || []).forEach((p: any) => { profileMap[p.user_id] = p; });
@@ -267,6 +276,59 @@ const AdminSyndicateManager = () => {
     await supabase.from('platform_pricing').update({ price_per_task: newPrice }).eq('id', id);
     toast.success("Price updated!");
     fetchData();
+  };
+
+  const togglePlatformActive = async (id: string, currentStatus: boolean) => {
+    await supabase.from('platform_pricing').update({ is_active: !currentStatus }).eq('id', id);
+    toast.success(`Platform ${!currentStatus ? 'activated' : 'deactivated'}`);
+    fetchData();
+  };
+
+  const savePayoutPercentage = async () => {
+    if (syndicatePayoutPercentage < 1 || syndicatePayoutPercentage > 99) {
+      toast.error('Payout percentage must be between 1% and 99%');
+      return;
+    }
+    setSavingPercentage(true);
+    try {
+      await supabase.from('app_settings').upsert({
+        key: 'syndicate_payout_percentage',
+        value: String(syndicatePayoutPercentage),
+      }, { onConflict: 'key' });
+      toast.success(`Default syndicate payout split set to ${syndicatePayoutPercentage}%`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update payout percentage');
+    } finally {
+      setSavingPercentage(false);
+    }
+  };
+
+  const syncMemberSubaccount = async (member: any) => {
+    if (!member.account_number || !member.bank_code) {
+      toast.error('Member has not registered bank details yet');
+      return;
+    }
+    setSyncingSubaccountId(member.user_id);
+    try {
+      const res = await registerPaystackSubaccount(
+        member.user_id,
+        member.bank_code,
+        member.bank_name || 'Bank',
+        member.account_number,
+        member.account_name || member.bank_verified_name || member._profile?.display_name || 'Promoter',
+        syndicatePayoutPercentage
+      );
+      if (res.success) {
+        toast.success(`Paystack Subaccount registered: ${res.subaccount_code} (${res.percentage}% split)`);
+        fetchData();
+      } else {
+        toast.error(res.error || 'Failed to sync Paystack subaccount');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Subaccount registration failed');
+    } finally {
+      setSyncingSubaccountId(null);
+    }
   };
 
   const viewTaskSubmissions = async (taskId: string) => {
@@ -1153,6 +1215,54 @@ const AdminSyndicateManager = () => {
                       ))}
                     </div>
 
+                    {/* Bank & Paystack Subaccount Status */}
+                    <div className="bg-secondary/30 rounded-xl p-2.5 space-y-1.5 text-[11px] border border-border/40">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-muted-foreground uppercase text-[9px] tracking-wider">Bank Details</span>
+                        {s.account_number ? (
+                          <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
+                            <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300">
+                            No Bank Set
+                          </Badge>
+                        )}
+                      </div>
+                      {s.account_number ? (
+                        <div>
+                          <p className="font-bold text-foreground truncate">{s.bank_name || 'Bank'} • {s.account_number}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{s.account_name || s.bank_verified_name}</p>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic">Member has not locked payout account</p>
+                      )}
+
+                      {/* Paystack Subaccount Info & Sync */}
+                      <div className="pt-1.5 border-t border-border/40 flex items-center justify-between gap-1">
+                        <div>
+                          <span className="text-[9px] text-muted-foreground uppercase block font-semibold">Paystack Subaccount</span>
+                          <span className="font-mono text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                            {s.paystack_subaccount_code || 'Not Registered'}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!s.account_number || syncingSubaccountId === s.user_id}
+                          onClick={() => syncMemberSubaccount(s)}
+                          className="h-6 text-[10px] px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/50"
+                        >
+                          {syncingSubaccountId === s.user_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Zap className="h-3 w-3 mr-0.5" />
+                          )}
+                          {s.paystack_subaccount_code ? 'Resync' : 'Register'}
+                        </Button>
+                      </div>
+                    </div>
+
                     {(s.is_suspended || s.wallet_frozen) && (
                       <div className="flex flex-wrap gap-1">
                         {s.is_suspended && (
@@ -1313,33 +1423,123 @@ const AdminSyndicateManager = () => {
           })()}
         </TabsContent>
 
-        {/* PRICING TAB */}
-        <TabsContent value="pricing" className="space-y-3">
-          <Card className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white">
+        {/* PRICING & SOCIAL PLATFORM CONTROLS TAB */}
+        <TabsContent value="pricing" className="space-y-4">
+          {/* Automated Paystack Subaccount Split Controller */}
+          <Card className="border border-purple-500/30 shadow-xs rounded-2xl overflow-hidden bg-card">
+            <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-800 p-4 text-white">
               <h4 className="font-bold text-sm flex items-center gap-2">
-                <DollarSign className="h-4 w-4" /> Platform Social Pricing
+                <CreditCard className="h-4 w-4 text-yellow-300" /> Paystack Sub-Account & Payout Split Configuration
               </h4>
-              <p className="text-[11px] opacity-80 mt-0.5">Base prices per post task for each social channel</p>
+              <p className="text-[11px] opacity-80 mt-0.5">
+                Automatically allocate campaign payouts to syndicate promoters' bank subaccounts via Paystack
+              </p>
             </div>
-            <CardContent className="p-4 space-y-3">
-              {platformPricing.map(p => (
-                <div key={p.id} className="flex items-center gap-3 bg-secondary/30 rounded-xl p-3">
-                  <span className="text-xs font-bold flex-1 text-foreground">{p.platform_name}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-muted-foreground">₦</span>
+            <CardContent className="p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-secondary/30 p-3.5 rounded-xl border border-border/50">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">Promoter Split Percentage</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Percentage of the campaign budget paid to syndicate promoters. Remaining percentage is retained by the platform.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
                     <Input
                       type="number"
-                      defaultValue={p.price_per_task}
-                      className="h-9 w-24 text-xs rounded-lg font-bold"
-                      onBlur={e => {
-                        const v = parseFloat(e.target.value);
-                        if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p.id, v);
-                      }}
+                      min={1}
+                      max={99}
+                      value={syndicatePayoutPercentage}
+                      onChange={e => setSyndicatePayoutPercentage(parseInt(e.target.value, 10) || 0)}
+                      className="h-10 w-24 text-sm rounded-xl font-bold pr-7"
                     />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">%</span>
                   </div>
+                  <Button
+                    size="sm"
+                    disabled={savingPercentage}
+                    onClick={savePayoutPercentage}
+                    className="h-10 px-4 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {savingPercentage ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Split'}
+                  </Button>
                 </div>
-              ))}
+              </div>
+
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2">
+                <Zap className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Every syndicate member's verified account is registered as an active subaccount on Paystack with this split percentage. When payments are cleared, Paystack directly credits their accounts.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Social Platform Pricing and On/Off Toggles */}
+          <Card className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-sm flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-purple-400" /> Platform Availability & Unit Pricing
+                </h4>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Toggle social channels ON/OFF. Deactivated channels will be hidden from advertisers.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px] text-purple-300 border-purple-400">
+                {platformPricing.filter(p => p.is_active !== false).length} Active Channels
+              </Badge>
+            </div>
+            <CardContent className="p-4 space-y-3">
+              {platformPricing.map(p => {
+                const isActive = p.is_active !== false;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition ${
+                      isActive ? 'bg-secondary/30 border-border/60' : 'bg-muted/10 border-border/30 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={isActive}
+                        onCheckedChange={() => togglePlatformActive(p.id, isActive)}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-foreground">{p.platform_name}</span>
+                          <Badge
+                            className={`text-[9px] font-bold ${
+                              isActive
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {isActive ? 'Available' : 'Disabled'}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {isActive ? 'Visible to advertisers creating campaigns' : 'Hidden from task creation forms'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <span className="text-xs font-bold text-muted-foreground">Price per task: ₦</span>
+                      <Input
+                        type="number"
+                        defaultValue={p.price_per_task}
+                        disabled={!isActive}
+                        className="h-9 w-24 text-xs rounded-xl font-bold bg-background"
+                        onBlur={e => {
+                          const v = parseFloat(e.target.value);
+                          if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p.id, v);
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         </TabsContent>
