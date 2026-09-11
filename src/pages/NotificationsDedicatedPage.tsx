@@ -5,12 +5,19 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home, BookOpen } from 'lucide-react';
 import ggdLogo from '@/assets/ggd-logo.png';
 import NotificationBell from '@/components/NotificationBell';
+import SeoHead from '@/components/SeoHead';
 
 export const NotificationsDedicatedPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <SeoHead
+        title="Notifications Center — GGD Ad Network"
+        description="Stay updated with task approvals, earnings alerts, community interactions, and network announcements."
+        badge="ACTIVITY ALERTS"
+        theme="dark"
+      />
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-3">

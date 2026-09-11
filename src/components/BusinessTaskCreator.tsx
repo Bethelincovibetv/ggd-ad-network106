@@ -20,6 +20,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
+const DEFAULT_PLATFORMS = [
+  { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
+  { platform_key: 'whatsapp_group', platform_name: 'WhatsApp Group', price_per_task: 70, is_active: true },
+  { platform_key: 'facebook', platform_name: 'Facebook', price_per_task: 50, is_active: true },
+  { platform_key: 'telegram', platform_name: 'Telegram', price_per_task: 50, is_active: true },
+  { platform_key: 'tiktok', platform_name: 'TikTok', price_per_task: 60, is_active: true },
+  { platform_key: 'instagram', platform_name: 'Instagram', price_per_task: 60, is_active: true },
+  { platform_key: 'twitter', platform_name: 'Twitter/X', price_per_task: 50, is_active: true },
+];
+
 const BusinessTaskCreator = () => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
@@ -98,7 +108,10 @@ const BusinessTaskCreator = () => {
     setCredits(Number(profileRes.data?.credits || 0));
     setLoginBonusCredits(Number((profileRes.data as any)?.login_bonus_credits || 0));
     setWallet({ balance: Number(profileRes.data?.credits || 0) * (r || 100) });
-    setPlatformPricing(pricingRes.data || []);
+    const mergedPricing = (pricingRes.data && pricingRes.data.length > 0)
+      ? pricingRes.data
+      : DEFAULT_PLATFORMS;
+    setPlatformPricing(mergedPricing);
     setAllAssignments(myAssignments);
 
     // Load profiles for all syndicates that submitted to my tasks
@@ -412,7 +425,7 @@ const BusinessTaskCreator = () => {
             <div>
               <Label className="text-xs font-medium mb-2 block">Target Placements *</Label>
               <div className="space-y-2">
-                {platformPricing.filter(p => p.is_active).map(p => {
+                {platformPricing.filter(p => p.is_active !== false).map(p => {
                   const checked = form.placements.includes(p.platform_key);
                   return (
                     <div role="button" tabIndex={0} key={p.platform_key} onClick={() => togglePlacement(p.platform_key)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && togglePlacement(p.platform_key)}

@@ -10,6 +10,7 @@ import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import { useNavigate } from 'react-router-dom';
 import ggdLogo from '@/assets/ggd-logo.png';
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
+import SeoHead from "@/components/SeoHead";
 
 const SyndicateRegister = () => {
   const navigate = useNavigate();
@@ -125,6 +126,12 @@ const SyndicateRegister = () => {
 
   return (
     <div className="min-h-screen bg-[#1a1a1a]">
+      <SeoHead
+        title="Become a Syndicate Promoter — GGD Ad Network"
+        description="Get paid daily to share business campaigns to your WhatsApp status, WhatsApp groups, Telegram, Facebook, and TikTok."
+        badge="SYNDICATE EARNINGS"
+        theme="purple"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-gradient-to-r from-purple-600 to-fuchsia-600 shadow-lg">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">

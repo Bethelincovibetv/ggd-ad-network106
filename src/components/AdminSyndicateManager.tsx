@@ -23,7 +23,17 @@ import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { registerPaystackSubaccount } from "@/utils/paystackBank";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
-const PLATFORMS = ['WhatsApp', 'Facebook', 'Telegram', 'TikTok', 'Twitter/X'];
+const PLATFORMS = ['WhatsApp Status', 'WhatsApp Group', 'Facebook', 'Telegram', 'TikTok', 'Instagram', 'Twitter/X'];
+
+const DEFAULT_PLATFORM_LIST = [
+  { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
+  { platform_key: 'whatsapp_group', platform_name: 'WhatsApp Group', price_per_task: 70, is_active: true },
+  { platform_key: 'facebook', platform_name: 'Facebook', price_per_task: 50, is_active: true },
+  { platform_key: 'telegram', platform_name: 'Telegram', price_per_task: 50, is_active: true },
+  { platform_key: 'tiktok', platform_name: 'TikTok', price_per_task: 60, is_active: true },
+  { platform_key: 'instagram', platform_name: 'Instagram', price_per_task: 60, is_active: true },
+  { platform_key: 'twitter', platform_name: 'Twitter/X', price_per_task: 50, is_active: true },
+];
 
 const PRESET_REJECTION_REASONS = [
   "Proof screenshot is blurry, incomplete, or illegible",
@@ -119,7 +129,14 @@ const AdminSyndicateManager = () => {
         _businessProfile: profileMap[t.business_user_id],
         _stats: statsMap[t.id] || { total: 0, pending: 0, approved: 0, rejected: 0, assigned: 0 },
       })));
-      setPlatformPricing(pricingRes.data || []);
+      const existingPricing = pricingRes.data || [];
+      const mergedPricing = [...existingPricing];
+      DEFAULT_PLATFORM_LIST.forEach(dp => {
+        if (!mergedPricing.some(p => p.platform_key === dp.platform_key)) {
+          mergedPricing.push({ id: `default-${dp.platform_key}`, ...dp });
+        }
+      });
+      setPlatformPricing(mergedPricing);
       setPaused((pausedRes.data?.value || 'false') === 'true');
     } catch (err: any) {
       toast.error(err.message || "Failed to load syndicate data");
@@ -272,14 +289,32 @@ const AdminSyndicateManager = () => {
     }
   };
 
-  const updatePlatformPrice = async (id: string, newPrice: number) => {
-    await supabase.from('platform_pricing').update({ price_per_task: newPrice }).eq('id', id);
+  const updatePlatformPrice = async (item: any, newPrice: number) => {
+    if (String(item.id).startsWith('default-')) {
+      await supabase.from('platform_pricing').upsert({
+        platform_key: item.platform_key,
+        platform_name: item.platform_name,
+        price_per_task: newPrice,
+        is_active: item.is_active !== false,
+      }, { onConflict: 'platform_key' });
+    } else {
+      await supabase.from('platform_pricing').update({ price_per_task: newPrice }).eq('id', item.id);
+    }
     toast.success("Price updated!");
     fetchData();
   };
 
-  const togglePlatformActive = async (id: string, currentStatus: boolean) => {
-    await supabase.from('platform_pricing').update({ is_active: !currentStatus }).eq('id', id);
+  const togglePlatformActive = async (item: any, currentStatus: boolean) => {
+    if (String(item.id).startsWith('default-')) {
+      await supabase.from('platform_pricing').upsert({
+        platform_key: item.platform_key,
+        platform_name: item.platform_name,
+        price_per_task: item.price_per_task || 50,
+        is_active: !currentStatus,
+      }, { onConflict: 'platform_key' });
+    } else {
+      await supabase.from('platform_pricing').update({ is_active: !currentStatus }).eq('id', item.id);
+    }
     toast.success(`Platform ${!currentStatus ? 'activated' : 'deactivated'}`);
     fetchData();
   };
@@ -1503,7 +1538,7 @@ const AdminSyndicateManager = () => {
                     <div className="flex items-center gap-3">
                       <Switch
                         checked={isActive}
-                        onCheckedChange={() => togglePlatformActive(p.id, isActive)}
+                        onCheckedChange={() => togglePlatformActive(p, isActive)}
                       />
                       <div>
                         <div className="flex items-center gap-2">
@@ -1533,7 +1568,7 @@ const AdminSyndicateManager = () => {
                         className="h-9 w-24 text-xs rounded-xl font-bold bg-background"
                         onBlur={e => {
                           const v = parseFloat(e.target.value);
-                          if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p.id, v);
+                          if (v > 0 && v !== p.price_per_task) updatePlatformPrice(p, v);
                         }}
                       />
                     </div>

@@ -31,6 +31,7 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'directory', feature_name: 'Business Directory', description: 'Verified business listing directory', is_enabled: true },
   { feature_key: 'premium_upgrade', feature_name: 'VIP Membership', description: 'Premium subscription upgrades', is_enabled: true },
   { feature_key: 'api_keys', feature_name: 'Developer API Keys', description: 'External API access credentials', is_enabled: true },
+  { feature_key: 'blog_ai_drafter', feature_name: 'Blog AI Drafter / Helper', description: 'Enable or disable the AI Draft Helper and auto-generation tools in the Blog Creator', is_enabled: true },
   { feature_key: 'quick_guide', feature_name: 'User Guide', description: 'Interactive platform instructions', is_enabled: true },
 
   // Create Menu

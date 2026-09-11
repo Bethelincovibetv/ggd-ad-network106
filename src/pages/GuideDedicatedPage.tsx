@@ -5,12 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Home, Bell } from 'lucide-react';
 import ggdLogo from '@/assets/ggd-logo.png';
 import NotificationBell from '@/components/NotificationBell';
+import SeoHead from '@/components/SeoHead';
 
 export const GuideDedicatedPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <SeoHead
+        title="GGD User Guide & Growth Academy"
+        description="Comprehensive guide on how to launch social syndicate campaigns, earn as a promoter, and scale sales on GGD Ad Network."
+        badge="USER GUIDE"
+        theme="emerald"
+      />
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-3">

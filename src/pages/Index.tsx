@@ -4,6 +4,7 @@ import AuthForm from "@/components/AuthForm";
 import LandingPage from "@/components/LandingPage";
 import Dashboard from "@/components/Dashboard";
 import FeaturedStorefronts from "@/components/FeaturedStorefronts";
+import SeoHead from "@/components/SeoHead";
 
 const Index = () => {
   const [session, setSession] = useState<any>(null);
@@ -71,6 +72,12 @@ const Index = () => {
 
   return (
     <>
+      <SeoHead
+        title="GGD Ad Network — Nigeria's #1 Social Distribution & Marketplace"
+        description="Amplify your brand reach across WhatsApp, Telegram, TikTok & Facebook with verified syndicate promoters."
+        badge="OFFICIAL NETWORK"
+        theme="orange"
+      />
       <LandingPage onGetStarted={() => setShowAuth(true)} />
       <FeaturedStorefronts onRequireAuth={() => setShowAuth(true)} />
     </>

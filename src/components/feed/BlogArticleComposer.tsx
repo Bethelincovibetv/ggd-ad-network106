@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BlogSection, CommunityBlogPostData, calculateReadTime, getCategoryCover, DEFAULT_CATEGORY_COVERS } from '@/types/blog';
 import { generateBlogPost } from '@/services/blogGenerator';
 import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 const FEATURE_PHOTO_PRESETS = [
   { label: 'Business Growth', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' },
@@ -47,6 +48,9 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { isEnabled } = useFeatureToggles();
+  const isAiDrafterEnabled = isEnabled('blog_ai_drafter');
+
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [category, setCategory] = useState(PRESET_CATEGORIES[0]);
@@ -330,16 +334,18 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setShowAiHelper(s => !s)}
-            className="rounded-full text-xs font-bold border-purple-500/30 text-purple-600 hover:bg-purple-500/10 h-8"
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1 text-purple-600" />
-            {showAiHelper ? 'Close AI Helper' : 'AI Draft Helper'}
-          </Button>
+          {isAiDrafterEnabled && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAiHelper(s => !s)}
+              className="rounded-full text-xs font-bold border-purple-500/30 text-purple-600 hover:bg-purple-500/10 h-8"
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1 text-purple-600" />
+              {showAiHelper ? 'Close AI Helper' : 'AI Draft Helper'}
+            </Button>
+          )}
 
           <Button
             type="button"
@@ -355,7 +361,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
       </div>
 
       {/* Optional AI Assistant Panel */}
-      {showAiHelper && (
+      {isAiDrafterEnabled && showAiHelper && (
         <Card className="border-purple-500/30 bg-purple-500/5 rounded-2xl overflow-hidden shadow-sm">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">

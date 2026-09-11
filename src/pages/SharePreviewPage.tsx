@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink, AlertTriangle, Download } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
+import { getUniversalOgImage } from '@/utils/ogImageGenerator';
 
 const SharePreviewPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -55,7 +56,16 @@ const SharePreviewPage = () => {
       };
       setMeta('og:title', t.title);
       setMeta('og:description', t.description || 'Check this out on GGD AD NETWORK');
-      if (t.flyer_url) setMeta('og:image', t.flyer_url);
+      const ogImg = getUniversalOgImage({
+        image: t.flyer_url,
+        title: t.title,
+        description: t.description,
+        badge: 'SYNDICATE CAMPAIGN',
+        theme: 'orange',
+      });
+      setMeta('og:image', ogImg);
+      setMeta('twitter:image', ogImg);
+      setMeta('twitter:card', 'summary_large_image');
       setMeta('og:type', 'website');
       setMeta('description', t.description || 'Promoted via GGD AD NETWORK', false);
 

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, Store, Search, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
+import SeoHead from '@/components/SeoHead';
 
 const IndustryPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -44,6 +45,13 @@ const IndustryPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50 dark:from-background dark:to-background">
+      <SeoHead
+        title={`${category.name} Directory — GGD Ad Network`}
+        description={category.description || `Browse verified businesses, stores and services in ${category.name} on GGD Ad Network.`}
+        image={category.banner_url}
+        badge={category.name}
+        theme="orange"
+      />
       <header className="bg-card/90 backdrop-blur border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={goBack} className="gap-1"><ArrowLeft className="h-4 w-4" />Back</Button>
