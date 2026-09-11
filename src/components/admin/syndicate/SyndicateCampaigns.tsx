@@ -581,24 +581,33 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
               <div>
                 <Label className="text-xs font-bold text-foreground block mb-2">Allowed Broadcast Channels</Label>
                 <div className="flex flex-wrap gap-2">
-                  {['whatsapp', 'telegram', 'tiktok', 'instagram', 'twitter', 'facebook'].map(plat => {
-                    const isSelected = newPlacements.includes(plat);
+                  {[
+                    { key: 'whatsapp', label: 'WhatsApp Status' },
+                    { key: 'whatsapp_group', label: 'WhatsApp Group' },
+                    { key: 'whatsapp_channel', label: 'WhatsApp Channel' },
+                    { key: 'facebook', label: 'Facebook' },
+                    { key: 'telegram', label: 'Telegram' },
+                    { key: 'tiktok', label: 'TikTok' },
+                    { key: 'instagram', label: 'Instagram' },
+                    { key: 'twitter', label: 'Twitter/X' },
+                  ].map(plat => {
+                    const isSelected = newPlacements.includes(plat.key);
                     return (
                       <button
-                        key={plat}
+                        key={plat.key}
                         type="button"
                         onClick={() => {
                           if (isSelected) {
-                            setNewPlacements(prev => prev.filter(p => p !== plat));
+                            setNewPlacements(prev => prev.filter(p => p !== plat.key));
                           } else {
-                            setNewPlacements(prev => [...prev, plat]);
+                            setNewPlacements(prev => [...prev, plat.key]);
                           }
                         }}
                         className={`h-9 px-3 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                           isSelected ? 'bg-purple-600 text-white shadow-xs' : 'bg-muted text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        <span>{plat.toUpperCase()}</span>
+                        <span>{plat.label}</span>
                         {isSelected && <CheckCircle className="h-3 w-3" />}
                       </button>
                     );

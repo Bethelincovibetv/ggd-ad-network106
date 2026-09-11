@@ -23,6 +23,7 @@ import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 const DEFAULT_PLATFORMS = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
   { platform_key: 'whatsapp_group', platform_name: 'WhatsApp Group', price_per_task: 70, is_active: true },
+  { platform_key: 'whatsapp_channel', platform_name: 'WhatsApp Channel', price_per_task: 60, is_active: true },
   { platform_key: 'facebook', platform_name: 'Facebook', price_per_task: 50, is_active: true },
   { platform_key: 'telegram', platform_name: 'Telegram', price_per_task: 50, is_active: true },
   { platform_key: 'tiktok', platform_name: 'TikTok', price_per_task: 60, is_active: true },
@@ -108,9 +109,21 @@ const BusinessTaskCreator = () => {
     setCredits(Number(profileRes.data?.credits || 0));
     setLoginBonusCredits(Number((profileRes.data as any)?.login_bonus_credits || 0));
     setWallet({ balance: Number(profileRes.data?.credits || 0) * (r || 100) });
-    const mergedPricing = (pricingRes.data && pricingRes.data.length > 0)
-      ? pricingRes.data
-      : DEFAULT_PLATFORMS;
+    const existingPricing = pricingRes.data || [];
+    const mergedPricing: any[] = [];
+    DEFAULT_PLATFORMS.forEach(dp => {
+      const match = existingPricing.find(p => p.platform_key === dp.platform_key);
+      if (match) {
+        mergedPricing.push({ ...dp, ...match });
+      } else {
+        mergedPricing.push({ id: `default-${dp.platform_key}`, ...dp });
+      }
+    });
+    existingPricing.forEach(ep => {
+      if (!mergedPricing.some(p => p.platform_key === ep.platform_key)) {
+        mergedPricing.push(ep);
+      }
+    });
     setPlatformPricing(mergedPricing);
     setAllAssignments(myAssignments);
 

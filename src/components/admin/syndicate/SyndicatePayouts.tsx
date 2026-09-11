@@ -76,24 +76,6 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
     }
   };
 
-  const handleRetryPaystackTransfer = async (payout: any) => {
-    try {
-      toast.info("Triggering Paystack transfer retry...");
-      const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
-        body: {
-          action: 'retry_single_payout',
-          withdrawal_id: payout.id,
-        }
-      });
-
-      if (error) throw error;
-      toast.success("Transfer retry submitted to Paystack!");
-      onRefresh();
-    } catch (err: any) {
-      toast.error("Retry failed: " + err.message);
-    }
-  };
-
   const exportPayoutsCSV = () => {
     const rows = filteredPayouts.map(p => ({
       ID: p.id,
@@ -293,16 +275,6 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
                             className="h-8 text-[11px] font-bold rounded-lg"
                           >
                             Mark Paid
-                          </Button>
-                        )}
-                        {isFailed && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRetryPaystackTransfer(p)}
-                            className="h-8 text-[11px] font-bold rounded-lg"
-                          >
-                            Retry Transfer
                           </Button>
                         )}
                       </div>

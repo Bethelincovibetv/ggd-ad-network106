@@ -23,11 +23,12 @@ import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { registerPaystackSubaccount } from "@/utils/paystackBank";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
-const PLATFORMS = ['WhatsApp Status', 'WhatsApp Group', 'Facebook', 'Telegram', 'TikTok', 'Instagram', 'Twitter/X'];
+const PLATFORMS = ['WhatsApp Status', 'WhatsApp Group', 'WhatsApp Channel', 'Facebook', 'Telegram', 'TikTok', 'Instagram', 'Twitter/X'];
 
 const DEFAULT_PLATFORM_LIST = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
   { platform_key: 'whatsapp_group', platform_name: 'WhatsApp Group', price_per_task: 70, is_active: true },
+  { platform_key: 'whatsapp_channel', platform_name: 'WhatsApp Channel', price_per_task: 60, is_active: true },
   { platform_key: 'facebook', platform_name: 'Facebook', price_per_task: 50, is_active: true },
   { platform_key: 'telegram', platform_name: 'Telegram', price_per_task: 50, is_active: true },
   { platform_key: 'tiktok', platform_name: 'TikTok', price_per_task: 60, is_active: true },
@@ -263,11 +264,11 @@ const AdminSyndicateManager = () => {
     }
   };
 
-  const triggerPaystackPayout = async (withdrawalId: string, forceRetry = false) => {
+  const triggerPaystackPayout = async (withdrawalId: string) => {
     setProcessingPayoutId(withdrawalId);
     try {
       const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
-        body: { withdrawal_id: withdrawalId, force_retry: forceRetry },
+        body: { withdrawal_id: withdrawalId },
       });
 
       if (error) throw error;
@@ -1426,7 +1427,7 @@ const AdminSyndicateManager = () => {
                             size="sm"
                             disabled={isProcessingThis}
                             className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs rounded-xl h-10 font-bold"
-                            onClick={() => triggerPaystackPayout(w.id, w.status === 'processing')}
+                            onClick={() => triggerPaystackPayout(w.id)}
                           >
                             {isProcessingThis ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
                             Pay via Paystack

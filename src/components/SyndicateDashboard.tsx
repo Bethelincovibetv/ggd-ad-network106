@@ -648,6 +648,28 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                             {task.campaign_date || selectedDate}
                           </Badge>
                         </div>
+                        {task.placements && Array.isArray(task.placements) && task.placements.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                            <span className="text-[10px] text-muted-foreground font-semibold">Channels:</span>
+                            {task.placements.map((p: string) => {
+                              const labels: Record<string, string> = {
+                                whatsapp: 'WhatsApp Status',
+                                whatsapp_group: 'WhatsApp Group',
+                                whatsapp_channel: 'WhatsApp Channel',
+                                facebook: 'Facebook',
+                                telegram: 'Telegram',
+                                tiktok: 'TikTok',
+                                instagram: 'Instagram',
+                                twitter: 'Twitter/X',
+                              };
+                              return (
+                                <Badge key={p} variant="secondary" className="text-[9px] px-2 py-0.5 font-bold bg-muted/80 text-foreground border border-border">
+                                  {labels[p] || p}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
                       {/* Status Badge */}
