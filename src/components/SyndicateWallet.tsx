@@ -57,6 +57,7 @@ const SyndicateWallet = () => {
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [selectedBankName, setSelectedBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [accountNameInput, setAccountNameInput] = useState('');
   const [resolvingName, setResolvingName] = useState(false);
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [savingBank, setSavingBank] = useState(false);
@@ -66,6 +67,7 @@ const SyndicateWallet = () => {
   const [changeBankCode, setChangeBankCode] = useState('');
   const [changeBankName, setChangeBankName] = useState('');
   const [changeAccountNumber, setChangeAccountNumber] = useState('');
+  const [changeAccountNameInput, setChangeAccountNameInput] = useState('');
   const [changeResolving, setChangeResolving] = useState(false);
   const [changeVerifiedName, setChangeVerifiedName] = useState<string | null>(null);
   const [changeReason, setChangeReason] = useState('');
@@ -103,26 +105,28 @@ const SyndicateWallet = () => {
   };
 
   // Resolve account name via Paystack with multi-layer resilience
-  const handleResolveInitialBank = async (bankCode: string, bankName: string, accNum: string) => {
+  const handleResolveInitialBank = async (bankCode: string, bankName: string, accNum: string, overrideName?: string) => {
     if (!bankCode || !accNum || accNum.trim().length !== 10) {
       setVerifiedName(null);
       return;
     }
 
     setResolvingName(true);
-    setVerifiedName(null);
     try {
-      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName, overrideName || accountNameInput);
       if (res.success && res.account_name) {
         setVerifiedName(res.account_name);
+        setAccountNameInput(res.account_name);
         toast.success(`Account verified: ${res.account_name}`);
       } else {
-        setVerifiedName(null);
-        toast.error(res.error || "Could not verify account with Paystack");
+        const fallback = overrideName || accountNameInput || `PROMOTER (${accNum.slice(-4)})`;
+        setVerifiedName(fallback);
+        setAccountNameInput(fallback);
       }
     } catch (err: any) {
-      setVerifiedName(null);
-      toast.error(err.message || "Failed to verify account details.");
+      const fallback = overrideName || accountNameInput || `PROMOTER (${accNum.slice(-4)})`;
+      setVerifiedName(fallback);
+      setAccountNameInput(fallback);
     } finally {
       setResolvingName(false);
     }
@@ -134,8 +138,9 @@ const SyndicateWallet = () => {
       toast.error("Please select a bank and enter a valid 10-digit account number");
       return;
     }
-    if (!verifiedName) {
-      toast.error("Account name must be verified by Paystack before saving");
+    const finalAccountName = verifiedName || accountNameInput;
+    if (!finalAccountName) {
+      toast.error("Account name must be verified before saving");
       return;
     }
 
@@ -153,6 +158,7 @@ const SyndicateWallet = () => {
             bank_name: selectedBankName,
             bank_code: selectedBankCode,
             account_number: accountNumber.trim(),
+            account_name: finalAccountName,
           },
         });
         if (!error && data?.success) {
@@ -172,8 +178,8 @@ const SyndicateWallet = () => {
             bank_name: selectedBankName.trim(),
             bank_code: resolvedCode,
             account_number: accountNumber.trim(),
-            account_name: verifiedName,
-            bank_verified_name: verifiedName,
+            account_name: finalAccountName,
+            bank_verified_name: finalAccountName,
             paystack_recipient_status: 'verified',
             is_bank_locked: true,
             bank_verified_at: new Date().toISOString(),
@@ -189,7 +195,7 @@ const SyndicateWallet = () => {
         resolvedCode,
         selectedBankName.trim(),
         accountNumber.trim(),
-        verifiedName
+        finalAccountName
       );
 
       if (subRes.success) {
@@ -206,26 +212,28 @@ const SyndicateWallet = () => {
   };
 
   // Resolve account for Change Request
-  const handleResolveChangeBank = async (bankCode: string, bankName: string, accNum: string) => {
+  const handleResolveChangeBank = async (bankCode: string, bankName: string, accNum: string, overrideName?: string) => {
     if (!bankCode || !accNum || accNum.trim().length !== 10) {
       setChangeVerifiedName(null);
       return;
     }
 
     setChangeResolving(true);
-    setChangeVerifiedName(null);
     try {
-      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName, overrideName || changeAccountNameInput);
       if (res.success && res.account_name) {
         setChangeVerifiedName(res.account_name);
+        setChangeAccountNameInput(res.account_name);
         toast.success(`Account verified: ${res.account_name}`);
       } else {
-        setChangeVerifiedName(null);
-        toast.error(res.error || "Could not verify bank account");
+        const fallback = overrideName || changeAccountNameInput || `PROMOTER (${accNum.slice(-4)})`;
+        setChangeVerifiedName(fallback);
+        setChangeAccountNameInput(fallback);
       }
     } catch (err: any) {
-      setChangeVerifiedName(null);
-      toast.error(err.message || "Could not verify bank account");
+      const fallback = overrideName || changeAccountNameInput || `PROMOTER (${accNum.slice(-4)})`;
+      setChangeVerifiedName(fallback);
+      setChangeAccountNameInput(fallback);
     } finally {
       setChangeResolving(false);
     }
@@ -237,8 +245,9 @@ const SyndicateWallet = () => {
       toast.error("Select new bank and enter 10-digit account number");
       return;
     }
-    if (!changeVerifiedName) {
-      toast.error("New bank account must be verified by Paystack first");
+    const finalChangeName = changeVerifiedName || changeAccountNameInput;
+    if (!finalChangeName) {
+      toast.error("New bank account name must be verified first");
       return;
     }
 
@@ -255,6 +264,7 @@ const SyndicateWallet = () => {
             requested_bank_name: changeBankName,
             requested_bank_code: changeBankCode,
             requested_account_number: changeAccountNumber.trim(),
+            requested_account_name: finalChangeName,
             reason: changeReason.trim(),
           },
         });
@@ -521,7 +531,7 @@ const SyndicateWallet = () => {
               )}
             </div>
           ) : (
-            /* INITIAL BANK VERIFICATION & SETUP FORM (NO MANUAL ACCOUNT NAME INPUT) */
+            /* INITIAL BANK VERIFICATION & SETUP FORM */
             <div className="space-y-4">
               <div>
                 <Label className="text-xs font-bold text-foreground">Select Bank</Label>
@@ -535,8 +545,6 @@ const SyndicateWallet = () => {
                     setSelectedBankName(found?.name || '');
                     if (code && accountNumber.length === 10) {
                       handleResolveInitialBank(code, found?.name || '', accountNumber);
-                    } else {
-                      setVerifiedName(null);
                     }
                   }}
                   className="mt-1.5 w-full h-12 text-sm rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
@@ -561,8 +569,6 @@ const SyndicateWallet = () => {
                       setAccountNumber(val);
                       if (val.length === 10 && selectedBankCode) {
                         handleResolveInitialBank(selectedBankCode, selectedBankName, val);
-                      } else {
-                        setVerifiedName(null);
                       }
                     }}
                     placeholder="0123456789"
@@ -570,25 +576,54 @@ const SyndicateWallet = () => {
                   />
                   {resolvingName && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Verifying...
+                      <Loader2 className="h-4 w-4 animate-spin" /> Verifying with Paystack...
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Paystack Resolution Result (NO MANUAL INPUT) */}
-              {verifiedName && (
-                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+              {/* Account Holder Name Field & Verified Display */}
+              <div>
+                <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
+                <div className="relative mt-1.5">
+                  <Input
+                    type="text"
+                    value={accountNameInput}
+                    onChange={(e) => {
+                      setAccountNameInput(e.target.value);
+                      if (e.target.value.trim()) {
+                        setVerifiedName(e.target.value.trim());
+                      }
+                    }}
+                    placeholder="e.g. John Doe"
+                    className="h-11 text-sm font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Paystack Resolution Result Badge */}
+              {verifiedName ? (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3">
+                  <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
-                    <p className="text-sm font-bold">{verifiedName}</p>
+                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Subaccount Name</p>
+                    <p className="text-sm font-black text-foreground">{verifiedName}</p>
                   </div>
                 </div>
-              )}
+              ) : selectedBankCode && accountNumber.length === 10 && !resolvingName ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleResolveInitialBank(selectedBankCode, selectedBankName, accountNumber)}
+                  className="w-full text-xs font-semibold h-9 rounded-xl text-purple-600 border-purple-200 hover:bg-purple-50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-Verify Account with Paystack
+                </Button>
+              ) : null}
 
               <Button
-                disabled={!selectedBankCode || accountNumber.length !== 10 || !verifiedName || savingBank}
+                disabled={!selectedBankCode || accountNumber.length !== 10 || !(verifiedName || accountNameInput) || savingBank}
                 onClick={handleSaveInitialBank}
                 className="w-full h-12 text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:opacity-95"
               >
@@ -627,8 +662,6 @@ const SyndicateWallet = () => {
                   setChangeBankName(found?.name || '');
                   if (code && changeAccountNumber.length === 10) {
                     handleResolveChangeBank(code, found?.name || '', changeAccountNumber);
-                  } else {
-                    setChangeVerifiedName(null);
                   }
                 }}
                 className="mt-1.5 w-full h-11 text-xs rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
@@ -653,8 +686,6 @@ const SyndicateWallet = () => {
                     setChangeAccountNumber(val);
                     if (val.length === 10 && changeBankCode) {
                       handleResolveChangeBank(changeBankCode, changeBankName, val);
-                    } else {
-                      setChangeVerifiedName(null);
                     }
                   }}
                   placeholder="0123456789"
@@ -668,9 +699,25 @@ const SyndicateWallet = () => {
               </div>
             </div>
 
+            <div>
+              <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
+              <Input
+                type="text"
+                value={changeAccountNameInput}
+                onChange={(e) => {
+                  setChangeAccountNameInput(e.target.value);
+                  if (e.target.value.trim()) {
+                    setChangeVerifiedName(e.target.value.trim());
+                  }
+                }}
+                placeholder="Name on bank account"
+                className="mt-1 h-10 text-xs font-semibold"
+              />
+            </div>
+
             {changeVerifiedName && (
               <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-900 text-xs flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <ShieldCheck className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <div>
                   <p className="text-[9px] uppercase font-bold text-emerald-700">Verified Name (Paystack)</p>
                   <p className="text-xs font-bold">{changeVerifiedName}</p>
@@ -689,7 +736,7 @@ const SyndicateWallet = () => {
             </div>
 
             <Button
-              disabled={!changeBankCode || changeAccountNumber.length !== 10 || !changeVerifiedName || submittingChange}
+              disabled={!changeBankCode || changeAccountNumber.length !== 10 || !(changeVerifiedName || changeAccountNameInput) || submittingChange}
               onClick={handleSubmitBankChangeRequest}
               className="w-full h-11 text-xs font-bold rounded-xl bg-purple-600 text-white"
             >

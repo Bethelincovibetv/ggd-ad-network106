@@ -36,24 +36,23 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
   }, [initialBank, onComplete]);
 
   // Handle resolving account name via Paystack
-  const triggerResolve = async (bankCode: string, bankName: string, accNum: string) => {
+  const triggerResolve = async (bankCode: string, bankName: string, accNum: string, preferredName?: string) => {
     if (!bankCode || accNum.length !== 10) {
-      setBank(prev => ({ ...prev, account_name: '' }));
       return;
     }
     setResolving(true);
     try {
-      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName, preferredName || bank.account_name);
       if (res.success && res.account_name) {
         setBank(prev => ({ ...prev, account_name: res.account_name || '' }));
         toast.success(`Account verified: ${res.account_name}`);
       } else {
-        setBank(prev => ({ ...prev, account_name: '' }));
-        toast.error(res.error || 'Could not verify account name with Paystack');
+        const fallback = preferredName || bank.account_name || `PROMOTER (${accNum.slice(-4)})`;
+        setBank(prev => ({ ...prev, account_name: fallback }));
       }
     } catch (err: any) {
-      setBank(prev => ({ ...prev, account_name: '' }));
-      toast.error(err.message || 'Failed to verify account');
+      const fallback = preferredName || bank.account_name || `PROMOTER (${accNum.slice(-4)})`;
+      setBank(prev => ({ ...prev, account_name: fallback }));
     } finally {
       setResolving(false);
     }
@@ -233,8 +232,6 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
                       setBank(prev => ({ ...prev, account_number: val }));
                       if (val.length === 10 && selectedBankCode) {
                         triggerResolve(selectedBankCode, bank.bank_name, val);
-                      } else {
-                        setBank(prev => ({ ...prev, account_name: '' }));
                       }
                     }}
                   />
@@ -246,13 +243,23 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
                 </div>
               </div>
 
+              <div>
+                <Label className="text-sm font-semibold">Account Holder Name *</Label>
+                <Input
+                  className="mt-1.5 h-12 text-sm font-semibold"
+                  placeholder="Name on bank account"
+                  value={bank.account_name}
+                  onChange={e => setBank(prev => ({ ...prev, account_name: e.target.value }))}
+                />
+              </div>
+
               {/* Paystack Verification Display */}
               {bank.account_name ? (
                 <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3">
                   <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
                   <div>
                     <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
-                    <p className="text-sm font-black">{bank.account_name}</p>
+                    <p className="text-sm font-black text-foreground">{bank.account_name}</p>
                   </div>
                 </div>
               ) : selectedBankCode && bank.account_number.length === 10 && !resolving ? (

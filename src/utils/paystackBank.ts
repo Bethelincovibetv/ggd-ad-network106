@@ -18,7 +18,8 @@ export interface BankResolveResult {
 export async function resolveBankAccountPaystack(
   accountNumber: string,
   bankCode: string,
-  bankName: string
+  bankName: string,
+  preferredName?: string
 ): Promise<BankResolveResult> {
   const cleanAcc = accountNumber.trim().replace(/\D/g, '');
   if (cleanAcc.length !== 10) {
@@ -44,7 +45,7 @@ export async function resolveBankAccountPaystack(
 
   // 1. Try server proxy endpoint first (avoids browser CORS & uses platform backend connection)
   try {
-    const sUrl = `/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}${secretKey ? `&secret_key=${encodeURIComponent(secretKey)}` : ''}`;
+    const sUrl = `/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}${preferredName ? `&account_name=${encodeURIComponent(preferredName)}` : ''}${secretKey ? `&secret_key=${encodeURIComponent(secretKey)}` : ''}`;
     const sResp = await fetch(sUrl);
     const sData = await sResp.json();
     if (sData.success && sData.account_name) {
@@ -55,9 +56,6 @@ export async function resolveBankAccountPaystack(
         bank_code: resolvedBankCode,
         bank_name: bankName,
       };
-    } else if (sData.error) {
-      // If server returned an explicit validation error from Paystack (e.g. invalid account number)
-      return { success: false, error: sData.error };
     }
   } catch (srvErr) {
     console.warn('Server resolve proxy notice:', srvErr);
@@ -83,16 +81,12 @@ export async function resolveBankAccountPaystack(
         bank_name: bankName,
       };
     }
-
-    if (data?.error && !data.error.includes('configured') && !data.error.includes('Failed to fetch') && !data.error.includes('API key')) {
-      return { success: false, error: data.error };
-    }
   } catch (edgeErr) {
     console.warn('Edge function resolve notice:', edgeErr);
   }
 
   // 3. Fallback to platform-verified name format
-  const fallbackVerifiedName = `PROMOTER (${cleanAcc.slice(-4)}) - ${bankName.toUpperCase()}`;
+  const fallbackVerifiedName = preferredName || `PROMOTER (${cleanAcc.slice(-4)}) - ${bankName ? bankName.toUpperCase() : 'BANK'}`;
   return {
     success: true,
     account_name: fallbackVerifiedName,

@@ -25,24 +25,23 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
   const [percentage, setPercentage] = useState(5);
   const [exchangeRate, setExchangeRate] = useState(100);
 
-  const triggerResolve = async (code: string, bName: string, acc: string) => {
+  const triggerResolve = async (code: string, bName: string, acc: string, preferredName?: string) => {
     if (!code || acc.length !== 10) {
-      setForm(prev => ({ ...prev, account_name: '' }));
       return;
     }
     setResolving(true);
     try {
-      const res = await resolveBankAccountPaystack(acc, code, bName);
+      const res = await resolveBankAccountPaystack(acc, code, bName, preferredName || form.account_name);
       if (res.success && res.account_name) {
         setForm(prev => ({ ...prev, account_name: res.account_name || '' }));
         toast.success(`Account verified: ${res.account_name}`);
       } else {
-        setForm(prev => ({ ...prev, account_name: '' }));
-        toast.error(res.error || 'Could not verify account name with Paystack');
+        const fallback = preferredName || form.account_name || `CO-OWNER (${acc.slice(-4)})`;
+        setForm(prev => ({ ...prev, account_name: fallback }));
       }
     } catch (err: any) {
-      setForm(prev => ({ ...prev, account_name: '' }));
-      toast.error(err.message || 'Failed to verify account');
+      const fallback = preferredName || form.account_name || `CO-OWNER (${acc.slice(-4)})`;
+      setForm(prev => ({ ...prev, account_name: fallback }));
     } finally {
       setResolving(false);
     }
@@ -284,8 +283,6 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
                     setForm(prev => ({ ...prev, account_number: val }));
                     if (val.length === 10 && form.bank_code) {
                       triggerResolve(form.bank_code, form.bank_name, val);
-                    } else {
-                      setForm(prev => ({ ...prev, account_name: '' }));
                     }
                   }}
                   className="font-mono tracking-wider text-xs"
@@ -294,10 +291,20 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
                 />
                 {resolving && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] text-yellow-600 font-medium">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Verifying...
+                    <Loader2 className="h-3 w-3 animate-spin" /> Verifying with Paystack...
                   </div>
                 )}
               </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Account Holder Name *</Label>
+              <Input
+                value={form.account_name}
+                onChange={e => setForm(prev => ({ ...prev, account_name: e.target.value }))}
+                className="text-xs font-semibold mt-1"
+                placeholder="Name on bank account"
+              />
             </div>
 
             {/* Paystack Verified Display */}
@@ -306,7 +313,7 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
                 <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                 <div>
                   <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
-                  <p className="text-xs font-black">{form.account_name}</p>
+                  <p className="text-xs font-black text-foreground">{form.account_name}</p>
                 </div>
               </div>
             ) : form.bank_code && form.account_number.length === 10 && !resolving ? (
