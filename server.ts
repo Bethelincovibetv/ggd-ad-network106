@@ -59,6 +59,38 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // ----------------------------------------------------
+// Paystack Helper Functions
+// ----------------------------------------------------
+async function getPaystackSecretKey(overrideKey?: string): Promise<string | null> {
+  if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim()) {
+    return overrideKey.trim();
+  }
+  if (process.env.PAYSTACK_SECRET_KEY) return process.env.PAYSTACK_SECRET_KEY.trim();
+  if (process.env.PAYSTACK_LIVE_SECRET_KEY) return process.env.PAYSTACK_LIVE_SECRET_KEY.trim();
+  if (process.env.VITE_PAYSTACK_SECRET_KEY) return process.env.VITE_PAYSTACK_SECRET_KEY.trim();
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.paystack_secret_key&select=value`, {
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`
+      }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data) && data[0]?.value) {
+        return data[0].value.trim();
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching Paystack secret key from app_settings:', err);
+  }
+  return null;
+}
+
+// ----------------------------------------------------
 // API Route: Paystack Account Resolution
 // ----------------------------------------------------
 app.get('/api/paystack/resolve-account', async (req, res) => {
@@ -67,10 +99,16 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
   const bankName = String(req.query.bank_name || '').trim();
 
   if (!accountNumber || accountNumber.length !== 10) {
-    return res.status(400).json({ success: false, error: 'Account number must be 10 digits' });
+    return res.status(400).json({ success: false, error: 'Account number must be exactly 10 digits' });
   }
 
-  const secretKey = (req.query.paystack_secret_key as string) || process.env.PAYSTACK_SECRET_KEY || process.env.VITE_PAYSTACK_SECRET_KEY;
+  if (!bankCode) {
+    return res.status(400).json({ success: false, error: 'Bank code is required' });
+  }
+
+  const secretKey = await getPaystackSecretKey(
+    (req.query.paystack_secret_key as string) || (req.query.secret_key as string)
+  );
 
   if (secretKey) {
     try {
@@ -78,7 +116,7 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
         `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
         {
           headers: {
-            Authorization: `Bearer ${secretKey.trim()}`,
+            Authorization: `Bearer ${secretKey}`,
             'Content-Type': 'application/json',
           },
         }
@@ -88,24 +126,59 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
         return res.json({
           success: true,
           account_name: data.data.account_name,
-          account_number: accountNumber,
+          account_number: data.data.account_number || accountNumber,
           bank_code: bankCode,
+          bank_name: bankName,
+        });
+      }
+
+      if (data?.message) {
+        return res.status(400).json({
+          success: false,
+          error: data.message,
         });
       }
     } catch (err: any) {
-      console.warn('Paystack resolve network error, falling back:', err);
+      console.warn('Paystack resolve network error:', err);
     }
   }
 
-  // Standard platform-connected verified account name fallback
+  // Graceful fallback if no secret key is configured yet
   const fallbackName = `GGD VERIFIED PROMOTER (${accountNumber.slice(-4)})`;
   return res.json({
     success: true,
     account_name: fallbackName,
     account_number: accountNumber,
     bank_code: bankCode,
+    bank_name: bankName,
     is_platform_resolved: true,
   });
+});
+
+// ----------------------------------------------------
+// API Route: Paystack Bank List
+// ----------------------------------------------------
+app.get('/api/paystack/banks', async (req, res) => {
+  try {
+    const pRes = await fetch('https://api.paystack.co/bank?country=nigeria&currency=NGN&perPage=100');
+    if (pRes.ok) {
+      const data = await pRes.json();
+      if (data?.status && Array.isArray(data?.data)) {
+        return res.json({
+          success: true,
+          banks: data.data.map((b: any) => ({
+            name: b.name,
+            code: b.code,
+            slug: b.slug,
+            active: b.active,
+          })),
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Paystack banks fetch notice:', err);
+  }
+  return res.json({ success: true, banks: [] });
 });
 
 // ----------------------------------------------------
@@ -126,7 +199,7 @@ app.post('/api/paystack/create-subaccount', async (req, res) => {
   }
 
   const cleanAcc = String(account_number).trim().replace(/\D/g, '');
-  const secretKey = paystack_secret_key || process.env.PAYSTACK_SECRET_KEY || process.env.VITE_PAYSTACK_SECRET_KEY;
+  const secretKey = await getPaystackSecretKey(paystack_secret_key);
 
   if (secretKey) {
     try {

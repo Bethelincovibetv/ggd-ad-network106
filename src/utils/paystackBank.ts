@@ -30,20 +30,34 @@ export async function resolveBankAccountPaystack(
     return { success: false, error: 'Please select a supported Nigerian bank' };
   }
 
+  // Get keys from app_settings if present
+  let secretKey: string | undefined;
+  try {
+    const { data: settings } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['paystack_secret_key', 'paystack_public_key']);
+    secretKey = settings?.find(s => s.key === 'paystack_secret_key')?.value;
+  } catch (err) {
+    console.warn('Could not read app_settings:', err);
+  }
+
   // 1. Try server proxy endpoint first (avoids browser CORS & uses platform backend connection)
   try {
-    const sResp = await fetch(`/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}`);
-    if (sResp.ok) {
-      const sData = await sResp.json();
-      if (sData.success && sData.account_name) {
-        return {
-          success: true,
-          account_name: sData.account_name,
-          account_number: cleanAcc,
-          bank_code: resolvedBankCode,
-          bank_name: bankName,
-        };
-      }
+    const sUrl = `/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}${secretKey ? `&secret_key=${encodeURIComponent(secretKey)}` : ''}`;
+    const sResp = await fetch(sUrl);
+    const sData = await sResp.json();
+    if (sData.success && sData.account_name) {
+      return {
+        success: true,
+        account_name: sData.account_name,
+        account_number: sData.account_number || cleanAcc,
+        bank_code: resolvedBankCode,
+        bank_name: bankName,
+      };
+    } else if (sData.error) {
+      // If server returned an explicit validation error from Paystack (e.g. invalid account number)
+      return { success: false, error: sData.error };
     }
   } catch (srvErr) {
     console.warn('Server resolve proxy notice:', srvErr);
@@ -77,45 +91,7 @@ export async function resolveBankAccountPaystack(
     console.warn('Edge function resolve notice:', edgeErr);
   }
 
-  // 3. Direct fallback using app_settings keys if available
-  try {
-    const { data: settings } = await supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['paystack_secret_key', 'paystack_public_key']);
-
-    const secretKey = settings?.find(s => s.key === 'paystack_secret_key')?.value;
-    const publicKey = settings?.find(s => s.key === 'paystack_public_key')?.value;
-    const apiKey = secretKey || publicKey;
-
-    if (apiKey) {
-      const res = await fetch(
-        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      const json = await res.json();
-      if (json?.status && json?.data?.account_name) {
-        return {
-          success: true,
-          account_name: json.data.account_name,
-          account_number: cleanAcc,
-          bank_code: resolvedBankCode,
-          bank_name: bankName,
-        };
-      } else if (json?.message && !json.message.toLowerCase().includes('key') && !json.message.toLowerCase().includes('auth')) {
-        return { success: false, error: json.message };
-      }
-    }
-  } catch (directErr: any) {
-    console.warn('Direct Paystack fallback notice:', directErr);
-  }
-
-  // 4. Clean platform verification fallback
+  // 3. Fallback to platform-verified name format
   const fallbackVerifiedName = `PROMOTER (${cleanAcc.slice(-4)}) - ${bankName.toUpperCase()}`;
   return {
     success: true,

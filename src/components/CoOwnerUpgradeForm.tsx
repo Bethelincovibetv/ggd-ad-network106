@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Crown, Loader2, Check, TrendingUp, DollarSign, Shield, Clock } from "lucide-react";
+import { Crown, Loader2, Check, TrendingUp, DollarSign, Shield, Clock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import coOwnerBanner from '@/assets/co-owner-banner.jpg';
+import { POPULAR_NIGERIAN_BANKS, findBankCode } from '@/utils/nigerianBanks';
+import { resolveBankAccountPaystack } from '@/utils/paystackBank';
 
 interface CoOwnerUpgradeFormProps {
   onUpgraded: () => void;
@@ -14,13 +16,37 @@ interface CoOwnerUpgradeFormProps {
 }
 
 const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) => {
-  const [form, setForm] = useState({ bank_name: '', account_number: '', account_name: '' });
+  const [form, setForm] = useState({ bank_name: '', account_number: '', account_name: '', bank_code: '' });
+  const [resolving, setResolving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [existing, setExisting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cost, setCost] = useState(100);
   const [percentage, setPercentage] = useState(5);
   const [exchangeRate, setExchangeRate] = useState(100);
+
+  const triggerResolve = async (code: string, bName: string, acc: string) => {
+    if (!code || acc.length !== 10) {
+      setForm(prev => ({ ...prev, account_name: '' }));
+      return;
+    }
+    setResolving(true);
+    try {
+      const res = await resolveBankAccountPaystack(acc, code, bName);
+      if (res.success && res.account_name) {
+        setForm(prev => ({ ...prev, account_name: res.account_name || '' }));
+        toast.success(`Account verified: ${res.account_name}`);
+      } else {
+        setForm(prev => ({ ...prev, account_name: '' }));
+        toast.error(res.error || 'Could not verify account name with Paystack');
+      }
+    } catch (err: any) {
+      setForm(prev => ({ ...prev, account_name: '' }));
+      toast.error(err.message || 'Failed to verify account');
+    } finally {
+      setResolving(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -225,19 +251,75 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
 
           <div className="space-y-3">
             <h4 className="font-bold text-sm text-foreground">Your Bank Details</h4>
-            <p className="text-xs text-muted-foreground">Enter your bank details for automatic payment via Paystack sub-account</p>
+            <p className="text-xs text-muted-foreground">Select your bank and enter your account number for Paystack verification and automatic subaccount payouts</p>
             <div>
-              <Label className="text-xs">Bank Name *</Label>
-              <Input value={form.bank_name} onChange={e => setForm({...form, bank_name: e.target.value})} className="mt-1" placeholder="e.g. GTBank, Access Bank" />
+              <Label className="text-xs">Bank *</Label>
+              <select
+                aria-label="Select Bank"
+                value={form.bank_code}
+                onChange={e => {
+                  const code = e.target.value;
+                  const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                  const name = found?.name || '';
+                  setForm(prev => ({ ...prev, bank_code: code, bank_name: name }));
+                  if (code && form.account_number.length === 10) {
+                    triggerResolve(code, name, form.account_number);
+                  }
+                }}
+                className="mt-1 w-full h-10 text-xs rounded-md border border-input bg-background px-3 font-medium"
+              >
+                <option value="">-- Choose Nigerian Bank --</option>
+                {POPULAR_NIGERIAN_BANKS.map(b => (
+                  <option key={b.code} value={b.code}>{b.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label className="text-xs">Account Number *</Label>
-              <Input value={form.account_number} onChange={e => setForm({...form, account_number: e.target.value})} className="mt-1" placeholder="10-digit account number" maxLength={10} />
+              <div className="relative mt-1">
+                <Input
+                  value={form.account_number}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setForm(prev => ({ ...prev, account_number: val }));
+                    if (val.length === 10 && form.bank_code) {
+                      triggerResolve(form.bank_code, form.bank_name, val);
+                    } else {
+                      setForm(prev => ({ ...prev, account_name: '' }));
+                    }
+                  }}
+                  className="font-mono tracking-wider text-xs"
+                  placeholder="10-digit NUBAN number"
+                  maxLength={10}
+                />
+                {resolving && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[11px] text-yellow-600 font-medium">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Verifying...
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Account Name *</Label>
-              <Input value={form.account_name} onChange={e => setForm({...form, account_name: e.target.value})} className="mt-1" placeholder="Name on your bank account" />
-            </div>
+
+            {/* Paystack Verified Display */}
+            {form.account_name ? (
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
+                  <p className="text-xs font-black">{form.account_name}</p>
+                </div>
+              </div>
+            ) : form.bank_code && form.account_number.length === 10 && !resolving ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => triggerResolve(form.bank_code, form.bank_name, form.account_number)}
+                className="w-full text-xs font-semibold h-8 rounded-lg text-yellow-600 border-yellow-200 hover:bg-yellow-50"
+              >
+                Verify Account Name
+              </Button>
+            ) : null}
           </div>
 
           <div className="space-y-2 pt-2">

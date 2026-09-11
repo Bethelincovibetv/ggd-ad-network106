@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, CheckCircle, Award, Briefcase, Wallet, Upload, Building2, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle, Award, Briefcase, Wallet, Building2, Loader2, Sparkles, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
+import { resolveBankAccountPaystack, registerPaystackSubaccount } from "@/utils/paystackBank";
 
 interface Props {
   initialBank?: { bank_name?: string; account_number?: string; account_name?: string };
@@ -15,6 +17,8 @@ interface Props {
 const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bank, setBank] = useState({
     bank_name: initialBank?.bank_name || '',
     account_number: initialBank?.account_number || '',
@@ -30,6 +34,30 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
       onComplete();
     }
   }, [initialBank, onComplete]);
+
+  // Handle resolving account name via Paystack
+  const triggerResolve = async (bankCode: string, bankName: string, accNum: string) => {
+    if (!bankCode || accNum.length !== 10) {
+      setBank(prev => ({ ...prev, account_name: '' }));
+      return;
+    }
+    setResolving(true);
+    try {
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName);
+      if (res.success && res.account_name) {
+        setBank(prev => ({ ...prev, account_name: res.account_name || '' }));
+        toast.success(`Account verified: ${res.account_name}`);
+      } else {
+        setBank(prev => ({ ...prev, account_name: '' }));
+        toast.error(res.error || 'Could not verify account name with Paystack');
+      }
+    } catch (err: any) {
+      setBank(prev => ({ ...prev, account_name: '' }));
+      toast.error(err.message || 'Failed to verify account');
+    } finally {
+      setResolving(false);
+    }
+  };
 
   const slides = [
     {
@@ -65,7 +93,7 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
     {
       icon: Building2, color: 'from-orange-500 to-red-600',
       title: "Save Your Bank Account 🏦",
-      desc: "Add your bank details now so you can withdraw whenever you want.",
+      desc: "Select your bank and enter your account number. Paystack will automatically verify your real registered account name.",
       bullets: [],
     },
   ];
@@ -76,21 +104,43 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
 
   const finishAndSave = async () => {
     if (isFinal) {
-      if (!bank.bank_name || !bank.account_number || !bank.account_name) {
-        toast.error("Please fill all bank details");
+      if (!bank.bank_name || !bank.account_number || bank.account_number.length !== 10) {
+        toast.error("Please select a bank and enter a valid 10-digit account number");
         return;
       }
+      if (!bank.account_name) {
+        toast.error("Please wait for Paystack to verify your account name");
+        return;
+      }
+
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setSaving(false); return; }
+
+      const resolvedCode = selectedBankCode || findBankCode(bank.bank_name) || '';
+
       const { error } = await supabase.from('syndicate_profiles').update({
         bank_name: bank.bank_name,
+        bank_code: resolvedCode,
         account_number: bank.account_number,
         account_name: bank.account_name,
-      }).eq('user_id', user.id);
+        bank_verified_name: bank.account_name,
+        is_bank_locked: true,
+        bank_verified_at: new Date().toISOString(),
+      } as any).eq('user_id', user.id);
+
+      // Register Paystack Subaccount
+      await registerPaystackSubaccount(
+        user.id,
+        resolvedCode,
+        bank.bank_name,
+        bank.account_number,
+        bank.account_name
+      );
+
       setSaving(false);
       if (error) { toast.error("Could not save bank details"); return; }
-      toast.success("Bank details saved! You're ready to earn.");
+      toast.success("Bank details verified & locked! You're ready to earn.");
       try {
         localStorage.setItem('ggd_syndicate_wizard_seen', 'true');
         if (user?.id) localStorage.setItem(`ggd_syndicate_wizard_seen_${user.id}`, 'true');
@@ -144,23 +194,78 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
           )}
 
           {isFinal && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <Label className="text-sm font-semibold">Bank Name</Label>
-                <Input className="h-12 text-base mt-1.5" placeholder="e.g. GTBank" value={bank.bank_name}
-                  onChange={e => setBank({ ...bank, bank_name: e.target.value })} />
+                <Label className="text-sm font-semibold">Select Nigerian Bank *</Label>
+                <select
+                  aria-label="Select Bank"
+                  value={selectedBankCode}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                    setSelectedBankCode(code);
+                    const newBankName = found?.name || '';
+                    setBank(prev => ({ ...prev, bank_name: newBankName }));
+                    if (code && bank.account_number.length === 10) {
+                      triggerResolve(code, newBankName, bank.account_number);
+                    }
+                  }}
+                  className="mt-1.5 w-full h-12 text-sm rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">-- Choose Nigerian Bank --</option>
+                  {POPULAR_NIGERIAN_BANKS.map(b => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </select>
               </div>
+
               <div>
-                <Label className="text-sm font-semibold">Account Number</Label>
-                <Input className="h-12 text-base mt-1.5" placeholder="0123456789" inputMode="numeric"
-                  value={bank.account_number}
-                  onChange={e => setBank({ ...bank, account_number: e.target.value })} />
+                <Label className="text-sm font-semibold">10-Digit NUBAN Account Number *</Label>
+                <div className="relative mt-1.5">
+                  <Input
+                    className="h-12 text-base font-mono font-bold tracking-wider"
+                    placeholder="0123456789"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={bank.account_number}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setBank(prev => ({ ...prev, account_number: val }));
+                      if (val.length === 10 && selectedBankCode) {
+                        triggerResolve(selectedBankCode, bank.bank_name, val);
+                      } else {
+                        setBank(prev => ({ ...prev, account_name: '' }));
+                      }
+                    }}
+                  />
+                  {resolving && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-purple-600 font-semibold">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Verifying with Paystack...
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <Label className="text-sm font-semibold">Account Name</Label>
-                <Input className="h-12 text-base mt-1.5" placeholder="Your full name" value={bank.account_name}
-                  onChange={e => setBank({ ...bank, account_name: e.target.value })} />
-              </div>
+
+              {/* Paystack Verification Display */}
+              {bank.account_name ? (
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3">
+                  <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
+                    <p className="text-sm font-black">{bank.account_name}</p>
+                  </div>
+                </div>
+              ) : selectedBankCode && bank.account_number.length === 10 && !resolving ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => triggerResolve(selectedBankCode, bank.bank_name, bank.account_number)}
+                  className="w-full text-xs font-semibold h-9 rounded-xl text-purple-600 border-purple-200 hover:bg-purple-50"
+                >
+                  Verify Bank Account Name
+                </Button>
+              ) : null}
             </div>
           )}
 
@@ -171,10 +276,13 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
                 <ArrowLeft className="h-5 w-5 mr-1" />Back
               </Button>
             )}
-            <Button onClick={finishAndSave} disabled={saving}
-              className={`flex-1 h-12 text-base font-bold bg-gradient-to-r ${current.color} text-white rounded-xl shadow-md`}>
+            <Button
+              onClick={finishAndSave}
+              disabled={saving || (isFinal && (!bank.bank_name || bank.account_number.length !== 10 || !bank.account_name))}
+              className={`flex-1 h-12 text-base font-bold bg-gradient-to-r ${current.color} text-white rounded-xl shadow-md`}
+            >
               {saving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : isFinal ? <Sparkles className="h-5 w-5 mr-2" /> : null}
-              {isFinal ? 'Save & Finish' : 'Next'}
+              {isFinal ? 'Verify, Lock & Finish' : 'Next'}
               {!isFinal && <ArrowRight className="h-5 w-5 ml-1" />}
             </Button>
           </div>
