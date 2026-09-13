@@ -82,11 +82,11 @@ const SyndicateOnboardingWizard = ({ initialBank, onComplete }: Props) => {
     {
       icon: Wallet, color: 'from-green-600 to-emerald-600',
       title: "Your Earnings Wallet 💰",
-      desc: "Every approved task adds Naira to your wallet. Withdraw to your bank every Saturday.",
+      desc: "Every approved task credits your wallet balance and pays directly to your verified bank account on settlement.",
       bullets: [
         "View your balance any time",
-        "Track withdrawal history",
-        "Bank transfer in 1-3 business days",
+        "Track automatic payout history",
+        "Instant settlement to your verified Nigerian bank",
       ],
     },
     {

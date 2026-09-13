@@ -207,20 +207,23 @@ const AdminPage = () => {
           setActiveSection(item.id);
           if (mobile) setMobileMenuOpen(false);
         }}
-        className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-left transition-all ${
+        className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-left transition-all duration-200 ${
           active
-            ? `bg-gradient-to-r ${item.gradient} text-white shadow-md scale-[1.01]`
-            : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            ? `bg-gradient-to-r ${item.gradient} text-white shadow-[0_8px_18px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] scale-[1.02] border border-white/20`
+            : 'text-foreground/80 hover:bg-muted/80 hover:text-foreground hover:shadow-xs'
         }`}
       >
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-white/20' : `bg-muted text-foreground`}`}>
-          <item.icon className={`h-4 w-4 ${active ? 'text-white' : 'text-foreground'}`} />
+        <span className={`relative inline-grid place-items-center h-9 w-9 rounded-xl bg-gradient-to-br ${item.gradient} flex-shrink-0 shadow-[0_4px_10px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.2)] ${
+          active ? 'ring-2 ring-white/70 scale-105' : 'group-hover:scale-105 transition-transform'
+        }`}>
+          <span className="absolute inset-x-1 top-0.5 h-2 rounded-full bg-white/40 blur-[1.5px]" />
+          <item.icon className="h-4.5 w-4.5 text-white relative drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]" strokeWidth={2.4} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className={`block truncate text-xs font-bold leading-tight ${active ? 'text-white' : 'text-foreground'}`}>
+          <span className={`block truncate text-xs font-black leading-tight ${active ? 'text-white drop-shadow-xs' : 'text-foreground'}`}>
             {item.label}
           </span>
-          <span className={`block truncate text-[10px] ${active ? 'text-white/80' : 'text-muted-foreground'}`}>
+          <span className={`block truncate text-[10px] font-medium ${active ? 'text-white/85' : 'text-muted-foreground'}`}>
             {item.sublabel}
           </span>
         </span>
@@ -361,26 +364,31 @@ const AdminPage = () => {
       </main>
 
       {/* Mobile Bottom Quick Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-md shadow-lg safe-area-bottom">
-        <div className="flex items-center justify-around px-2 py-1.5">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-md shadow-2xl safe-area-bottom">
+        <div className="flex items-center justify-around px-2 py-2">
           {[
-            { id: 'syndicate', label: 'Syndicate', icon: Briefcase },
-            { id: 'ads', label: 'Ads', icon: Megaphone },
-            { id: 'users', label: 'Users', icon: Users },
-            { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-            { id: 'settings', label: 'Settings', icon: Settings },
+            { id: 'syndicate', label: 'Syndicate', icon: Briefcase, grad: 'from-purple-600 to-indigo-700' },
+            { id: 'ads', label: 'Ads', icon: Megaphone, grad: 'from-amber-500 to-orange-600' },
+            { id: 'users', label: 'Users', icon: Users, grad: 'from-orange-500 to-red-600' },
+            { id: 'analytics', label: 'Analytics', icon: TrendingUp, grad: 'from-blue-500 to-indigo-600' },
+            { id: 'settings', label: 'Settings', icon: Settings, grad: 'from-pink-500 to-rose-600' },
           ].map(item => {
             const active = activeSection === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
-                className={`flex min-w-0 flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-colors ${
-                  active ? 'bg-primary/10 text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
+                className={`flex min-w-0 flex-col items-center gap-1 px-2.5 py-1 rounded-xl transition-all duration-200 ${
+                  active ? 'scale-105 font-black text-foreground' : 'text-muted-foreground hover:text-foreground opacity-85'
                 }`}
               >
-                <item.icon className="h-4 w-4" />
-                <span className="max-w-[64px] truncate text-[10px] leading-none">
+                <span className={`relative inline-grid place-items-center h-8 w-8 rounded-xl bg-gradient-to-br ${item.grad} shadow-[0_3px_8px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.4),inset_0_-1px_2px_rgba(0,0,0,0.2)] ${
+                  active ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
+                }`}>
+                  <span className="absolute inset-x-1 top-0.5 h-2 rounded-full bg-white/40 blur-[1px]" />
+                  <item.icon className="h-4 w-4 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]" strokeWidth={2.4} />
+                </span>
+                <span className="max-w-[64px] truncate text-[10px] leading-tight">
                   {item.label}
                 </span>
               </button>

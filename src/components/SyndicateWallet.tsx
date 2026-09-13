@@ -6,11 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet,
-  ArrowDownCircle,
   Clock,
   CheckCircle,
   Loader2,
-  ShieldCheck,
   Zap,
   AlertTriangle,
   Lock,
@@ -30,12 +28,6 @@ import { POPULAR_NIGERIAN_BANKS, fetchNigerianBanks, findBankCode, NigerianBank 
 import { resolveBankAccountPaystack, registerPaystackSubaccount } from "@/utils/paystackBank";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
-async function sha256Hex(s: string): Promise<string> {
-  const buf = new TextEncoder().encode(s);
-  const hash = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 const maskAccountNumber = (acc?: string | null) => {
   if (!acc) return '—';
   const clean = String(acc).trim();
@@ -52,10 +44,6 @@ const SyndicateWallet = () => {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [withdrawPin, setWithdrawPin] = useState('');
-  const [newWithdrawPin, setNewWithdrawPin] = useState('');
   const [showFullAccount, setShowFullAccount] = useState(false);
   const [reVerifyingName, setReVerifyingName] = useState(false);
 
@@ -312,91 +300,6 @@ const SyndicateWallet = () => {
       toast.error(err.message || "Failed to submit change request");
     } finally {
       setSubmittingChange(false);
-    }
-  };
-
-  const saveWithdrawPin = async () => {
-    if (newWithdrawPin.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const hash = await sha256Hex(newWithdrawPin);
-    await supabase.from('syndicate_profiles').update({ withdraw_pin_hash: hash } as any).eq('user_id', user.id);
-    toast.success("Withdrawal PIN saved");
-    setNewWithdrawPin('');
-    fetchData();
-  };
-
-  const requestWithdrawal = async () => {
-    if (profile?.wallet_frozen) { toast.error("Your wallet is frozen by admin. Contact support."); return; }
-    if (profile?.is_suspended) { toast.error("Account suspended. Withdrawals are disabled."); return; }
-    if (!profile?.account_number) { toast.error("Please add and verify your official payout bank account first."); return; }
-
-    if (profile?.bank_changed_at) {
-      const hoursSince = (Date.now() - new Date(profile.bank_changed_at).getTime()) / 36e5;
-      if (hoursSince < cooldownHours) {
-        const remaining = Math.ceil(cooldownHours - hoursSince);
-        toast.error(`Bank details changed recently. Payouts locked for safety (${remaining}h remaining).`);
-        return;
-      }
-    }
-
-    const withdrawAmount = parseInt(amount);
-    if (!withdrawAmount || withdrawAmount <= 0) { toast.error("Enter a valid withdrawal amount"); return; }
-    const creditsNeeded = Math.ceil(withdrawAmount / exchangeRate);
-    if (credits < creditsNeeded) { toast.error(`Insufficient credits. You need ${creditsNeeded} GGG credits, but have ${credits}.`); return; }
-
-    if (!profile?.withdraw_pin_hash) {
-      toast.error("Please configure your Security PIN below before requesting a withdrawal");
-      return;
-    }
-    if (!withdrawPin) { toast.error("Enter your Withdrawal PIN"); return; }
-    const hash = await sha256Hex(withdrawPin);
-    if (hash !== profile.withdraw_pin_hash) {
-      toast.error("Incorrect Withdrawal PIN");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const { data, error } = await supabase.from('withdrawal_requests').insert({
-        user_id: profile.user_id,
-        amount: withdrawAmount,
-        bank_name: profile.bank_name,
-        account_number: profile.account_number,
-        account_name: profile.account_name,
-        status: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'pending_automatic' : 'pending_admin',
-        admin_notes: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'Automatic payout eligible' : 'Pending admin review',
-      } as any).select().single();
-
-      if (error) throw error;
-
-      // Deduct credits atomically
-      await supabase.from('profiles').update({
-        credits: credits - creditsNeeded,
-      }).eq('user_id', profile.user_id);
-
-      toast.success("Withdrawal request created successfully!");
-
-      if (autoPayoutEnabled && withdrawAmount <= maxAutoPayout && data?.id) {
-        supabase.functions.invoke('process-syndicate-payout', {
-          body: { withdrawal_id: data.id },
-        }).then(({ data: payoutData }) => {
-          if (payoutData?.status === 'completed') {
-            toast.success("⚡ Paystack auto-payout sent directly to your bank account!");
-          }
-          fetchData();
-        }).catch(() => {
-          fetchData();
-        });
-      }
-
-      setAmount('');
-      setWithdrawPin('');
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create withdrawal request");
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -787,83 +690,6 @@ const SyndicateWallet = () => {
               Submit Bank Change Request for Approval
             </Button>
           </CardContent>
-        </Card>
-      )}
-
-      {/* Withdrawal Action Card */}
-      {isBankConfigured && (
-        <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 pb-3">
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <ArrowDownCircle className="h-5 w-5 text-purple-600" />
-              Request Bank Payout
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4">
-            <div>
-              <Label className="text-xs font-bold text-foreground">Amount to Withdraw (₦ NGN)</Label>
-              <Input
-                type="number"
-                min="500"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 5000"
-                className="mt-1.5 h-12 text-base font-bold"
-              />
-              {amount && parseInt(amount) > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Requires <strong>{Math.ceil(parseInt(amount) / exchangeRate).toLocaleString()} Credits</strong>
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label className="text-xs font-bold text-foreground">Withdrawal Security PIN</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={withdrawPin}
-                onChange={(e) => setWithdrawPin(e.target.value)}
-                placeholder="Enter 4-digit PIN"
-                className="mt-1.5 h-11 text-sm font-mono font-bold"
-              />
-            </div>
-
-            <Button
-              disabled={!amount || parseInt(amount) <= 0 || submitting || !profile?.withdraw_pin_hash}
-              onClick={requestWithdrawal}
-              className="w-full h-12 text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow hover:opacity-95"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownCircle className="h-4 w-4 mr-2" />}
-              Submit Payout Request
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Withdrawal PIN Setup if not configured */}
-      {isBankConfigured && !profile?.withdraw_pin_hash && (
-        <Card className="border border-purple-200 bg-purple-50/50 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-purple-600" />
-            <h4 className="font-bold text-xs text-purple-950">Setup Security Withdrawal PIN</h4>
-          </div>
-          <p className="text-[11px] text-purple-800">
-            A 4-digit security PIN is required to safeguard your earnings before making withdrawals.
-          </p>
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              maxLength={6}
-              value={newWithdrawPin}
-              onChange={(e) => setNewWithdrawPin(e.target.value)}
-              placeholder="Set 4-digit PIN"
-              className="h-10 text-xs font-mono font-bold bg-white"
-            />
-            <Button onClick={saveWithdrawPin} className="h-10 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shrink-0">
-              Save PIN
-            </Button>
-          </div>
         </Card>
       )}
 

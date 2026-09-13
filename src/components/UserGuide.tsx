@@ -13,12 +13,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { guideService } from '@/services/guideService';
 import { playRewardSound } from '@/lib/soundEffects';
 import { toast } from 'sonner';
+import YouTubeEmbed from '@/components/YouTubeEmbed';
 
 interface GuideSection {
   title: string;
   badge: string;
   icon: React.ReactNode;
   keywords: string;
+  videoSection?: string;
   actionTab?: string;
   actionLabel?: string;
   content: React.ReactNode;
@@ -30,6 +32,7 @@ const sections: GuideSection[] = [
     badge: 'Getting Started',
     icon: <Sparkles className="h-5 w-5" />,
     keywords: 'welcome ggd ad network business growth marketing customers visibility discover get started',
+    videoSection: 'guide_getting_started',
     actionTab: 'directory',
     actionLabel: 'Explore Business Directory',
     content: (
@@ -57,6 +60,7 @@ const sections: GuideSection[] = [
     badge: 'Discovery',
     icon: <Building2 className="h-5 w-5" />,
     keywords: 'business directory listing discover profile storefront business page location contact',
+    videoSection: 'guide_directory',
     actionTab: 'directory',
     actionLabel: 'Open Business Directory',
     content: (
@@ -77,6 +81,7 @@ const sections: GuideSection[] = [
     badge: 'Business',
     icon: <Store className="h-5 w-5" />,
     keywords: 'products marketplace services sell listing product service shop business',
+    videoSection: 'guide_products',
     actionTab: 'my-business',
     actionLabel: 'Manage Products & Storefront',
     content: (
@@ -96,6 +101,7 @@ const sections: GuideSection[] = [
     badge: 'Advertising',
     icon: <Megaphone className="h-5 w-5" />,
     keywords: 'banner ads advertising campaign impressions clicks ctr target url promote paid visibility',
+    videoSection: 'guide_ads',
     actionTab: 'campaigns',
     actionLabel: 'Launch a Banner Campaign',
     content: (
@@ -119,6 +125,7 @@ const sections: GuideSection[] = [
     badge: 'Featured',
     icon: <ImageIcon className="h-5 w-5" />,
     keywords: 'slider featured business update announcement placement slides admin',
+    videoSection: 'guide_slider',
     content: (
       <div className="space-y-3">
         <p>The <strong>Featured Slider</strong> is a separate presentation layer for featured updates, businesses, features or announcements selected by the platform.</p>
@@ -131,6 +138,7 @@ const sections: GuideSection[] = [
     badge: 'Credits',
     icon: <CreditCard className="h-5 w-5" />,
     keywords: 'credit task youtube views watch time likes comments subscribers website visits shares reward credits earn promote',
+    videoSection: 'guide_tasks',
     actionTab: 'tasks',
     actionLabel: 'Open Credit Tasks',
     content: (
@@ -150,6 +158,7 @@ const sections: GuideSection[] = [
     badge: 'Promoters',
     icon: <Users className="h-5 w-5" />,
     keywords: 'syndicate verified promoter paid promotion whatsapp facebook instagram tiktok telegram proof earnings wallet payout',
+    videoSection: 'guide_syndicate',
     actionTab: 'syndicate',
     actionLabel: 'Open Syndicate Hub',
     content: (
@@ -170,23 +179,23 @@ const sections: GuideSection[] = [
     ),
   },
   {
-    title: 'BlogMate AI — Create Marketing Content',
-    badge: 'Marketing Tools',
+    title: 'Blog Creator & AI Drafter — Create Marketing Content',
+    badge: 'VIP Marketing Tools',
     icon: <BookOpen className="h-5 w-5" />,
-    keywords: 'blogmate ai blog article content writing advertisement marketing funnel create edit save publish',
-    actionTab: 'blogmate',
-    actionLabel: 'Open BlogMate AI',
+    keywords: 'blog blogmate ai blog article content writing advertisement marketing funnel create edit save publish vip premium',
+    videoSection: 'guide_blog',
+    actionTab: 'feed',
+    actionLabel: 'Open Blog Creator',
     content: (
       <div className="space-y-3">
-        <p><strong>BlogMate AI</strong> is one of GGD's marketing/content tools. It helps turn a business idea into useful marketing content.</p>
+        <p>The <strong>Blog Creator & AI Drafter</strong> is GGD's premier content broadcasting suite for VIP members. It turns your business expertise and products into engaging, search-optimized editorial articles.</p>
         <ul className="list-disc space-y-2 pl-5">
-          <li>Generate blog posts and articles.</li>
-          <li>Create marketing and advertising copy.</li>
-          <li>Prepare content that supports campaigns, products or promotions.</li>
-          <li>Edit generated content before using it.</li>
+          <li>Generate rich structured blog articles with Gemini AI assistance.</li>
+          <li>Select curated royalty-free covers or upload your own high-res photography.</li>
+          <li>Add structured headings, body sections, image illustrations, and author notes.</li>
+          <li>Broadcast your published articles directly to the Community Feed and your business storefront.</li>
         </ul>
-        <p><strong>BlogMate is a tool inside GGD</strong>, not the identity of the whole platform.</p>
-        <p>Intended content journey: <strong>Generate → Edit → Save → Publish → Discover → Promote → Track.</strong></p>
+        <p><strong>VIP Exclusive:</strong> Blog creation is available to Premium VIP members and platform administrators.</p>
       </div>
     ),
   },
@@ -195,6 +204,7 @@ const sections: GuideSection[] = [
     badge: 'Community',
     icon: <MessageCircle className="h-5 w-5" />,
     keywords: 'community feed posts comments reactions hashtags share photos video businesses social',
+    videoSection: 'guide_community',
     actionTab: 'feed',
     actionLabel: 'Open Community Feed',
     content: (
@@ -214,6 +224,7 @@ const sections: GuideSection[] = [
     badge: 'Wallet',
     icon: <Wallet className="h-5 w-5" />,
     keywords: 'ggg credits wallet earn spend buy transfer tasks promotion internal currency',
+    videoSection: 'guide_wallet',
     actionTab: 'wallet',
     actionLabel: 'Open Wallet Hub',
     content: (
@@ -225,10 +236,11 @@ const sections: GuideSection[] = [
     ),
   },
   {
-    title: 'Analytics — Understand Your Results',
+    title: 'Analytics & Marketing Tools — Understand Your Results',
     badge: 'Insights',
     icon: <BarChart3 className="h-5 w-5" />,
-    keywords: 'analytics impressions clicks ctr performance campaign results tracking insights',
+    keywords: 'analytics impressions clicks ctr performance campaign results tracking insights apps',
+    videoSection: 'guide_apps',
     actionTab: 'growth',
     actionLabel: 'View Business Growth Score',
     content: (
@@ -248,6 +260,7 @@ const sections: GuideSection[] = [
     badge: 'Support',
     icon: <CheckCircle2 className="h-5 w-5" />,
     keywords: 'account profile notifications security support help guide password mobile app install',
+    videoSection: 'guide_profile',
     actionTab: 'support',
     actionLabel: 'Contact Support',
     content: (
@@ -382,6 +395,9 @@ const UserGuide = () => {
               className="pl-9 h-11 text-sm bg-background border-border text-foreground font-medium"
             />
           </div>
+
+          {/* Top Video Overview (if set in Admin Video Manager) */}
+          <YouTubeEmbed section="guide" className="pt-2" />
         </CardContent>
       </Card>
 
@@ -454,6 +470,11 @@ const UserGuide = () => {
 
               {isOpen && (
                 <CardContent className="border-t border-border/50 pt-5 text-sm leading-relaxed text-foreground/90 sm:px-6 sm:pt-6 space-y-4 bg-muted/20">
+                  {/* Section Video Tutorial (if configured by Admin) */}
+                  {section.videoSection && (
+                    <YouTubeEmbed section={section.videoSection} className="my-2" />
+                  )}
+
                   {section.content}
                   <div className="flex items-center justify-between pt-3 border-t border-border/50 flex-wrap gap-2">
                     {section.actionTab && section.actionLabel && (

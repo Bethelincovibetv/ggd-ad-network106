@@ -10,6 +10,7 @@ import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, Ar
 import { toast } from "sonner";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 interface AdCreationFormProps {
   onAdCreated: (adData: any) => void;
@@ -84,6 +85,9 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
 
   return (
     <div className="space-y-4">
+      {/* Create Ad Tutorial Video (Configured in Admin Video Manager) */}
+      <YouTubeEmbed section="create_ad" />
+
       {/* Ad Type Selector */}
       <div className="grid grid-cols-2 gap-2">
         <button

@@ -1,5 +1,4 @@
 import { BlogPost } from "@/types/blog";
-import { getPixabayImages } from "./pixabayService";
 import { generateImageWithGemini } from "./geminiImageService";
 
 // Function to add relevant emojis to content
@@ -133,17 +132,6 @@ export const generateBlogPost = async (topic: string): Promise<BlogPost> => {
             content: enhancedContent,
             imageUrl: emojiImageUrl,
             imageAlt: `Illustration: ${imagePrompt}`,
-          };
-        }
-
-        // Fallback to Pixabay
-        const pixabayImages = await getPixabayImages(imagePrompt);
-        if (pixabayImages.length > 0) {
-          return {
-            ...section,
-            content: enhancedContent,
-            imageUrl: pixabayImages[0].webformatURL,
-            imageAlt: imagePrompt,
           };
         }
 

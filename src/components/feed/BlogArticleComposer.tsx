@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Image as ImageIcon, Sparkles, Plus, Trash2, X, Send,
-  Loader2, Eye, BookOpen, Clock, Tag, ArrowLeft, CheckCircle2
+  Loader2, Eye, BookOpen, Clock, Tag, ArrowLeft, CheckCircle2,
+  Crown, Lock, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,7 @@ import { BlogSection, CommunityBlogPostData, calculateReadTime, getCategoryCover
 import { generateBlogPost } from '@/services/blogGenerator';
 import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import YouTubeEmbed from '@/components/YouTubeEmbed';
 
 const FEATURE_PHOTO_PRESETS = [
   { label: 'Business Growth', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' },
@@ -76,6 +78,9 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const [publishedPostId, setPublishedPostId] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
+  const [checkingPremium, setCheckingPremium] = useState(true);
+
   const coverFileRef = useRef<HTMLInputElement>(null);
   const sectionFileRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
 
@@ -83,6 +88,40 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const [pexelsQuery, setPexelsQuery] = useState('business');
   const [pexelsPhotos, setPexelsPhotos] = useState<any[]>([]);
   const [loadingPexels, setLoadingPexels] = useState(false);
+
+  // Check VIP / Admin Role for Blog Creator Access
+  useEffect(() => {
+    let isMounted = true;
+    const checkRole = async () => {
+      if (!userId) {
+        if (isMounted) {
+          setIsPremium(false);
+          setCheckingPremium(false);
+        }
+        return;
+      }
+      try {
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId);
+        
+        const hasAccess = roles?.some(r => r.role === 'premium' || r.role === 'admin') || false;
+        if (isMounted) {
+          setIsPremium(hasAccess);
+          setCheckingPremium(false);
+        }
+      } catch (err) {
+        console.warn("Failed to check user role for blog creator:", err);
+        if (isMounted) {
+          setIsPremium(false);
+          setCheckingPremium(false);
+        }
+      }
+    };
+    checkRole();
+    return () => { isMounted = false; };
+  }, [userId]);
 
   // Search Pexels / Curated Photos
   const handleSearchPexels = async (queryToSearch?: string) => {
@@ -320,17 +359,98 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
     setShowPreview(false);
   };
 
+  // 1. Loading state while checking roles
+  if (checkingPremium) {
+    return (
+      <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+        <Loader2 className="h-7 w-7 animate-spin text-purple-600" />
+        <p className="text-xs text-muted-foreground font-medium">Verifying VIP Membership access...</p>
+      </div>
+    );
+  }
+
+  // 2. VIP Membership Paywall Gate
+  if (!isPremium) {
+    return (
+      <div className="space-y-4">
+        {/* Tutorial Video Placement if set by Admin */}
+        <YouTubeEmbed section="create_blog" />
+
+        <Card className="overflow-hidden border-2 border-amber-500/30 bg-gradient-to-b from-amber-50/40 via-card to-card dark:from-amber-950/20 dark:via-card dark:to-card rounded-2xl shadow-xl">
+          <CardContent className="p-6 sm:p-8 text-center space-y-6">
+            <div className="mx-auto h-16 w-16 rounded-3xl bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(245,158,11,0.5),inset_0_1px_1px_rgba(255,255,255,0.6)]">
+              <Crown className="h-8 w-8 text-white drop-shadow-md" />
+            </div>
+
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-black uppercase tracking-wider">
+                <Crown className="h-3.5 w-3.5" /> VIP Exclusive Feature
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                Unlock Blog Creator & AI Editorial Drafter
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Publishing full editorial blog articles with cover photography, structured sections, and the Gemini AI Article Drafter is reserved for VIP Premium members.
+              </p>
+            </div>
+
+            {/* Perks Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto text-left">
+              {[
+                { title: "Gemini AI Drafter", desc: "Generate complete long-form articles in seconds" },
+                { title: "Editorial Formats", desc: "Structured headings, body text & image layout" },
+                { title: "HD Photo Library", desc: "Access curated royalty-free photography presets" },
+                { title: "Feed Priority", desc: "Featured prominently across the community network" },
+              ].map((perk, i) => (
+                <div key={i} className="flex items-start gap-2.5 p-3 rounded-xl bg-card border border-border shadow-2xs">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-foreground">{perk.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{perk.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'premium' }));
+                }}
+                className="w-full sm:w-auto h-11 px-8 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-lg hover:opacity-95"
+              >
+                <Crown className="h-4 w-4 mr-2 fill-white" />
+                Upgrade to VIP Membership
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onCancel}
+                className="w-full sm:w-auto h-11 px-6 rounded-xl font-bold text-xs"
+              >
+                Return to Quick Post
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Create Blog Tutorial Video (Configured in Admin Video Manager) */}
+      <YouTubeEmbed section="create_blog" />
+
       {/* Top Bar with Modes & AI Assistant */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Badge className="bg-purple-600 text-white font-bold text-xs px-3 py-1 border-0">
             <BookOpen className="h-3.5 w-3.5 mr-1" /> Professional Blog Post
           </Badge>
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            Create a publication-ready article with cover & section photos
-          </span>
+          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold">
+            <Crown className="h-3 w-3 mr-1" /> VIP Member Access
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">

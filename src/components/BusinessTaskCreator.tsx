@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 const DEFAULT_PLATFORMS = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
@@ -418,7 +419,9 @@ const BusinessTaskCreator = () => {
       </div>
 
       {isCreating && (
-        <Card className="border-orange-200">
+        <div className="space-y-3">
+          <YouTubeEmbed section="create_syndicate" />
+          <Card className="border-orange-200">
           <CardContent className="p-4 space-y-3">
             <Input placeholder="Task title *" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
             <Textarea placeholder="Write-up / ad copy *" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} />
@@ -525,6 +528,7 @@ const BusinessTaskCreator = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* Search bar */}

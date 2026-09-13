@@ -16,7 +16,7 @@ Core Capabilities Matrix:
 • Watch-to-Earn Video Ads: Users watch YouTube video advertisements for a configured duration to claim credit rewards backed by advertiser budgets.
 • Dual Wallet & Financial System: Virtual credits (for creating ads/tasks) and Task Wallets (Naira balances for task funding, creator rewards, and bank withdrawals). Integrated with Paystack for fiat on-ramp.
 • Business Directory & Showcase: Profiles, digital business cards, product listings, category filters, and lead generation.
-• AI & Content Suite: Integration with Google Gemini (geminiEbookService.ts, blogGenerator.ts, ai-campaign-assistant Edge Function) and Pixabay for automated campaign copy, ebooks, and blog content generation.
+• AI & Content Suite: Integration with Google Gemini (geminiEbookService.ts, blogGenerator.ts, ai-campaign-assistant Edge Function) for automated campaign copy, ebooks, and blog content generation.
 • Social Community & Realtime Comms: Community feed with posts, reactions, comments, global peer-to-peer (P2P) task chat, and direct admin support channels.
 • Comprehensive Admin Control Center: Dynamic feature toggles (feature_toggles), global runtime settings (app_settings), user role management, ad/task moderation, withdrawal processing, and audit trails.
 
@@ -27,7 +27,7 @@ Core Capabilities Matrix:
 Frontend:
 • React 18 SPA (Vite + Tailwind CSS + Lucide Icons + Shadcn UI).
 • State & Hooks: useRole, useSyndicateStatus, useAdminCheck, useFeatureToggles, useToast, useMobile.
-• Service Layer: geminiEbookService.ts, blogGenerator.ts, pixabayService.ts.
+• Service Layer: geminiEbookService.ts, blogGenerator.ts.
 
 Backend (Supabase Cloud):
 • PostgreSQL DB (38+ Tables with granular RLS policies, triggers, and RPCs).

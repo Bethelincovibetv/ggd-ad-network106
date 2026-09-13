@@ -13,7 +13,7 @@ import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, ArrowLeft, PenLine, Megaphone, ExternalLink,
-  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye,
+  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
@@ -587,10 +587,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
               >
                 <BookOpen className="h-3.5 w-3.5" />
                 <span>Blog Article</span>
-                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${
-                  composerMode === 'blog' ? 'bg-white/25 text-white' : 'bg-purple-600 text-white'
+                <span className={`inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${
+                  composerMode === 'blog' ? 'bg-amber-400 text-amber-950' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-2xs'
                 }`}>
-                  New
+                  <Crown className="h-2.5 w-2.5 fill-current" />
+                  VIP
                 </span>
               </button>
 

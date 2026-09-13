@@ -50,9 +50,9 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-5 w-full">
-      {/* Mobile-Friendly Horizontal Pill Navigation (Smooth scroll, no squishing or overlapping) */}
-      <div className="w-full overflow-x-auto no-scrollbar py-1">
-        <div className="flex items-center gap-2 min-w-max px-0.5">
+      {/* Mobile-Friendly Horizontal Pill Navigation with 3D tactile buttons */}
+      <div className="w-full overflow-x-auto no-scrollbar py-2">
+        <div className="flex items-center gap-2.5 min-w-max px-1">
           {ADMIN_MODULES.map((mod) => {
             const Icon = mod.icon;
             const isActive = activeModule === mod.id;
@@ -60,16 +60,21 @@ const AdminPanel = () => {
               <button
                 key={mod.id}
                 onClick={() => setActiveModule(mod.id)}
-                className={`flex items-center gap-2 h-12 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm ${
+                className={`group flex items-center gap-2.5 h-12 px-3.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 ${
                   isActive
-                    ? `bg-gradient-to-r ${mod.color} text-white shadow-md scale-[1.02]`
-                    : 'bg-card text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/70'
+                    ? `bg-gradient-to-r ${mod.color} text-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] scale-[1.02] border border-white/20`
+                    : 'bg-card text-foreground/80 hover:text-foreground hover:bg-muted/80 border border-border shadow-xs'
                 }`}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className={`relative inline-grid place-items-center h-8 w-8 rounded-xl bg-gradient-to-br ${mod.color} flex-shrink-0 shadow-[0_3px_8px_-2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-2px_3px_rgba(0,0,0,0.2)] ${
+                  isActive ? 'ring-2 ring-white/70' : 'opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all'
+                }`}>
+                  <span className="absolute inset-x-1 top-0.5 h-2 rounded-full bg-white/40 blur-[1px]" />
+                  <Icon className="h-4 w-4 text-white relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]" strokeWidth={2.4} />
+                </span>
                 <span className="whitespace-nowrap">{mod.label}</span>
                 {mod.badge && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${isActive ? 'bg-white/25 text-white' : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${isActive ? 'bg-white/25 text-white' : 'bg-primary/10 text-primary'}`}>
                     {mod.badge}
                   </span>
                 )}

@@ -7,6 +7,7 @@ import {
   Store, Settings, TrendingUp, Shield, Image, Megaphone, Key, ToggleLeft,
   Wallet, Star, Globe, Bell
 } from "lucide-react";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 const sections = [
   {
@@ -105,6 +106,9 @@ const AdminGuide = () => {
       <p className="text-xs text-muted-foreground mb-4">
         Complete reference for how every part of the GGD platform works. Tap any section to expand.
       </p>
+
+      {/* Admin Video Tutorial (if configured in Admin Video Manager) */}
+      <YouTubeEmbed section="admin_guide" className="mb-4" />
 
       <div className="space-y-2">
         {sections.map((section, i) => (

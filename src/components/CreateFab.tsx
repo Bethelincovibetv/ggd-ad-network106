@@ -251,6 +251,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
             id: "blog",
             icon: BookOpen,
             label: "Blog Article",
+            badge: "VIP",
             desc: "Publish editorial blog post with cover & images",
             grad: "from-purple-600 to-indigo-600",
             run: () => {
@@ -413,8 +414,13 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
                     <Icon className="h-5 w-5 drop-shadow" strokeWidth={2.4} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs sm:text-sm font-bold text-foreground leading-tight">
-                      {opt.label}
+                    <span className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-foreground leading-tight">
+                      <span>{opt.label}</span>
+                      {opt.badge && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-2xs">
+                          {opt.badge}
+                        </span>
+                      )}
                     </span>
                     <span className="block text-[10px] sm:text-[11px] text-muted-foreground truncate mt-0.5">
                       {opt.desc}
