@@ -1,8 +1,7 @@
-import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
-import { collection, doc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { collection, doc, setDoc, addDoc } from 'firebase/firestore';
 import { supabase } from '@/integrations/supabase/client';
 import { playNotificationChime, playMoneyTransferSound } from '@/utils/audio';
-import { playRewardSound } from '@/lib/soundEffects';
 import { toast } from 'sonner';
 
 export interface PushNotificationPayload {
@@ -10,11 +9,42 @@ export interface PushNotificationPayload {
   body: string;
   icon?: string;
   url?: string;
-  type?: 'system' | 'welcome' | 'credit_task' | 'chat' | 'syndicate' | 'bonus';
+  type?: 'system' | 'welcome' | 'credit_task' | 'chat' | 'message' | 'urgent_message' | 'syndicate' | 'bonus';
   userId?: string;
+  saveToDb?: boolean;
 }
 
 const GGD_SITE_LOGO = '/favicon.png';
+
+let swRegistration: ServiceWorkerRegistration | null = null;
+
+/**
+ * Ensures Service Worker is registered and ready
+ */
+export async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+  try {
+    if (swRegistration) return swRegistration;
+    // Register sw.js first
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    swRegistration = registration;
+    return registration;
+  } catch (err) {
+    console.warn('Service worker registration fallback:', err);
+    try {
+      const fallbackReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      await navigator.serviceWorker.ready;
+      swRegistration = fallbackReg;
+      return fallbackReg;
+    } catch (fbErr) {
+      console.warn('Fallback SW registration error:', fbErr);
+      return null;
+    }
+  }
+}
 
 /**
  * Register Service Worker and Request Web Push Permission
@@ -30,30 +60,28 @@ export async function registerPushNotification(userId?: string): Promise<{ succe
       return { success: false, error: 'Notification permission was denied or dismissed.' };
     }
 
-    let registration: ServiceWorkerRegistration | null = null;
-    if ('serviceWorker' in navigator) {
-      registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
-      await navigator.serviceWorker.ready;
-    }
+    const registration = await getOrRegisterServiceWorker();
 
-    // Generate a unique device identifier
+    // Generate unique device identifier
     const deviceId = `device_${userId || 'guest'}_${navigator.userAgent.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`;
     const syntheticToken = `fcm_token_${Math.random().toString(36).substring(2)}_${Date.now()}`;
 
     // Store in Firebase Firestore
     try {
-      await setDoc(doc(db, 'push_devices', deviceId), {
-        userId: userId || 'anonymous',
-        token: syntheticToken,
-        platform: 'web',
-        userAgent: navigator.userAgent.slice(0, 250),
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      if (db) {
+        await setDoc(doc(db, 'push_devices', deviceId), {
+          userId: userId || 'anonymous',
+          token: syntheticToken,
+          platform: 'web',
+          userAgent: navigator.userAgent.slice(0, 250),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
     } catch (err) {
       console.warn('Firebase push device sync note:', err);
     }
 
-    // Store in Supabase profiles/metadata if user is signed in
+    // Store in Supabase profiles if user is signed in
     if (userId) {
       try {
         await supabase
@@ -72,36 +100,61 @@ export async function registerPushNotification(userId?: string): Promise<{ succe
 }
 
 /**
- * Dispatch real-time web push notification with sound and GGD site logo
+ * Dispatch real-time notification with sound, vibration, native push, in-app toast, and persistence
  */
 export async function triggerRealtimePush(payload: PushNotificationPayload): Promise<boolean> {
   const icon = payload.icon || GGD_SITE_LOGO;
   const soundType = payload.type === 'bonus' || payload.type === 'credit_task' ? 'cash' : 'message';
   
-  if (soundType === 'cash') {
-    playMoneyTransferSound();
-  } else {
-    playNotificationChime();
-  }
+  // Play sound
+  try {
+    if (soundType === 'cash') {
+      playMoneyTransferSound();
+    } else {
+      playNotificationChime();
+    }
+  } catch {}
+
+  // Device vibration if supported
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([150, 75, 150]);
+    }
+  } catch {}
+
+  // In-app interactive Toast so users never miss an alert
+  toast(payload.title, {
+    description: payload.body,
+    action: payload.url ? {
+      label: 'View',
+      onClick: () => {
+        if (payload.url) {
+          window.location.href = payload.url;
+        }
+      },
+    } : undefined,
+  });
 
   // Save to Firebase Firestore notifications
   try {
-    await addDoc(collection(db, 'notifications'), {
-      userId: payload.userId || 'broadcast',
-      title: payload.title,
-      body: payload.body,
-      icon,
-      url: payload.url || '/',
-      type: payload.type || 'system',
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    });
+    if (db && payload.saveToDb !== false) {
+      await addDoc(collection(db, 'notifications'), {
+        userId: payload.userId || 'broadcast',
+        title: payload.title,
+        body: payload.body,
+        icon,
+        url: payload.url || '/',
+        type: payload.type || 'system',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
   } catch (err) {
     console.warn('Firebase notification record note:', err);
   }
 
-  // Save to Supabase notifications table for in-app bell sync
-  if (payload.userId) {
+  // Save to Supabase notifications table if requested
+  if (payload.userId && payload.saveToDb !== false) {
     try {
       await supabase.from('notifications').insert({
         user_id: payload.userId,
@@ -110,24 +163,24 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
         type: payload.type || 'system',
         link_url: payload.url || '/',
       });
-    } catch {}
+    } catch (err) {
+      console.warn('Supabase notification insert note:', err);
+    }
   }
 
-  // Native Web Push Notification display
+  // Native Web Push / ServiceWorker Notification display
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js') || await navigator.serviceWorker.ready;
-        if (registration && registration.showNotification) {
-          registration.showNotification(payload.title, {
-            body: payload.body,
-            icon,
-            badge: GGD_SITE_LOGO,
-            data: { url: payload.url || '/' },
-            tag: `ggd-${Date.now()}`,
-          });
-          return true;
-        }
+      const reg = await getOrRegisterServiceWorker();
+      if (reg && reg.showNotification) {
+        await reg.showNotification(payload.title, {
+          body: payload.body,
+          icon,
+          badge: GGD_SITE_LOGO,
+          data: { url: payload.url || '/' },
+          tag: `ggd-${Date.now()}`,
+        });
+        return true;
       }
       
       // Fallback window Notification
@@ -142,11 +195,53 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     }
   }
 
-  return false;
+  return true;
 }
 
 /**
- * Send Test Push Notification
+ * Dispatch an instant Quick Message notification to recipient
+ */
+export async function sendQuickMessageNotification({
+  recipientUserId,
+  senderName,
+  messagePreview,
+  chatUrl,
+}: {
+  recipientUserId: string;
+  senderName?: string;
+  messagePreview: string;
+  chatUrl?: string;
+}): Promise<void> {
+  const sender = senderName || 'GGD Member';
+  const title = `💬 Quick Message from ${sender}`;
+  const body = messagePreview.length > 100 ? `${messagePreview.slice(0, 97)}...` : messagePreview;
+
+  // Insert notification into recipient's database record
+  try {
+    await supabase.from('notifications').insert({
+      user_id: recipientUserId,
+      title,
+      message: body,
+      type: 'chat',
+      link_url: chatUrl || '/inbox',
+    });
+  } catch (err) {
+    console.warn('Could not insert message notification:', err);
+  }
+
+  // Also trigger active push sound + banner
+  await triggerRealtimePush({
+    userId: recipientUserId,
+    title,
+    body,
+    type: 'chat',
+    url: chatUrl || '/inbox',
+    saveToDb: false, // Already inserted above
+  });
+}
+
+/**
+ * Utility checks
  */
 export function isPushSupported(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window;
@@ -167,7 +262,7 @@ export async function requestPushPermission(userId?: string): Promise<boolean> {
 }
 
 export async function showPushNotification(payload: PushNotificationPayload): Promise<boolean> {
-  return triggerRealtimePush(payload);
+  return triggerRealtimePush({ ...payload, saveToDb: false });
 }
 
 export async function broadcastFeaturedProductNotification(product: {
@@ -185,6 +280,7 @@ export async function broadcastFeaturedProductNotification(product: {
     type: 'system',
   });
 }
+
 
 
 

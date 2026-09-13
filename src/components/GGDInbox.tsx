@@ -19,6 +19,7 @@ import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
 import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
 import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
+import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pushNotificationService";
 
 type Kind = "text" | "proof" | "system" | "action" | "voice";
 
@@ -432,6 +433,14 @@ const GGDInbox: React.FC = () => {
         setMessages((p) => p.filter((x) => x.id !== optimisticId));
       } else if (data) {
         setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
+        
+        // Dispatch quick message push notification to recipient
+        sendQuickMessageNotification({
+          recipientUserId: activeOther,
+          senderName: myProfile?.display_name || 'GGD Member',
+          messagePreview: text,
+          chatUrl: `/inbox?chat=${me}`,
+        });
       }
     } catch (err) {
       toast.error("Network error sending message");
@@ -546,6 +555,13 @@ const GGDInbox: React.FC = () => {
         setMessages((p) => p.filter((x) => x.id !== optimisticId));
       } else if (data) {
         setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
+        
+        sendQuickMessageNotification({
+          recipientUserId: activeOther,
+          senderName: myProfile?.display_name || 'GGD Member',
+          messagePreview: '🎙️ Voice note received',
+          chatUrl: `/inbox?chat=${me}`,
+        });
       }
     } catch (err) {
       toast.error("Network error sending voice note");

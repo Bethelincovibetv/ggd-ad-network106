@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Send, Search, User, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { sendQuickMessageNotification } from "@/services/pushNotificationService";
 
 const AdminChatSystem = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -103,13 +104,27 @@ const AdminChatSystem = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedUser || !adminId) return;
-    await supabase.from('admin_chat_messages').insert({
-      sender_id: adminId,
-      receiver_id: selectedUser.user_id,
-      message: newMessage.trim(),
-    });
+    const text = newMessage.trim();
+    if (!text || !selectedUser || !adminId) return;
     setNewMessage('');
+    
+    try {
+      await supabase.from('admin_chat_messages').insert({
+        sender_id: adminId,
+        receiver_id: selectedUser.user_id,
+        message: text,
+      });
+
+      // Dispatch real-time push & notification to user
+      sendQuickMessageNotification({
+        recipientUserId: selectedUser.user_id,
+        senderName: 'GGD Admin Support',
+        messagePreview: text,
+        chatUrl: '/inbox',
+      });
+    } catch (err: any) {
+      toast.error('Failed to send message');
+    }
   };
 
   const filteredUsers = users.filter(u =>

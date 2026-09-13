@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
+import { sendQuickMessageNotification } from '@/services/pushNotificationService';
 import VoiceNoteRecorder from '@/components/chat/VoiceNoteRecorder';
 import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
 import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
@@ -177,15 +178,13 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
         setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as ChatMsg) : m)));
       }
 
-      // 2. Alert the business owner via notifications table
+      // 2. Alert the business owner via notifications table and real-time push
       try {
-        await supabase.from('notifications').insert({
-          user_id: businessUserId,
-          title: `💬 New Customer Message from ${currentUserName}`,
-          message: `${currentUserName}: ${text.slice(0, 120)}`,
-          type: 'message',
-          nav_target: 'inbox',
-          is_read: false,
+        await sendQuickMessageNotification({
+          recipientUserId: businessUserId,
+          senderName: currentUserName,
+          messagePreview: text,
+          chatUrl: '/inbox',
         });
       } catch {
         // Non-blocking notification

@@ -25,9 +25,14 @@ import AdminMarketingApps from "@/components/AdminMarketingApps";
 import AdminFeatureToggles from "@/components/AdminFeatureToggles";
 import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
+import AdminAdManager from "@/components/AdminAdManager";
+import AdminChatSystem from "@/components/AdminChatSystem";
+import { MessageSquare, LayoutGrid } from "lucide-react";
 
 const ADMIN_MODULES = [
   { id: 'syndicate', label: 'Syndicate Management', icon: Briefcase, color: 'from-purple-600 to-indigo-600', badge: 'Syndicate' },
+  { id: 'ads', label: 'Full Ad Manager', icon: Megaphone, color: 'from-amber-600 to-orange-600', badge: 'Ads' },
+  { id: 'chat', label: 'Support & Chat', icon: MessageSquare, color: 'from-blue-600 to-indigo-600', badge: 'Live' },
   { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
   { id: 'users', label: 'Users & KYC', icon: Users, color: 'from-orange-600 to-red-600' },
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
@@ -35,7 +40,7 @@ const ADMIN_MODULES = [
   { id: 'tasks', label: 'Credit Tasks', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },
   { id: 'slides', label: 'Banners', icon: Image, color: 'from-violet-600 to-indigo-600' },
   { id: 'api', label: 'API Keys', icon: Key, color: 'from-amber-600 to-yellow-600' },
-  { id: 'apps', label: 'Apps', icon: Megaphone, color: 'from-rose-600 to-pink-600' },
+  { id: 'apps', label: 'Apps', icon: LayoutGrid, color: 'from-rose-600 to-pink-600' },
   { id: 'videos', label: 'Videos', icon: Video, color: 'from-red-600 to-orange-600' },
   { id: 'guide', label: 'Admin Guide', icon: BookOpen, color: 'from-teal-600 to-emerald-600' },
 ];
@@ -77,6 +82,8 @@ const AdminPanel = () => {
       {/* Module Content Container */}
       <div className="w-full">
         {activeModule === 'syndicate' && <AdminSyndicateManager />}
+        {activeModule === 'ads' && <AdminAdManager />}
+        {activeModule === 'chat' && <AdminChatSystem />}
         {activeModule === 'analytics' && <AdminAnalytics />}
         {activeModule === 'users' && <AdminUserManager />}
         {activeModule === 'settings' && <AdminSettings />}
