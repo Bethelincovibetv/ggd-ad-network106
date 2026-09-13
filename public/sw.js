@@ -21,6 +21,36 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const isCall = data.type === 'call_incoming' || data.isCall === true || data.isCall === 'true';
+  const callType = data.callType === 'video' ? 'Video' : 'Audio';
+  const callerName = data.callerName || 'GGD Member';
+  const callId = data.callId || '';
+
+  if (isCall) {
+    const callTitle = `📞 Incoming ${callType} Call from ${callerName}`;
+    const callOptions = {
+      body: `Tap to answer incoming ${callType.toLowerCase()} call`,
+      icon: data.callerAvatar || GGD_LOGO,
+      badge: GGD_LOGO,
+      tag: `call-${callId || Date.now()}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [500, 250, 500, 250, 500, 250, 500, 250],
+      data: {
+        url: `/?callId=${callId}&action=accept`,
+        declineUrl: `/?callId=${callId}&action=decline`,
+        callId,
+        isCall: true,
+      },
+      actions: [
+        { action: 'answer', title: '📞 Accept Call' },
+        { action: 'decline', title: '❌ Decline' }
+      ]
+    };
+    event.waitUntil(self.registration.showNotification(callTitle, callOptions));
+    return;
+  }
+
   const title = data.title || 'GGD Ad Network';
   const options = {
     body: data.body || data.message || 'You have a new update from GGD Ad Network',
@@ -43,21 +73,25 @@ self.addEventListener('push', (event) => {
 // Notification Click Listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if (event.action === 'dismiss') return;
+  if (event.action === 'dismiss' || event.action === 'decline') return;
 
-  const urlToOpen = event.notification.data?.url || '/';
+  const isCall = event.notification.data?.isCall;
+  const targetUrl = isCall && event.action === 'answer'
+    ? event.notification.data?.url
+    : (event.notification.data?.url || '/');
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let client of windowClients) {
         if (client.url && 'focus' in client) {
-          if (client.url.includes(urlToOpen) || urlToOpen === '/') {
-            return client.focus();
+          if ('navigate' in client && targetUrl) {
+            client.navigate(targetUrl);
           }
+          return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(targetUrl);
       }
     })
   );

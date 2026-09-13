@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -9,6 +9,21 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export { firebaseConfig };
+
+export async function ensureFirebaseAuth() {
+  try {
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+    return auth.currentUser;
+  } catch (err) {
+    console.warn('Firebase anonymous auth note:', err);
+    return null;
+  }
+}
+
+// Ensure auth on initialization
+ensureFirebaseAuth();
 
 export enum OperationType {
   CREATE = 'create',

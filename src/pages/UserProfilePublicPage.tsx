@@ -15,6 +15,7 @@ import ggdLogo from '@/assets/ggd-logo.png';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import { toast } from '@/hooks/use-toast';
 import { WEBSITE_TEMPLATES, getWebsiteTemplate, DEFAULT_TEMPLATE_ID } from '@/utils/websiteTemplates';
+import { CallButton } from '@/components/call/CallButton';
 
 const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
   let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
@@ -636,6 +637,32 @@ const UserProfilePublicPage: React.FC = () => {
                       <MessageCircle className="h-4 w-4" />
                       <span>Chat on GGD</span>
                     </Button>
+
+                    {profile?.user_id && (
+                      <>
+                        <CallButton
+                          calleeId={profile.user_id}
+                          calleeName={name}
+                          calleeAvatar={logoImage || undefined}
+                          callType="audio"
+                          variant="outline"
+                          size="default"
+                          className="border-slate-200 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 hover:border-emerald-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl shadow-xs"
+                          showLabel
+                        />
+                        <CallButton
+                          calleeId={profile.user_id}
+                          calleeName={name}
+                          calleeAvatar={logoImage || undefined}
+                          callType="video"
+                          variant="outline"
+                          size="default"
+                          className="border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 hover:border-orange-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl shadow-xs"
+                          showLabel
+                        />
+                      </>
+                    )}
+
                     {brandedWa && (
                       <Button
                         onClick={() => window.open(brandedWa, '_blank')}

@@ -53,6 +53,62 @@
         "lastViewedAt": { "type": "string" }
       },
       "required": ["postId", "viewsCount", "lastViewedAt"]
+    },
+    "WebRTCCall": {
+      "title": "WebRTCCall",
+      "description": "Real-time peer-to-peer audio and video call signaling document",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string" },
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "callerAvatar": { "type": "string" },
+        "calleeId": { "type": "string" },
+        "calleeName": { "type": "string" },
+        "calleeAvatar": { "type": "string" },
+        "callType": { "type": "string", "enum": ["video", "audio"] },
+        "status": { "type": "string", "enum": ["ringing", "connected", "ended", "rejected", "busy", "missed"] },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "endedAt": { "type": "string" },
+        "durationSeconds": { "type": "number" }
+      },
+      "required": ["callId", "callerId", "calleeId", "callType", "status", "createdAt"]
+    },
+    "CallLog": {
+      "title": "CallLog",
+      "description": "Log record for completed, missed, or rejected audio/video calls",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string" },
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "callerAvatar": { "type": "string" },
+        "calleeId": { "type": "string" },
+        "calleeName": { "type": "string" },
+        "calleeAvatar": { "type": "string" },
+        "callType": { "type": "string", "enum": ["video", "audio"] },
+        "status": { "type": "string", "enum": ["connected", "ended", "rejected", "missed"] },
+        "durationSeconds": { "type": "number" },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["callId", "callerId", "calleeId", "callType", "status", "participants", "createdAt"]
+    },
+    "IceCandidate": {
+      "title": "IceCandidate",
+      "description": "WebRTC network connectivity candidates for peer-to-peer connection establishment",
+      "type": "object",
+      "properties": {
+        "candidate": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["candidate", "createdAt"]
     }
   },
   "firestore": {
@@ -71,6 +127,22 @@
     "/post_views/{postId}": {
       "schema": { "$ref": "#/entities/RealtimePostView" },
       "description": "Live real-time view counts per post or blog"
+    },
+    "/calls/{callId}": {
+      "schema": { "$ref": "#/entities/WebRTCCall" },
+      "description": "WebRTC active and past call signaling records"
+    },
+    "/calls/{callId}/callerCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidate" },
+      "description": "Caller ICE network candidates"
+    },
+    "/calls/{callId}/calleeCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidate" },
+      "description": "Callee ICE network candidates"
+    },
+    "/call_logs/{logId}": {
+      "schema": { "$ref": "#/entities/CallLog" },
+      "description": "Call history records for incoming, outgoing, and missed calls"
     }
   }
 }

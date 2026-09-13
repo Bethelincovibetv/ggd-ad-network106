@@ -1359,20 +1359,26 @@ const AdminSyndicateManager = () => {
                             {s.paystack_subaccount_code || 'Not Registered'}
                           </span>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!s.account_number || syncingSubaccountId === s.user_id}
-                          onClick={() => syncMemberSubaccount(s)}
-                          className="h-6 text-[10px] px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/50"
-                        >
-                          {syncingSubaccountId === s.user_id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Zap className="h-3 w-3 mr-0.5" />
-                          )}
-                          {s.paystack_subaccount_code ? 'Resync' : 'Register'}
-                        </Button>
+                        {s.paystack_subaccount_code ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
+                            <Check className="h-3 w-3 mr-0.5" /> Active
+                          </Badge>
+                        ) : s.account_number ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!s.account_number || syncingSubaccountId === s.user_id}
+                            onClick={() => syncMemberSubaccount(s)}
+                            className="h-6 text-[10px] px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/50 font-semibold"
+                          >
+                            {syncingSubaccountId === s.user_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Zap className="h-3 w-3 mr-0.5" />
+                            )}
+                            Register
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
 

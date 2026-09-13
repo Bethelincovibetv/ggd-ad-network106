@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   Wallet,
   Clock,
@@ -20,12 +21,22 @@ import {
   Copy,
   Eye,
   EyeOff,
-  UserCheck
+  UserCheck,
+  ShieldCheck,
+  KeyRound,
+  Shield,
+  Check
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { POPULAR_NIGERIAN_BANKS, fetchNigerianBanks, findBankCode, NigerianBank } from "@/utils/nigerianBanks";
-import { resolveBankAccountPaystack, registerPaystackSubaccount } from "@/utils/paystackBank";
+import {
+  resolveBankAccountPaystack,
+  registerPaystackSubaccount,
+  directUpdateSyndicateSubaccountWithPin,
+  hashSecurityPin,
+  verifySecurityPin
+} from "@/utils/paystackBank";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
 const maskAccountNumber = (acc?: string | null) => {
@@ -59,7 +70,27 @@ const SyndicateWallet = () => {
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [savingBank, setSavingBank] = useState(false);
 
-  // Bank Change Request State
+  // Direct Sub-Account Update (PIN-Gated) State
+  const [showDirectModal, setShowDirectModal] = useState(false);
+  const [directBankCode, setDirectBankCode] = useState('');
+  const [directBankName, setDirectBankName] = useState('');
+  const [directAccountNumber, setDirectAccountNumber] = useState('');
+  const [directAccountNameInput, setDirectAccountNameInput] = useState('');
+  const [directResolving, setDirectResolving] = useState(false);
+  const [directVerifiedName, setDirectVerifiedName] = useState<string | null>(null);
+  const [directPin, setDirectPin] = useState('');
+  const [directConfirmPin, setDirectConfirmPin] = useState('');
+  const [showDirectPin, setShowDirectPin] = useState(false);
+  const [updatingDirectSubaccount, setUpdatingDirectSubaccount] = useState(false);
+
+  // Security PIN Management State
+  const [showPinManagementModal, setShowPinManagementModal] = useState(false);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmNewPinInput, setConfirmNewPinInput] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
+
+  // Bank Change Request State (Fallback)
   const [showChangeModal, setShowChangeModal] = useState(false);
   const [changeBankCode, setChangeBankCode] = useState('');
   const [changeBankName, setChangeBankName] = useState('');
@@ -214,6 +245,155 @@ const SyndicateWallet = () => {
       toast.error(err.message || "Failed to save bank account");
     } finally {
       setSavingBank(false);
+    }
+  };
+
+  const hasPinSet = Boolean(profile?.bank_pin_hash || profile?.withdraw_pin_hash);
+
+  // Resolve bank account for Direct Sub-Account Update
+  const handleResolveDirectBank = async (bankCode: string, bankName: string, accNum: string, overrideName?: string) => {
+    if (!bankCode || !accNum || accNum.trim().length !== 10) {
+      setDirectVerifiedName(null);
+      return;
+    }
+
+    setDirectResolving(true);
+    try {
+      const res = await resolveBankAccountPaystack(accNum, bankCode, bankName, overrideName || directAccountNameInput);
+      if (res.success && res.account_name) {
+        setDirectVerifiedName(res.account_name);
+        setDirectAccountNameInput(res.account_name);
+        toast.success(`NUBAN Account Verified: ${res.account_name}`);
+      } else {
+        setDirectVerifiedName(null);
+        if (res.error) {
+          toast.error(res.error);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Could not verify bank account with Paystack");
+      setDirectVerifiedName(null);
+    } finally {
+      setDirectResolving(false);
+    }
+  };
+
+  // Execute Direct Paystack Sub-Account Update with PIN Gating
+  const handleDirectSubaccountUpdate = async () => {
+    if (!directBankName || !directAccountNumber || directAccountNumber.length !== 10) {
+      toast.error("Select new bank and enter a valid 10-digit account number");
+      return;
+    }
+    const finalName = directVerifiedName || directAccountNameInput;
+    if (!finalName || !finalName.trim()) {
+      toast.error("Please verify the account name with Paystack first");
+      return;
+    }
+
+    if (!directPin || directPin.trim().length < 4) {
+      toast.error("Please enter your 4-digit Security PIN to authorize this update");
+      return;
+    }
+
+    if (!hasPinSet) {
+      if (directPin !== directConfirmPin) {
+        toast.error("PIN confirmation does not match. Please re-enter.");
+        return;
+      }
+    }
+
+    setUpdatingDirectSubaccount(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const resolvedCode = directBankCode || findBankCode(directBankName) || '';
+
+      const res = await directUpdateSyndicateSubaccountWithPin({
+        userId: user.id,
+        bankCode: resolvedCode,
+        bankName: directBankName.trim(),
+        accountNumber: directAccountNumber.trim(),
+        accountName: finalName.trim().toUpperCase(),
+        pin: directPin.trim(),
+        subaccountCode: profile?.paystack_subaccount_code,
+        subaccountId: profile?.paystack_subaccount_id,
+      });
+
+      if (!res.success) {
+        toast.error(res.error || "Sub-account update failed");
+        return;
+      }
+
+      toast.success("⚡ Paystack Sub-Account & Bank Details updated successfully via PIN authorization!");
+      setShowDirectModal(false);
+      setDirectAccountNumber('');
+      setDirectBankName('');
+      setDirectBankCode('');
+      setDirectVerifiedName(null);
+      setDirectAccountNameInput('');
+      setDirectPin('');
+      setDirectConfirmPin('');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update subaccount");
+    } finally {
+      setUpdatingDirectSubaccount(false);
+    }
+  };
+
+  // Manage / Update Security PIN
+  const handleSaveOrUpdatePin = async () => {
+    if (newPinInput.length < 4) {
+      toast.error("New PIN must be at least 4 digits");
+      return;
+    }
+    if (newPinInput !== confirmNewPinInput) {
+      toast.error("New PIN and confirmation do not match");
+      return;
+    }
+
+    setSavingPin(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const storedHash = profile?.bank_pin_hash || profile?.withdraw_pin_hash;
+      if (storedHash) {
+        if (!currentPinInput) {
+          toast.error("Please enter your current Security PIN to change it");
+          setSavingPin(false);
+          return;
+        }
+        const isValid = await verifySecurityPin(currentPinInput, storedHash);
+        if (!isValid) {
+          toast.error("Current PIN is incorrect");
+          setSavingPin(false);
+          return;
+        }
+      }
+
+      const newHash = await hashSecurityPin(newPinInput);
+      const { error: upErr } = await supabase
+        .from('syndicate_profiles')
+        .update({
+          bank_pin_hash: newHash,
+          withdraw_pin_hash: newHash,
+        } as any)
+        .eq('user_id', user.id);
+
+      if (upErr) throw upErr;
+
+      toast.success("Security PIN saved successfully!");
+      setShowPinManagementModal(false);
+      setCurrentPinInput('');
+      setNewPinInput('');
+      setConfirmNewPinInput('');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save Security PIN");
+    } finally {
+      setSavingPin(false);
     }
   };
 
@@ -428,17 +608,44 @@ const SyndicateWallet = () => {
                   </div>
                 </div>
 
-                {profile?.paystack_recipient_code && (
+                {profile?.paystack_subaccount_code && (
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Paystack Recipient ID</span>
-                      <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">{profile.paystack_recipient_code}</p>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Paystack Sub-Account</span>
+                      <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">{profile.paystack_subaccount_code}</p>
                     </div>
-                    <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[10px]">
-                      ⚡ Instant Settlement Active
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                      <Check className="h-3 w-3 mr-1" /> Active for Direct Payouts
                     </Badge>
                   </div>
                 )}
+
+                {/* Security PIN Status */}
+                <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-purple-600" />
+                    <div>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Account Security PIN</span>
+                      <p className="text-xs font-bold text-foreground">
+                        {hasPinSet ? '4-Digit Security PIN Configured' : 'PIN Not Configured Yet'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-[11px] font-bold text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-50"
+                    onClick={() => {
+                      setCurrentPinInput('');
+                      setNewPinInput('');
+                      setConfirmNewPinInput('');
+                      setShowPinManagementModal(true);
+                    }}
+                  >
+                    <KeyRound className="h-3 w-3 mr-1" />
+                    {hasPinSet ? 'Change PIN' : 'Set PIN'}
+                  </Button>
+                </div>
               </div>
 
               {/* Settlement Info Box */}
@@ -464,21 +671,28 @@ const SyndicateWallet = () => {
                 </div>
               )}
 
-              {/* Request Bank Change Trigger */}
-              {!pendingChangeRequest && (
-                <div className="pt-1">
-                  <Button
-                    variant="outline"
-                    className="w-full h-11 text-xs font-bold rounded-xl border-dashed hover:bg-secondary/70 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowChangeModal(true)}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Request Bank Account Change
-                  </Button>
-                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-                    For security, payout account modifications require Paystack account resolution & Admin approval.
-                  </p>
-                </div>
-              )}
+              {/* Direct Sub-Account Update Trigger (PIN Gated) */}
+              <div className="space-y-2 pt-1">
+                <Button
+                  onClick={() => {
+                    setDirectBankCode('');
+                    setDirectBankName('');
+                    setDirectAccountNumber('');
+                    setDirectAccountNameInput('');
+                    setDirectVerifiedName(null);
+                    setDirectPin('');
+                    setDirectConfirmPin('');
+                    setShowDirectModal(true);
+                  }}
+                  className="w-full h-12 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+                >
+                  <Zap className="h-4 w-4 text-yellow-300" />
+                  Direct Update Sub-Account & Bank (Instant with PIN)
+                </Button>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Update your payout sub-account directly using your 4-digit PIN. Instant execution via API without admin approval delay.
+                </p>
+              </div>
             </div>
           ) : (
             /* INITIAL BANK VERIFICATION & SETUP FORM */
@@ -586,62 +800,75 @@ const SyndicateWallet = () => {
         </CardContent>
       </Card>
 
-      {/* Bank Change Request Modal */}
-      {showChangeModal && (
-        <Card className="border-2 border-purple-300 shadow-xl rounded-2xl overflow-hidden bg-background">
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white flex justify-between items-center">
-            <h4 className="font-bold text-sm flex items-center gap-1.5">
-              <RefreshCw className="h-4 w-4" /> Request Bank Account Change
-            </h4>
-            <Button size="sm" variant="ghost" className="h-7 text-xs text-white hover:bg-white/20" onClick={() => setShowChangeModal(false)}>
-              Cancel
-            </Button>
+      {/* Direct Sub-Account Update Modal (PIN Gated) */}
+      <Dialog open={showDirectModal} onOpenChange={setShowDirectModal}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-card">
+          <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 p-5 text-white">
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
+                <Zap className="h-5 w-5 text-yellow-300" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-white">Direct Sub-Account Update</DialogTitle>
+                <DialogDescription className="text-xs text-purple-100 mt-0.5">
+                  Authorize with your Security PIN for instant execution
+                </DialogDescription>
+              </div>
+            </div>
+
+            {profile?.paystack_subaccount_code && (
+              <div className="mt-3 bg-white/10 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs border border-white/10">
+                <span className="text-[10px] text-purple-200 uppercase font-semibold">Current Sub-Account ID</span>
+                <span className="font-mono font-bold text-white">{profile.paystack_subaccount_code}</span>
+              </div>
+            )}
           </div>
-          <CardContent className="p-4 space-y-4">
+
+          <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             <div>
-              <Label className="text-xs font-bold text-foreground">New Nigerian Bank</Label>
+              <Label className="text-xs font-bold text-foreground">Select Nigerian Bank</Label>
               <select
-                aria-label="New Bank"
-                value={changeBankCode}
+                aria-label="Select Direct Bank"
+                value={directBankCode}
                 onChange={(e) => {
                   const code = e.target.value;
                   const found = bankList.find(b => b.code === code);
-                  setChangeBankCode(code);
-                  setChangeBankName(found?.name || '');
-                  if (code && changeAccountNumber.length === 10) {
-                    handleResolveChangeBank(code, found?.name || '', changeAccountNumber);
+                  setDirectBankCode(code);
+                  setDirectBankName(found?.name || '');
+                  if (code && directAccountNumber.length === 10) {
+                    handleResolveDirectBank(code, found?.name || '', directAccountNumber);
                   }
                 }}
                 className="mt-1.5 w-full h-11 text-xs rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
               >
-                <option value="">-- Choose New Bank --</option>
+                <option value="">-- Choose Nigerian Bank --</option>
                 {bankList.map(b => (
-                  <option key={`change-${b.code}-${b.name}`} value={b.code}>{b.name}</option>
+                  <option key={`direct-${b.code}-${b.name}`} value={b.code}>{b.name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <Label className="text-xs font-bold text-foreground">New 10-Digit Account Number</Label>
+              <Label className="text-xs font-bold text-foreground">10-Digit NUBAN Account Number</Label>
               <div className="relative mt-1.5">
                 <Input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
-                  value={changeAccountNumber}
+                  value={directAccountNumber}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
-                    setChangeAccountNumber(val);
-                    if (val.length === 10 && changeBankCode) {
-                      handleResolveChangeBank(changeBankCode, changeBankName, val);
+                    setDirectAccountNumber(val);
+                    if (val.length === 10 && directBankCode) {
+                      handleResolveDirectBank(directBankCode, directBankName, val);
                     } else {
-                      setChangeVerifiedName(null);
+                      setDirectVerifiedName(null);
                     }
                   }}
-                  placeholder="0123456789"
+                  placeholder="e.g. 0123456789"
                   className="h-11 text-sm font-mono font-bold tracking-wider"
                 />
-                {changeResolving && (
+                {directResolving && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold bg-background/80 px-2 py-1 rounded">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying...
                   </div>
@@ -649,12 +876,12 @@ const SyndicateWallet = () => {
               </div>
             </div>
 
-            {changeVerifiedName ? (
-              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-900 text-xs flex items-center gap-2 animate-in fade-in">
-                <ShieldCheck className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+            {directVerifiedName ? (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2.5 animate-in fade-in">
+                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                 <div>
-                  <p className="text-[9px] uppercase font-bold text-emerald-700">Verified Name (Paystack)</p>
-                  <p className="text-xs font-bold">{changeVerifiedName}</p>
+                  <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Name</p>
+                  <p className="text-xs font-black text-foreground">{directVerifiedName}</p>
                 </div>
               </div>
             ) : (
@@ -662,36 +889,167 @@ const SyndicateWallet = () => {
                 <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
                 <Input
                   type="text"
-                  value={changeAccountNameInput}
-                  onChange={(e) => setChangeAccountNameInput(e.target.value)}
-                  placeholder="Name on bank account"
+                  value={directAccountNameInput}
+                  onChange={(e) => setDirectAccountNameInput(e.target.value)}
+                  placeholder="Official name on bank account"
                   className="mt-1 h-10 text-xs font-semibold"
                 />
               </div>
             )}
 
+            {/* Security PIN Authorization Gating */}
+            <div className="pt-2 border-t border-border/50 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-foreground">
+                    {hasPinSet ? 'Enter 4-Digit Security PIN' : 'Create 4-Digit Security PIN'}
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    {hasPinSet
+                      ? 'Required to authorize direct sub-account update without admin delay'
+                      : 'This PIN will protect your payout account against unauthorized changes'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Input
+                  type={showDirectPin ? "text" : "password"}
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={directPin}
+                  onChange={(e) => setDirectPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  className="h-11 text-center font-mono text-lg tracking-widest font-bold pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDirectPin(!showDirectPin)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showDirectPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {!hasPinSet && (
+                <div>
+                  <Label className="text-xs font-bold text-foreground">Confirm Security PIN</Label>
+                  <Input
+                    type={showDirectPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={directConfirmPin}
+                    onChange={(e) => setDirectConfirmPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    className="mt-1 h-11 text-center font-mono text-lg tracking-widest font-bold"
+                  />
+                </div>
+              )}
+            </div>
+
+            <Button
+              disabled={
+                !directBankCode ||
+                directAccountNumber.length !== 10 ||
+                !(directVerifiedName || directAccountNameInput) ||
+                directPin.length < 4 ||
+                (!hasPinSet && directPin !== directConfirmPin) ||
+                updatingDirectSubaccount
+              }
+              onClick={handleDirectSubaccountUpdate}
+              className="w-full h-12 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md transition-all active:scale-[0.99]"
+            >
+              {updatingDirectSubaccount ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2 text-yellow-300" />
+              )}
+              Authorize & Update Sub-Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Security PIN Setup / Management Modal */}
+      <Dialog open={showPinManagementModal} onOpenChange={setShowPinManagementModal}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-card">
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center">
+              <KeyRound className="h-5 w-5 text-purple-400" />
+            </div>
             <div>
-              <Label className="text-xs font-bold text-foreground">Reason for Change (Optional)</Label>
+              <DialogTitle className="text-sm font-bold text-white">
+                {hasPinSet ? 'Change Security PIN' : 'Set Security PIN'}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-300 mt-0.5">
+                Protects payout sub-account and withdrawal actions
+              </DialogDescription>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {hasPinSet && (
+              <div>
+                <Label className="text-xs font-bold text-foreground">Current 4-Digit PIN</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={currentPinInput}
+                  onChange={(e) => setCurrentPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  className="mt-1 h-11 text-center font-mono text-lg tracking-widest font-bold"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label className="text-xs font-bold text-foreground">
+                {hasPinSet ? 'New 4-Digit PIN' : 'Enter 4-Digit PIN'}
+              </Label>
               <Input
-                type="text"
-                value={changeReason}
-                onChange={(e) => setChangeReason(e.target.value)}
-                placeholder="e.g. Switched to corporate bank account"
-                className="mt-1 h-10 text-xs font-medium"
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={newPinInput}
+                onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="••••"
+                className="mt-1 h-11 text-center font-mono text-lg tracking-widest font-bold"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-foreground">Confirm 4-Digit PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={confirmNewPinInput}
+                onChange={(e) => setConfirmNewPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="••••"
+                className="mt-1 h-11 text-center font-mono text-lg tracking-widest font-bold"
               />
             </div>
 
             <Button
-              disabled={!changeBankCode || changeAccountNumber.length !== 10 || !(changeVerifiedName || changeAccountNameInput) || submittingChange}
-              onClick={handleSubmitBankChangeRequest}
+              disabled={
+                newPinInput.length < 4 ||
+                newPinInput !== confirmNewPinInput ||
+                (hasPinSet && !currentPinInput) ||
+                savingPin
+              }
+              onClick={handleSaveOrUpdatePin}
               className="w-full h-11 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white"
             >
-              {submittingChange ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
-              Submit Bank Change Request for Approval
+              {savingPin ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+              Save Security PIN
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payout History */}
       <Card className="border-0 shadow-md rounded-2xl overflow-hidden">

@@ -48,5 +48,23 @@ service cloud.firestore {
       allow create, update: if true;
       allow delete: if isAdmin();
     }
+
+    // Real-time Peer-to-Peer WebRTC Audio/Video Call Signaling
+    match /calls/{callId} {
+      allow read, create, update, delete: if true;
+
+      match /callerCandidates/{candidateId} {
+        allow read, create, update, delete: if true;
+      }
+
+      match /calleeCandidates/{candidateId} {
+        allow read, create, update, delete: if true;
+      }
+    }
+
+    // Call Logs & History
+    match /call_logs/{logId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

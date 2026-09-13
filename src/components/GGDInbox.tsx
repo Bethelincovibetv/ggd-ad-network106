@@ -20,6 +20,13 @@ import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
 import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
 import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pushNotificationService";
+import { CallButton } from "@/components/call/CallButton";
+import { CallHistoryList } from "@/components/call/CallHistoryList";
+import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
+import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
+import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
+import { p2pImageTransfer } from "@/services/webrtcDataChannel";
+import { Phone, PhoneCall } from "lucide-react";
 
 type Kind = "text" | "proof" | "system" | "action" | "voice";
 
@@ -81,7 +88,9 @@ const GGDInbox: React.FC = () => {
   const { isEnabled } = useFeatureToggles();
   const globalChatEnabled = isEnabled("global_network_chat");
   const [me, setMe] = useState<string>("");
-  const [tab, setTab] = useState<"business" | "syndicate" | "global">("business");
+  const [inboxView, setInboxView] = useState<"messages" | "calls">("messages");
+  const [ephemeralImages, setEphemeralImages] = useState<EphemeralImageRecord[]>([]);
+  const [tab, setTab] = useState<"business" | "syndicate" | "global">("global");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeOther, setActiveOther] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -321,6 +330,14 @@ const GGDInbox: React.FC = () => {
       .maybeSingle();
     setOtherProfile((prof as any) || null);
 
+    // Load ephemeral peer images from local IndexedDB (zero cloud storage)
+    try {
+      const p2pImgs = await getEphemeralImagesForPeer(otherId);
+      setEphemeralImages(p2pImgs);
+    } catch (e) {
+      console.warn("Could not load ephemeral images:", e);
+    }
+
     let msgQuery = supabase
       .from("p2p_messages")
       .select("*")
@@ -365,7 +382,19 @@ const GGDInbox: React.FC = () => {
     setOtherProfile(null);
     setMessages([]);
     setAssignment(null);
+    setEphemeralImages([]);
   };
+
+  // Real-time listener for incoming P2P images
+  useEffect(() => {
+    if (!activeOther) return;
+    const unsub = p2pImageTransfer.onImageReceived((record) => {
+      if (record.peerId === activeOther || record.senderId === activeOther) {
+        setEphemeralImages((prev) => [record, ...prev.filter((x) => x.id !== record.id)]);
+      }
+    });
+    return () => unsub();
+  }, [activeOther]);
 
   // ---- Send text ----
   const send = async () => {
@@ -630,11 +659,17 @@ const GGDInbox: React.FC = () => {
     });
   };
 
-  // ---- Filter by tab ----
+  // ---- Unified Global Network conversations (Single source of truth) ----
   const shownThreads = useMemo(() => {
-    if (tab === "global") return threads; // all convos are searchable via inbox list too
-    return threads.filter((t) => t.scope === tab);
-  }, [threads, tab]);
+    if (!search.trim()) return threads;
+    const q = search.toLowerCase().trim();
+    return threads.filter(
+      (t) =>
+        t.displayName.toLowerCase().includes(q) ||
+        (t.email && t.email.toLowerCase().includes(q)) ||
+        t.lastMessage.toLowerCase().includes(q)
+    );
+  }, [threads, search]);
 
   // ---- Pinned metadata (only for Business viewer + when proof submitted) ----
   const iAmBusinessInThisTask = tab === "business" || (assignment && assignment.syndicate_user_id !== me);
@@ -659,6 +694,24 @@ const GGDInbox: React.FC = () => {
           <div className="min-w-0 flex-1">
             <p className="font-bold text-sm truncate">{otherProfile?.business_name || otherProfile?.display_name || "Member"}</p>
             {taskTitle && <p className="text-[10px] text-orange-100 truncate">{taskTitle}</p>}
+          </div>
+
+          {/* WebRTC Live Audio & Video Call Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <CallButton
+              calleeId={activeOther}
+              calleeName={otherProfile?.business_name || otherProfile?.display_name || "Member"}
+              calleeAvatar={otherProfile?.avatar_url || undefined}
+              callType="audio"
+              className="h-8 w-8 bg-white/15 hover:bg-white/30 text-white border-white/20 shadow-xs"
+            />
+            <CallButton
+              calleeId={activeOther}
+              calleeName={otherProfile?.business_name || otherProfile?.display_name || "Member"}
+              calleeAvatar={otherProfile?.avatar_url || undefined}
+              callType="video"
+              className="h-8 w-8 bg-white/15 hover:bg-white/30 text-white border-white/20 shadow-xs"
+            />
           </div>
         </div>
 
@@ -707,7 +760,31 @@ const GGDInbox: React.FC = () => {
           <div className="flex-1 flex flex-col min-w-0">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
-              {messages.length === 0 && (
+              {/* P2P Ephemeral Real-time Images */}
+              {ephemeralImages.length > 0 && (
+                <div className="space-y-2 pb-3 mb-2 border-b border-dashed border-amber-500/30">
+                  <div className="flex items-center justify-between px-1 text-xs">
+                    <span className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Real-time Ephemeral Images ({ephemeralImages.length})
+                    </span>
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40 bg-amber-500/10">
+                      P2P DataChannel • 24h Expiry
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {ephemeralImages.map((img) => (
+                      <EphemeralImageBubble
+                        key={img.id}
+                        image={img}
+                        onDeleted={(id) => setEphemeralImages((p) => p.filter((x) => x.id !== id))}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {messages.length === 0 && ephemeralImages.length === 0 && (
                 <div className="text-center py-10 space-y-2">
                   <MessageCircle className="h-10 w-10 text-muted-foreground/30 mx-auto" />
                   <p className="text-xs font-semibold text-foreground">Say hello — start the conversation.</p>
@@ -909,6 +986,14 @@ const GGDInbox: React.FC = () => {
 
                 <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
 
+                <EphemeralImageSender
+                  currentUserId={me}
+                  recipientUserId={activeOther}
+                  recipientUserName={otherProfile?.business_name || otherProfile?.display_name || "Contact"}
+                  onImageSent={(rec) => setEphemeralImages((prev) => [rec, ...prev.filter((x) => x.id !== rec.id)])}
+                  disabled={isSending}
+                />
+
                 <Input
                   value={input}
                   disabled={isSending}
@@ -944,98 +1029,162 @@ const GGDInbox: React.FC = () => {
 
   // Inbox list view
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <MessageCircle className="h-5 w-5 text-orange-500" />
-        <h2 className="text-lg font-black">GGD Inbox</h2>
+    <div className="space-y-4">
+      {/* Header with Global Network & Call History Toggles */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+            <Globe className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-black tracking-tight flex items-center gap-2">
+              <span>Global Network Hub</span>
+              <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-500/30">
+                Single Source of Truth
+              </Badge>
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Peer-to-peer conversations, calls & ephemeral image sharing
+            </p>
+          </div>
+        </div>
+
+        {/* View Switcher: Global Network Messages vs Call History */}
+        <div className="flex items-center bg-muted/60 p-1 rounded-xl border">
+          <button
+            type="button"
+            onClick={() => setInboxView("messages")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              inboxView === "messages"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <MessageCircle className="h-3.5 w-3.5 text-orange-500" />
+            <span>Messages ({threads.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInboxView("calls")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              inboxView === "calls"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <PhoneCall className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Call History</span>
+          </button>
+        </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className={`w-full grid ${globalChatEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
-          <TabsTrigger value="business" className="text-xs">
-            <Briefcase className="h-3 w-3 mr-1" /> {tabTitles.business}
-          </TabsTrigger>
-          <TabsTrigger value="syndicate" className="text-xs">
-            <Users className="h-3 w-3 mr-1" /> {tabTitles.syndicate}
-          </TabsTrigger>
-          {globalChatEnabled && (
-            <TabsTrigger value="global" className="text-xs">
-              <Globe className="h-3 w-3 mr-1" /> {tabTitles.global}
-            </TabsTrigger>
-          )}
-        </TabsList>
+      {inboxView === "calls" ? (
+        <CallHistoryList
+          userId={me}
+          onCallUser={(targetId) => openThread(targetId, null)}
+        />
+      ) : (
+        <div className="space-y-3">
+          {/* Global Network Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search Global Network by member, business, or recent message…"
+              className="pl-9 h-11 rounded-xl"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-        <TabsContent value={tab} className="mt-3 space-y-2">
-          {tab === "global" && (
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search any GGD member by name, email or business…"
-                className="pl-9 h-11"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          )}
-
-          {tab === "global" && search && (
-            <Card>
+          {search && (
+            <Card className="rounded-xl border-dashed">
               <CardContent className="p-0 divide-y">
                 {globalResults.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground text-center">No members match "{search}"</p>
-                ) : globalResults.map((p) => (
-                  <button
-                    key={p.user_id}
-                    onClick={() => openThread(p.user_id, null)}
-                    className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
-                      {p.avatar_url ? <img loading="lazy" src={p.avatar_url} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{p.business_name || p.display_name || p.email?.split("@")[0]}</p>
-                      <p className="text-xs text-muted-foreground truncate">{p.email}</p>
-                    </div>
-                    <Badge variant="outline" className="text-[10px]">Start Chat</Badge>
-                  </button>
-                ))}
+                  <p className="p-4 text-xs text-muted-foreground text-center">
+                    No new members found matching "{search}"
+                  </p>
+                ) : (
+                  globalResults.map((p) => (
+                    <button
+                      key={p.user_id}
+                      onClick={() => openThread(p.user_id, null)}
+                      className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
+                        {p.avatar_url ? (
+                          <img loading="lazy" src={p.avatar_url} className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-5 w-5 text-orange-600" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">
+                          {p.business_name || p.display_name || p.email?.split("@")[0]}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30">
+                        Start Direct Chat
+                      </Badge>
+                    </button>
+                  ))
+                )}
               </CardContent>
             </Card>
           )}
 
-          <Card>
+          {/* Unified Conversations List */}
+          <Card className="rounded-xl overflow-hidden shadow-xs">
             <CardContent className="p-0 divide-y">
               {shownThreads.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground text-center">
-                  {tab === "business" && "No business-side conversations yet. Syndicates who perform your tasks will appear here."}
-                  {tab === "syndicate" && "No syndicate-side conversations yet. Businesses whose tasks you accept will appear here."}
-                  {tab === "global" && "Search a member above to start a new direct chat."}
-                </p>
-              ) : shownThreads.map((t) => (
-                <button
-                  key={`${t.otherId}:${t.taskId || ""}`}
-                  onClick={() => openThread(t.otherId, t.taskId)}
-                  className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
-                >
-                  <div className="h-11 w-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
-                    {t.avatarUrl ? <img loading="lazy" src={t.avatarUrl} className="h-full w-full object-cover" /> : <User className="h-5 w-5 text-orange-600" />}
+                <div className="p-8 text-center space-y-2">
+                  <div className="h-10 w-10 rounded-full bg-orange-500/10 text-orange-600 flex items-center justify-center mx-auto">
+                    <Globe className="h-5 w-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm truncate">{t.displayName}</p>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {new Date(t.lastAt).toLocaleDateString()}
-                      </span>
+                  <p className="text-sm font-semibold text-foreground">
+                    No Global Network conversations yet
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    Search any member above to initiate a direct message, WebRTC audio/video call, or send peer-to-peer ephemeral images.
+                  </p>
+                </div>
+              ) : (
+                shownThreads.map((t) => (
+                  <button
+                    key={`${t.otherId}:${t.taskId || ""}`}
+                    onClick={() => openThread(t.otherId, t.taskId)}
+                    className="w-full text-left flex items-center gap-3 p-3.5 hover:bg-muted/40 transition group"
+                  >
+                    <div className="h-11 w-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
+                      {t.avatarUrl ? (
+                        <img loading="lazy" src={t.avatarUrl} className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="h-5 w-5 text-orange-600" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{t.lastMessage}</p>
-                  </div>
-                  {t.unread > 0 && <Badge className="bg-red-500 text-white text-[10px]">{t.unread}</Badge>}
-                </button>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-sm truncate group-hover:text-orange-600 transition-colors">
+                          {t.displayName}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {new Date(t.lastAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{t.lastMessage}</p>
+                    </div>
+                    {t.unread > 0 && (
+                      <Badge className="bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5">
+                        {t.unread}
+                      </Badge>
+                    )}
+                  </button>
+                ))
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 };

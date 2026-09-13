@@ -142,6 +142,17 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isRecording && e.key === 'Enter') {
+        e.preventDefault();
+        stopAndSend();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRecording, recordingSeconds]);
+
   if (isRecording) {
     return (
       <div className="flex items-center gap-2 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-transparent p-1.5 rounded-full border border-red-500/30 w-full animate-fadeIn">
@@ -168,24 +179,25 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
             {formatTime(recordingSeconds)}
           </span>
           <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">
-            Recording voice note...
+            Recording audio...
           </span>
         </div>
 
-        {/* Stop & Send button */}
+        {/* Post Record button */}
         <Button
           type="button"
           size="sm"
           onClick={stopAndSend}
           disabled={isProcessing}
-          className="h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs gap-1 px-3 shrink-0 shadow-sm"
+          className="h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs gap-1.5 px-3.5 shrink-0 shadow-sm hover:opacity-90 active:scale-95 transition-all"
+          title="Post Voice Record (Press Enter to post)"
         >
           {isProcessing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <>
               <Send className="h-3.5 w-3.5" />
-              <span>Send</span>
+              <span>Post Record</span>
             </>
           )}
         </Button>

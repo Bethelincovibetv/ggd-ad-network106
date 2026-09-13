@@ -12,6 +12,36 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
+  const isCall = payload.data?.type === 'call_incoming' || payload.data?.isCall === 'true';
+  const callType = payload.data?.callType === 'video' ? 'Video' : 'Audio';
+  const callerName = payload.data?.callerName || 'GGD Member';
+  const callId = payload.data?.callId || '';
+
+  if (isCall) {
+    const callTitle = `📞 Incoming ${callType} Call from ${callerName}`;
+    const callOptions = {
+      body: `Tap to answer incoming ${callType.toLowerCase()} call`,
+      icon: payload.data?.callerAvatar || '/favicon.png',
+      badge: '/favicon.png',
+      tag: `call-${callId || Date.now()}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [500, 250, 500, 250, 500, 250, 500, 250],
+      data: {
+        url: `/?callId=${callId}&action=accept`,
+        declineUrl: `/?callId=${callId}&action=decline`,
+        callId,
+        isCall: true,
+      },
+      actions: [
+        { action: 'answer', title: '📞 Accept Call' },
+        { action: 'decline', title: '❌ Decline' }
+      ]
+    };
+    self.registration.showNotification(callTitle, callOptions);
+    return;
+  }
+
   const notificationTitle = payload.notification?.title || payload.data?.title || 'GGD AD NETWORK Notification';
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'You have a new update from GGD AD NETWORK',
@@ -32,18 +62,28 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if (event.action === 'dismiss') return;
 
-  const urlToOpen = event.notification.data?.url || '/';
+  if (event.action === 'decline') {
+    return;
+  }
+
+  const isCall = event.notification.data?.isCall;
+  const targetUrl = isCall && event.action === 'answer'
+    ? event.notification.data?.url
+    : (event.notification.data?.url || '/');
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let client of windowClients) {
         if (client.url && 'focus' in client) {
+          if ('navigate' in client && targetUrl) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(targetUrl);
       }
     })
   );

@@ -7,6 +7,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
 import AdminChatWidget from "./components/AdminChatWidget";
+import { CallProvider } from "@/contexts/CallContext";
+import { IncomingCallBanner } from "@/components/call/IncomingCallBanner";
+import { CallModal } from "@/components/call/CallModal";
 
 const AdminPage = lazy(() => import("./components/AdminPage"));
 const BusinessDetailPage = lazy(() => import("./pages/BusinessDetailPage"));
@@ -33,30 +36,34 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/business/:id" element={<BusinessDetailPage />} />
-            <Route path="/user/:id" element={<UserProfilePublicPage />} />
-            <Route path="/b/:slug" element={<UserProfilePublicPage />} />
-            <Route path="/r/:slug" element={<RedirectPage />} />
-            <Route path="/s/:slug" element={<SharePreviewPage />} />
-            <Route path="/product/:id" element={<ProductDetailPage />} />
-            <Route path="/industry/:slug" element={<IndustryPage />} />
-            <Route path="/syndicate-register" element={<SyndicateRegister />} />
-            <Route path="/notifications" element={<NotificationsDedicatedPage />} />
-            <Route path="/guide" element={<GuideDedicatedPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <CallProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/business/:id" element={<BusinessDetailPage />} />
+              <Route path="/user/:id" element={<UserProfilePublicPage />} />
+              <Route path="/b/:slug" element={<UserProfilePublicPage />} />
+              <Route path="/r/:slug" element={<RedirectPage />} />
+              <Route path="/s/:slug" element={<SharePreviewPage />} />
+              <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/industry/:slug" element={<IndustryPage />} />
+              <Route path="/syndicate-register" element={<SyndicateRegister />} />
+              <Route path="/notifications" element={<NotificationsDedicatedPage />} />
+              <Route path="/guide" element={<GuideDedicatedPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </Suspense>
-          <AdminChatWidget />
-        </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            </Suspense>
+            <AdminChatWidget />
+            <IncomingCallBanner />
+            <CallModal />
+          </BrowserRouter>
+        </CallProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>
