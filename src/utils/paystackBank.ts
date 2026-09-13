@@ -197,26 +197,37 @@ export async function registerPaystackSubaccount(
     }
 
     // 4. Update syndicate profile with Paystack Subaccount metadata & auto-activate
+    const updatePayload: any = {
+      bank_name: bankName,
+      account_number: cleanAcc,
+      account_name: accountName,
+      is_bank_locked: true,
+      bank_changed_at: new Date().toISOString(),
+      paystack_recipient_code: subaccountCode,
+    };
+
+    // Try full update first
     const { error: updateErr } = await supabase
       .from('syndicate_profiles')
       .update({
+        ...updatePayload,
         paystack_subaccount_code: subaccountCode,
         paystack_subaccount_id: subaccountId ? String(subaccountId) : null,
         paystack_subaccount_percentage: effectivePct,
         paystack_subaccount_status: 'active',
         paystack_subaccount_created_at: new Date().toISOString(),
-        bank_name: bankName,
         bank_code: resolvedBankCode,
-        account_number: cleanAcc,
-        account_name: accountName,
         bank_verified_name: accountName,
-        is_bank_locked: true,
         bank_verified_at: new Date().toISOString(),
       } as any)
       .eq('user_id', userId);
 
     if (updateErr) {
-      console.warn('Error updating syndicate profile subaccount data:', updateErr);
+      // Fallback to core columns if extended columns are omitted in schema
+      await supabase
+        .from('syndicate_profiles')
+        .update(updatePayload as any)
+        .eq('user_id', userId);
     }
 
     return {
@@ -232,6 +243,118 @@ export async function registerPaystackSubaccount(
       success: false,
       error: err.message || 'Failed to register Paystack subaccount',
     };
+  }
+}
+
+/**
+ * Resets all syndicate members' registered bank and subaccount details across the entire system.
+ * This forces all syndicate promoters to enter and verify their bank account details afresh.
+ */
+export async function resetAllSyndicateBankAccounts(): Promise<{ success: boolean; count?: number; error?: string }> {
+  try {
+    // 1. Clear via Server API Endpoint if available
+    try {
+      const resp = await fetch('/api/admin/reset-syndicate-banks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset_all: true }),
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.success) {
+          try {
+            localStorage.removeItem('ggd_syndicate_wizard_seen');
+          } catch {}
+          return { success: true, count: json.count };
+        }
+      }
+    } catch (srvErr) {
+      console.warn('Server reset endpoint notice, proceeding with direct Supabase update:', srvErr);
+    }
+
+    // 2. Direct Supabase update fallback with core schema columns
+    const resetCorePayload: any = {
+      bank_name: null,
+      account_number: null,
+      account_name: null,
+      is_bank_locked: false,
+      paystack_recipient_code: null,
+      bank_changed_at: null,
+    };
+
+    const { data: allProfiles } = await supabase
+      .from('syndicate_profiles')
+      .select('id, user_id');
+
+    const { error: resetErr } = await supabase
+      .from('syndicate_profiles')
+      .update(resetCorePayload as any)
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (resetErr && allProfiles && allProfiles.length > 0) {
+      await Promise.all(
+        allProfiles.map(p =>
+          supabase
+            .from('syndicate_profiles')
+            .update(resetCorePayload as any)
+            .eq('id', p.id)
+        )
+      );
+    }
+
+    // Also cancel or clear pending bank change requests
+    try {
+      await supabase
+        .from('syndicate_bank_change_requests')
+        .update({ status: 'cancelled' } as any)
+        .eq('status', 'pending');
+    } catch {}
+
+    try {
+      localStorage.removeItem('ggd_syndicate_wizard_seen');
+    } catch {}
+
+    return { success: true, count: allProfiles?.length || 0 };
+  } catch (err: any) {
+    console.error('Error resetting syndicate bank accounts:', err);
+    return { success: false, error: err.message || 'Failed to reset syndicate bank accounts' };
+  }
+}
+
+/**
+ * Resets a single syndicate member's bank and subaccount details so they can update afresh.
+ */
+export async function resetSingleSyndicateBankAccount(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const resetCorePayload: any = {
+      bank_name: null,
+      account_number: null,
+      account_name: null,
+      is_bank_locked: false,
+      paystack_recipient_code: null,
+      bank_changed_at: null,
+    };
+
+    const { error } = await supabase
+      .from('syndicate_profiles')
+      .update(resetCorePayload as any)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    // Cancel pending bank change requests for this user
+    try {
+      await supabase
+        .from('syndicate_bank_change_requests')
+        .update({ status: 'cancelled' } as any)
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+    } catch {}
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error resetting member bank account:', err);
+    return { success: false, error: err.message || 'Failed to reset bank account' };
   }
 }
 

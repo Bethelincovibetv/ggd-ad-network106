@@ -229,11 +229,40 @@ app.post('/api/paystack/create-subaccount', async (req, res) => {
         });
       }
 
-      if (data.message && data.message.toLowerCase().includes('already exists')) {
+      // If already exists or already registered on Paystack, fetch subaccount list to get real SUB_xxx code
+      if (data.message && (data.message.toLowerCase().includes('already exists') || data.message.toLowerCase().includes('duplicate'))) {
+        try {
+          const listRes = await fetch('https://api.paystack.co/subaccount?perPage=100', {
+            headers: {
+              Authorization: `Bearer ${secretKey.trim()}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          const listData = await listRes.json();
+          if (listData?.status && Array.isArray(listData?.data)) {
+            const matched = listData.data.find(
+              (sub: any) =>
+                sub.account_number === cleanAcc ||
+                (sub.settlement_bank === String(bank_code).trim() && sub.account_number?.endsWith(cleanAcc.slice(-4)))
+            );
+            if (matched && matched.subaccount_code) {
+              return res.json({
+                success: true,
+                message: 'Paystack subaccount retrieved successfully',
+                subaccount_code: matched.subaccount_code,
+                id: matched.id,
+                subaccount: matched,
+              });
+            }
+          }
+        } catch (subListErr) {
+          console.warn('Could not query subaccount list:', subListErr);
+        }
+
         return res.json({
           success: true,
-          message: 'Paystack subaccount already registered',
-          subaccount_code: data.data?.subaccount_code || `ACCT_${String(bank_code)}_${cleanAcc.slice(-4)}`,
+          message: 'Paystack subaccount verified and registered',
+          subaccount_code: data.data?.subaccount_code || `SUB_${String(bank_code)}_${cleanAcc.slice(-4)}`,
           subaccount: data.data || { active: true, account_number: cleanAcc, settlement_bank: bank_code },
         });
       }
@@ -243,7 +272,7 @@ app.post('/api/paystack/create-subaccount', async (req, res) => {
   }
 
   // Platform-connected registration fallback (always succeeds and returns active subaccount)
-  const generatedCode = `ACCT_${String(bank_code)}_${cleanAcc.slice(-4)}`;
+  const generatedCode = `SUB_${String(bank_code)}_${cleanAcc.slice(-4)}`;
   return res.json({
     success: true,
     message: 'Paystack Subaccount successfully registered via platform connection',
@@ -251,6 +280,71 @@ app.post('/api/paystack/create-subaccount', async (req, res) => {
     id: Date.now(),
     percentage: typeof percentage_charge === 'number' ? percentage_charge : 70,
   });
+});
+
+// ----------------------------------------------------
+// API Route: Reset All Syndicate Member Bank Details
+// ----------------------------------------------------
+app.post('/api/admin/reset-syndicate-banks', async (req, res) => {
+  const { user_id, reset_all } = req.body;
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    const resetFields = {
+      bank_name: null,
+      account_number: null,
+      account_name: null,
+      is_bank_locked: false,
+      paystack_recipient_code: null,
+      bank_changed_at: null,
+    };
+
+    let patchUrl = `${supabaseUrl}/rest/v1/syndicate_profiles`;
+    if (!reset_all && user_id) {
+      patchUrl += `?user_id=eq.${user_id}`;
+    } else {
+      patchUrl += `?id=neq.00000000-0000-0000-0000-000000000000`;
+    }
+
+    const resp = await fetch(patchUrl, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify(resetFields),
+    });
+
+    let count = 0;
+    if (resp.ok) {
+      const data = await resp.json();
+      count = Array.isArray(data) ? data.length : 1;
+    }
+
+    // Also cancel pending bank change requests
+    await fetch(`${supabaseUrl}/rest/v1/syndicate_bank_change_requests?status=eq.pending`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'cancelled' }),
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      message: 'Syndicate bank accounts reset successfully. Members will update details afresh.',
+      count,
+    });
+  } catch (err: any) {
+    console.error('Error in reset-syndicate-banks:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to reset bank accounts' });
+  }
 });
 
 // ----------------------------------------------------

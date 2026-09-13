@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
-import { registerPaystackSubaccount } from "@/utils/paystackBank";
+import { registerPaystackSubaccount, resetAllSyndicateBankAccounts, resetSingleSyndicateBankAccount } from "@/utils/paystackBank";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 
 const PLATFORMS = ['WhatsApp Status', 'WhatsApp Group', 'WhatsApp Channel', 'Facebook', 'Telegram', 'TikTok', 'Instagram', 'Twitter/X'];
@@ -85,6 +85,11 @@ const AdminSyndicateManager = () => {
   // Withdrawal Reject modal
   const [rejectingWithdrawal, setRejectingWithdrawal] = useState<any | null>(null);
   const [withdrawalRejectReason, setWithdrawalRejectReason] = useState('');
+
+  // Reset Banks Modal State
+  const [showResetBanksModal, setShowResetBanksModal] = useState(false);
+  const [resettingBanks, setResettingBanks] = useState(false);
+  const [resettingMemberId, setResettingMemberId] = useState<string | null>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -364,6 +369,45 @@ const AdminSyndicateManager = () => {
       toast.error(err.message || 'Subaccount registration failed');
     } finally {
       setSyncingSubaccountId(null);
+    }
+  };
+
+  const handleResetAllBanks = async () => {
+    setResettingBanks(true);
+    try {
+      const res = await resetAllSyndicateBankAccounts();
+      if (res.success) {
+        toast.success(`All ${res.count || syndicates.length} syndicate member bank registrations have been reset. Promoters will update details afresh.`);
+        setShowResetBanksModal(false);
+        fetchData();
+      } else {
+        toast.error(res.error || 'Failed to reset bank accounts');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset bank accounts');
+    } finally {
+      setResettingBanks(false);
+    }
+  };
+
+  const handleResetSingleMemberBank = async (s: any) => {
+    const memberName = s._profile?.display_name || s._profile?.email || 'this promoter';
+    if (!window.confirm(`Reset registered bank details for ${memberName}? They will be prompted to re-verify their bank account and create a fresh Paystack subaccount.`)) {
+      return;
+    }
+    setResettingMemberId(s.user_id);
+    try {
+      const res = await resetSingleSyndicateBankAccount(s.user_id);
+      if (res.success) {
+        toast.success(`Bank details reset for ${memberName}`);
+        fetchData();
+      } else {
+        toast.error(res.error || 'Failed to reset bank details');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset bank details');
+    } finally {
+      setResettingMemberId(null);
     }
   };
 
@@ -1206,16 +1250,31 @@ const AdminSyndicateManager = () => {
 
         {/* TEAM / SYNDICATES TAB */}
         <TabsContent value="syndicates" className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search members by name, email, or state..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 rounded-xl bg-secondary/50 border-0 text-xs"
-            />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search members by name, email, or state..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 rounded-xl bg-secondary/50 border-0 text-xs"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowResetBanksModal(true)}
+              className="h-10 rounded-xl text-xs font-bold text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 shrink-0"
+            >
+              <RotateCw className="h-3.5 w-3.5 mr-1.5" /> Reset All Member Banks
+            </Button>
           </div>
-          <p className="text-xs text-muted-foreground font-medium">{syndicates.length} active syndicate members</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-medium">{syndicates.length} active syndicate members</p>
+            <p className="text-[11px] text-muted-foreground">
+              {syndicates.filter(s => s.account_number).length} verified bank accounts
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {syndicates
@@ -1255,15 +1314,33 @@ const AdminSyndicateManager = () => {
                     <div className="bg-secondary/30 rounded-xl p-2.5 space-y-1.5 text-[11px] border border-border/40">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-muted-foreground uppercase text-[9px] tracking-wider">Bank Details</span>
-                        {s.account_number ? (
-                          <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
-                            <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300">
-                            No Bank Set
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {s.account_number ? (
+                            <>
+                              <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
+                                <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> Verified
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={resettingMemberId === s.user_id}
+                                onClick={() => handleResetSingleMemberBank(s)}
+                                className="h-5 text-[9px] px-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              >
+                                {resettingMemberId === s.user_id ? (
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                ) : (
+                                  <RotateCw className="h-2.5 w-2.5 mr-0.5" />
+                                )}
+                                Reset
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300">
+                              No Bank Set
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       {s.account_number ? (
                         <div>
@@ -1761,6 +1838,57 @@ const AdminSyndicateManager = () => {
             </Button>
             <Button onClick={handleConfirmReassign} className="h-9 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white">
               Release to Pool
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RESET ALL SYNDICATE BANKS CONFIRMATION MODAL */}
+      <Dialog open={showResetBanksModal} onOpenChange={open => !open && !resettingBanks && setShowResetBanksModal(false)}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" /> Reset All Syndicate Member Banks?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
+              This action will <strong>clear all registered payout bank accounts</strong> and Paystack subaccount codes across all {syndicates.length} syndicate promoters.
+              <br /><br />
+              All members will be required to input their bank details afresh and pass live Paystack verification on their next visit to the Syndicate Wallet or Onboarding screen.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+            <p className="font-bold flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-amber-600" /> Clean Slate Re-Registration
+            </p>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300">
+              Useful for refreshing bank validation rules, clearing test records, or updating Paystack subaccount setups system-wide.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="ghost"
+              disabled={resettingBanks}
+              onClick={() => setShowResetBanksModal(false)}
+              className="h-9 rounded-xl text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={resettingBanks}
+              onClick={handleResetAllBanks}
+              className="h-9 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+            >
+              {resettingBanks ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Resetting {syndicates.length} Records...
+                </>
+              ) : (
+                <>
+                  <RotateCw className="h-3.5 w-3.5 mr-1.5" /> Confirm Reset All Banks
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
