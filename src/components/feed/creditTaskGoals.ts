@@ -1,4 +1,4 @@
-import { Youtube, Timer, ThumbsUp, MessageSquare, UserPlus, Globe, Share2, type LucideIcon } from 'lucide-react';
+import { Youtube, Timer, ThumbsUp, MessageSquare, UserPlus, Globe, Share2, Image as ImageIcon, FileText, type LucideIcon } from 'lucide-react';
 
 /** Promotion goals for Credit Tasks. These reuse the existing `tasks` table
  *  (task_type column) — no new task system is introduced. */
@@ -15,13 +15,15 @@ export interface CreditTaskGoal {
 }
 
 export const CREDIT_TASK_GOALS: CreditTaskGoal[] = [
-  { key: 'youtube_views',    label: 'YouTube Views',      hint: 'Users watch your video in the feed',      icon: Youtube,       youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
-  { key: 'youtube_watch',    label: 'YouTube Watch Time', hint: 'Users watch for a set duration',          icon: Timer,         youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
-  { key: 'youtube_likes',    label: 'YouTube Likes',      hint: 'Users watch then like your video',        icon: ThumbsUp,      youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
-  { key: 'youtube_comments', label: 'YouTube Comments',   hint: 'Users watch then comment',                icon: MessageSquare, youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
-  { key: 'youtube_subscribe',label: 'YouTube Subscribers',hint: 'Users watch then subscribe',              icon: UserPlus,      youtube: true,  timed: true,  urlLabel: 'YouTube channel / video URL' },
-  { key: 'website_visit',    label: 'Website Visits',     hint: 'Users visit your website or landing page',icon: Globe,         youtube: false, urlLabel: 'Website URL' },
-  { key: 'share',            label: 'Social Media Shares',hint: 'Users share your link on social media',   icon: Share2,        youtube: false, urlLabel: 'Link to share' },
+  { key: 'flyer_link',       label: 'Main Flyer & Link',  hint: 'Users share your promotional flyer and link', icon: ImageIcon, youtube: false, urlLabel: 'Destination link to share' },
+  { key: 'description',      label: 'Description & Copy', hint: 'Users copy & broadcast your text caption/copy', icon: FileText, youtube: false, urlLabel: 'Optional link to include' },
+  { key: 'share',            label: 'Full Promo Package', hint: 'Users share flyer, description and link',     icon: Share2,    youtube: false, urlLabel: 'Link to share' },
+  { key: 'youtube_views',    label: 'YouTube Views',      hint: 'Users watch your video in the feed',          icon: Youtube,   youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
+  { key: 'youtube_watch',    label: 'YouTube Watch Time', hint: 'Users watch for a set duration',              icon: Timer,     youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
+  { key: 'youtube_likes',    label: 'YouTube Likes',      hint: 'Users watch then like your video',            icon: ThumbsUp,  youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
+  { key: 'youtube_comments', label: 'YouTube Comments',   hint: 'Users watch then comment',                    icon: MessageSquare, youtube: true,  timed: true,  urlLabel: 'YouTube video URL' },
+  { key: 'youtube_subscribe',label: 'YouTube Subscribers',hint: 'Users watch then subscribe',                  icon: UserPlus,  youtube: true,  timed: true,  urlLabel: 'YouTube channel / video URL' },
+  { key: 'website_visit',    label: 'Website Visits',     hint: 'Users visit your website or landing page',    icon: Globe,     youtube: false, urlLabel: 'Website URL' },
 ];
 
 export const findGoal = (key?: string | null) =>

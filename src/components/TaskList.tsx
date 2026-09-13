@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
@@ -21,7 +21,7 @@ interface TaskListProps {
   onNavigate?: (tab: string) => void;
 }
 
-type TaskType = 'share' | 'social' | 'youtube';
+type TaskType = 'flyer_link' | 'description' | 'share' | 'youtube' | 'social';
 
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
@@ -38,6 +38,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
   const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
+  const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
@@ -107,8 +108,18 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   };
 
   const createTask = async () => {
-    if (!newTask.title.trim()) { toast.error("Title required"); return; }
-    if (selectedTaskType === 'youtube' && !newTask.share_url.trim()) { toast.error("YouTube URL required"); return; }
+    if (!newTask.title.trim()) { toast.error("Task title required"); return; }
+    
+    // Type-specific validation
+    if (selectedTaskType === 'flyer_link') {
+      if (!flyerFile && !flyerPreview) { toast.error("Please upload your main promotional flyer image"); return; }
+      if (!newTask.share_url.trim()) { toast.error("Destination share link is required"); return; }
+    } else if (selectedTaskType === 'description') {
+      if (!newTask.description.trim()) { toast.error("Please provide the marketing text / description copy"); return; }
+    } else if (selectedTaskType === 'youtube') {
+      if (!newTask.share_url.trim()) { toast.error("YouTube URL required"); return; }
+    }
+
     const rewardPerPerson = parseInt(newTask.reward_credits) || 5;
     const maxPeople = parseInt(newTask.max_completions) || 1;
     const totalCost = rewardPerPerson * maxPeople;
@@ -130,15 +141,15 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     if (creditError) { toast.error("Failed to deduct credits"); return; }
 
     const { error } = await supabase.from('tasks').insert([{
-      title: newTask.title,
-      description: newTask.description || null,
+      title: newTask.title.trim(),
+      description: newTask.description?.trim() || null,
       reward_credits: rewardPerPerson,
       task_type: selectedTaskType || 'share',
-      share_url: newTask.share_url || null,
+      share_url: newTask.share_url?.trim() || null,
       creator_id: user.id,
       funded: true,
       max_completions: maxPeople,
-      flyer_url: flyerUrl,
+      flyer_url: flyerUrl || null,
     }]);
     if (error) {
       await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
@@ -157,27 +168,40 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   };
 
   const SHARE_PLATFORMS = [
-    { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'bg-green-500', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}` },
-    { key: 'facebook', label: 'Facebook', icon: Facebook, color: 'bg-blue-600', build: (_text: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}` },
-    { key: 'telegram', label: 'Telegram', icon: Send, color: 'bg-sky-500', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
-    { key: 'twitter', label: 'X / Twitter', icon: Share2, color: 'bg-black', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
-    { key: 'pinterest', label: 'Pinterest', icon: Image, color: 'bg-red-600', build: (text: string, url: string, img?: string) => `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(text)}${img ? `&media=${encodeURIComponent(img)}` : ''}` },
+    { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'bg-green-500', build: (text: string, url: string) => `https://wa.me/?text=${encodeURIComponent(url ? `${text}\n${url}` : text)}` },
+    { key: 'facebook', label: 'Facebook', icon: Facebook, color: 'bg-blue-600', build: (text: string, url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url || window.location.origin)}&quote=${encodeURIComponent(text)}` },
+    { key: 'telegram', label: 'Telegram', icon: Send, color: 'bg-sky-500', build: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url || window.location.origin)}&text=${encodeURIComponent(text)}` },
+    { key: 'twitter', label: 'X / Twitter', icon: Share2, color: 'bg-black', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}${url ? `&url=${encodeURIComponent(url)}` : ''}` },
+    { key: 'pinterest', label: 'Pinterest', icon: Image, color: 'bg-red-600', build: (text: string, url: string, img?: string) => `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url || window.location.origin)}&description=${encodeURIComponent(text)}${img ? `&media=${encodeURIComponent(img)}` : ''}` },
     { key: 'instagram', label: 'Instagram (copy)', icon: Instagram, color: 'bg-pink-600', build: () => '' /* IG has no web share — copy + open */ },
   ];
 
   const openShare = async (task: any, platformKey: string) => {
     const platform = SHARE_PLATFORMS.find(p => p.key === platformKey);
-    if (!platform || !task.share_url) return;
-    // Generate (or reuse) a tracked smart share URL that shows the banner before redirect
-    const smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url;
-    const text = `${task.title}${task.description ? ` — ${task.description}` : ''}`;
+    if (!platform) return;
+    
+    let smartUrl = task.share_url || '';
+    if (task.share_url) {
+      smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url;
+    }
+    const text = [task.title, task.description].filter(Boolean).join('\n\n');
+    
     if (platformKey === 'instagram') {
-      navigator.clipboard.writeText(`${text}\n${smartUrl}`);
-      toast.success('Caption copied! Open Instagram to paste.');
+      const copyPayload = smartUrl ? `${text}\n\n${smartUrl}` : text;
+      navigator.clipboard.writeText(copyPayload);
+      toast.success('Caption & link copied! Open Instagram to paste.');
       window.open('https://www.instagram.com/', '_blank');
     } else {
       window.open(platform.build(text, smartUrl, task.flyer_url), '_blank', 'noopener,noreferrer');
     }
+  };
+
+  const copyTaskDescription = (task: any) => {
+    const text = [task.title, task.description, task.share_url].filter(Boolean).join('\n\n');
+    navigator.clipboard.writeText(text);
+    setCopiedTaskId(task.id);
+    toast.success('📋 Task copy text copied to clipboard!');
+    setTimeout(() => setCopiedTaskId(null), 2500);
   };
 
   const completeTask = async (task: any) => {
@@ -367,81 +391,138 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </h2>
       </div>
 
-      {/* Task Type Selector / Creator */}
+      {/* Task Type Selector / Creator Options */}
       {showCreate && !selectedTaskType && (
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="text-center mb-1">
-            <h3 className="text-sm font-bold text-foreground">Create Credit Task</h3>
-            <p className="text-[10px] text-muted-foreground">Select a community promotion task to reward users with GGD Credits</p>
+            <h3 className="text-sm font-bold text-foreground">Create Community Credit Task</h3>
+            <p className="text-[10px] text-muted-foreground">Choose how community members will promote your campaign for GGD Credits</p>
           </div>
 
-          {/* Normal Share Task */}
-          <Card
-            className="border border-border/50 hover:border-orange-500/40 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/5 overflow-hidden group"
-            onClick={() => setSelectedTaskType('share')}
-          >
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500/20 to-yellow-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Share2 className="h-6 w-6 text-orange-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-foreground">📢 Community Share Task</h4>
-                  <span className="text-[9px] font-bold bg-green-500/15 text-green-600 px-2 py-0.5 rounded-full">CREDITS</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* 1. Main Flyer & Link Task */}
+            <Card
+              className="border border-blue-500/30 hover:border-blue-500/60 bg-gradient-to-br from-blue-500/5 to-transparent cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/5 overflow-hidden group"
+              onClick={() => setSelectedTaskType('flyer_link')}
+            >
+              <CardContent className="p-3.5 flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <ImageIcon className="h-5 w-5 text-blue-600" />
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Community promotion using GGD Credits. Community members share your flyer, link, or product to earn credits.</p>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Community members</span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-foreground">🖼️ Main Flyer & Link</h4>
+                    <span className="text-[8px] font-bold bg-blue-500/15 text-blue-600 px-1.5 py-0.5 rounded-full">POPULAR</span>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">Members share your main flyer banner image + destination smart link.</p>
+                  <div className="flex items-center gap-2 mt-1 text-[9.5px] text-muted-foreground">
+                    <span><Coins className="h-2.5 w-2.5 inline mr-0.5 text-blue-500" />From 5 cr</span>
+                    <span>• Flyer + Link</span>
+                  </div>
                 </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-orange-500 transition-colors shrink-0" />
-            </CardContent>
-          </Card>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-blue-500 transition-colors shrink-0 mt-1" />
+              </CardContent>
+            </Card>
 
-          {/* YouTube Video Task — reuses the credit task system */}
-          <Card
-            className="border border-red-500/30 hover:border-red-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/10 overflow-hidden group"
-            onClick={() => setSelectedTaskType('youtube')}
-          >
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Eye className="h-6 w-6 text-red-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-foreground">▶️ YouTube Video Task</h4>
-                  <span className="text-[9px] font-bold bg-red-500/15 text-red-500 px-2 py-0.5 rounded-full">CREDITS</span>
+            {/* 2. Description & Text Copy Task */}
+            <Card
+              className="border border-purple-500/30 hover:border-purple-500/60 bg-gradient-to-br from-purple-500/5 to-transparent cursor-pointer transition-all hover:shadow-lg hover:shadow-purple-500/5 overflow-hidden group"
+              onClick={() => setSelectedTaskType('description')}
+            >
+              <CardContent className="p-3.5 flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <FileText className="h-5 w-5 text-purple-600" />
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Promote your YouTube video — community members watch and share it to earn credits.</p>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> From 5 credits</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-foreground">📝 Description & Copy</h4>
+                    <span className="text-[8px] font-bold bg-purple-500/15 text-purple-600 px-1.5 py-0.5 rounded-full">1-CLICK COPY</span>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">Members copy your exact marketing copy/caption to post and broadcast.</p>
+                  <div className="flex items-center gap-2 mt-1 text-[9.5px] text-muted-foreground">
+                    <span><Coins className="h-2.5 w-2.5 inline mr-0.5 text-purple-500" />From 5 cr</span>
+                    <span>• Copy text required</span>
+                  </div>
                 </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-red-500 transition-colors shrink-0" />
-            </CardContent>
-          </Card>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-purple-500 transition-colors shrink-0 mt-1" />
+              </CardContent>
+            </Card>
+
+            {/* 3. Full Promo Package (Flyer + Description + Link) */}
+            <Card
+              className="border border-orange-500/30 hover:border-orange-500/60 bg-gradient-to-br from-orange-500/5 to-transparent cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/5 overflow-hidden group"
+              onClick={() => setSelectedTaskType('share')}
+            >
+              <CardContent className="p-3.5 flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Share2 className="h-5 w-5 text-orange-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-foreground">🚀 Full Promo Package</h4>
+                    <span className="text-[8px] font-bold bg-orange-500/15 text-orange-600 px-1.5 py-0.5 rounded-full">ALL-IN-ONE</span>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">All-in-one broadcast: full flyer image, detailed ad copy, and smart link.</p>
+                  <div className="flex items-center gap-2 mt-1 text-[9.5px] text-muted-foreground">
+                    <span><Coins className="h-2.5 w-2.5 inline mr-0.5 text-orange-500" />From 5 cr</span>
+                    <span>• Full Broadcast</span>
+                  </div>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-orange-500 transition-colors shrink-0 mt-1" />
+              </CardContent>
+            </Card>
+
+            {/* 4. YouTube Video Task */}
+            <Card
+              className="border border-red-500/30 hover:border-red-500/60 bg-gradient-to-br from-red-500/5 to-transparent cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/5 overflow-hidden group"
+              onClick={() => setSelectedTaskType('youtube')}
+            >
+              <CardContent className="p-3.5 flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Eye className="h-5 w-5 text-red-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-foreground">▶️ YouTube Video Task</h4>
+                    <span className="text-[8px] font-bold bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded-full">FEED PLAYER</span>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">Members watch your video in-app and share it to earn credits.</p>
+                  <div className="flex items-center gap-2 mt-1 text-[9.5px] text-muted-foreground">
+                    <span><Coins className="h-2.5 w-2.5 inline mr-0.5 text-red-500" />From 5 cr</span>
+                    <span>• YouTube URL</span>
+                  </div>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-red-500 transition-colors shrink-0 mt-1" />
+              </CardContent>
+            </Card>
+          </div>
 
           <Button variant="ghost" onClick={() => setShowCreate(false)} className="w-full text-xs text-muted-foreground h-9 rounded-xl">Cancel</Button>
         </div>
       )}
 
-      {/* Create Task Form */}
+      {/* Create Task Form — Same Flow for all options */}
       {showCreate && selectedTaskType && (
         <Card className={`border overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300 ${
-          selectedTaskType === 'social'
+          selectedTaskType === 'flyer_link'
+            ? 'border-blue-500/30 bg-gradient-to-b from-blue-500/5 to-transparent'
+            : selectedTaskType === 'description'
             ? 'border-purple-500/30 bg-gradient-to-b from-purple-500/5 to-transparent'
+            : selectedTaskType === 'youtube'
+            ? 'border-red-500/30 bg-gradient-to-b from-red-500/5 to-transparent'
             : 'border-orange-500/30 bg-gradient-to-b from-orange-500/5 to-transparent'
         }`}>
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                {selectedTaskType === 'social' ? (
-                  <><Crown className="h-4 w-4 text-purple-500" />Premium Social Task</>
+                {selectedTaskType === 'flyer_link' ? (
+                  <><ImageIcon className="h-4 w-4 text-blue-500" />Create Main Flyer & Link Task</>
+                ) : selectedTaskType === 'description' ? (
+                  <><FileText className="h-4 w-4 text-purple-500" />Create Description & Text Copy Task</>
                 ) : selectedTaskType === 'youtube' ? (
-                  <><Eye className="h-4 w-4 text-red-500" />YouTube Video Task</>
+                  <><Eye className="h-4 w-4 text-red-500" />Create YouTube Video Task</>
                 ) : (
-                  <><ClipboardList className="h-4 w-4 text-orange-500" />Share Task</>
+                  <><Share2 className="h-4 w-4 text-orange-500" />Create Full Promo Campaign</>
                 )}
               </h3>
               <div className="flex items-center gap-1">
@@ -456,53 +537,114 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
             {/* Credit wallet info */}
             <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${
-              selectedTaskType === 'social' ? 'bg-purple-500/10' : 'bg-orange-500/10'
+              selectedTaskType === 'flyer_link'
+                ? 'bg-blue-500/10'
+                : selectedTaskType === 'description'
+                ? 'bg-purple-500/10'
+                : selectedTaskType === 'youtube'
+                ? 'bg-red-500/10'
+                : 'bg-orange-500/10'
             }`}>
-              <Wallet className={`h-4 w-4 ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`} />
+              <Wallet className={`h-4 w-4 ${
+                selectedTaskType === 'flyer_link' ? 'text-blue-500' : selectedTaskType === 'description' ? 'text-purple-500' : selectedTaskType === 'youtube' ? 'text-red-500' : 'text-orange-500'
+              }`} />
               <span className="text-xs text-muted-foreground">Your balance:</span>
-              <span className={`text-sm font-bold ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`}>{credits} credits</span>
+              <span className={`text-sm font-bold ${
+                selectedTaskType === 'flyer_link' ? 'text-blue-500' : selectedTaskType === 'description' ? 'text-purple-500' : selectedTaskType === 'youtube' ? 'text-red-500' : 'text-orange-500'
+              }`}>{credits} credits</span>
             </div>
 
-            <Input placeholder="Task title *" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30 font-medium" />
-            <Textarea placeholder="Describe what needs to be done..." value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} rows={2} className="text-sm rounded-2xl border-border/40 bg-muted/30 resize-none" />
+            {/* Task Title */}
+            <div>
+              <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Task Title *</Label>
+              <Input
+                placeholder={
+                  selectedTaskType === 'flyer_link' ? 'e.g., Share 50% Off Promo Flyer on WhatsApp & Facebook' :
+                  selectedTaskType === 'description' ? 'e.g., Copy & Post New App Launch Caption' :
+                  selectedTaskType === 'youtube' ? 'e.g., Watch GGD Product Demo Video' :
+                  'e.g., Share Special Offer on Social Media'
+                }
+                value={newTask.title}
+                onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                className="h-11 text-sm rounded-2xl border-border/40 bg-muted/30 font-medium"
+              />
+            </div>
 
             {/* Flyer / Image Upload */}
-            <div>
-              <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Task Flyer / Image</Label>
-              <input type="file" id="taskFlyerInput" accept="image/*" onChange={handleFlyerSelect} className="hidden" />
-              {flyerPreview ? (
-                <div className="relative rounded-2xl overflow-hidden border border-border/40">
-                  <img loading="lazy" src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
-                  <Button variant="ghost" size="sm" onClick={() => { setFlyerFile(null); setFlyerPreview(null); }} className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/50 hover:bg-black/70 text-white">
-                    <X className="h-3.5 w-3.5" />
+            {(selectedTaskType === 'flyer_link' || selectedTaskType === 'share' || selectedTaskType === 'description') && (
+              <div>
+                <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">
+                  {selectedTaskType === 'flyer_link' ? 'Main Promotional Flyer * (Required)' :
+                   selectedTaskType === 'share' ? 'Task Flyer / Banner Image *' :
+                   'Optional Flyer / Image Attachment'}
+                </Label>
+                <input type="file" id="taskFlyerInput" accept="image/*" onChange={handleFlyerSelect} className="hidden" />
+                {flyerPreview ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-border/40">
+                    <img loading="lazy" src={flyerPreview} alt="Flyer preview" className="w-full h-40 object-cover" />
+                    <Button variant="ghost" size="sm" onClick={() => { setFlyerFile(null); setFlyerPreview(null); }} className="absolute top-2 right-2 h-7 w-7 p-0 rounded-full bg-black/60 hover:bg-black/80 text-white">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('taskFlyerInput')?.click()}
+                    className="w-full h-24 rounded-2xl border-dashed border-2 border-border/40 bg-muted/20 hover:bg-muted/30 flex flex-col items-center justify-center gap-1.5"
+                  >
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground font-medium">
+                      {selectedTaskType === 'flyer_link' ? 'Upload Main Flyer Image (Required)' : 'Upload flyer or promotional image'}
+                    </span>
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('taskFlyerInput')?.click()}
-                  className="w-full h-24 rounded-2xl border-dashed border-2 border-border/40 bg-muted/20 hover:bg-muted/30 flex flex-col items-center justify-center gap-1.5"
-                >
-                  <Image className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-[11px] text-muted-foreground">Upload flyer or image</span>
-                </Button>
-              )}
+                )}
+              </div>
+            )}
+
+            {/* Description / Copywriting Text */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-[10px] text-muted-foreground block font-semibold uppercase tracking-wider">
+                  {selectedTaskType === 'description' ? 'Marketing Description & Text Copy * (What users will copy)' :
+                   selectedTaskType === 'share' ? 'Description & Ad Copy *' :
+                   'Description & Instructions (Optional)'}
+                </Label>
+                {newTask.description && (
+                  <span className="text-[9px] text-muted-foreground">{newTask.description.length} chars</span>
+                )}
+              </div>
+              <Textarea
+                placeholder={
+                  selectedTaskType === 'description'
+                    ? 'Paste your exact marketing text, sales pitch, or social media caption here. Community members will 1-click copy this exact text to broadcast.'
+                    : 'Describe what needs to be done or provide additional promotional context...'
+                }
+                value={newTask.description}
+                onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                rows={selectedTaskType === 'description' ? 4 : 2}
+                className="text-sm rounded-2xl border-border/40 bg-muted/30 resize-none"
+              />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            {/* Destination Link / Mode Switch */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Credits/Person</Label>
                 <div className="relative">
-                  <Coins className={`absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`} />
+                  <Coins className={`absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${
+                    selectedTaskType === 'flyer_link' ? 'text-blue-500' : selectedTaskType === 'description' ? 'text-purple-500' : selectedTaskType === 'youtube' ? 'text-red-500' : 'text-orange-500'
+                  }`} />
                   <Input
                     type="number"
-                    min={selectedTaskType === 'social' ? 20 : 1}
+                    min={1}
                     value={newTask.reward_credits}
                     onChange={e => setNewTask({ ...newTask, reward_credits: e.target.value })}
                     className="h-11 text-sm pl-9 rounded-2xl border-border/40 bg-muted/30 font-medium"
                   />
                 </div>
               </div>
+
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">Max People</Label>
                 <div className="relative">
@@ -516,16 +658,17 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   />
                 </div>
               </div>
+
               <div>
                 <Label className="text-[10px] text-muted-foreground mb-1 block font-semibold uppercase tracking-wider">
-                  {selectedTaskType === 'youtube' ? 'YouTube URL' : 'Share Link'}
+                  {selectedTaskType === 'youtube' ? 'YouTube URL *' : selectedTaskType === 'description' ? 'Destination Link (Optional)' : 'Destination Link *'}
                 </Label>
-                <div className="flex gap-1 mb-1">
-                  <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Paste URL</button>
-                  {selectedTaskType !== 'youtube' && (
-                    <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[10px] py-1 rounded-lg font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>My Smart Links</button>
-                  )}
-                </div>
+                {selectedTaskType !== 'youtube' && (
+                  <div className="flex gap-1 mb-1">
+                    <button type="button" onClick={() => setShareLinkMode('manual')} className={`flex-1 text-[9px] py-0.5 rounded-md font-semibold ${shareLinkMode === 'manual' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>URL</button>
+                    <button type="button" onClick={() => setShareLinkMode('smart')} className={`flex-1 text-[9px] py-0.5 rounded-md font-semibold ${shareLinkMode === 'smart' ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground'}`}>Smart Links</button>
+                  </div>
+                )}
                 {shareLinkMode === 'manual' || selectedTaskType === 'youtube' ? (
                   <Input
                     placeholder={selectedTaskType === 'youtube' ? 'https://youtube.com/watch?v=...' : 'https://...'}
@@ -535,7 +678,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   />
                 ) : myShortLinks.length > 0 ? (
                   <Select value={newTask.share_url} onValueChange={v => setNewTask({ ...newTask, share_url: v })}>
-                    <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-sm"><SelectValue placeholder="Pick smart link" /></SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-2xl bg-muted/30 border-border/40 text-xs"><SelectValue placeholder="Pick smart link" /></SelectTrigger>
                     <SelectContent>
                       {myShortLinks.map((sl: any) => (
                         <SelectItem key={sl.id} value={`${window.location.origin}/r/${sl.slug}`} className="text-xs">
@@ -545,13 +688,18 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground bg-muted/30 rounded-xl p-2">No smart links yet. Create one in Smart Links menu.</p>
+                  <p className="text-[9px] text-muted-foreground bg-muted/30 rounded-xl p-2">No smart links yet.</p>
                 )}
               </div>
             </div>
 
             {/* Cost Summary */}
-            <div className={`rounded-xl px-3 py-2.5 border ${selectedTaskType === 'social' ? 'bg-purple-500/5 border-purple-500/20' : 'bg-orange-500/5 border-orange-500/20'}`}>
+            <div className={`rounded-xl px-3 py-2.5 border ${
+              selectedTaskType === 'flyer_link' ? 'bg-blue-500/5 border-blue-500/20' :
+              selectedTaskType === 'description' ? 'bg-purple-500/5 border-purple-500/20' :
+              selectedTaskType === 'youtube' ? 'bg-red-500/5 border-red-500/20' :
+              'bg-orange-500/5 border-orange-500/20'
+            }`}>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">Credits per person</span>
                 <span className="font-semibold text-foreground">{parseInt(newTask.reward_credits) || 5}</span>
@@ -563,7 +711,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               <div className="border-t border-border/30 my-1.5" />
               <div className="flex justify-between items-center text-sm">
                 <span className="font-bold text-foreground">Total Cost</span>
-                <span className={`font-black ${selectedTaskType === 'social' ? 'text-purple-500' : 'text-orange-500'}`}>{totalCost} credits</span>
+                <span className={`font-black ${
+                  selectedTaskType === 'flyer_link' ? 'text-blue-600' :
+                  selectedTaskType === 'description' ? 'text-purple-600' :
+                  selectedTaskType === 'youtube' ? 'text-red-600' :
+                  'text-orange-600'
+                }`}>{totalCost} credits</span>
               </div>
             </div>
 
@@ -578,12 +731,16 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               onClick={createTask}
               disabled={totalCost > credits || uploadingFlyer}
               className={`w-full text-white text-sm h-12 rounded-2xl font-bold shadow-lg transition-all ${
-                selectedTaskType === 'social'
+                selectedTaskType === 'flyer_link'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-500/25'
+                  : selectedTaskType === 'description'
                   ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-purple-500/25'
+                  : selectedTaskType === 'youtube'
+                  ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-500/25'
                   : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/25'
               }`}
             >
-              {uploadingFlyer ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : (
+              {uploadingFlyer ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading Image...</> : (
                 <><Wallet className="h-4 w-4 mr-2" />Fund & Create — {totalCost} credits</>
               )}
             </Button>
@@ -595,19 +752,34 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       <Dialog open={!!shareTarget} onOpenChange={o => { if (!o) setShareTarget(null); }}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base">Where will you share?</DialogTitle>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-orange-500" /> Share & Earn Credits
+            </DialogTitle>
           </DialogHeader>
           {shareTarget?.task && (
             <div className="space-y-3">
               {shareTarget.task.flyer_url && (
                 <img loading="lazy" src={shareTarget.task.flyer_url} alt="" className="w-full h-32 object-cover rounded-xl" />
               )}
-              <div className="bg-muted/40 rounded-xl p-3">
+              <div className="bg-muted/40 rounded-xl p-3 space-y-1.5">
                 <p className="text-sm font-bold text-foreground">{shareTarget.task.title}</p>
-                {shareTarget.task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{shareTarget.task.description}</p>}
-                <p className="text-[10px] text-blue-500 mt-1 truncate">{shareTarget.task.share_url}</p>
+                {shareTarget.task.description && (
+                  <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{shareTarget.task.description}</p>
+                )}
+                {shareTarget.task.share_url && (
+                  <p className="text-[10px] text-blue-500 truncate">{shareTarget.task.share_url}</p>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[10px] rounded-lg mt-1 font-semibold"
+                  onClick={() => copyTaskDescription(shareTarget.task)}
+                >
+                  <Copy className="h-3 w-3 mr-1.5" />
+                  {copiedTaskId === shareTarget.task.id ? 'Copied to Clipboard!' : 'Copy Caption & Link'}
+                </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground text-center">Pick a platform — sharing opens with title, image & link.</p>
+              <p className="text-[11px] text-muted-foreground text-center">Select platform to share this campaign:</p>
               <div className="grid grid-cols-3 gap-2">
                 {SHARE_PLATFORMS.map(p => {
                   const Icon = p.icon;
@@ -629,38 +801,56 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Community & Advertiser Tasks */}
-      <div className="space-y-2">
+      {/* Community & Advertiser Tasks Feed */}
+      <div className="space-y-2.5">
         {tasks.map(task => {
           const completed = completions.includes(task.id);
+          const isFlyerLink = task.task_type === 'flyer_link';
+          const isDescription = task.task_type === 'description';
+          const isYouTube = task.task_type === 'youtube' || task.task_type?.startsWith('youtube');
           const isPremium = task.task_type === 'social';
           const isVerifying = verifyingTaskId === task.id;
           const spotsLeft = task.max_completions ? task.max_completions - (task.completions_count || 0) : null;
           const isOwner = !!uid && task.creator_id === uid;
           return (
-            <Card key={task.id} className={`transition-all ${completed && !isOwner ? 'opacity-60' : 'hover:shadow-md'} ${isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' : isPremium ? 'border-purple-500/20' : ''}`}>
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-2xl ${
+            <Card key={task.id} className={`transition-all ${completed && !isOwner ? 'opacity-60' : 'hover:shadow-md'} ${
+              isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' :
+              isFlyerLink ? 'border-blue-500/20' :
+              isDescription ? 'border-purple-500/20' :
+              isYouTube ? 'border-red-500/20' :
+              isPremium ? 'border-purple-500/20' : ''
+            }`}>
+              <CardContent className="p-3.5 space-y-2.5">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2.5 rounded-2xl shrink-0 ${
                     completed
                       ? 'bg-green-100 dark:bg-green-500/20'
-                      : isPremium
-                        ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-500/20 dark:to-pink-500/20'
+                      : isFlyerLink
+                        ? 'bg-blue-100 dark:bg-blue-500/20'
+                        : isDescription
+                        ? 'bg-purple-100 dark:bg-purple-500/20'
+                        : isYouTube
+                        ? 'bg-red-100 dark:bg-red-500/20'
                         : 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20'
                   }`}>
                     {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
-                     isPremium ? <Crown className="h-4 w-4 text-purple-600" /> :
+                     isFlyerLink ? <ImageIcon className="h-4 w-4 text-blue-600" /> :
+                     isDescription ? <FileText className="h-4 w-4 text-purple-600" /> :
+                     isYouTube ? <Eye className="h-4 w-4 text-red-600" /> :
                      <Gift className="h-4 w-4 text-orange-600" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-foreground">{task.title}</p>
-                      {isPremium && <span className="text-[8px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-xs font-bold text-foreground leading-tight">{task.title}</p>
+                      {isFlyerLink && <span className="text-[8px] font-bold bg-blue-500/15 text-blue-600 px-1.5 py-0.5 rounded-full">🖼️ FLYER & LINK</span>}
+                      {isDescription && <span className="text-[8px] font-bold bg-purple-500/15 text-purple-600 px-1.5 py-0.5 rounded-full">📝 COPY TEXT</span>}
+                      {isYouTube && <span className="text-[8px] font-bold bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded-full">▶️ VIDEO</span>}
+                      {task.task_type === 'share' && <span className="text-[8px] font-bold bg-orange-500/15 text-orange-600 px-1.5 py-0.5 rounded-full">🚀 FULL PROMO</span>}
                       {isOwner && <span className="text-[8px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
                       {isOwner && !task.is_active && <span className="text-[8px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
                     </div>
-                    {task.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{task.description}</p>}
-                    <div className="flex items-center gap-2 mt-0.5">
+
+                    <div className="flex items-center gap-2 mt-1">
                       <div className="flex items-center gap-1">
                         <Coins className="h-3 w-3 text-green-500" />
                         <p className="text-[10px] text-green-600 font-bold">+{task.reward_credits} credits</p>
@@ -672,62 +862,94 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       )}
                     </div>
                   </div>
+
                   {isOwner ? (
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full shrink-0">
                       {task.completions_count || 0}/{task.max_completions || '∞'} done
                     </span>
                   ) : isVerifying ? (
-                    <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full">
+                    <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full shrink-0">
                       <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
                       <span className="text-[10px] text-yellow-600 font-medium">Verifying...</span>
                     </div>
                   ) : !completed ? (
-                    <Button size="sm" className={`h-8 text-xs rounded-full text-white px-4 ${
-                      isPremium ? 'bg-gradient-to-r from-purple-500 to-pink-600' : 'bg-gradient-to-r from-orange-500 to-red-600'
+                    <Button size="sm" className={`h-8 text-xs rounded-full text-white px-3.5 shrink-0 ${
+                      isFlyerLink ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
+                      isDescription ? 'bg-gradient-to-r from-purple-500 to-pink-600' :
+                      isYouTube ? 'bg-gradient-to-r from-red-500 to-rose-600' :
+                      'bg-gradient-to-r from-orange-500 to-red-600'
                     }`} onClick={() => completeTask(task)} disabled={spotsLeft !== null && spotsLeft <= 0}>
-                      {task.share_url ? <><Share2 className="h-3 w-3 mr-1" />Share</> : <>Do it <ArrowRight className="h-3 w-3 ml-1" /></>}
+                      {isDescription && !task.share_url ? (
+                        <><Copy className="h-3 w-3 mr-1" />Copy & Share</>
+                      ) : isYouTube ? (
+                        <><Eye className="h-3 w-3 mr-1" />Watch & Earn</>
+                      ) : (
+                        <><Share2 className="h-3 w-3 mr-1" />Share</>
+                      )}
                     </Button>
                   ) : (
-                    <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full">Done ✓</span>
+                    <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full shrink-0">Done ✓</span>
                   )}
                 </div>
+
+                {/* Description Text Box with 1-Click Copy */}
+                {task.description && (
+                  <div className="bg-muted/40 rounded-xl p-2.5 border border-border/40 space-y-1.5">
+                    <p className="text-[11.5px] text-foreground leading-relaxed whitespace-pre-wrap">{task.description}</p>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                      <span className="text-[9.5px] text-muted-foreground">Promotion text copy</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[10px] px-2 text-purple-600 hover:text-purple-700 bg-purple-500/10 hover:bg-purple-500/20 rounded-md font-semibold"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyTaskDescription(task);
+                        }}
+                      >
+                        {copiedTaskId === task.id ? <Check className="h-3 w-3 mr-1 text-green-600" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {copiedTaskId === task.id ? 'Copied!' : 'Copy Text'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Task flyer image */}
                 {task.flyer_url && (
                   <div className="rounded-xl overflow-hidden border border-border/30">
-                    <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-32 object-cover" />
+                    <img loading="lazy" src={task.flyer_url} alt={task.title} className="w-full h-36 object-cover" />
                   </div>
                 )}
 
-                {/* Preview share page (everyone can preview) */}
+                {/* Owner controls / preview */}
                 {isOwner ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={() => toggleTaskActive(task)}>
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <Button size="sm" variant="outline" className="h-8 text-[11px] rounded-xl" onClick={() => toggleTaskActive(task)}>
                       {task.is_active ? 'Pause' : 'Resume'}
                     </Button>
-                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl" onClick={async () => {
+                    <Button size="sm" variant="outline" className="h-8 text-[11px] rounded-xl" onClick={async () => {
                       const u = await getOrCreateTaskShareUrl(task.id);
                       if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
                     }}>
                       <Eye className="h-3 w-3 mr-1" />View
                     </Button>
-                    <Button size="sm" variant="outline" className="h-9 text-[11px] rounded-xl text-red-600 border-red-500/30" onClick={() => deleteTask(task)}>
+                    <Button size="sm" variant="outline" className="h-8 text-[11px] rounded-xl text-red-600 border-red-500/30 hover:bg-red-500/10" onClick={() => deleteTask(task)}>
                       Delete
                     </Button>
                   </div>
-                ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full h-7 text-[10px] rounded-full"
-                  onClick={async () => {
-                    const u = await getOrCreateTaskShareUrl(task.id);
-                    if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
-                  }}
-                >
-                  <Eye className="h-3 w-3 mr-1" />Preview Share Page
-                </Button>
-                )}
+                ) : task.share_url ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-7 text-[10px] rounded-full"
+                    onClick={async () => {
+                      const u = await getOrCreateTaskShareUrl(task.id);
+                      if (u) window.open(`/s/${u.split('/').pop()?.split('?')[0]}`, '_blank');
+                    }}
+                  >
+                    <Eye className="h-3 w-3 mr-1" />Preview Share Page
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           );
