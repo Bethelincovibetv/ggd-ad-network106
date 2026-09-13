@@ -7,9 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft,
   Send,
-  Check,
-  CheckCheck,
-  Clock,
   MessageSquare,
   ShieldCheck,
   Sparkles,
@@ -17,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import MessageStatusIndicator, { MessageDeliveryStatus } from '@/components/chat/MessageStatusIndicator';
 
 interface Props {
   peerId: string;
@@ -30,9 +28,11 @@ interface ChatMsg {
   receiver_id: string;
   message: string;
   created_at: string;
-  status?: 'pending' | 'sent' | 'delivered';
+  status?: MessageDeliveryStatus;
+  is_read?: boolean;
   tempId?: string;
 }
+
 
 const ReferralChat = ({ peerId, peerName, onBack }: Props) => {
   const [me, setMe] = useState<string>('');
@@ -171,7 +171,7 @@ const ReferralChat = ({ peerId, peerName, onBack }: Props) => {
       receiver_id: peerId,
       message: trimmed,
       created_at: new Date().toISOString(),
-      status: 'pending',
+      status: 'sending',
     };
 
     // Add optimistically without duplicating
@@ -314,17 +314,15 @@ const ReferralChat = ({ peerId, peerName, onBack }: Props) => {
                         isMine ? 'text-white/80' : 'text-muted-foreground'
                       }`}
                     >
-                      <span>{formatMessageTime(m.created_at)}</span>
-                      {isMine && (
-                        <span>
-                          {m.status === 'pending' ? (
-                            <Clock className="h-2.5 w-2.5 animate-spin" />
-                          ) : m.status === 'delivered' ? (
-                            <CheckCheck className="h-3 w-3 text-white" />
-                          ) : (
-                            <Check className="h-3 w-3 text-white/90" />
-                          )}
-                        </span>
+                      {isMine ? (
+                        <MessageStatusIndicator
+                          status={m.status || (m.is_read ? 'seen' : 'delivered')}
+                          timestamp={m.created_at}
+                          variant="on-gradient"
+                          size="xs"
+                        />
+                      ) : (
+                        <span>{formatMessageTime(m.created_at)}</span>
                       )}
                     </div>
                   </div>

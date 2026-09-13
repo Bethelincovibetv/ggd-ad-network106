@@ -16,8 +16,10 @@ import VoiceNoteRecorder from '@/components/chat/VoiceNoteRecorder';
 import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
 import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
 import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
+import MessageStatusIndicator from '@/components/chat/MessageStatusIndicator';
 
 interface BusinessPublicChatModalProps {
+
   businessUserId: string;
   businessName: string;
   businessLogo?: string;
@@ -95,6 +97,13 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
 
         if (!error && isMounted && data) {
           setMessages(data as ChatMsg[]);
+          // Mark incoming unread messages as read
+          supabase
+            .from('p2p_messages')
+            .update({ is_read: true })
+            .eq('sender_id', businessUserId)
+            .eq('receiver_id', currentUserId)
+            .eq('is_read', false);
         }
       } catch (err) {
         console.warn('Error loading chat history:', err);
@@ -105,22 +114,56 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
 
     loadChatHistory();
 
-    // Subscribe to realtime changes in p2p_messages
+    // Subscribe to realtime changes in p2p_messages (INSERT and UPDATE for seen status)
     const channel = supabase
       .channel(`public-biz-chat-${currentUserId}-${businessUserId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'p2p_messages',
-          filter: `receiver_id=eq.${currentUserId}`,
         },
         (payload) => {
-          const newMsg = payload.new as ChatMsg;
-          if (newMsg.sender_id === businessUserId) {
-            setMessages((prev) => [...prev, newMsg]);
-            playNotificationChime();
+          if (payload.eventType === 'INSERT') {
+            const newMsg = payload.new as ChatMsg;
+            if (
+              (newMsg.sender_id === businessUserId && newMsg.receiver_id === currentUserId) ||
+              (newMsg.sender_id === currentUserId && newMsg.receiver_id === businessUserId)
+            ) {
+              setMessages((prev) => {
+                if (prev.some((x) => x.id === newMsg.id)) return prev;
+                if (newMsg.sender_id === currentUserId) {
+                  const tmpIdx = prev.findIndex(
+                    (x) => x.id.startsWith('tmp-') && x.message === newMsg.message
+                  );
+                  if (tmpIdx !== -1) {
+                    const next = [...prev];
+                    next[tmpIdx] = newMsg;
+                    return next;
+                  }
+                }
+                return [...prev, newMsg];
+              });
+
+              if (newMsg.sender_id === businessUserId) {
+                playNotificationChime();
+                supabase
+                  .from('p2p_messages')
+                  .update({ is_read: true })
+                  .eq('id', newMsg.id);
+              }
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as ChatMsg;
+            if (
+              (updated.sender_id === currentUserId && updated.receiver_id === businessUserId) ||
+              (updated.sender_id === businessUserId && updated.receiver_id === currentUserId)
+            ) {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
+              );
+            }
           }
         }
       )
@@ -354,11 +397,17 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                       </div>
                     </WhatsAppSlideMessage>
                     <div className="flex items-center gap-1 mt-1 px-1">
-                      <span className="text-[9px] text-muted-foreground">
-                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {isMe && (
-                        <CheckCircle2 className="h-2.5 w-2.5 text-orange-500 inline" />
+                      {isMe ? (
+                        <MessageStatusIndicator
+                          status={m.id.startsWith('tmp-') ? 'sending' : m.is_read ? 'seen' : 'sent'}
+                          timestamp={m.created_at}
+                          variant="on-light"
+                          size="xs"
+                        />
+                      ) : (
+                        <span className="text-[9px] text-muted-foreground">
+                          {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       )}
                     </div>
                   </div>

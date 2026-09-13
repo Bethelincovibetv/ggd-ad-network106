@@ -24,6 +24,7 @@ import { CallButton } from "@/components/call/CallButton";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
 import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
 import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
+import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
 import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
 import { Phone, PhoneCall } from "lucide-react";
@@ -52,10 +53,13 @@ interface Thread {
   avatarUrl?: string;
   lastMessage: string;
   lastAt: string;
+  lastMessageSenderId?: string;
+  lastMessageIsRead?: boolean;
   unread: number;
   taskId?: string | null;
   scope: "business" | "syndicate" | "global";
 }
+
 
 interface Profile {
   user_id: string;
@@ -88,6 +92,7 @@ const GGDInbox: React.FC = () => {
   const { isEnabled } = useFeatureToggles();
   const globalChatEnabled = isEnabled("global_network_chat");
   const [me, setMe] = useState<string>("");
+  const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [inboxView, setInboxView] = useState<"messages" | "calls">("messages");
   const [ephemeralImages, setEphemeralImages] = useState<EphemeralImageRecord[]>([]);
   const [tab, setTab] = useState<"business" | "syndicate" | "global">("global");
@@ -152,58 +157,76 @@ const GGDInbox: React.FC = () => {
       const { data } = await supabase.auth.getUser();
       if (!data.user) return;
       setMe(data.user.id);
+      
+      const { data: myProf } = await supabase
+        .from("profiles")
+        .select("user_id, email, display_name, avatar_url, business_name")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+      if (myProf) setMyProfile(myProf as Profile);
+
       await loadThreads(data.user.id);
     })();
   }, []);
 
-  // Realtime subscription for the current user
+  // Realtime subscription for the current user (handles both new messages and seen/read updates)
   useEffect(() => {
     if (!me) return;
     const ch = supabase
       .channel(`inbox-${me}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "p2p_messages" }, (payload) => {
-        const m = payload.new as Msg;
-        if (m.sender_id !== me && m.receiver_id !== me) return;
+      .on("postgres_changes", { event: "*", schema: "public", table: "p2p_messages" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          const m = payload.new as Msg;
+          if (m.sender_id !== me && m.receiver_id !== me) return;
 
-        // Trigger audio chime & notification if message is addressed to me
-        if (m.receiver_id === me && m.sender_id !== me) {
-          playMessageReceivedSound();
-          if ('vibrate' in navigator) {
-            try { navigator.vibrate([30, 50, 30]); } catch {}
-          }
-          const preview = m.kind === "voice" ? "🎤 Sent you a voice note" : (m.message?.slice(0, 75) || "New attachment received");
-          toast.info("💬 New Message", {
-            description: preview,
-          });
-        }
-
-        if (activeOther && (m.sender_id === activeOther || m.receiver_id === activeOther)) {
-          setMessages((prev) => {
-            // If already present by real DB id, ignore
-            if (prev.some((x) => x.id === m.id)) return prev;
-
-            // If we sent this, replace any matching optimistic tmp- message
-            if (m.sender_id === me) {
-              const tmpIdx = prev.findIndex(
-                (x) =>
-                  x.id.startsWith("tmp-") &&
-                  x.sender_id === m.sender_id &&
-                  (x.message === m.message || (m.kind === "voice" && x.kind === "voice"))
-              );
-              if (tmpIdx !== -1) {
-                const next = [...prev];
-                next[tmpIdx] = m;
-                return next;
-              }
+          // Trigger audio chime & notification if message is addressed to me
+          if (m.receiver_id === me && m.sender_id !== me) {
+            playMessageReceivedSound();
+            if ('vibrate' in navigator) {
+              try { navigator.vibrate([30, 50, 30]); } catch {}
             }
+            const preview = m.kind === "voice" ? "🎤 Sent you a voice note" : (m.message?.slice(0, 75) || "New attachment received");
+            toast.info("💬 New Message", {
+              description: preview,
+            });
+          }
 
-            return [...prev, m];
-          });
-          if (m.receiver_id === me) {
-            supabase.from("p2p_messages").update({ is_read: true }).eq("id", m.id);
+          if (activeOther && (m.sender_id === activeOther || m.receiver_id === activeOther)) {
+            setMessages((prev) => {
+              // If already present by real DB id, ignore
+              if (prev.some((x) => x.id === m.id)) return prev;
+
+              // If we sent this, replace any matching optimistic tmp- message
+              if (m.sender_id === me) {
+                const tmpIdx = prev.findIndex(
+                  (x) =>
+                    x.id.startsWith("tmp-") &&
+                    x.sender_id === m.sender_id &&
+                    (x.message === m.message || (m.kind === "voice" && x.kind === "voice"))
+                );
+                if (tmpIdx !== -1) {
+                  const next = [...prev];
+                  next[tmpIdx] = m;
+                  return next;
+                }
+              }
+
+              return [...prev, m];
+            });
+            if (m.receiver_id === me) {
+              supabase.from("p2p_messages").update({ is_read: true }).eq("id", m.id);
+            }
+          }
+          loadThreads(me);
+        } else if (payload.eventType === "UPDATE") {
+          const updated = payload.new as Msg;
+          if (updated.sender_id === me || updated.receiver_id === me) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
+            );
+            loadThreads(me);
           }
         }
-        loadThreads(me);
       })
       .subscribe();
     return () => {
@@ -269,11 +292,14 @@ const GGDInbox: React.FC = () => {
         avatarUrl: prof?.avatar_url || undefined,
         lastMessage: m.kind === "proof" ? "📎 Proof screenshot" : m.message || "",
         lastAt: m.created_at,
+        lastMessageSenderId: m.sender_id,
+        lastMessageIsRead: m.is_read,
         unread: unreadByOther.get(other) || 0,
         taskId: m.task_id,
         scope,
       });
     }
+
 
     // If chatWith was provided via searchParams, ensure it appears in thread list
     const targetUid = searchParams.get("chatWith");
@@ -901,9 +927,20 @@ const GGDInbox: React.FC = () => {
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve & Pay
                             </Button>
                           )}
-                          <p className={`text-[9px] mt-1 text-right ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
-                            {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
+                          <div className={`mt-1 flex items-center justify-end ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
+                            {mine ? (
+                              <MessageStatusIndicator
+                                status={m.id.startsWith("tmp-") ? "sending" : m.is_read ? "seen" : "sent"}
+                                timestamp={m.created_at}
+                                variant="on-gradient"
+                                size="xs"
+                              />
+                            ) : (
+                              <span className="text-[9px]">
+                                {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </WhatsAppSlideMessage>
                     </div>
@@ -1171,7 +1208,17 @@ const GGDInbox: React.FC = () => {
                           {new Date(t.lastAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{t.lastMessage}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {t.lastMessageSenderId === me && (
+                          <MessageStatusIndicator
+                            status={t.lastMessageIsRead ? "seen" : "sent"}
+                            showTimestamp={false}
+                            size="xs"
+                            className="shrink-0"
+                          />
+                        )}
+                        <p className="text-xs text-muted-foreground truncate">{t.lastMessage}</p>
+                      </div>
                     </div>
                     {t.unread > 0 && (
                       <Badge className="bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5">

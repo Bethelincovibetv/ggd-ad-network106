@@ -8,8 +8,10 @@ import { MessageCircle, Send, Search, User, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
+import MessageStatusIndicator from "@/components/chat/MessageStatusIndicator";
 
 const AdminChatSystem = () => {
+
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -35,22 +37,29 @@ const AdminChatSystem = () => {
     const channel = supabase
       .channel(`chat-${selectedUser.user_id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'admin_chat_messages',
       }, (payload) => {
-        const msg = payload.new as any;
-        if (
-          (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
-          (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
-        ) {
-          setMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-          if (msg.sender_id === selectedUser.user_id) {
-            supabase.from('admin_chat_messages').update({ is_read: true }).eq('id', msg.id);
+        if (payload.eventType === 'INSERT') {
+          const msg = payload.new as any;
+          if (
+            (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
+            (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
+          ) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+            if (msg.sender_id === selectedUser.user_id) {
+              supabase.from('admin_chat_messages').update({ is_read: true }).eq('id', msg.id);
+            }
           }
+        } else if (payload.eventType === 'UPDATE') {
+          const updated = payload.new as any;
+          setMessages(prev =>
+            prev.map(m => (m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
+          );
         }
       })
       .subscribe();
@@ -171,9 +180,20 @@ const AdminChatSystem = () => {
                     : 'bg-secondary text-foreground rounded-bl-sm'
                 }`}>
                   <p className="whitespace-pre-wrap">{msg.message}</p>
-                  <p className={`text-[9px] mt-1 ${msg.sender_id === adminId ? 'text-orange-100' : 'text-muted-foreground'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  <div className={`mt-1 flex items-center justify-end ${msg.sender_id === adminId ? 'text-orange-100' : 'text-muted-foreground'}`}>
+                    {msg.sender_id === adminId ? (
+                      <MessageStatusIndicator
+                        status={msg.id?.toString().startsWith('tmp-') ? 'sending' : msg.is_read ? 'seen' : 'sent'}
+                        timestamp={msg.created_at}
+                        variant="on-gradient"
+                        size="xs"
+                      />
+                    ) : (
+                      <span className="text-[9px]">
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

@@ -2,14 +2,18 @@
 import React from 'react';
 import { User } from "lucide-react";
 import { Message } from '@/types/chat';
+import MessageStatusIndicator from './MessageStatusIndicator';
 
 interface ChatMessageProps {
   message: Message;
 }
 
 const ChatMessage = ({ message }: ChatMessageProps) => {
+  const isUser = message.sender === 'user';
+  const effectiveStatus = message.status || (isUser ? 'seen' : 'delivered');
+
   return (
-    <div className={`flex gap-3 w-full ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex gap-3 w-full ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       <div className="flex-shrink-0">
         {message.sender === 'ai' ? (
           <img loading="lazy" 
@@ -24,22 +28,35 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         )}
       </div>
       
-      <div className={`flex-1 max-w-[70%] ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
+      <div className={`flex-1 max-w-[70%] ${isUser ? 'text-right' : 'text-left'}`}>
         <div
           className={`inline-block p-3 rounded-2xl break-words ${
-            message.sender === 'user'
-              ? 'bg-blue-500 text-white'
-              : 'bg-white text-gray-800 shadow-sm border'
+            isUser
+              ? 'bg-blue-500 text-white rounded-br-sm'
+              : 'bg-white text-gray-800 shadow-sm border rounded-bl-sm'
           }`}
         >
           <p className="text-sm leading-relaxed">{message.text}</p>
         </div>
-        <p className="text-xs text-gray-500 mt-1 px-1">
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
+        <div className={`flex items-center gap-1 mt-1 px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+          {isUser ? (
+            <MessageStatusIndicator
+              status={effectiveStatus}
+              timestamp={message.timestamp}
+              seenAt={message.seenAt}
+              variant="on-light"
+              size="xs"
+            />
+          ) : (
+            <span className="text-[10px] text-gray-500">
+              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 export default ChatMessage;
+
