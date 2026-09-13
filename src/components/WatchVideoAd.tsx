@@ -3,7 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Youtube, Coins, CheckCircle2, Loader2, Clock, Sparkles, Award, Play } from 'lucide-react';
+import { Coins, CheckCircle2, Loader2, Clock, Sparkles, Award, Play } from 'lucide-react';
+import { YouTubeLogo } from '@/components/icons/YouTubeLogo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playRewardSound } from '@/lib/soundEffects';
@@ -277,7 +278,7 @@ const WatchVideoAds: React.FC = () => {
     <section className="space-y-3.5">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-black text-foreground flex items-center gap-2">
-          <Youtube className="h-5 w-5 text-red-500" /> Watch & Earn
+          <YouTubeLogo className="h-5 w-5" /> Watch & Earn
         </h2>
         <Badge variant="secondary" className="text-xs font-bold px-2.5 py-0.5">
           {ads.length} Available Video{ads.length !== 1 ? 's' : ''}

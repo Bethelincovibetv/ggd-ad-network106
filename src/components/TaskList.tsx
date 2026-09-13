@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
+import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -479,11 +480,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
             >
               <CardContent className="p-3.5 flex items-start gap-3">
                 <div className="h-11 w-11 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Eye className="h-5 w-5 text-red-500" />
+                  <YouTubeLogo className="h-6 w-6" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h4 className="text-xs font-bold text-foreground">▶️ YouTube Video Task</h4>
+                    <h4 className="text-xs font-bold text-foreground flex items-center gap-1">
+                      <YouTubeLogo className="h-3.5 w-3.5 inline shrink-0" />
+                      YouTube Video Task
+                    </h4>
                     <span className="text-[8px] font-bold bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded-full">FEED PLAYER</span>
                   </div>
                   <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">Members watch your video in-app and share it to earn credits.</p>
@@ -520,7 +524,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                 ) : selectedTaskType === 'description' ? (
                   <><FileText className="h-4 w-4 text-purple-500" />Create Description & Text Copy Task</>
                 ) : selectedTaskType === 'youtube' ? (
-                  <><Eye className="h-4 w-4 text-red-500" />Create YouTube Video Task</>
+                  <><YouTubeLogo className="h-4 w-4" />Create YouTube Video Task</>
                 ) : (
                   <><Share2 className="h-4 w-4 text-orange-500" />Create Full Promo Campaign</>
                 )}
@@ -836,7 +840,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                     {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
                      isFlyerLink ? <ImageIcon className="h-4 w-4 text-blue-600" /> :
                      isDescription ? <FileText className="h-4 w-4 text-purple-600" /> :
-                     isYouTube ? <Eye className="h-4 w-4 text-red-600" /> :
+                     isYouTube ? <YouTubeLogo className="h-4 w-4" /> :
                      <Gift className="h-4 w-4 text-orange-600" />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -844,7 +848,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       <p className="text-xs font-bold text-foreground leading-tight">{task.title}</p>
                       {isFlyerLink && <span className="text-[8px] font-bold bg-blue-500/15 text-blue-600 px-1.5 py-0.5 rounded-full">🖼️ FLYER & LINK</span>}
                       {isDescription && <span className="text-[8px] font-bold bg-purple-500/15 text-purple-600 px-1.5 py-0.5 rounded-full">📝 COPY TEXT</span>}
-                      {isYouTube && <span className="text-[8px] font-bold bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded-full">▶️ VIDEO</span>}
+                      {isYouTube && <span className="text-[8px] font-bold bg-red-500/15 text-red-600 px-1.5 py-0.5 rounded-full flex items-center gap-1"><YouTubeLogo className="h-2.5 w-2.5 inline" /> YOUTUBE</span>}
                       {task.task_type === 'share' && <span className="text-[8px] font-bold bg-orange-500/15 text-orange-600 px-1.5 py-0.5 rounded-full">🚀 FULL PROMO</span>}
                       {isOwner && <span className="text-[8px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
                       {isOwner && !task.is_active && <span className="text-[8px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
@@ -882,7 +886,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       {isDescription && !task.share_url ? (
                         <><Copy className="h-3 w-3 mr-1" />Copy & Share</>
                       ) : isYouTube ? (
-                        <><Eye className="h-3 w-3 mr-1" />Watch & Earn</>
+                        <><YouTubeLogo className="h-3.5 w-3.5 mr-1" />Watch & Earn</>
                       ) : (
                         <><Share2 className="h-3 w-3 mr-1" />Share</>
                       )}
