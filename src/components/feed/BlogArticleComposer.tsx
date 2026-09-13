@@ -14,8 +14,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { BlogSection, CommunityBlogPostData, calculateReadTime, getCategoryCover, DEFAULT_CATEGORY_COVERS } from '@/types/blog';
 import { generateBlogPost } from '@/services/blogGenerator';
 import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal';
+import BlogCoverStudioModal from '@/components/feed/BlogCoverStudioModal';
+import { BLOG_IMAGE_TEMPLATES, BLOG_TEMPLATE_CATEGORIES } from '@/data/blogImageTemplates';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import YouTubeEmbed from '@/components/YouTubeEmbed';
+import { Palette, Wand2 } from 'lucide-react';
 
 const FEATURE_PHOTO_PRESETS = [
   { label: 'Business Growth', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' },
@@ -74,6 +77,8 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiTopicPrompt, setAiTopicPrompt] = useState('');
   const [showAiHelper, setShowAiHelper] = useState(false);
+  const [showCoverStudio, setShowCoverStudio] = useState(false);
+  const [presetFilterCat, setPresetFilterCat] = useState('All Templates');
   const [publishedBlog, setPublishedBlog] = useState<CommunityBlogPostData | null>(null);
   const [publishedPostId, setPublishedPostId] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -679,31 +684,89 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
 
                 {/* Presets Tab */}
                 {photoTab === 'presets' && (
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Tap a high-impact feature photo:
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {FEATURE_PHOTO_PRESETS.map((preset, idx) => (
+                  <div className="space-y-2.5">
+                    {/* Cover Studio Launcher Banner */}
+                    <div
+                      onClick={() => setShowCoverStudio(true)}
+                      className="group cursor-pointer p-3 rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-slate-900/40 border border-purple-500/40 hover:border-purple-500 hover:shadow-lg transition-all flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+                          <Palette className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-foreground group-hover:text-purple-400 transition-colors">
+                              Open Blog Cover Studio & 3D Templates
+                            </span>
+                            <Badge className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0">
+                              24+ Templates
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Overlay custom headlines, typography badges & generate Gemini AI 3D covers
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl h-8 px-3 shrink-0"
+                      >
+                        <Wand2 className="h-3.5 w-3.5 mr-1" /> Open Studio
+                      </Button>
+                    </div>
+
+                    {/* Category Filter Pills */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {BLOG_TEMPLATE_CATEGORIES.map((cat) => (
                         <button
-                          key={idx}
+                          key={cat}
                           type="button"
-                          onClick={() => handleSelectPresetCover(preset.url)}
+                          onClick={() => setPresetFilterCat(cat)}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all whitespace-nowrap ${
+                            presetFilterCat === cat
+                              ? 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-muted/50 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Templates Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                      {BLOG_IMAGE_TEMPLATES.filter(
+                        (t) => presetFilterCat === 'All Templates' || t.category === presetFilterCat
+                      ).map((template) => (
+                        <button
+                          key={template.id}
+                          type="button"
+                          onClick={() => handleSelectPresetCover(template.imageUrl)}
                           className={`group relative aspect-[16/9] rounded-xl overflow-hidden border-2 transition-all text-left ${
-                            selectedPresetUrl === preset.url
+                            selectedPresetUrl === template.imageUrl
                               ? 'border-purple-600 ring-2 ring-purple-400 scale-[1.02]'
                               : 'border-border/60 hover:border-purple-500/60'
                           }`}
                         >
                           <img
-                            src={preset.url}
-                            alt={preset.label}
+                            src={template.imageUrl}
+                            alt={template.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-2">
-                            <span className="text-[10px] font-bold text-white line-clamp-1">
-                              {preset.label}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-between p-2">
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs self-start">
+                              {template.badge}
                             </span>
+                            <div>
+                              <span className="text-[10px] font-bold text-white line-clamp-1 group-hover:text-purple-300">
+                                {template.title}
+                              </span>
+                              <span className="text-[8px] text-white/70 block truncate">
+                                {template.category}
+                              </span>
+                            </div>
                           </div>
                         </button>
                       ))}
@@ -1046,6 +1109,23 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
         }}
         onCreateAnother={() => {
           handleResetForm();
+        }}
+      />
+
+      {/* Blog Cover Studio & Templates Modal */}
+      <BlogCoverStudioModal
+        open={showCoverStudio}
+        onOpenChange={setShowCoverStudio}
+        initialTitle={title}
+        initialSubtitle={subtitle}
+        initialCategory={customCategory || category}
+        authorName={authorProfile?.display_name || authorProfile?.business_name || 'GGD Member'}
+        onSelectCover={(imageUrl, meta) => {
+          setCoverFile(null);
+          setSelectedPresetUrl(imageUrl);
+          setCoverPreview(imageUrl);
+          if (meta?.headline && !title) setTitle(meta.headline);
+          if (meta?.category && !customCategory) setCategory(meta.category);
         }}
       />
     </div>

@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
-  Menu, X, Bell, MessageSquare, Crown
+  Menu, X, Bell, MessageSquare, Crown, Mail
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
@@ -24,6 +24,7 @@ import AdminAdManager from "@/components/AdminAdManager";
 import AdminNotificationSender from "@/components/AdminNotificationSender";
 import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
+import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface NavGroup {
@@ -58,6 +59,7 @@ const navGroups: NavGroup[] = [
     title: 'ADVERTISING & CAMPAIGNS',
     items: [
       { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
+      { id: 'email-studio', icon: Mail, label: 'Email & Ad Studio', sublabel: 'Modern templates & sponsor ads', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
       { id: 'videos', icon: Video, label: 'Video Manager', sublabel: 'Watch-to-earn media', color: 'text-white', gradient: 'from-red-500 to-rose-600' },
       { id: 'tasks', icon: ClipboardList, label: 'Task Manager', sublabel: 'Standard task catalogue', color: 'text-white', gradient: 'from-green-500 to-emerald-600' },
@@ -188,6 +190,7 @@ const AdminPage = () => {
           onNavigateSyndicate={(ad) => navigateToSection('syndicate', { initialCampaignId: ad.id, initialTab: 'campaigns' })} 
         />
       );
+      case 'email-studio': return <AdminEmailStudio />;
       case 'notifications': return <AdminNotificationSender />;
       case 'chat': return <AdminChatSystem />;
       case 'coowners': return <AdminCoOwnerManager />;

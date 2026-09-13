@@ -33,22 +33,198 @@ const TYPE_TO_KEY: Record<string, string> = {
 
 function b64url(s: string) { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
 
-function template({ title, message, brandName }: { title: string; message: string; brandName: string }) {
-  return `<!doctype html><html><body style="margin:0;background:#0f0f0f;font-family:Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f0f;padding:24px 0">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:12px;overflow:hidden;max-width:600px">
-        <tr><td style="background:linear-gradient(135deg,#e67e22,#d35400);padding:20px 24px;color:#fff;font-weight:700;font-size:18px">${brandName}</td></tr>
-        <tr><td style="padding:28px 24px;color:#f1f1f1">
-          <h1 style="margin:0 0 12px;font-size:22px;color:#fff">${title}</h1>
-          <p style="margin:0;line-height:1.6;color:#ccc;white-space:pre-wrap">${message}</p>
-        </td></tr>
-        <tr><td style="padding:16px 24px;border-top:1px solid #2a2a2a;color:#777;font-size:12px">
-          You're receiving this because you enabled activity emails. Manage preferences in your account settings.
-        </td></tr>
-      </table>
-    </td></tr>
-  </table></body></html>`;
+interface FeaturedAd {
+  sponsorName: string;
+  badge?: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  ctaText: string;
+  ctaUrl: string;
+  tagline?: string;
+}
+
+const DEFAULT_ADS: FeaturedAd[] = [
+  {
+    sponsorName: "GGD Creator Studio",
+    badge: "🚀 VIRAL SPOTLIGHT",
+    title: "Unlock 4,000 Watch Hours & 1,000 Subscribers",
+    description: "Skyrocket your YouTube channel monetization with organic syndicate engagement and genuine high-retention 4K views.",
+    imageUrl: "https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=800&q=80",
+    ctaText: "Boost My Channel Now",
+    ctaUrl: "https://ais-dev-3vvav7h6yin5adk2dkctkf-140076625502.europe-west1.run.app/?tab=syndicate",
+    tagline: "Trusted by over 10,000+ creators worldwide",
+  },
+  {
+    sponsorName: "GGD Syndicate Elite",
+    badge: "💰 70% COMMISSION OFFER",
+    title: "Earn 70% Recurring Commissions as a Promoter",
+    description: "Promote verified merchant campaigns and receive automatic instant Paystack subaccount direct bank payouts every single day.",
+    imageUrl: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&q=80",
+    ctaText: "Join VIP Syndicate",
+    ctaUrl: "https://ais-dev-3vvav7h6yin5adk2dkctkf-140076625502.europe-west1.run.app/?tab=syndicate-register",
+    tagline: "Zero hidden fees • Instant NUBAN settlements",
+  },
+  {
+    sponsorName: "GGD Marketplace",
+    badge: "🛍️ FEATURED MERCHANT",
+    title: "Launch Your Global Digital Storefront in 60s",
+    description: "Showcase digital products, courses, and business services to high-intent buyers across the entire ad network.",
+    imageUrl: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=800&q=80",
+    ctaText: "Explore Storefronts",
+    ctaUrl: "https://ais-dev-3vvav7h6yin5adk2dkctkf-140076625502.europe-west1.run.app/?tab=store",
+    tagline: "Verified Badge & Free Escrow Protection",
+  }
+];
+
+function template({
+  title,
+  message,
+  brandName,
+  recipientName = "Valued Member",
+  featuredAd,
+  ctaText,
+  ctaUrl,
+}: {
+  title: string;
+  message: string;
+  brandName: string;
+  recipientName?: string;
+  featuredAd?: FeaturedAd | null;
+  ctaText?: string;
+  ctaUrl?: string;
+}) {
+  const currentYear = new Date().getFullYear();
+  const ad = featuredAd !== undefined ? featuredAd : DEFAULT_ADS[Math.floor(Math.random() * DEFAULT_ADS.length)];
+
+  const formattedMessage = message
+    .split("\n\n")
+    .map((p) => `<p style="margin:0 0 14px;font-size:14px;line-height:1.65;color:#e2e8f0">${p.replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+
+  const ctaButtonHtml = ctaText && ctaUrl ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 12px">
+      <tr>
+        <td align="center">
+          <a href="${ctaUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#f97316 0%,#ea580c 50%,#c2410c 100%);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 32px;border-radius:12px;box-shadow:0 4px 14px rgba(249,115,22,0.4);text-transform:uppercase;letter-spacing:0.5px">
+            ${ctaText} &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+  ` : "";
+
+  const adHtml = ad ? `
+    <!-- Featured Sponsor Ad -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;border-top:1px dashed #374151;padding-top:22px">
+      <tr>
+        <td>
+          <div style="margin-bottom:10px">
+            <span style="display:inline-block;font-size:10px;font-weight:900;color:#fbbf24;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px">
+              ${ad.badge || "🌟 FEATURED SPONSOR AD"}
+            </span>
+          </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#1e1b4b 0%,#172554 50%,#0f172a 100%);border:1px solid #6366f1;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4)">
+            ${ad.imageUrl ? `
+              <tr>
+                <td>
+                  <a href="${ad.ctaUrl}" target="_blank" style="text-decoration:none;display:block">
+                    <img src="${ad.imageUrl}" alt="${ad.title}" width="100%" style="width:100%;max-height:180px;object-fit:cover;display:block;border-bottom:1px solid rgba(99,102,241,0.4)" />
+                  </a>
+                </td>
+              </tr>
+            ` : ""}
+            <tr>
+              <td style="padding:18px 20px">
+                <div style="font-size:11px;font-weight:700;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${ad.sponsorName}</div>
+                <h3 style="margin:0 0 8px;font-size:16px;font-weight:800;color:#ffffff;line-height:1.35">${ad.title}</h3>
+                <p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#cbd5e1">${ad.description}</p>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td>
+                      <a href="${ad.ctaUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#8b5cf6 0%,#6366f1 100%);color:#ffffff;text-decoration:none;font-size:12px;font-weight:800;padding:10px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(99,102,241,0.4)">
+                        ${ad.ctaText} &rarr;
+                      </a>
+                    </td>
+                    ${ad.tagline ? `
+                      <td align="right" style="font-size:10px;color:#94a3b8;font-style:italic">${ad.tagline}</td>
+                    ` : ""}
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  ` : "";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0b0f19;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0b0f19;padding:32px 10px">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#111827;border:1px solid #1f2937;border-radius:20px;overflow:hidden;max-width:600px;box-shadow:0 20px 40px rgba(0,0,0,0.6)">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#ea580c 0%,#f97316 50%,#fb923c 100%);padding:22px 28px">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <div style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px">⚡ ${brandName}</div>
+                    <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.9);margin-top:2px">Activity & Partner Updates</div>
+                  </td>
+                  <td align="right">
+                    <span style="background:rgba(0,0,0,0.25);color:#ffffff;font-size:10px;font-weight:800;padding:5px 10px;border-radius:12px;text-transform:uppercase;border:1px solid rgba(255,255,255,0.2)">
+                      VERIFIED
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding:32px 28px;color:#f1f5f9">
+              <div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">
+                Hello, ${recipientName}
+              </div>
+              <h1 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#ffffff;line-height:1.35;letter-spacing:-0.3px">
+                ${title}
+              </h1>
+              <div>
+                ${formattedMessage}
+              </div>
+
+              ${ctaButtonHtml}
+
+              ${adHtml}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#0c121e;padding:22px 28px;border-top:1px solid #1e293b;color:#64748b;font-size:11px;line-height:1.6">
+              <p style="margin:0 0 6px;color:#94a3b8;font-weight:600">${brandName} • Secure Ad & Syndicate Network</p>
+              <p style="margin:0">You received this email because activity notifications are enabled for your account.</p>
+              <p style="margin:8px 0 0;color:#475569">© ${currentYear} ${brandName}. All rights reserved.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 Deno.serve(async (req) => {
@@ -84,7 +260,12 @@ Deno.serve(async (req) => {
     const senderAddr = sn?.find(s => s.key === "email_sender_address")?.value || "me";
     const from = senderAddr && senderAddr !== "me" ? `${senderName} <${senderAddr}>` : senderName;
 
-    const html = template({ title, message, brandName: senderName });
+    const html = template({
+      title,
+      message,
+      brandName: senderName,
+      recipientName: profile?.display_name || "Valued Member",
+    });
     const b = "ggd_" + Math.random().toString(36).slice(2);
     const raw = b64url([
       `From: ${from}`, `To: ${profile.email}`,

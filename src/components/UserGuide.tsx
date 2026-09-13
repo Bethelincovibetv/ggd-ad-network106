@@ -6,14 +6,21 @@ import { Button } from '@/components/ui/button';
 import {
   Search, ChevronDown, Megaphone, Building2, Store, Users,
   Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
-  CheckCircle2, Circle, Image as ImageIcon, ArrowRight, Loader2
+  CheckCircle2, Circle, Image as ImageIcon, ArrowRight, Loader2,
+  Download, ExternalLink, Play, Eye, BellRing, Share2
 } from 'lucide-react';
 import guideHero from '@/assets/guide-hero.jpg';
+import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
+import flyerGuideGrowth from '@/assets/images/flyer_guide_growth_1789298441003.jpg';
+import flyerGuideTasks from '@/assets/images/flyer_guide_tasks_1789298456727.jpg';
+import flyerGuideSyndicate from '@/assets/images/flyer_guide_syndicate_1789298469399.jpg';
+import flyerGuideBannerAds from '@/assets/images/flyer_guide_bannerads_1789298482554.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { guideService } from '@/services/guideService';
 import { playRewardSound } from '@/lib/soundEffects';
 import { toast } from 'sonner';
 import YouTubeEmbed from '@/components/YouTubeEmbed';
+import { YouTubeLogo } from '@/components/icons/YouTubeLogo';
 
 interface GuideSection {
   title: string;
@@ -23,6 +30,8 @@ interface GuideSection {
   videoSection?: string;
   actionTab?: string;
   actionLabel?: string;
+  flyerUrl?: string;
+  flyerCaption?: string;
   content: React.ReactNode;
 }
 
@@ -35,6 +44,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_getting_started',
     actionTab: 'directory',
     actionLabel: 'Explore Business Directory',
+    flyerUrl: flyerGuideGrowth,
+    flyerCaption: 'Official GGD Business Growth & Multi-Channel Discovery Flyer',
     content: (
       <div className="space-y-3">
         <p><strong>GGD Ad Network</strong> is a digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote their products and services, and grow.</p>
@@ -44,6 +55,7 @@ const sections: GuideSection[] = [
           <li><strong>Sell:</strong> showcase products and services.</li>
           <li><strong>Get visibility:</strong> use GGD Banner Ads and eligible featured placements.</li>
           <li><strong>Promote:</strong> use Credit Tasks for community promotion or verified Syndicate promoters for paid promotion.</li>
+          <li><strong>Boost Video:</strong> boost YouTube views, watch time hours, and channel subscribers.</li>
           <li><strong>Create:</strong> use marketing tools such as BlogMate AI.</li>
           <li><strong>Connect:</strong> use Community to build awareness and relationships.</li>
           <li><strong>Measure:</strong> use available analytics to understand results.</li>
@@ -56,6 +68,64 @@ const sections: GuideSection[] = [
     ),
   },
   {
+    title: 'Boost YouTube Views, Watch Hours & Subscribers — Video Growth Engine',
+    badge: 'YouTube Boost',
+    icon: <YouTubeLogo className="h-5 w-5" />,
+    keywords: 'youtube boost video views watch hour watch hours subscribe subscribers channel monetization follow comment likes credits earn',
+    videoSection: 'guide_youtube_boost',
+    actionTab: 'tasks',
+    actionLabel: 'Create YouTube Boost Task',
+    flyerUrl: flyerYtBoost,
+    flyerCaption: 'Official YouTube Boost & Watch Time Monetization Flyer',
+    content: (
+      <div className="space-y-3.5">
+        <div className="rounded-xl bg-red-500/10 border border-red-500/25 p-3.5 space-y-2">
+          <div className="flex items-center gap-2">
+            <YouTubeLogo className="h-5 w-5" />
+            <h4 className="font-black text-sm text-foreground">Accelerate Your Channel Monetization & Watch Time</h4>
+          </div>
+          <p className="text-xs text-foreground/90 leading-relaxed">
+            Need <strong>4,000 Watch Hours</strong> and <strong>1,000 Subscribers</strong> for YouTube Partner monetization? GGD Ad Network connects you with real, active community members who watch, subscribe, like, and comment on your videos in exchange for promotional credits.
+          </p>
+        </div>
+
+        <h4 className="font-bold text-sm text-foreground">How YouTube Video Boost Works:</h4>
+        <ol className="list-decimal space-y-2.5 pl-5 text-xs sm:text-sm">
+          <li>
+            <strong>Fund with GGD Credits:</strong> Allocate your desired reward credits (e.g. 5–20 credits per person) and paste your YouTube Video or Channel link.
+          </li>
+          <li>
+            <strong>Real In-Feed Watch Player:</strong> Promoters watch your video directly in the GGD Community Feed. The embedded player precisely tracks real elapsed playback seconds.
+          </li>
+          <li>
+            <strong>Direct Channel Subscription Verification:</strong> When creators set a subscription goal, promoters 1-click the official <em>Subscribe to Channel</em> button, triggering YouTube's subscription confirmation dialog.
+          </li>
+          <li>
+            <strong>Engagement Triggers:</strong> Real human views, long watch retention, likes, and genuine comments trigger YouTube's algorithmic recommendation feed (Suggested Videos & Browse features).
+          </li>
+        </ol>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+            <Eye className="h-5 w-5 text-red-500 mx-auto mb-1" />
+            <p className="font-bold text-xs text-foreground">Organic Views</p>
+            <p className="text-[10.5px] text-muted-foreground mt-0.5">Real retention views tracked by YouTube</p>
+          </div>
+          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+            <Play className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+            <p className="font-bold text-xs text-foreground">Watch Hours</p>
+            <p className="text-[10.5px] text-muted-foreground mt-0.5">Reach the 4K public watch hours milestone</p>
+          </div>
+          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+            <BellRing className="h-5 w-5 text-green-500 mx-auto mb-1" />
+            <p className="font-bold text-xs text-foreground">Active Subscribers</p>
+            <p className="text-[10.5px] text-muted-foreground mt-0.5">1-click direct subscribe action trigger</p>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
     title: 'Business Directory — Get Discovered',
     badge: 'Discovery',
     icon: <Building2 className="h-5 w-5" />,
@@ -63,6 +133,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_directory',
     actionTab: 'directory',
     actionLabel: 'Open Business Directory',
+    flyerUrl: flyerGuideGrowth,
+    flyerCaption: 'Business Profile & Directory Discovery Guide Flyer',
     content: (
       <div className="space-y-3">
         <p>The <strong>Business Directory</strong> is GGD's discovery layer. It helps people find businesses, products and services.</p>
@@ -84,6 +156,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_products',
     actionTab: 'my-business',
     actionLabel: 'Manage Products & Storefront',
+    flyerUrl: flyerGuideGrowth,
+    flyerCaption: 'Products & Services Catalog Showcase Flyer',
     content: (
       <div className="space-y-3">
         <p>Your business presence can showcase what you actually sell or provide.</p>
@@ -104,6 +178,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_ads',
     actionTab: 'campaigns',
     actionLabel: 'Launch a Banner Campaign',
+    flyerUrl: flyerGuideBannerAds,
+    flyerCaption: 'GGD Commercial Banner Advertising Network Flyer',
     content: (
       <div className="space-y-3">
         <p><strong>GGD Banner Ads</strong> are the platform's commercial display advertising system. They are separate from the Featured Slider.</p>
@@ -126,6 +202,8 @@ const sections: GuideSection[] = [
     icon: <ImageIcon className="h-5 w-5" />,
     keywords: 'slider featured business update announcement placement slides admin',
     videoSection: 'guide_slider',
+    flyerUrl: flyerGuideBannerAds,
+    flyerCaption: 'Featured Slider & High-Impact Announcement Showcase Flyer',
     content: (
       <div className="space-y-3">
         <p>The <strong>Featured Slider</strong> is a separate presentation layer for featured updates, businesses, features or announcements selected by the platform.</p>
@@ -141,6 +219,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_tasks',
     actionTab: 'tasks',
     actionLabel: 'Open Credit Tasks',
+    flyerUrl: flyerGuideTasks,
+    flyerCaption: 'Community Credit Tasks & Promotion Ecosystem Flyer',
     content: (
       <div className="space-y-3">
         <p><strong>Credit Tasks</strong> let a user or business fund a community promotion task using GGD credits. Other users complete the task and receive GGD credits as their reward.</p>
@@ -161,6 +241,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_syndicate',
     actionTab: 'syndicate',
     actionLabel: 'Open Syndicate Hub',
+    flyerUrl: flyerGuideSyndicate,
+    flyerCaption: 'Syndicate Professional Verified Promoter Network Flyer',
     content: (
       <div className="space-y-3">
         <p><strong>Syndicate</strong> is GGD's verified professional promotion network. Businesses fund paid campaigns and verified Syndicate promoters complete promotional work.</p>
@@ -186,6 +268,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_blog',
     actionTab: 'feed',
     actionLabel: 'Open Blog Creator',
+    flyerUrl: flyerGuideGrowth,
+    flyerCaption: 'BlogMate AI Editorial Content & SEO Marketing Flyer',
     content: (
       <div className="space-y-3">
         <p>The <strong>Blog Creator & AI Drafter</strong> is GGD's premier content broadcasting suite for VIP members. It turns your business expertise and products into engaging, search-optimized editorial articles.</p>
@@ -207,6 +291,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_community',
     actionTab: 'feed',
     actionLabel: 'Open Community Feed',
+    flyerUrl: flyerGuideTasks,
+    flyerCaption: 'GGD Community Feed & Social Engagement Flyer',
     content: (
       <div className="space-y-3">
         <p>The <strong>Community</strong> is GGD's social and distribution layer.</p>
@@ -227,6 +313,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_wallet',
     actionTab: 'wallet',
     actionLabel: 'Open Wallet Hub',
+    flyerUrl: flyerGuideTasks,
+    flyerCaption: 'GGG Credits Economy & Internal Currency Flow Flyer',
     content: (
       <div className="space-y-3">
         <p><strong>GGG credits</strong> are the internal platform currency used for eligible GGD activities.</p>
@@ -243,6 +331,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_apps',
     actionTab: 'growth',
     actionLabel: 'View Business Growth Score',
+    flyerUrl: flyerGuideBannerAds,
+    flyerCaption: 'Marketing Telemetry, Analytics & CTR Tracking Flyer',
     content: (
       <div className="space-y-3">
         <p>Marketing is more useful when you can see what happened after you promoted something.</p>
@@ -263,6 +353,8 @@ const sections: GuideSection[] = [
     videoSection: 'guide_profile',
     actionTab: 'support',
     actionLabel: 'Contact Support',
+    flyerUrl: flyerGuideGrowth,
+    flyerCaption: 'GGD Ad Network Help Center & Support Guide Flyer',
     content: (
       <div className="space-y-3">
         <ul className="list-disc space-y-2 pl-5">
@@ -473,6 +565,53 @@ const UserGuide = () => {
                   {/* Section Video Tutorial (if configured by Admin) */}
                   {section.videoSection && (
                     <YouTubeEmbed section={section.videoSection} className="my-2" />
+                  )}
+
+                  {/* Official Section Promotional Flyer */}
+                  {section.flyerUrl && (
+                    <div className="rounded-2xl overflow-hidden border border-border/70 bg-card shadow-xs my-3">
+                      <div className="relative bg-muted/40 overflow-hidden flex items-center justify-center p-2 sm:p-3">
+                        <img
+                          loading="lazy"
+                          src={section.flyerUrl}
+                          alt={section.flyerCaption || section.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full max-h-72 object-contain rounded-xl shadow-xs"
+                        />
+                        <div className="absolute top-4 left-4">
+                          <Badge className="bg-black/75 text-white backdrop-blur-md border-white/20 text-[10px] font-bold px-2 py-0.5">
+                            Official Section Flyer
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-muted/30 flex items-center justify-between border-t border-border/50 flex-wrap gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-foreground truncate">{section.flyerCaption || section.title}</p>
+                          <p className="text-[10.5px] text-muted-foreground">Download or share this official guide infographic</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs font-bold rounded-xl gap-1.5"
+                            onClick={() => {
+                              window.open(section.flyerUrl, '_blank');
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Full
+                          </Button>
+                          <a
+                            href={section.flyerUrl}
+                            download={`GGD_Guide_${section.badge.replace(/\s+/g, '_')}_Flyer.jpg`}
+                            className="inline-flex items-center justify-center h-8 px-3 text-xs font-bold rounded-xl bg-orange-500 hover:bg-orange-600 text-white gap-1.5 transition-colors shadow-xs"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Save Flyer
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {section.content}

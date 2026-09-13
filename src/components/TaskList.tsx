@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio } from "lucide-react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import SlideCarousel from "@/components/SlideCarousel";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
 import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
+import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -41,6 +43,126 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+
+  // YouTube Dedicated Engagement State
+  const [ytActiveTask, setYtActiveTask] = useState<any | null>(null);
+  const [ytElapsed, setYtElapsed] = useState(0);
+  const [ytHasSubscribed, setYtHasSubscribed] = useState(false);
+  const [ytHasLiked, setYtHasLiked] = useState(false);
+  const [ytClaiming, setYtClaiming] = useState(false);
+  const [ytObjective, setYtObjective] = useState<'combo' | 'subscribers' | 'views'>('combo');
+  const [ytRequiredWatchSeconds, setYtRequiredWatchSeconds] = useState('30');
+  const [ytChannelUrl, setYtChannelUrl] = useState('');
+
+  // Live countdown timer for active YouTube task
+  useEffect(() => {
+    if (!ytActiveTask) return;
+    const requiredSeconds = parseInt(ytActiveTask.required_watch_seconds || ytActiveTask.description?.match(/(\d+)\s*sec/i)?.[1] || '30', 10);
+    const interval = setInterval(() => {
+      setYtElapsed(prev => {
+        if (prev >= requiredSeconds) {
+          clearInterval(interval);
+          return requiredSeconds;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [ytActiveTask]);
+
+  const extractYouTubeId = (url?: string): string | null => {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
+    return match ? match[1] : null;
+  };
+
+  const getYouTubeSubscribeUrl = (url?: string, channelUrl?: string): string => {
+    const target = channelUrl?.trim() || url?.trim() || 'https://www.youtube.com';
+    return target.includes('?') ? `${target}&sub_confirmation=1` : `${target}?sub_confirmation=1`;
+  };
+
+  const handleYouTubeSubscribeClick = (task: any) => {
+    const subUrl = getYouTubeSubscribeUrl(task.share_url, task.channel_url);
+    window.open(subUrl, '_blank', 'noopener,noreferrer');
+    setYtHasSubscribed(true);
+    playRewardSound();
+    toast.success("🔔 YouTube channel opened! Confirm subscription on YouTube to earn your reward.");
+  };
+
+  const handleYouTubeLikeClick = (task: any) => {
+    const videoUrl = task.share_url || 'https://youtube.com';
+    window.open(videoUrl, '_blank', 'noopener,noreferrer');
+    setYtHasLiked(true);
+    toast.info("👍 Video opened on YouTube. Leave a like and comment!");
+  };
+
+  const claimYouTubeReward = async () => {
+    if (!ytActiveTask || ytClaiming) return;
+    const task = ytActiveTask;
+    setYtClaiming(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setYtClaiming(false);
+        return;
+      }
+
+      const { data, error } = await callRpc('complete_credit_task', {
+        p_task_id: task.id,
+      });
+
+      if (error) {
+        if ((error as any).code === '23505') {
+          toast.info("You have already claimed this YouTube task!");
+          setCompletions(prev => Array.from(new Set([...prev, task.id])));
+          setYtActiveTask(null);
+          return;
+        }
+
+        // Fallback: direct database insertion
+        const { error: insErr } = await supabase.from('task_completions').insert({
+          task_id: task.id,
+          user_id: user.id,
+        });
+
+        if (insErr && (insErr as any).code !== '23505') {
+          toast.error(insErr.message || "Failed to complete task");
+          return;
+        }
+
+        const awarded = Number(task.reward_credits || 5);
+        const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+        const currentCredits = Number(prof?.credits || 0);
+        const updatedCredits = currentCredits + awarded;
+        await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
+        await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+
+        onCreditsUpdate(updatedCredits);
+        setCompletions(prev => Array.from(new Set([...prev, task.id])));
+        playRewardSound();
+        try { confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } }); } catch {}
+        toast.success(`🎉 +${awarded} Credits added to your balance for YouTube engagement!`);
+        setYtActiveTask(null);
+        fetchTasks();
+        return;
+      }
+
+      const awarded = Number(task.reward_credits || 5);
+      const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+      const updatedCredits = Number(prof?.credits || 0);
+      onCreditsUpdate(updatedCredits);
+      setCompletions(prev => Array.from(new Set([...prev, task.id])));
+      playRewardSound();
+      try { confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } }); } catch {}
+      toast.success(`🎉 +${awarded} Credits added to your balance for YouTube engagement!`);
+      setYtActiveTask(null);
+      fetchTasks();
+    } catch (err: any) {
+      toast.error(err.message || "Could not claim reward");
+    } finally {
+      setYtClaiming(false);
+    }
+  };
 
   useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
 
@@ -150,7 +272,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       creator_id: user.id,
       funded: true,
       max_completions: maxPeople,
-      flyer_url: flyerUrl || null,
+      flyer_url: selectedTaskType === 'youtube' ? (flyerUrl || flyerYtBoost) : (flyerUrl || null),
     }]);
     if (error) {
       await supabase.from('profiles').update({ credits }).eq('user_id', user.id);
@@ -222,6 +344,17 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       toast.error("This task has reached its maximum number of completions.");
       return;
     }
+
+    // Intercept YouTube Tasks: Launch dedicated interactive Watch & Subscribe player
+    const isYouTubeTask = task.task_type === 'youtube' || task.task_type?.startsWith('youtube') || (task.share_url && (task.share_url.includes('youtube.com') || task.share_url.includes('youtu.be')));
+    if (isYouTubeTask) {
+      setYtActiveTask(task);
+      setYtElapsed(0);
+      setYtHasSubscribed(false);
+      setYtHasLiked(false);
+      return;
+    }
+
     // Open share platform picker first — user must actually share before reward
     setShareTarget({ task });
   };
@@ -631,6 +764,60 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
               />
             </div>
 
+            {/* YouTube Boost Creator Enhancements */}
+            {selectedTaskType === 'youtube' && (
+              <div className="space-y-3 bg-red-500/5 border border-red-500/20 rounded-2xl p-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    loading="lazy"
+                    src={flyerYtBoost}
+                    alt="YouTube Video Boost Engine"
+                    className="w-16 h-16 rounded-xl object-cover border border-red-500/30 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-foreground flex items-center gap-1">
+                      <YouTubeLogo className="h-3.5 w-3.5" />
+                      YouTube Monetization Growth Engine
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Boost 4,000 Watch Hours, Views & Subscribers with verified community engagement.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <Label className="text-[9.5px] text-muted-foreground mb-1 block font-semibold uppercase">Campaign Goal</Label>
+                    <Select value={ytObjective} onValueChange={(v: any) => setYtObjective(v)}>
+                      <SelectTrigger className="h-9 rounded-xl bg-background border-border/50 text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="combo" className="text-xs">🚀 Full Combo (Watch + Sub)</SelectItem>
+                        <SelectItem value="subscribers" className="text-xs">🔔 Boost Subscribers</SelectItem>
+                        <SelectItem value="views" className="text-xs">🎬 Boost Watch Time & Views</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-[9.5px] text-muted-foreground mb-1 block font-semibold uppercase">Min Watch Time</Label>
+                    <Select value={ytRequiredWatchSeconds} onValueChange={setYtRequiredWatchSeconds}>
+                      <SelectTrigger className="h-9 rounded-xl bg-background border-border/50 text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30" className="text-xs">30 Seconds</SelectItem>
+                        <SelectItem value="60" className="text-xs">60 Seconds</SelectItem>
+                        <SelectItem value="120" className="text-xs">2 Minutes (120s)</SelectItem>
+                        <SelectItem value="300" className="text-xs">5 Minutes (300s)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Destination Link / Mode Switch */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
@@ -751,6 +938,143 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Dedicated YouTube Player & 1-Click Subscription Modal */}
+      <Dialog open={!!ytActiveTask} onOpenChange={o => { if (!o) setYtActiveTask(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border border-red-500/30 bg-card shadow-2xl">
+          {ytActiveTask && (() => {
+            const ytId = extractYouTubeId(ytActiveTask.share_url);
+            const reqSeconds = parseInt(ytActiveTask.required_watch_seconds || ytActiveTask.description?.match(/(\d+)\s*sec/i)?.[1] || '30', 10);
+            const isWatchComplete = ytElapsed >= reqSeconds;
+            const canClaim = isWatchComplete || ytHasSubscribed;
+            const progressPercent = Math.min(100, Math.round((ytElapsed / reqSeconds) * 100));
+
+            return (
+              <div className="flex flex-col">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-white/20 p-1.5 rounded-xl backdrop-blur-xs">
+                        <YouTubeLogo className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold leading-tight">YouTube Growth Task</h3>
+                        <p className="text-[11px] text-white/80">Watch, Subscribe & Earn Credits</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
+                      <Coins className="h-3.5 w-3.5 text-yellow-300" />
+                      <span className="text-xs font-bold text-white">+{ytActiveTask.reward_credits} Credits</span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-white/95 mt-2 line-clamp-1">{ytActiveTask.title}</p>
+                </div>
+
+                {/* Player Container */}
+                <div className="relative aspect-video w-full bg-black">
+                  {ytId ? (
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
+                      title={ytActiveTask.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      className="w-full h-full border-0"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+                      <YouTubeLogo className="h-10 w-10 mb-2 opacity-50" />
+                      <p className="text-xs">Direct YouTube Link</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(ytActiveTask.share_url, '_blank')}
+                        className="mt-2 text-xs h-8 gap-1.5 text-white bg-white/10 hover:bg-white/20"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open on YouTube
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Interactive Progress & Actions */}
+                <div className="p-4 space-y-3.5 bg-card">
+                  {/* Progress Watch bar */}
+                  <div className="bg-muted/40 rounded-2xl p-3 border border-border/50">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <Timer className={`h-3.5 w-3.5 ${isWatchComplete ? 'text-emerald-500' : 'text-red-500 animate-pulse'}`} />
+                        Watch Progress: {ytElapsed}s / {reqSeconds}s
+                      </span>
+                      <span className={`font-bold ${isWatchComplete ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                        {isWatchComplete ? '✓ Watch Met' : `${reqSeconds - ytElapsed}s left`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${isWatchComplete ? 'bg-emerald-500' : 'bg-red-500'}`}
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Direct 1-Click Subscribe Button & Like Action */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => handleYouTubeSubscribeClick(ytActiveTask)}
+                      className={`h-11 rounded-2xl font-bold text-xs gap-1.5 transition-all shadow-xs ${
+                        ytHasSubscribed
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
+                      }`}
+                    >
+                      <YouTubeLogo className="h-4 w-4" />
+                      {ytHasSubscribed ? (
+                        <span className="flex items-center gap-1"><CheckCheck className="h-3.5 w-3.5" /> Subscribed ✓</span>
+                      ) : (
+                        <span className="flex items-center gap-1"><Bell className="h-3.5 w-3.5 animate-bounce" /> Subscribe</span>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleYouTubeLikeClick(ytActiveTask)}
+                      className={`h-11 rounded-2xl font-bold text-xs gap-1.5 transition-all ${
+                        ytHasLiked ? 'border-blue-500/50 text-blue-600 bg-blue-50/50 dark:bg-blue-950/20' : ''
+                      }`}
+                    >
+                      <ThumbsUp className={`h-4 w-4 ${ytHasLiked ? 'text-blue-600 fill-blue-600' : 'text-muted-foreground'}`} />
+                      {ytHasLiked ? 'Liked & Commented ✓' : 'Like & Comment'}
+                    </Button>
+                  </div>
+
+                  {/* Claim Reward Button */}
+                  <Button
+                    disabled={!canClaim || ytClaiming}
+                    onClick={claimYouTubeReward}
+                    className={`w-full h-12 rounded-2xl font-bold text-sm shadow-md transition-all ${
+                      canClaim
+                        ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-emerald-500/25 animate-pulse'
+                        : 'bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
+                  >
+                    {ytClaiming ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Claiming Credits...</>
+                    ) : canClaim ? (
+                      <><Sparkles className="h-4 w-4 mr-2" /> Claim +{ytActiveTask.reward_credits} Credits Reward</>
+                    ) : (
+                      <>Watch {reqSeconds - ytElapsed}s or Click Subscribe to Unlock</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Share Platform Picker Dialog */}
       <Dialog open={!!shareTarget} onOpenChange={o => { if (!o) setShareTarget(null); }}>
@@ -886,7 +1210,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       {isDescription && !task.share_url ? (
                         <><Copy className="h-3 w-3 mr-1" />Copy & Share</>
                       ) : isYouTube ? (
-                        <><YouTubeLogo className="h-3.5 w-3.5 mr-1" />Watch & Earn</>
+                        <><YouTubeLogo className="h-3.5 w-3.5 mr-1" />Watch & Subscribe</>
                       ) : (
                         <><Share2 className="h-3 w-3 mr-1" />Share</>
                       )}

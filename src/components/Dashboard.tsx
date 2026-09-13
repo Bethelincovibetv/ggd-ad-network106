@@ -66,6 +66,7 @@ import GlobalSearchBar from "@/components/GlobalSearchBar";
 import HomeDashboard from "@/components/HomeDashboard";
 import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 import CommunityFeed from "@/components/CommunityFeed";
+import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 
 interface Ad {
   id: string;
@@ -1136,6 +1137,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'support':
         return <SupportPage userEmail={userEmail} onNavigate={handleTabChange} />;
+
+      case 'email-studio':
+        return <AdminEmailStudio />;
 
       case 'admin':
         return null;
