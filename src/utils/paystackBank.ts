@@ -3,17 +3,19 @@ import { findBankCode, POPULAR_NIGERIAN_BANKS } from "./nigerianBanks";
 
 export interface BankResolveResult {
   success: boolean;
+  verified?: boolean;
   account_name?: string;
   account_number?: string;
   bank_code?: string;
   bank_name?: string;
   error?: string;
+  warning?: string;
 }
 
 /**
  * Resolves a Nigerian bank account name via Paystack with multi-layer resilience:
- * 1. Edge Function `process-syndicate-payout` (action: 'resolve_bank_account')
- * 2. Fallback via client-side resolution if edge function is unreachable or returns configuration issue
+ * 1. Node server API proxy `/api/paystack/resolve-account` (uses official Paystack API & secret key)
+ * 2. Supabase Edge Function `process-syndicate-payout` (action: 'resolve_bank_account')
  */
 export async function resolveBankAccountPaystack(
   accountNumber: string,
@@ -23,15 +25,15 @@ export async function resolveBankAccountPaystack(
 ): Promise<BankResolveResult> {
   const cleanAcc = accountNumber.trim().replace(/\D/g, '');
   if (cleanAcc.length !== 10) {
-    return { success: false, error: 'Account number must be exactly 10 digits' };
+    return { success: false, verified: false, error: 'Account number must be exactly 10 digits' };
   }
 
   const resolvedBankCode = bankCode || findBankCode(bankName);
   if (!resolvedBankCode) {
-    return { success: false, error: 'Please select a supported Nigerian bank' };
+    return { success: false, verified: false, error: 'Please select a valid Nigerian bank' };
   }
 
-  // Get keys from app_settings if present
+  // Get keys from app_settings if available
   let secretKey: string | undefined;
   try {
     const { data: settings } = await supabase
@@ -43,7 +45,7 @@ export async function resolveBankAccountPaystack(
     console.warn('Could not read app_settings:', err);
   }
 
-  // 1. Try server proxy endpoint first (avoids browser CORS & uses platform backend connection)
+  // 1. Try server proxy endpoint first (avoids browser CORS & uses live Paystack backend connection)
   try {
     const sUrl = `/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}${preferredName ? `&account_name=${encodeURIComponent(preferredName)}` : ''}${secretKey ? `&secret_key=${encodeURIComponent(secretKey)}` : ''}`;
     const sResp = await fetch(sUrl);
@@ -51,8 +53,22 @@ export async function resolveBankAccountPaystack(
     if (sData.success && sData.account_name) {
       return {
         success: true,
+        verified: Boolean(sData.verified ?? true),
         account_name: sData.account_name,
         account_number: sData.account_number || cleanAcc,
+        bank_code: sData.bank_code || resolvedBankCode,
+        bank_name: bankName,
+        warning: sData.warning,
+      };
+    }
+
+    if (sData.error) {
+      // If server returned an explicit error from Paystack
+      return {
+        success: false,
+        verified: false,
+        error: sData.error,
+        account_number: cleanAcc,
         bank_code: resolvedBankCode,
         bank_name: bankName,
       };
@@ -75,7 +91,19 @@ export async function resolveBankAccountPaystack(
     if (!error && data?.success && data?.account_name) {
       return {
         success: true,
+        verified: true,
         account_name: data.account_name,
+        account_number: cleanAcc,
+        bank_code: resolvedBankCode,
+        bank_name: bankName,
+      };
+    }
+
+    if (data?.error) {
+      return {
+        success: false,
+        verified: false,
+        error: data.error,
         account_number: cleanAcc,
         bank_code: resolvedBankCode,
         bank_name: bankName,
@@ -85,11 +113,23 @@ export async function resolveBankAccountPaystack(
     console.warn('Edge function resolve notice:', edgeErr);
   }
 
-  // 3. Fallback to platform-verified name format
-  const fallbackVerifiedName = preferredName || `PROMOTER (${cleanAcc.slice(-4)}) - ${bankName ? bankName.toUpperCase() : 'BANK'}`;
+  // If user provided a manual preferred name and live verification was unavailable
+  if (preferredName && preferredName.trim()) {
+    return {
+      success: true,
+      verified: false,
+      account_name: preferredName.trim().toUpperCase(),
+      account_number: cleanAcc,
+      bank_code: resolvedBankCode,
+      bank_name: bankName,
+      warning: 'Live verification unavailable. Using provided account name.',
+    };
+  }
+
   return {
-    success: true,
-    account_name: fallbackVerifiedName,
+    success: false,
+    verified: false,
+    error: 'Could not resolve account name with Paystack. Please check the account number and selected bank.',
     account_number: cleanAcc,
     bank_code: resolvedBankCode,
     bank_name: bankName,

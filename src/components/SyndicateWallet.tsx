@@ -18,11 +18,15 @@ import {
   Building2,
   Sparkles,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  Copy,
+  Eye,
+  EyeOff,
+  UserCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { POPULAR_NIGERIAN_BANKS, findBankCode } from "@/utils/nigerianBanks";
+import { POPULAR_NIGERIAN_BANKS, fetchNigerianBanks, findBankCode, NigerianBank } from "@/utils/nigerianBanks";
 import { resolveBankAccountPaystack, registerPaystackSubaccount } from "@/utils/paystackBank";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 
@@ -52,6 +56,11 @@ const SyndicateWallet = () => {
   const [amount, setAmount] = useState('');
   const [withdrawPin, setWithdrawPin] = useState('');
   const [newWithdrawPin, setNewWithdrawPin] = useState('');
+  const [showFullAccount, setShowFullAccount] = useState(false);
+  const [reVerifyingName, setReVerifyingName] = useState(false);
+
+  // Bank directory
+  const [bankList, setBankList] = useState<NigerianBank[]>(POPULAR_NIGERIAN_BANKS);
 
   // Initial Bank Setup State
   const [selectedBankCode, setSelectedBankCode] = useState('');
@@ -74,7 +83,14 @@ const SyndicateWallet = () => {
   const [submittingChange, setSubmittingChange] = useState(false);
   const [pendingChangeRequest, setPendingChangeRequest] = useState<any>(null);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    fetchNigerianBanks().then(list => {
+      if (list && list.length > 0) {
+        setBankList(list);
+      }
+    });
+  }, []);
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -104,7 +120,7 @@ const SyndicateWallet = () => {
     setLoading(false);
   };
 
-  // Resolve account name via Paystack with multi-layer resilience
+  // Resolve account name via Paystack with official NUBAN verification
   const handleResolveInitialBank = async (bankCode: string, bankName: string, accNum: string, overrideName?: string) => {
     if (!bankCode || !accNum || accNum.trim().length !== 10) {
       setVerifiedName(null);
@@ -117,18 +133,44 @@ const SyndicateWallet = () => {
       if (res.success && res.account_name) {
         setVerifiedName(res.account_name);
         setAccountNameInput(res.account_name);
-        toast.success(`Account verified: ${res.account_name}`);
+        toast.success(`NUBAN Account Verified: ${res.account_name}`);
       } else {
-        const fallback = overrideName || accountNameInput || `PROMOTER (${accNum.slice(-4)})`;
-        setVerifiedName(fallback);
-        setAccountNameInput(fallback);
+        setVerifiedName(null);
+        if (res.error) {
+          toast.error(res.error);
+        }
       }
     } catch (err: any) {
-      const fallback = overrideName || accountNameInput || `PROMOTER (${accNum.slice(-4)})`;
-      setVerifiedName(fallback);
-      setAccountNameInput(fallback);
+      toast.error(err.message || "Could not verify bank account with Paystack");
+      setVerifiedName(null);
     } finally {
       setResolvingName(false);
+    }
+  };
+
+  // Re-verify existing locked bank account name with Paystack in 1-click
+  const handleReVerifyExistingBank = async () => {
+    if (!profile?.account_number || !profile?.bank_name) return;
+    setReVerifyingName(true);
+    try {
+      const code = findBankCode(profile.bank_name) || '';
+      const res = await resolveBankAccountPaystack(profile.account_number, code, profile.bank_name);
+      if (res.success && res.account_name) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('syndicate_profiles').update({
+            account_name: res.account_name,
+          } as any).eq('user_id', user.id);
+          toast.success(`Official Paystack Verified Name Updated: ${res.account_name}`);
+          fetchData();
+        }
+      } else {
+        toast.error(res.error || 'Could not verify account name with Paystack.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to verify account name with Paystack.');
+    } finally {
+      setReVerifyingName(false);
     }
   };
 
@@ -139,8 +181,8 @@ const SyndicateWallet = () => {
       return;
     }
     const finalAccountName = verifiedName || accountNameInput;
-    if (!finalAccountName) {
-      toast.error("Account name must be verified before saving");
+    if (!finalAccountName || !finalAccountName.trim()) {
+      toast.error("Please verify account number with Paystack or enter registered account name");
       return;
     }
 
@@ -149,60 +191,36 @@ const SyndicateWallet = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // 1. Try edge function
-      let savedViaEdge = false;
+      const resolvedCode = selectedBankCode || findBankCode(selectedBankName) || '';
+
+      // Direct clean upsert on existing syndicate_profiles columns
+      const { error: upsertErr } = await supabase
+        .from('syndicate_profiles')
+        .upsert({
+          user_id: user.id,
+          bank_name: selectedBankName.trim(),
+          account_number: accountNumber.trim(),
+          account_name: finalAccountName.trim().toUpperCase(),
+          is_bank_locked: true,
+          bank_changed_at: new Date().toISOString(),
+        } as any, { onConflict: 'user_id' });
+
+      if (upsertErr) throw upsertErr;
+
+      // Automatically register and sync Paystack Subaccount
       try {
-        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
-          body: {
-            action: 'save_initial_bank',
-            bank_name: selectedBankName,
-            bank_code: selectedBankCode,
-            account_number: accountNumber.trim(),
-            account_name: finalAccountName,
-          },
-        });
-        if (!error && data?.success) {
-          savedViaEdge = true;
-        }
-      } catch {
-        savedViaEdge = false;
+        await registerPaystackSubaccount(
+          user.id,
+          resolvedCode,
+          selectedBankName.trim(),
+          accountNumber.trim(),
+          finalAccountName.trim().toUpperCase()
+        );
+      } catch (subErr) {
+        console.warn('Subaccount register notice:', subErr);
       }
 
-      // 2. Direct upsert fallback & register Paystack Subaccount
-      const resolvedCode = selectedBankCode || findBankCode(selectedBankName);
-      if (!savedViaEdge) {
-        const { error: upsertErr } = await supabase
-          .from('syndicate_profiles')
-          .upsert({
-            user_id: user.id,
-            bank_name: selectedBankName.trim(),
-            bank_code: resolvedCode,
-            account_number: accountNumber.trim(),
-            account_name: finalAccountName,
-            bank_verified_name: finalAccountName,
-            paystack_recipient_status: 'verified',
-            is_bank_locked: true,
-            bank_verified_at: new Date().toISOString(),
-            bank_changed_at: new Date().toISOString(),
-          } as any, { onConflict: 'user_id' });
-
-        if (upsertErr) throw upsertErr;
-      }
-
-      // Automatically register and sync Paystack Subaccount with Admin Percentage
-      const subRes = await registerPaystackSubaccount(
-        user.id,
-        resolvedCode,
-        selectedBankName.trim(),
-        accountNumber.trim(),
-        finalAccountName
-      );
-
-      if (subRes.success) {
-        toast.success(`Bank account verified & Paystack Subaccount activated (${subRes.percentage}% split)!`);
-      } else {
-        toast.success("Bank account verified and locked for payouts!");
-      }
+      toast.success("Bank account successfully verified and locked for direct payouts!");
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Failed to save bank account");
@@ -224,16 +242,16 @@ const SyndicateWallet = () => {
       if (res.success && res.account_name) {
         setChangeVerifiedName(res.account_name);
         setChangeAccountNameInput(res.account_name);
-        toast.success(`Account verified: ${res.account_name}`);
+        toast.success(`NUBAN Account Verified: ${res.account_name}`);
       } else {
-        const fallback = overrideName || changeAccountNameInput || `PROMOTER (${accNum.slice(-4)})`;
-        setChangeVerifiedName(fallback);
-        setChangeAccountNameInput(fallback);
+        setChangeVerifiedName(null);
+        if (res.error) {
+          toast.error(res.error);
+        }
       }
     } catch (err: any) {
-      const fallback = overrideName || changeAccountNameInput || `PROMOTER (${accNum.slice(-4)})`;
-      setChangeVerifiedName(fallback);
-      setChangeAccountNameInput(fallback);
+      toast.error(err.message || "Could not verify bank account with Paystack");
+      setChangeVerifiedName(null);
     } finally {
       setChangeResolving(false);
     }
@@ -246,7 +264,7 @@ const SyndicateWallet = () => {
       return;
     }
     const finalChangeName = changeVerifiedName || changeAccountNameInput;
-    if (!finalChangeName) {
+    if (!finalChangeName || !finalChangeName.trim()) {
       toast.error("New bank account name must be verified first");
       return;
     }
@@ -256,46 +274,24 @@ const SyndicateWallet = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      let submittedViaEdge = false;
-      try {
-        const { data, error } = await supabase.functions.invoke('process-syndicate-payout', {
-          body: {
-            action: 'request_bank_change',
-            requested_bank_name: changeBankName,
-            requested_bank_code: changeBankCode,
-            requested_account_number: changeAccountNumber.trim(),
-            requested_account_name: finalChangeName,
-            reason: changeReason.trim(),
-          },
-        });
-        if (!error && data?.success) {
-          submittedViaEdge = true;
-        }
-      } catch {
-        submittedViaEdge = false;
-      }
+      const { error: insErr } = await supabase
+        .from('syndicate_bank_change_requests')
+        .insert({
+          user_id: user.id,
+          current_bank_name: profile?.bank_name || null,
+          current_account_number: profile?.account_number || null,
+          current_account_name: profile?.account_name || null,
+          requested_bank_name: changeBankName.trim(),
+          requested_account_number: changeAccountNumber.trim(),
+          requested_account_name: finalChangeName.trim().toUpperCase(),
+          reason: changeReason ? changeReason.trim() : null,
+          admin_notes: changeReason ? `Promoter note: ${changeReason.trim()}` : null,
+          status: 'pending',
+        } as any);
 
-      if (!submittedViaEdge) {
-        const resolvedCode = changeBankCode || findBankCode(changeBankName);
-        const { error: insErr } = await supabase
-          .from('syndicate_bank_change_requests')
-          .insert({
-            user_id: user.id,
-            current_bank_name: profile?.bank_name || null,
-            current_account_number: profile?.account_number || null,
-            current_account_name: profile?.account_name || null,
-            requested_bank_name: changeBankName.trim(),
-            bank_code: resolvedCode,
-            requested_account_number: changeAccountNumber.trim(),
-            requested_account_name: changeVerifiedName,
-            admin_notes: changeReason ? `Member Note: ${changeReason}` : null,
-            status: 'pending',
-          });
+      if (insErr) throw insErr;
 
-        if (insErr) throw insErr;
-      }
-
-      // Notify Admins in real database
+      // Notify Admins in database
       await notifyAdminsOfApprovalRequired({
         title: "🏦 Bank Account Change Request",
         message: `A Syndicate member requested a bank update to ${changeBankName.trim()} (${maskAccountNumber(changeAccountNumber)}).`,
@@ -369,8 +365,7 @@ const SyndicateWallet = () => {
         account_number: profile.account_number,
         account_name: profile.account_name,
         status: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'pending_automatic' : 'pending_admin',
-        payout_mode: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'automatic' : 'manual',
-        paystack_recipient_code: profile.paystack_recipient_code || null,
+        admin_notes: autoPayoutEnabled && withdrawAmount <= maxAutoPayout ? 'Automatic payout eligible' : 'Pending admin review',
       } as any).select().single();
 
       if (error) throw error;
@@ -413,7 +408,8 @@ const SyndicateWallet = () => {
     );
   }
 
-  const isBankConfigured = Boolean(profile?.account_number && profile?.account_name);
+  const isBankConfigured = Boolean(profile?.account_number && profile?.bank_name);
+  const isFallbackName = profile?.account_name && (profile.account_name.includes('PROMOTER (') || profile.account_name.includes('CO-OWNER ('));
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-12">
@@ -439,13 +435,13 @@ const SyndicateWallet = () => {
       </Card>
 
       {/* Official Locked Bank Details / Setup */}
-      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden bg-card">
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Building2 className="h-5 w-5 text-purple-400" />
             <div>
-              <h3 className="font-bold text-sm">Official Payout Bank Account</h3>
-              <p className="text-[10px] text-slate-300">Verified identity for automated Paystack transfers</p>
+              <h3 className="font-bold text-sm">Official Syndicate Payout Bank Account</h3>
+              <p className="text-[10px] text-slate-300">Verified NUBAN identity for automated Paystack transfers</p>
             </div>
           </div>
           {isBankConfigured && (
@@ -458,34 +454,85 @@ const SyndicateWallet = () => {
         <CardContent className="p-5 space-y-4">
           {isBankConfigured ? (
             /* LOCKED BANK DETAILS DISPLAY */
-            <div className="space-y-3">
-              <div className="bg-secondary/40 rounded-2xl p-4 border border-border/60 space-y-2">
-                <div className="flex justify-between items-center text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase text-[10px] tracking-wider">Bank Name</span>
-                  <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 border-emerald-300 bg-emerald-50">
+            <div className="space-y-4">
+              <div className="bg-secondary/40 rounded-2xl p-4 border border-border/60 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <div>
+                    <span className="font-semibold uppercase text-[10px] tracking-wider text-muted-foreground block">Bank Name</span>
+                    <p className="text-base font-bold text-foreground mt-0.5">{profile?.bank_name}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40">
                     <CheckCircle className="h-3 w-3 mr-1" /> Paystack Verified
                   </Badge>
                 </div>
-                <p className="text-base font-bold text-foreground">{profile?.bank_name}</p>
 
-                <div className="pt-2 border-t border-border/40">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Account Number</span>
-                  <p className="text-sm font-mono font-bold text-foreground mt-0.5">{maskAccountNumber(profile?.account_number)}</p>
+                <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">NUBAN Account Number</span>
+                    <p className="text-base font-mono font-bold text-foreground mt-0.5 tracking-wider">
+                      {showFullAccount ? profile?.account_number : maskAccountNumber(profile?.account_number)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowFullAccount(!showFullAccount)}
+                    >
+                      {showFullAccount ? <EyeOff className="h-3.5 w-3.5 mr-1" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
+                      {showFullAccount ? 'Hide' : 'Show'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        if (profile?.account_number) {
+                          navigator.clipboard.writeText(profile.account_number);
+                          toast.success('Account number copied to clipboard');
+                        }
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t border-border/40">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Verified Account Name</span>
-                  <p className="text-sm font-semibold text-foreground mt-0.5">{profile?.account_name || profile?.bank_verified_name}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Official Registered Account Name</span>
+                    {isFallbackName && (
+                      <Badge variant="outline" className="text-[9px] font-bold text-amber-600 border-amber-300 bg-amber-50">
+                        Action Required
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <p className="text-base font-black text-foreground uppercase tracking-wide">
+                      {profile?.account_name || '—'}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={reVerifyingName}
+                      onClick={handleReVerifyExistingBank}
+                      className="h-7 px-2.5 text-[11px] font-bold text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-50 shrink-0"
+                    >
+                      {reVerifyingName ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <UserCheck className="h-3 w-3 mr-1" />}
+                      {isFallbackName ? 'Verify NUBAN Name' : 'Refresh Name'}
+                    </Button>
+                  </div>
                 </div>
 
-                {profile?.paystack_subaccount_code && (
+                {profile?.paystack_recipient_code && (
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Paystack Subaccount</span>
-                      <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">{profile.paystack_subaccount_code}</p>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Paystack Recipient ID</span>
+                      <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">{profile.paystack_recipient_code}</p>
                     </div>
                     <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[10px]">
-                      ⚡ {profile.paystack_subaccount_percentage || 70}% Split Active
+                      ⚡ Instant Settlement Active
                     </Badge>
                   </div>
                 )}
@@ -497,7 +544,7 @@ const SyndicateWallet = () => {
                   <Zap className="h-3.5 w-3.5 text-purple-600" /> Automated Direct Team Settlement
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  When daily campaigns are settled, your collective earnings are automatically calculated and paid directly to this locked Paystack bank account.
+                  When tasks and campaigns are approved, your earnings are automatically calculated and paid directly to this locked Paystack bank account.
                 </p>
               </div>
 
@@ -534,13 +581,13 @@ const SyndicateWallet = () => {
             /* INITIAL BANK VERIFICATION & SETUP FORM */
             <div className="space-y-4">
               <div>
-                <Label className="text-xs font-bold text-foreground">Select Bank</Label>
+                <Label className="text-xs font-bold text-foreground">Select Nigerian Bank</Label>
                 <select
                   aria-label="Select Bank"
                   value={selectedBankCode}
                   onChange={(e) => {
                     const code = e.target.value;
-                    const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                    const found = bankList.find(b => b.code === code);
                     setSelectedBankCode(code);
                     setSelectedBankName(found?.name || '');
                     if (code && accountNumber.length === 10) {
@@ -550,8 +597,8 @@ const SyndicateWallet = () => {
                   className="mt-1.5 w-full h-12 text-sm rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="">-- Choose Nigerian Bank --</option>
-                  {POPULAR_NIGERIAN_BANKS.map(b => (
-                    <option key={b.code} value={b.code}>{b.name}</option>
+                  {bankList.map(b => (
+                    <option key={`${b.code}-${b.name}`} value={b.code}>{b.name}</option>
                   ))}
                 </select>
               </div>
@@ -569,48 +616,46 @@ const SyndicateWallet = () => {
                       setAccountNumber(val);
                       if (val.length === 10 && selectedBankCode) {
                         handleResolveInitialBank(selectedBankCode, selectedBankName, val);
+                      } else {
+                        setVerifiedName(null);
                       }
                     }}
-                    placeholder="0123456789"
+                    placeholder="e.g. 0123456789"
                     className="h-12 text-base font-mono font-bold tracking-wider"
                   />
                   {resolvingName && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold bg-background/80 px-2 py-1 rounded">
                       <Loader2 className="h-4 w-4 animate-spin" /> Verifying with Paystack...
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Account Holder Name Field & Verified Display */}
-              <div>
-                <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    type="text"
-                    value={accountNameInput}
-                    onChange={(e) => {
-                      setAccountNameInput(e.target.value);
-                      if (e.target.value.trim()) {
-                        setVerifiedName(e.target.value.trim());
-                      }
-                    }}
-                    placeholder="e.g. John Doe"
-                    className="h-11 text-sm font-semibold"
-                  />
-                </div>
-              </div>
-
-              {/* Paystack Resolution Result Badge */}
+              {/* Paystack Resolution Result Display */}
               {verifiedName ? (
-                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3">
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-3 animate-in fade-in">
                   <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Subaccount Name</p>
+                    <p className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Paystack Verified Account Name</p>
                     <p className="text-sm font-black text-foreground">{verifiedName}</p>
                   </div>
                 </div>
-              ) : selectedBankCode && accountNumber.length === 10 && !resolvingName ? (
+              ) : (
+                <div>
+                  <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      type="text"
+                      value={accountNameInput}
+                      onChange={(e) => setAccountNameInput(e.target.value)}
+                      placeholder="Account name as registered on bank"
+                      className="h-11 text-sm font-semibold"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedBankCode && accountNumber.length === 10 && !verifiedName && !resolvingName && (
                 <Button
                   type="button"
                   variant="outline"
@@ -618,9 +663,9 @@ const SyndicateWallet = () => {
                   onClick={() => handleResolveInitialBank(selectedBankCode, selectedBankName, accountNumber)}
                   className="w-full text-xs font-semibold h-9 rounded-xl text-purple-600 border-purple-200 hover:bg-purple-50"
                 >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-Verify Account with Paystack
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-Verify NUBAN with Paystack
                 </Button>
-              ) : null}
+              )}
 
               <Button
                 disabled={!selectedBankCode || accountNumber.length !== 10 || !(verifiedName || accountNameInput) || savingBank}
@@ -631,14 +676,14 @@ const SyndicateWallet = () => {
                 Save & Lock Verified Bank Details
               </Button>
               <p className="text-[11px] text-muted-foreground text-center">
-                Account holder name is automatically verified by Paystack. Once saved, your account becomes locked.
+                Account name is verified live via Paystack's NUBAN network. Once saved, details are locked for safe payouts.
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Bank Change Request Modal / Drawer */}
+      {/* Bank Change Request Modal */}
       {showChangeModal && (
         <Card className="border-2 border-purple-300 shadow-xl rounded-2xl overflow-hidden bg-background">
           <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 text-white flex justify-between items-center">
@@ -651,13 +696,13 @@ const SyndicateWallet = () => {
           </div>
           <CardContent className="p-4 space-y-4">
             <div>
-              <Label className="text-xs font-bold text-foreground">New Bank</Label>
+              <Label className="text-xs font-bold text-foreground">New Nigerian Bank</Label>
               <select
                 aria-label="New Bank"
                 value={changeBankCode}
                 onChange={(e) => {
                   const code = e.target.value;
-                  const found = POPULAR_NIGERIAN_BANKS.find(b => b.code === code);
+                  const found = bankList.find(b => b.code === code);
                   setChangeBankCode(code);
                   setChangeBankName(found?.name || '');
                   if (code && changeAccountNumber.length === 10) {
@@ -667,8 +712,8 @@ const SyndicateWallet = () => {
                 className="mt-1.5 w-full h-11 text-xs rounded-xl border border-input bg-background px-3 font-semibold focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">-- Choose New Bank --</option>
-                {POPULAR_NIGERIAN_BANKS.map(b => (
-                  <option key={b.code} value={b.code}>{b.name}</option>
+                {bankList.map(b => (
+                  <option key={`change-${b.code}-${b.name}`} value={b.code}>{b.name}</option>
                 ))}
               </select>
             </div>
@@ -686,110 +731,185 @@ const SyndicateWallet = () => {
                     setChangeAccountNumber(val);
                     if (val.length === 10 && changeBankCode) {
                       handleResolveChangeBank(changeBankCode, changeBankName, val);
+                    } else {
+                      setChangeVerifiedName(null);
                     }
                   }}
                   placeholder="0123456789"
                   className="h-11 text-sm font-mono font-bold tracking-wider"
                 />
                 {changeResolving && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-purple-600 font-semibold bg-background/80 px-2 py-1 rounded">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying...
                   </div>
                 )}
               </div>
             </div>
 
-            <div>
-              <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
-              <Input
-                type="text"
-                value={changeAccountNameInput}
-                onChange={(e) => {
-                  setChangeAccountNameInput(e.target.value);
-                  if (e.target.value.trim()) {
-                    setChangeVerifiedName(e.target.value.trim());
-                  }
-                }}
-                placeholder="Name on bank account"
-                className="mt-1 h-10 text-xs font-semibold"
-              />
-            </div>
-
-            {changeVerifiedName && (
-              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-900 text-xs flex items-center gap-2">
+            {changeVerifiedName ? (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-2.5 text-emerald-900 text-xs flex items-center gap-2 animate-in fade-in">
                 <ShieldCheck className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <div>
                   <p className="text-[9px] uppercase font-bold text-emerald-700">Verified Name (Paystack)</p>
                   <p className="text-xs font-bold">{changeVerifiedName}</p>
                 </div>
               </div>
+            ) : (
+              <div>
+                <Label className="text-xs font-bold text-foreground">Account Holder Name</Label>
+                <Input
+                  type="text"
+                  value={changeAccountNameInput}
+                  onChange={(e) => setChangeAccountNameInput(e.target.value)}
+                  placeholder="Name on bank account"
+                  className="mt-1 h-10 text-xs font-semibold"
+                />
+              </div>
             )}
 
             <div>
               <Label className="text-xs font-bold text-foreground">Reason for Change (Optional)</Label>
               <Input
+                type="text"
                 value={changeReason}
                 onChange={(e) => setChangeReason(e.target.value)}
                 placeholder="e.g. Switched to corporate bank account"
-                className="mt-1 h-10 text-xs"
+                className="mt-1 h-10 text-xs font-medium"
               />
             </div>
 
             <Button
               disabled={!changeBankCode || changeAccountNumber.length !== 10 || !(changeVerifiedName || changeAccountNameInput) || submittingChange}
               onClick={handleSubmitBankChangeRequest}
-              className="w-full h-11 text-xs font-bold rounded-xl bg-purple-600 text-white"
+              className="w-full h-11 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white"
             >
-              {submittingChange ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-              Submit for Admin Verification
+              {submittingChange ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+              Submit Bank Change Request for Approval
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Payout & Settlement History */}
-      {withdrawals.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <h3 className="font-bold text-base text-foreground">📜 Direct Team Settlement & Payout History</h3>
-          <div className="space-y-2.5">
-            {withdrawals.map(w => {
-              const isCompleted = w.status === 'completed' || w.status === 'paid';
-              const isFailed = ['failed', 'rejected', 'cancelled'].includes(w.status);
-              return (
-                <Card key={w.id} className="border-0 shadow-sm rounded-2xl overflow-hidden bg-card">
-                  <CardContent className="p-4 flex justify-between items-center">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">₦{Number(w.amount || w.payout_amount || 0)?.toLocaleString()}</span>
-                        <Badge className={`text-[10px] border-0 font-bold ${
-                          isCompleted ? 'bg-emerald-100 text-emerald-800' :
-                          isFailed ? 'bg-red-100 text-red-800' :
-                          w.status === 'processing' ? 'bg-cyan-100 text-cyan-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {isCompleted ? 'Settled & Paid' : isFailed ? 'Failed' : w.status === 'processing' ? 'Processing Transfer' : 'Pending Settlement'}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {w.bank_name || profile?.bank_name} • {maskAccountNumber(w.account_number || profile?.account_number)}
-                      </p>
-                      {w.paystack_reference && (
-                        <p className="text-[10px] font-mono text-purple-600 dark:text-purple-400">
-                          Ref: {w.paystack_reference}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</p>
-                    </div>
-                    {isCompleted && <CheckCircle className="h-5 w-5 text-emerald-600" />}
-                    {isFailed && <AlertTriangle className="h-5 w-5 text-red-500" />}
-                    {!isCompleted && !isFailed && <Clock className="h-5 w-5 text-amber-500" />}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+      {/* Withdrawal Action Card */}
+      {isBankConfigured && (
+        <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 pb-3">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <ArrowDownCircle className="h-5 w-5 text-purple-600" />
+              Request Bank Payout
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 space-y-4">
+            <div>
+              <Label className="text-xs font-bold text-foreground">Amount to Withdraw (₦ NGN)</Label>
+              <Input
+                type="number"
+                min="500"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="e.g. 5000"
+                className="mt-1.5 h-12 text-base font-bold"
+              />
+              {amount && parseInt(amount) > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Requires <strong>{Math.ceil(parseInt(amount) / exchangeRate).toLocaleString()} Credits</strong>
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-foreground">Withdrawal Security PIN</Label>
+              <Input
+                type="password"
+                maxLength={6}
+                value={withdrawPin}
+                onChange={(e) => setWithdrawPin(e.target.value)}
+                placeholder="Enter 4-digit PIN"
+                className="mt-1.5 h-11 text-sm font-mono font-bold"
+              />
+            </div>
+
+            <Button
+              disabled={!amount || parseInt(amount) <= 0 || submitting || !profile?.withdraw_pin_hash}
+              onClick={requestWithdrawal}
+              className="w-full h-12 text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow hover:opacity-95"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownCircle className="h-4 w-4 mr-2" />}
+              Submit Payout Request
+            </Button>
+          </CardContent>
+        </Card>
       )}
+
+      {/* Withdrawal PIN Setup if not configured */}
+      {isBankConfigured && !profile?.withdraw_pin_hash && (
+        <Card className="border border-purple-200 bg-purple-50/50 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-purple-600" />
+            <h4 className="font-bold text-xs text-purple-950">Setup Security Withdrawal PIN</h4>
+          </div>
+          <p className="text-[11px] text-purple-800">
+            A 4-digit security PIN is required to safeguard your earnings before making withdrawals.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              maxLength={6}
+              value={newWithdrawPin}
+              onChange={(e) => setNewWithdrawPin(e.target.value)}
+              placeholder="Set 4-digit PIN"
+              className="h-10 text-xs font-mono font-bold bg-white"
+            />
+            <Button onClick={saveWithdrawPin} className="h-10 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shrink-0">
+              Save PIN
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Payout History */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-purple-600" />
+            Payout History
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          {withdrawals.length === 0 ? (
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              No payout requests yet. Earnings will appear here once tasks are settled.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {withdrawals.map((w: any) => (
+                <div key={w.id} className="p-3 rounded-xl border border-border/60 bg-secondary/20 flex justify-between items-center text-xs">
+                  <div>
+                    <p className="font-bold text-sm text-foreground">₦{Number(w.amount).toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {w.bank_name} • {maskAccountNumber(w.account_number)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(w.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge
+                    className={
+                      w.status === 'completed'
+                        ? 'bg-emerald-500/20 text-emerald-600 border-emerald-300'
+                        : w.status === 'rejected'
+                        ? 'bg-red-500/20 text-red-600 border-red-300'
+                        : 'bg-amber-500/20 text-amber-600 border-amber-300'
+                    }
+                  >
+                    {w.status === 'completed' ? 'Paid' : w.status === 'rejected' ? 'Rejected' : 'Processing'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

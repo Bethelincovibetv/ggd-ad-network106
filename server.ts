@@ -31,6 +31,13 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // ----------------------------------------------------
+// API Route: Health Check
+// ----------------------------------------------------
+app.get('/api/health', (req, res) => {
+  return res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ----------------------------------------------------
 // API Route: Admin API Key Configuration
 // ----------------------------------------------------
 app.get('/api/admin/config', (req, res) => {
@@ -59,8 +66,11 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // ----------------------------------------------------
-// Paystack Helper Functions
+// Paystack Helper Functions & Key Cache
 // ----------------------------------------------------
+let cachedPaystackKey: { key: string; expiry: number } | null = null;
+let cachedPaystackBanks: { banks: any[]; expiry: number } | null = null;
+
 async function getPaystackSecretKey(overrideKey?: string): Promise<string | null> {
   if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim()) {
     return overrideKey.trim();
@@ -68,6 +78,12 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
   if (process.env.PAYSTACK_SECRET_KEY) return process.env.PAYSTACK_SECRET_KEY.trim();
   if (process.env.PAYSTACK_LIVE_SECRET_KEY) return process.env.PAYSTACK_LIVE_SECRET_KEY.trim();
   if (process.env.VITE_PAYSTACK_SECRET_KEY) return process.env.VITE_PAYSTACK_SECRET_KEY.trim();
+
+  // Check in-memory cache (5 min TTL)
+  const now = Date.now();
+  if (cachedPaystackKey && cachedPaystackKey.expiry > now) {
+    return cachedPaystackKey.key;
+  }
 
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
@@ -81,7 +97,9 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
     if (resp.ok) {
       const data = await resp.json();
       if (Array.isArray(data) && data[0]?.value) {
-        return data[0].value.trim();
+        const key = data[0].value.trim();
+        cachedPaystackKey = { key, expiry: now + 5 * 60 * 1000 };
+        return key;
       }
     }
   } catch (err) {
@@ -91,7 +109,7 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
 }
 
 // ----------------------------------------------------
-// API Route: Paystack Account Resolution
+// API Route: Paystack Account Resolution (NUBAN Verification)
 // ----------------------------------------------------
 app.get('/api/paystack/resolve-account', async (req, res) => {
   const accountNumber = String(req.query.account_number || '').trim().replace(/\D/g, '');
@@ -111,10 +129,41 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
     (req.query.paystack_secret_key as string) || (req.query.secret_key as string)
   );
 
-  if (secretKey) {
+  if (!secretKey) {
+    if (manualName) {
+      return res.json({
+        success: true,
+        verified: false,
+        account_name: manualName,
+        account_number: accountNumber,
+        bank_code: bankCode,
+        bank_name: bankName,
+        warning: 'Paystack secret key is not configured; manual account name accepted.',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: 'Paystack secret key is not configured in settings. Please contact admin.',
+    });
+  }
+
+  // Define potential fallback codes for banks with multiple CBN / Paystack mapping codes
+  const candidateCodes = [bankCode];
+  if (bankCode === '090110') candidateCodes.push('50211');
+  if (bankCode === '50211') candidateCodes.push('090110');
+  if (bankCode === '090405') candidateCodes.push('50515');
+  if (bankCode === '50515') candidateCodes.push('090405');
+  if (bankCode === '999992') candidateCodes.push('100004', '304');
+  if (bankCode === '999991') candidateCodes.push('100033', '322');
+  if (bankCode === '063') candidateCodes.push('044');
+  if (bankCode === '044') candidateCodes.push('063');
+
+  let lastErrorMsg = 'Could not resolve account name. Please check your bank and account number.';
+
+  for (const code of candidateCodes) {
     try {
       const pRes = await fetch(
-        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(code)}`,
         {
           headers: {
             Authorization: `Bearer ${secretKey}`,
@@ -126,57 +175,74 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
       if (data?.status && data?.data?.account_name) {
         return res.json({
           success: true,
+          verified: true,
           account_name: data.data.account_name,
           account_number: data.data.account_number || accountNumber,
-          bank_code: bankCode,
+          bank_code: code,
           bank_name: bankName,
           verified_source: 'paystack_api',
         });
       }
 
-      console.warn('Paystack resolve returned non-success:', data?.message);
+      if (data?.message) {
+        lastErrorMsg = data.message;
+      }
     } catch (err: any) {
-      console.warn('Paystack resolve network error:', err);
+      console.warn(`Paystack resolve network error with code ${code}:`, err);
     }
   }
 
-  // High-reliability platform resolution fallback
-  const resolvedName = manualName || `PROMOTER (${accountNumber.slice(-4)}) - ${bankName ? bankName.toUpperCase() : 'BANK'}`;
-  return res.json({
-    success: true,
-    account_name: resolvedName,
+  // If live resolution could not resolve with Paystack
+  if (manualName) {
+    return res.json({
+      success: false,
+      verified: false,
+      account_name: manualName,
+      account_number: accountNumber,
+      bank_code: bankCode,
+      bank_name: bankName,
+      error: lastErrorMsg,
+    });
+  }
+
+  return res.status(400).json({
+    success: false,
+    verified: false,
+    error: lastErrorMsg,
     account_number: accountNumber,
     bank_code: bankCode,
     bank_name: bankName,
-    is_platform_resolved: true,
-    verified_source: 'platform_resolution',
   });
 });
 
 // ----------------------------------------------------
-// API Route: Paystack Bank List
+// API Route: Paystack Bank List (Live & Cached)
 // ----------------------------------------------------
 app.get('/api/paystack/banks', async (req, res) => {
+  const now = Date.now();
+  if (cachedPaystackBanks && cachedPaystackBanks.expiry > now) {
+    return res.json({ success: true, banks: cachedPaystackBanks.banks });
+  }
+
   try {
-    const pRes = await fetch('https://api.paystack.co/bank?country=nigeria&currency=NGN&perPage=100');
+    const pRes = await fetch('https://api.paystack.co/bank?country=nigeria&currency=NGN&perPage=300');
     if (pRes.ok) {
       const data = await pRes.json();
       if (data?.status && Array.isArray(data?.data)) {
-        return res.json({
-          success: true,
-          banks: data.data.map((b: any) => ({
-            name: b.name,
-            code: b.code,
-            slug: b.slug,
-            active: b.active,
-          })),
-        });
+        const banks = data.data.map((b: any) => ({
+          name: b.name,
+          code: b.code,
+          slug: b.slug,
+          active: b.active,
+        }));
+        cachedPaystackBanks = { banks, expiry: now + 60 * 60 * 1000 };
+        return res.json({ success: true, banks });
       }
     }
   } catch (err) {
     console.warn('Paystack banks fetch notice:', err);
   }
-  return res.json({ success: true, banks: [] });
+  return res.json({ success: true, banks: cachedPaystackBanks?.banks || [] });
 });
 
 // ----------------------------------------------------
