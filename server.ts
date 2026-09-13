@@ -14,9 +14,41 @@ app.use(express.json({ limit: '10mb' }));
 let customGeminiKey = '';
 let customPexelsKey = '';
 
+// Dynamic helper to resolve Gemini API Key from environment, custom setting, or Supabase app_settings
+async function getGeminiApiKey(explicitKey?: string): Promise<string> {
+  if (explicitKey && explicitKey.trim()) return explicitKey.trim();
+  if (customGeminiKey && customGeminiKey.trim()) return customGeminiKey.trim();
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) return process.env.GEMINI_API_KEY.trim();
+  if (process.env.VITE_GEMINI_API_KEY && process.env.VITE_GEMINI_API_KEY.trim()) return process.env.VITE_GEMINI_API_KEY.trim();
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=in.(gemini_api_key,admin_gemini_key,google_ai_key,ai_api_key)&select=*`, {
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const found = data.find((r: any) => r.value && typeof r.value === 'string' && r.value.trim().length > 8);
+        if (found) {
+          customGeminiKey = found.value.trim();
+          return customGeminiKey;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not query app_settings for Gemini key:', err);
+  }
+  return '';
+}
+
 // Helper to get initialized GoogleGenAI client
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = customGeminiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+async function getGeminiClient(explicitKey?: string): Promise<GoogleGenAI | null> {
+  const apiKey = await getGeminiApiKey(explicitKey);
   if (!apiKey) {
     return null;
   }
@@ -491,7 +523,7 @@ Requirements:
 - Return strictly valid JSON with no markdown backticks or commentary.`;
 
   try {
-    const ai = getGeminiClient();
+    const ai = await getGeminiClient();
     if (ai) {
       // Try gemini-3.8-flash first, fallback to gemini-2.5-flash
       const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
@@ -562,7 +594,7 @@ Structure the ebook with:
 5. Conclusion & Action Checklist`;
 
   try {
-    const ai = getGeminiClient();
+    const ai = await getGeminiClient();
     if (ai) {
       const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
       for (const model of candidateModels) {

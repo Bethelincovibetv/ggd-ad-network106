@@ -135,7 +135,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
-  const [activeTab, setActiveTab] = useState('ads');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) return tabParam === 'ads-create' ? 'campaigns' : tabParam;
+      const saved = localStorage.getItem('ggd_active_tab');
+      if (saved) return saved;
+    }
+    return 'ads';
+  });
   const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
   const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
   const [extendingAd, setExtendingAd] = useState<Ad | null>(null);
@@ -148,10 +157,26 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const handleTabChange = (tab: string) => {
     if (tab === 'ads-create') {
       setActiveTab('campaigns');
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('ggd_active_tab', 'campaigns');
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'campaigns');
+          window.history.replaceState(null, '', url.toString());
+        } catch {}
+      }
       startCreateAd();
       return;
     }
     setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ggd_active_tab', tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState(null, '', url.toString());
+      } catch {}
+    }
   };
   const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
@@ -399,9 +424,43 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       }
     }
 
-    fetchAds();
-    fetchApiKeys();
-  };
+      fetchAds();
+      fetchApiKeys();
+
+      // Check and display activity notifications upon user entry
+      if (typeof window !== 'undefined' && !sessionStorage.getItem('ggd_entry_activities_checked')) {
+        sessionStorage.setItem('ggd_entry_activities_checked', 'true');
+        setTimeout(async () => {
+          try {
+            const [notifRes, tasksRes] = await Promise.all([
+              supabase.from('notifications').select('id, title, message').eq('user_id', user.id).eq('is_read', false).limit(3),
+              supabase.from('credit_tasks').select('id', { count: 'exact', head: true }).eq('is_active', true),
+            ]);
+            const unreadCount = notifRes.data?.length || 0;
+            const taskCount = tasksRes.count || 0;
+            if (unreadCount > 0) {
+              const latest = notifRes.data![0];
+              toast(`🔔 ${latest.title || 'New Activity Notification'}`, {
+                description: latest.message || `You have ${unreadCount} unread update${unreadCount > 1 ? 's' : ''}`,
+                action: {
+                  label: 'View',
+                  onClick: () => handleTabChange('notifications'),
+                },
+              });
+            } else if (taskCount > 0) {
+              toast.info(`⚡ ${taskCount} active credit tasks are ready to earn rewards today!`, {
+                action: {
+                  label: 'View Tasks',
+                  onClick: () => handleTabChange('tasks'),
+                },
+              });
+            }
+          } catch (actErr) {
+            console.warn('Dashboard entry activity check:', actErr);
+          }
+        }, 1200);
+      }
+    };
 
   const fetchAds = async () => {
     const { data: { user } } = await supabase.auth.getUser();

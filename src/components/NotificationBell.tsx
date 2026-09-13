@@ -57,14 +57,50 @@ const NotificationBell = () => {
           showPushNotification({
             title: n.title || 'Notification',
             body: n.message || '',
-            url: '/',
+            url: n.link_url || '/',
           });
         }
       })
+      .on('broadcast', { event: 'admin-notification' }, (payload: any) => {
+        const n = payload?.payload;
+        if (n && (!n.targetUserId || n.targetUserId === userId)) {
+          if (lastNotifIdRef.current !== n.id) {
+            lastNotifIdRef.current = n.id;
+            setNotifications(prev => [n, ...prev]);
+            playSound();
+            showPushNotification({
+              title: n.title || '📢 Admin Announcement',
+              body: n.message || '',
+              url: n.link_url || '/',
+            });
+          }
+        }
+      })
       .subscribe();
+
+    const globalAdminChannel = supabase
+      .channel('admin-global-broadcast')
+      .on('broadcast', { event: 'admin-notification' }, (payload: any) => {
+        const n = payload?.payload;
+        if (n && (!n.targetUserId || n.targetUserId === userId)) {
+          if (lastNotifIdRef.current !== n.id) {
+            lastNotifIdRef.current = n.id;
+            setNotifications(prev => [n, ...prev]);
+            playSound();
+            showPushNotification({
+              title: n.title || '📢 Admin Announcement',
+              body: n.message || '',
+              url: n.link_url || '/',
+            });
+          }
+        }
+      })
+      .subscribe();
+
     return () => { 
       cancelOngoingSpeech();
       supabase.removeChannel(channel); 
+      supabase.removeChannel(globalAdminChannel);
     };
   }, [userId, playSound]);
 

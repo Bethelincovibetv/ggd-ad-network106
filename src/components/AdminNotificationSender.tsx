@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Send, Users, User, Search, X, Link } from "lucide-react";
+import { Bell, Send, Users, User, Search, X, Link, Radio, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { triggerRealtimePush } from "@/services/pushNotificationService";
 import { toast } from "sonner";
 
 const AdminNotificationSender = () => {
@@ -65,8 +66,20 @@ const AdminNotificationSender = () => {
           title,
           message: fullMessage,
           type: 'admin',
+          link_url: link || '/',
         });
-        toast.success(`Notification sent to ${selectedUser.display_name || selectedUser.email}`);
+
+        // Trigger instant push notification for specific recipient
+        await triggerRealtimePush({
+          userId: selectedUser.user_id,
+          title: `📢 ${title}`,
+          body: message,
+          url: link || '/',
+          type: 'system',
+          saveToDb: false,
+        });
+
+        toast.success(`Push notification dispatched to ${selectedUser.display_name || selectedUser.email}`);
       } else {
         const { data: allProfiles } = await supabase.from('profiles').select('user_id');
         if (allProfiles && allProfiles.length > 0) {
@@ -75,13 +88,44 @@ const AdminNotificationSender = () => {
             title,
             message: fullMessage,
             type: 'admin',
+            link_url: link || '/',
           }));
           // Insert in batches of 100
           for (let i = 0; i < notifications.length; i += 100) {
             await supabase.from('notifications').insert(notifications.slice(i, i + 100));
           }
-          toast.success(`Notification sent to ${allProfiles.length} users`);
         }
+
+        // Trigger real-time broadcast and push notification
+        await triggerRealtimePush({
+          title: `📢 Announcement: ${title}`,
+          body: message,
+          url: link || '/',
+          type: 'system',
+          saveToDb: false,
+        });
+
+        // Broadcast to all active sessions via Supabase channel
+        const broadcastChannel = supabase.channel('admin-global-broadcast');
+        broadcastChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            broadcastChannel.send({
+              type: 'broadcast',
+              event: 'admin-notification',
+              payload: {
+                id: `admin-${Date.now()}`,
+                title: `📢 ${title}`,
+                message: fullMessage,
+                type: 'admin',
+                link_url: link || '/',
+                created_at: new Date().toISOString(),
+                is_read: false,
+              },
+            });
+          }
+        });
+
+        toast.success(`Push notification broadcast to ${allProfiles?.length || 'all'} registered users`);
       }
 
       setTitle('');
@@ -90,6 +134,7 @@ const AdminNotificationSender = () => {
       setSelectedUser(null);
       fetchRecentNotifications();
     } catch (err) {
+      console.error('Send notification error:', err);
       toast.error('Failed to send notification');
     } finally {
       setSending(false);
