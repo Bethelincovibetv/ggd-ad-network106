@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Send, Search, ArrowLeft, User, MessageCircle, Copy, ExternalLink,
-  CheckCircle2, Upload, Pin, Briefcase, Users, Globe, ShoppingBag, Zap, Sparkles, X,
+  CheckCircle2, Upload, Pin, Briefcase, Users, Globe, ShoppingBag, Store, Zap, Sparkles, X,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
