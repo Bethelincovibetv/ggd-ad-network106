@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ExternalLink } from 'lucide-react';
+import MetaTags from '@/components/MetaTags';
 
 const detectDevice = (ua: string) => {
   if (/mobile/i.test(ua)) return 'mobile';
@@ -45,6 +46,7 @@ const RedirectPage = () => {
   if (error) {
     return (
       <div className="min-h-screen grid place-items-center bg-gradient-to-br from-orange-50 to-red-50 p-6">
+        <MetaTags title="Link Expired — GGD Ad Network" noindex />
         <div className="text-center">
           <h1 className="text-xl font-bold text-foreground">{error}</h1>
           <a href="/" className="text-orange-600 text-sm mt-2 inline-block">Go home</a>
@@ -55,6 +57,7 @@ const RedirectPage = () => {
 
   return (
     <div className="min-h-screen grid place-items-center bg-gradient-to-br from-orange-50 to-red-50 p-6">
+      <MetaTags title="Redirecting… — GGD Ad Network" noindex />
       <div className="text-center space-y-3">
         <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
         <p className="text-sm text-muted-foreground">Redirecting…</p>

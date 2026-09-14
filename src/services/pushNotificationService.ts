@@ -26,8 +26,16 @@ export async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistr
     return null;
   }
   try {
-    if (swRegistration) return swRegistration;
-    // Register sw.js first
+    if (swRegistration && swRegistration.active) return swRegistration;
+
+    // Check existing registration first
+    const existing = await navigator.serviceWorker.getRegistration('/');
+    if (existing && existing.active) {
+      swRegistration = existing;
+      return existing;
+    }
+
+    // Register sw.js
     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
     swRegistration = registration;
@@ -55,7 +63,18 @@ export async function registerPushNotification(userId?: string): Promise<{ succe
   }
 
   try {
-    const permission = await Notification.requestPermission();
+    let permission: NotificationPermission = Notification.permission;
+    if (permission === 'default') {
+      try {
+        permission = await Notification.requestPermission();
+      } catch {
+        // Fallback for older browsers using callback pattern
+        permission = await new Promise<NotificationPermission>((resolve) => {
+          Notification.requestPermission((p) => resolve(p));
+        });
+      }
+    }
+
     if (permission !== 'granted') {
       return { success: false, error: 'Notification permission was denied or dismissed.' };
     }
@@ -106,7 +125,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
   const icon = payload.icon || GGD_SITE_LOGO;
   const soundType = payload.type === 'bonus' || payload.type === 'credit_task' ? 'cash' : 'message';
   
-  // Play sound
+  // 1. Play sound
   try {
     if (soundType === 'cash') {
       playMoneyTransferSound();
@@ -115,14 +134,21 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     }
   } catch {}
 
-  // Device vibration if supported
+  // 2. Device vibration if supported
   try {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([150, 75, 150]);
     }
   } catch {}
 
-  // In-app interactive Toast so users never miss an alert
+  // 3. Dispatch global browser custom event for instant in-app notification badge sync
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ggd-push-notification', { detail: payload }));
+    }
+  } catch {}
+
+  // 4. In-app interactive Toast so users never miss an alert
   toast(payload.title, {
     description: payload.body,
     action: payload.url ? {
@@ -135,7 +161,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     } : undefined,
   });
 
-  // Save to Firebase Firestore notifications
+  // 5. Save to Firebase Firestore notifications
   try {
     if (db && payload.saveToDb !== false) {
       await addDoc(collection(db, 'notifications'), {
@@ -153,7 +179,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     console.warn('Firebase notification record note:', err);
   }
 
-  // Save to Supabase notifications table if requested
+  // 6. Save to Supabase notifications table if requested
   if (payload.userId && payload.saveToDb !== false) {
     try {
       await supabase.from('notifications').insert({
@@ -168,28 +194,48 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     }
   }
 
-  // Native Web Push / ServiceWorker Notification display
+  // 7. Native Web Push / ServiceWorker Notification display
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
     try {
       const reg = await getOrRegisterServiceWorker();
-      if (reg && reg.showNotification) {
-        await reg.showNotification(payload.title, {
-          body: payload.body,
-          icon,
-          badge: GGD_SITE_LOGO,
-          data: { url: payload.url || '/' },
-          tag: `ggd-${Date.now()}`,
-        });
-        return true;
+      if (reg) {
+        if (reg.showNotification) {
+          await reg.showNotification(payload.title, {
+            body: payload.body,
+            icon,
+            badge: GGD_SITE_LOGO,
+            data: { url: payload.url || '/' },
+            tag: `ggd-${Date.now()}`,
+          });
+          return true;
+        }
+        if (reg.active) {
+          reg.active.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title: payload.title,
+            body: payload.body,
+            icon,
+            badge: GGD_SITE_LOGO,
+            url: payload.url || '/',
+            type: payload.type,
+          });
+          return true;
+        }
       }
       
-      // Fallback window Notification
-      new Notification(payload.title, {
-        body: payload.body,
-        icon,
-        badge: GGD_SITE_LOGO,
-      });
-      return true;
+      // Fallback window Notification (guarded against Android/mobile Illegal Constructor)
+      if (typeof window.Notification === 'function') {
+        try {
+          new Notification(payload.title, {
+            body: payload.body,
+            icon,
+            badge: GGD_SITE_LOGO,
+          });
+          return true;
+        } catch (constrErr) {
+          console.debug('Direct Notification constructor skipped:', constrErr);
+        }
+      }
     } catch (e) {
       console.warn('Web notification trigger warning:', e);
     }

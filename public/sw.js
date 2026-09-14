@@ -70,6 +70,23 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Client Message Listener (Direct trigger from web client)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, body, icon, badge, url, type } = event.data;
+    const isCall = type === 'call_incoming';
+    const options = {
+      body: body || 'You have a new update from GGD Ad Network',
+      icon: icon || GGD_LOGO,
+      badge: badge || GGD_LOGO,
+      vibrate: isCall ? [500, 250, 500, 250] : [200, 100, 200],
+      data: { url: url || '/', isCall },
+      tag: `ggd-msg-${Date.now()}`,
+    };
+    event.waitUntil(self.registration.showNotification(title || 'GGD Ad Network', options));
+  }
+});
+
 // Notification Click Listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

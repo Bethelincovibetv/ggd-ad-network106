@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import MetaTags from '@/components/MetaTags';
 
 // Unified public site: /business/:id now redirects to the user's
 // professional profile site (slug-based if available).
@@ -31,6 +32,11 @@ const BusinessDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-orange-50">
+      <MetaTags
+        title="Business Profile — GGD Ad Network"
+        description="View verified business storefront, products, and contact info on GGD Ad Network."
+        type="business"
+      />
       <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
     </div>
   );

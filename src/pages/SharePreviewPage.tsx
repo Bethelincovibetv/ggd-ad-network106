@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink, AlertTriangle, Download, Megaphone, Sparkles } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
-import { getUniversalOgImage } from '@/utils/ogImageGenerator';
+import MetaTags from '@/components/MetaTags';
 
 const SharePreviewPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -76,33 +76,6 @@ const SharePreviewPage = () => {
         // graceful ad loading
       }
 
-      // Update OG/SEO tags so socials show the banner
-      document.title = `${t.title} | GGD AD NETWORK`;
-      const setMeta = (prop: string, content: string, isProp = true) => {
-        const sel = isProp ? `meta[property="${prop}"]` : `meta[name="${prop}"]`;
-        let el = document.head.querySelector(sel) as HTMLMetaElement | null;
-        if (!el) {
-          el = document.createElement('meta');
-          if (isProp) el.setAttribute('property', prop); else el.setAttribute('name', prop);
-          document.head.appendChild(el);
-        }
-        el.setAttribute('content', content);
-      };
-      setMeta('og:title', t.title);
-      setMeta('og:description', t.description || 'Check this out on GGD AD NETWORK');
-      const ogImg = getUniversalOgImage({
-        image: t.flyer_url,
-        title: t.title,
-        description: t.description,
-        badge: 'SYNDICATE CAMPAIGN',
-        theme: 'orange',
-      });
-      setMeta('og:image', ogImg);
-      setMeta('twitter:image', ogImg);
-      setMeta('twitter:card', 'summary_large_image');
-      setMeta('og:type', 'website');
-      setMeta('description', t.description || 'Promoted via GGD AD NETWORK', false);
-
       // Log click + increment counter
       await supabase.from('task_share_clicks').insert({
         share_link_id: link.id,
@@ -163,6 +136,12 @@ const SharePreviewPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black flex flex-col items-center justify-center p-3 sm:p-5">
+      <MetaTags
+        title={`${task.title} | GGD AD NETWORK`}
+        description={task.description || 'Promoted campaign on GGD AD NETWORK.'}
+        imageUrl={task.flyer_url}
+        badge="SYNDICATE CAMPAIGN"
+      />
       <div className="w-full max-w-lg">
         <div className="flex items-center justify-center gap-2 mb-4">
           <img loading="lazy" src={ggdLogo} alt="GGD" className="h-8 w-8 rounded-lg" />

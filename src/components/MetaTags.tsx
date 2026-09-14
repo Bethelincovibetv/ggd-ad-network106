@@ -1,61 +1,98 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import ggdLogo from '@/assets/ggd-logo.png';
+import { getUniversalOgImage } from '@/utils/ogImageGenerator';
 
-interface MetaTagsProps {
-  title?: string;
-  description?: string;
-  image?: string;
-  url?: string;
-  type?: 'website' | 'article' | 'product' | 'profile';
-  keywords?: string;
+export interface MetaTagsProps {
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  path?: string;
+  type?: 'website' | 'article' | 'product' | 'profile' | 'business';
+  badge?: string | null;
+  keywords?: string | string[];
+  author?: string;
+  siteName?: string;
+  twitterCard?: 'summary' | 'summary_large_image';
+  jsonLd?: Record<string, unknown> | Array<Record<string, unknown>>;
+  noindex?: boolean;
 }
 
-const DEFAULT_TITLE = 'GGD Ad Network — Digital Business-Growth & Marketing Platform';
-const DEFAULT_DESC =
-  'GGD Ad Network is a digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote products and services, and grow with advertising and community promoters.';
-const DEFAULT_IMAGE =
-  'https://cilkybiebptqtuhbopyz.supabase.co/storage/v1/object/public/images/GGD%20AD%20NETWORK/01a5b45d-5b2e-4458-acc6-e6b4697174e1.png';
-
+/**
+ * MetaTags Component
+ * Dynamically updates SEO, OpenGraph, and Twitter Card tags using react-helmet-async.
+ * Supports title, description, imageUrl, and structured data across all platform pages.
+ */
 export const MetaTags: React.FC<MetaTagsProps> = ({
   title,
   description,
-  image,
-  url,
+  imageUrl,
+  path,
   type = 'website',
+  badge,
   keywords,
+  author,
+  siteName = 'GGD Ad Network',
+  twitterCard = 'summary_large_image',
+  jsonLd,
+  noindex = false,
 }) => {
-  const fullTitle = title
-    ? `${title} | GGD Ad Network`
-    : DEFAULT_TITLE;
-  const metaDesc = description || DEFAULT_DESC;
-  const metaImage = image || DEFAULT_IMAGE;
-  const currentUrl =
-    url || (typeof window !== 'undefined' ? window.location.href : 'https://ggdadnetwork.com');
+  const currentPath = path || (typeof window !== 'undefined' ? window.location.pathname : '/');
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ggdadnetwork.com';
+  const canonicalUrl = currentPath.startsWith('http') ? currentPath : `${origin}${currentPath}`;
+  
+  const cleanTitle = (title || 'GGD Ad Network').trim();
+  const cleanDescription = (description || 'Nigeria’s premier social distribution ad network and marketplace.')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+
+  // Resolve image URL (generate fallback branded OG image if not provided)
+  const resolvedOgImage = imageUrl
+    ? (imageUrl.startsWith('http') ? imageUrl : `${origin}${imageUrl}`)
+    : getUniversalOgImage({
+        image: imageUrl || undefined,
+        title: cleanTitle,
+        description: cleanDescription,
+        category: type,
+        badge: badge || type.toUpperCase(),
+        theme: type === 'product' ? 'orange' : type === 'profile' ? 'gradient' : 'dark',
+      });
+
+  const formattedKeywords = Array.isArray(keywords) ? keywords.join(', ') : keywords;
 
   return (
     <Helmet>
-      {/* Basic Primary Tags */}
-      <title>{fullTitle}</title>
-      <meta name="title" content={fullTitle} />
-      <meta name="description" content={metaDesc} />
-      {keywords && <meta name="keywords" content={keywords} />}
-      <link rel="canonical" href={currentUrl} />
+      {/* Primary Page Title & Meta Tags */}
+      <title>{cleanTitle}</title>
+      <meta name="description" content={cleanDescription} />
+      {formattedKeywords && <meta name="keywords" content={formattedKeywords} />}
+      {author && <meta name="author" content={author} />}
+      <link rel="canonical" href={canonicalUrl} />
+      {noindex && <meta name="robots" content="noindex, nofollow" />}
 
-      {/* Open Graph / Facebook */}
-      <meta property="og:type" content={type} />
-      <meta property="og:url" content={currentUrl} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={metaDesc} />
-      <meta property="og:image" content={metaImage} />
-      <meta property="og:site_name" content="GGD Ad Network" />
+      {/* Open Graph / Facebook / WhatsApp */}
+      <meta property="og:type" content={type === 'business' ? 'profile' : type} />
+      <meta property="og:site_name" content={siteName} />
+      <meta property="og:title" content={cleanTitle} />
+      <meta property="og:description" content={cleanDescription} />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:image" content={resolvedOgImage} />
+      <meta property="og:image:alt" content={cleanTitle} />
 
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:url" content={currentUrl} />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={metaDesc} />
-      <meta name="twitter:image" content={metaImage} />
+      {/* Twitter / X */}
+      <meta name="twitter:card" content={twitterCard} />
+      <meta name="twitter:site" content="@ggdadnetwork" />
+      <meta name="twitter:title" content={cleanTitle} />
+      <meta name="twitter:description" content={cleanDescription} />
+      <meta name="twitter:image" content={resolvedOgImage} />
+      <meta name="twitter:image:alt" content={cleanTitle} />
+
+      {/* Structured JSON-LD Data */}
+      {jsonLd && (
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
+      )}
     </Helmet>
   );
 };

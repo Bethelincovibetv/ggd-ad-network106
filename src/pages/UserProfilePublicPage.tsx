@@ -16,17 +16,7 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import { toast } from '@/hooks/use-toast';
 import { WEBSITE_TEMPLATES, getWebsiteTemplate, DEFAULT_TEMPLATE_ID } from '@/utils/websiteTemplates';
 import { CallButton } from '@/components/call/CallButton';
-
-const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
-  let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
-  if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
-  el.setAttribute('content', content);
-};
-const setLink = (rel: string, href: string) => {
-  let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
-  if (!el) { el = document.createElement('link'); el.setAttribute('rel', rel); document.head.appendChild(el); }
-  el.setAttribute('href', href);
-};
+import MetaTags from '@/components/MetaTags';
 
 const UserProfilePublicPage: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -176,40 +166,6 @@ const UserProfilePublicPage: React.FC = () => {
     })();
   }, [id, slug]);
 
-  useEffect(() => {
-    if (!profile) return;
-    const name = business?.business_name || profile.business_name || profile.display_name || 'GGD User';
-    const desc = (business?.description || profile.business_description ||
-      `${name}${profile.business_category ? ' — ' + profile.business_category : ''}${profile.business_location ? ' in ' + profile.business_location : ''}. Verified on GGD Ad Network.`).slice(0, 158);
-    const img = business?.logo_url || profile.business_logo_url || profile.avatar_url || `${window.location.origin}${ggdLogo}`;
-    const url = window.location.href;
-    const title = `${name}${(category?.name || profile.business_category) ? ' | ' + (category?.name || profile.business_category) : ''} | Official Website`;
-    document.title = title.slice(0, 60);
-    setMeta('description', desc);
-    setMeta('og:title', title, 'property');
-    setMeta('og:description', desc, 'property');
-    setMeta('og:image', img, 'property');
-    setMeta('og:type', 'profile', 'property');
-    setMeta('og:url', url, 'property');
-    setMeta('twitter:card', 'summary_large_image');
-    setMeta('twitter:title', title);
-    setMeta('twitter:description', desc);
-    setMeta('twitter:image', img);
-    setLink('canonical', url);
-    const ld = {
-      '@context': 'https://schema.org',
-      '@type': (business || profile.business_category) ? 'LocalBusiness' : 'Person',
-      name, description: desc, image: img, url,
-      ...((business?.phone_number || profile.business_phone) && { telephone: business?.phone_number || profile.business_phone }),
-      ...((business?.address || profile.business_location) && { address: { '@type': 'PostalAddress', streetAddress: business?.address || undefined, addressLocality: profile.business_location || undefined } }),
-      ...((business?.website_link || profile.business_website) && { sameAs: [business?.website_link || profile.business_website].filter(Boolean) }),
-    };
-    let sc = document.getElementById('ld-business') as HTMLScriptElement | null;
-    if (!sc) { sc = document.createElement('script'); sc.id = 'ld-business'; sc.type = 'application/ld+json'; document.head.appendChild(sc); }
-    sc.textContent = JSON.stringify(ld);
-    return () => { document.title = 'GGD Ad Network'; };
-  }, [profile, business, category]);
-
   const share = async () => {
     const url = window.location.href;
     const title = business?.business_name || profile?.business_name || profile?.display_name || 'Official Website';
@@ -283,6 +239,24 @@ const UserProfilePublicPage: React.FC = () => {
 
   return (
     <div className={`min-h-screen ${activeTemplate.canvasBg} flex flex-col selection:bg-orange-500 selection:text-white transition-colors duration-200`}>
+      <MetaTags
+        type="business"
+        title={`${name}${catName ? ' | ' + catName : ''} | Official Website`}
+        description={description || `${name} official storefront & business directory on GGD Ad Network.`}
+        imageUrl={logoImage || heroBanner}
+        badge={catName || 'VERIFIED BUSINESS'}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': (business || profile.business_category) ? 'LocalBusiness' : 'Person',
+          name,
+          description: description || undefined,
+          image: logoImage || heroBanner || undefined,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+          ...((phone) && { telephone: phone }),
+          ...((address) && { address: { '@type': 'PostalAddress', streetAddress: address, addressLocality: profile.business_location || undefined } }),
+          ...((website) && { sameAs: [website].filter(Boolean) }),
+        }}
+      />
       
       {/* Admin Template Bar: lets Admin select and preview website templates */}
       {isAdmin && (
