@@ -166,16 +166,22 @@ export async function startOutgoingCall({
     }
   };
 
-  // Monitor connection state
+// Monitor connection state
   peerConnection.onconnectionstatechange = () => {
-    if (peerConnection.connectionState === 'connected') {
+    const state = peerConnection.connectionState;
+    if (state === 'connected') {
       onConnected();
-    } else if (
-      peerConnection.connectionState === 'disconnected' ||
-      peerConnection.connectionState === 'failed' ||
-      peerConnection.connectionState === 'closed'
-    ) {
-      onEnded('connection_' + peerConnection.connectionState);
+    } else if (state === 'failed' || state === 'closed') {
+      onEnded('connection_' + state);
+    }
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    const iceState = peerConnection.iceConnectionState;
+    if (iceState === 'connected' || iceState === 'completed') {
+      onConnected();
+    } else if (iceState === 'failed') {
+      onEnded('ice_failed');
     }
   };
 
@@ -383,14 +389,20 @@ export async function answerIncomingCall({
 
   // Monitor connection
   peerConnection.onconnectionstatechange = () => {
-    if (peerConnection.connectionState === 'connected') {
+    const state = peerConnection.connectionState;
+    if (state === 'connected') {
       onConnected();
-    } else if (
-      peerConnection.connectionState === 'disconnected' ||
-      peerConnection.connectionState === 'failed' ||
-      peerConnection.connectionState === 'closed'
-    ) {
-      onEnded('connection_' + peerConnection.connectionState);
+    } else if (state === 'failed' || state === 'closed') {
+      onEnded('connection_' + state);
+    }
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    const iceState = peerConnection.iceConnectionState;
+    if (iceState === 'connected' || iceState === 'completed') {
+      onConnected();
+    } else if (iceState === 'failed') {
+      onEnded('ice_failed');
     }
   };
 
@@ -471,11 +483,17 @@ export async function rejectIncomingCall(callId: string, reason: 'rejected' | 'b
   try {
     await ensureFirebaseAuth();
     const callDocRef = doc(db, 'calls', callId);
-    await updateDoc(callDocRef, {
-      status: reason,
-      endedAt: new Date().toISOString(),
-      endReason: reason,
-    });
+    const snap = await getDoc(callDocRef);
+    if (!snap.exists()) return;
+    const currentData = snap.data() as CallSession | undefined;
+    // Only reject if call is still ringing, never overwrite an active/connected call session
+    if (currentData?.status === 'ringing') {
+      await updateDoc(callDocRef, {
+        status: reason,
+        endedAt: new Date().toISOString(),
+        endReason: reason,
+      });
+    }
   } catch (err) {
     console.warn('Failed to reject call in Firestore:', err);
   }

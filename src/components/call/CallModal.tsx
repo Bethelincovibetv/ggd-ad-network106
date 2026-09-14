@@ -34,20 +34,37 @@ export const CallModal: React.FC = () => {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
+
+  // Dedicated continuous background audio player for remote stream (voice calls, video calls, & minimized)
+  useEffect(() => {
+    if (remoteAudioRef.current && remoteStream) {
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current.muted = isSpeakerMuted;
+      remoteAudioRef.current.play().catch((e) => {
+        console.warn('Audio stream autoPlay handled:', e);
+      });
+    }
+  }, [remoteStream, callStatus, isSpeakerMuted]);
 
   // Attach local stream to local video element
   useEffect(() => {
-    if (localVideoRef.current) {
+    if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
     }
   }, [localStream, callStatus, mediaControls.isVideoDisabled]);
 
   // Attach remote stream to remote video element
   useEffect(() => {
-    if (remoteVideoRef.current) {
+    if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      // Remote video sound handled by remoteAudioRef or unmuted video
       remoteVideoRef.current.muted = isSpeakerMuted;
+      remoteVideoRef.current.play().catch((e) => {
+        console.warn('Video stream autoPlay handled:', e);
+      });
     }
   }, [remoteStream, callStatus, isSpeakerMuted]);
 
@@ -73,51 +90,54 @@ export const CallModal: React.FC = () => {
   // ----------------------------------------------------
   if (isMinimized) {
     return (
-      <div
-        id="minimized-call-widget"
-        className="fixed bottom-20 right-4 z-[99999] w-72 rounded-2xl bg-slate-950/95 border border-white/20 shadow-2xl backdrop-blur-xl p-3 text-white animate-in slide-in-from-bottom-5 duration-200"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-800 border border-emerald-500/50 flex-shrink-0 flex items-center justify-center">
-              {partnerAvatar ? (
-                <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-bold text-emerald-400">{partnerName.charAt(0)}</span>
-              )}
+      <>
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+        <div
+          id="minimized-call-widget"
+          className="fixed bottom-20 right-4 z-[99999] w-72 rounded-2xl bg-slate-950/95 border border-white/20 shadow-2xl backdrop-blur-xl p-3 text-white animate-in slide-in-from-bottom-5 duration-200"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-800 border border-emerald-500/50 flex-shrink-0 flex items-center justify-center">
+                {partnerAvatar ? (
+                  <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold text-emerald-400">{partnerName.charAt(0)}</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{partnerName}</p>
+                <p className="text-xs text-emerald-400 font-mono">
+                  {callStatus === 'connected' ? formatDuration(callDuration) : 'Calling...'}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{partnerName}</p>
-              <p className="text-xs text-emerald-400 font-mono">
-                {callStatus === 'connected' ? formatDuration(callDuration) : 'Calling...'}
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-1">
-            <Button
-              id="expand-call-btn"
-              size="icon"
-              variant="ghost"
-              onClick={() => setIsMinimized(false)}
-              className="h-8 w-8 rounded-full text-slate-300 hover:text-white hover:bg-white/10"
-              title="Expand Call"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-            <Button
-              id="minimized-end-call-btn"
-              size="icon"
-              variant="destructive"
-              onClick={endCall}
-              className="h-8 w-8 rounded-full bg-red-600 hover:bg-red-700 text-white"
-              title="End Call"
-            >
-              <PhoneOff className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                id="expand-call-btn"
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsMinimized(false)}
+                className="h-8 w-8 rounded-full text-slate-300 hover:text-white hover:bg-white/10"
+                title="Expand Call"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              <Button
+                id="minimized-end-call-btn"
+                size="icon"
+                variant="destructive"
+                onClick={endCall}
+                className="h-8 w-8 rounded-full bg-red-600 hover:bg-red-700 text-white"
+                title="End Call"
+              >
+                <PhoneOff className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -129,6 +149,7 @@ export const CallModal: React.FC = () => {
       id="active-call-modal"
       className="fixed inset-0 z-[99998] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
     >
+      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
       <div className="relative w-full max-w-4xl h-[88vh] max-h-[750px] bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl overflow-hidden border border-white/15 shadow-2xl flex flex-col">
         {/* Top Header Bar */}
         <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">

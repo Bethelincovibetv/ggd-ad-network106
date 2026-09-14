@@ -50,6 +50,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
+  // Synchronized state refs for event listeners and callbacks
+  const callStatusRef = useRef<CallStatus>('idle');
+  const activeSessionRef = useRef<CallSession | null>(null);
+  const incomingSessionRef = useRef<CallSession | null>(null);
+
+  useEffect(() => {
+    callStatusRef.current = callStatus;
+  }, [callStatus]);
+
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
+
+  useEffect(() => {
+    incomingSessionRef.current = incomingSession;
+  }, [incomingSession]);
+
   const [mediaControls, setMediaControls] = useState<MediaControlsState>({
     isMuted: false,
     isVideoDisabled: false,
@@ -155,13 +172,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser?.id) return;
 
     const unsubscribe = listenForIncomingCalls(currentUser.id, (incoming) => {
-      // If already in a call with someone else, decline as busy
-      if (callStatus !== 'idle') {
+      // 1. If this is already the session currently being answered or in an active call with this callId, do not decline
+      if (
+        incoming.callId === activeSessionRef.current?.callId ||
+        incoming.callId === incomingSessionRef.current?.callId
+      ) {
+        return;
+      }
+
+      // 2. Ignore calls older than 90 seconds (stale call invitations)
+      if (incoming.createdAt) {
+        const ageMs = Date.now() - new Date(incoming.createdAt).getTime();
+        if (ageMs > 90000) {
+          return;
+        }
+      }
+
+      // 3. Only decline as busy if user is actively connected or placing a call to someone else with a different callId
+      if (
+        (callStatusRef.current === 'connected' || callStatusRef.current === 'calling') &&
+        activeSessionRef.current &&
+        activeSessionRef.current.callId !== incoming.callId
+      ) {
         rejectIncomingCall(incoming.callId, 'busy');
         return;
       }
 
+      // 4. Update incoming call state and ring device
+      incomingSessionRef.current = incoming;
       setIncomingSession(incoming);
+      callStatusRef.current = 'ringing';
       setCallStatus('ringing');
 
       // Play incoming ringtone and trigger device vibration
@@ -177,7 +217,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       unsubscribe();
     };
-  }, [currentUser?.id, callStatus, stopAllAudioLoops]);
+  }, [currentUser?.id, stopAllAudioLoops]);
 
   // Handle URL call parameters (?callId=...&action=accept)
   useEffect(() => {
@@ -371,13 +411,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 2. Accept Incoming Call
   const acceptCall = useCallback(async () => {
-    if (!incomingSession) return;
+    const targetSession = incomingSessionRef.current || incomingSession;
+    if (!targetSession) return;
 
     try {
       stopAllAudioLoops();
+      callStatusRef.current = 'connected';
       setCallStatus('connected');
-      setActiveSession(incomingSession);
-      const targetSession = incomingSession;
+      activeSessionRef.current = targetSession;
+      setActiveSession(targetSession);
+      incomingSessionRef.current = null;
       setIncomingSession(null);
 
       const answerResult = await answerIncomingCall({
@@ -388,6 +431,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         onConnected: () => {
           stopAllAudioLoops();
           playCallConnectedTone();
+          callStatusRef.current = 'connected';
           setCallStatus('connected');
         },
         onEnded: (reason) => {
@@ -406,7 +450,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error('Accept call failed:', err);
       stopAllAudioLoops();
+      callStatusRef.current = 'idle';
       setCallStatus('idle');
+      activeSessionRef.current = null;
+      setActiveSession(null);
       toast.error(err.message || 'Could not access audio/video devices.');
     }
   }, [incomingSession, stopAllAudioLoops, performCleanup]);
