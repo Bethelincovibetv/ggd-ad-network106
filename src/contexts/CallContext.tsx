@@ -54,6 +54,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const callStatusRef = useRef<CallStatus>('idle');
   const activeSessionRef = useRef<CallSession | null>(null);
   const incomingSessionRef = useRef<CallSession | null>(null);
+  const answeringCallIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     callStatusRef.current = callStatus;
@@ -174,6 +175,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = listenForIncomingCalls(currentUser.id, (incoming) => {
       // 1. If this is already the session currently being answered or in an active call with this callId, do not decline
       if (
+        answeringCallIdsRef.current.has(incoming.callId) ||
         incoming.callId === activeSessionRef.current?.callId ||
         incoming.callId === incomingSessionRef.current?.callId
       ) {
@@ -188,11 +190,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 3. Only decline as busy if user is actively connected or placing a call to someone else with a different callId
+      // 3. Only decline as busy if user is actively connected on an ongoing call with someone else
       if (
-        (callStatusRef.current === 'connected' || callStatusRef.current === 'calling') &&
+        callStatusRef.current === 'connected' &&
         activeSessionRef.current &&
-        activeSessionRef.current.callId !== incoming.callId
+        activeSessionRef.current.callId &&
+        activeSessionRef.current.callId !== incoming.callId &&
+        peerConnectionRef.current &&
+        (peerConnectionRef.current.connectionState === 'connected' || peerConnectionRef.current.iceConnectionState === 'connected')
       ) {
         rejectIncomingCall(incoming.callId, 'busy');
         return;
@@ -249,6 +254,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeCleanupRef.current();
       } catch {}
       activeCleanupRef.current = null;
+    }
+
+    if (activeSessionRef.current?.callId) {
+      answeringCallIdsRef.current.delete(activeSessionRef.current.callId);
+    }
+    if (incomingSessionRef.current?.callId) {
+      answeringCallIdsRef.current.delete(incomingSessionRef.current.callId);
     }
 
     if (localStream) {
@@ -310,6 +322,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIncomingSession(null);
       setCallDuration(0);
       setIsMinimized(false);
+      answeringCallIdsRef.current.clear();
       setMediaControls({
         isMuted: false,
         isVideoDisabled: false,
@@ -318,7 +331,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         facingMode: 'user',
       });
     }, 1200);
-  }, [localStream, remoteStream, stopAllAudioLoops]);
+  }, [activeSession, incomingSession, callDuration, callStatus, localStream, remoteStream, stopAllAudioLoops]);
 
   // 1. Start Outgoing Call
   const startCall = useCallback(async ({
@@ -412,7 +425,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 2. Accept Incoming Call
   const acceptCall = useCallback(async () => {
     const targetSession = incomingSessionRef.current || incomingSession;
-    if (!targetSession) return;
+    if (!targetSession || !targetSession.callId) return;
+
+    answeringCallIdsRef.current.add(targetSession.callId);
 
     try {
       stopAllAudioLoops();
@@ -435,10 +450,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCallStatus('connected');
         },
         onEnded: (reason) => {
+          answeringCallIdsRef.current.delete(targetSession.callId);
           performCleanup(reason);
         },
         onError: (err) => {
           console.error('Error answering call:', err);
+          answeringCallIdsRef.current.delete(targetSession.callId);
           toast.error('Failed to establish call connection.');
           performCleanup('failed');
         },
@@ -449,6 +466,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeCleanupRef.current = answerResult.cleanup;
     } catch (err: any) {
       console.error('Accept call failed:', err);
+      answeringCallIdsRef.current.delete(targetSession.callId);
       stopAllAudioLoops();
       callStatusRef.current = 'idle';
       setCallStatus('idle');

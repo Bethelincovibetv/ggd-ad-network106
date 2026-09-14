@@ -200,23 +200,6 @@ const NotificationBell = () => {
 
     setOpen(false);
 
-    // Safeguard Guide notification navigation so it NEVER goes to an empty page!
-    if (
-      n.type === 'guide_step_completion' ||
-      n.title?.toLowerCase().includes('guide') ||
-      navTarget?.toLowerCase().includes('guide') ||
-      navTarget?.startsWith('step_')
-    ) {
-      setOpen(false);
-      playGuideSuccessSound();
-      if (window.location.pathname === '/') {
-        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'guide' }));
-      } else {
-        window.location.assign('/guide');
-      }
-      return;
-    }
-
     // Transfer receipt handling
     if (
       n.type === 'credit_transfer' ||
@@ -228,56 +211,25 @@ const NotificationBell = () => {
       return;
     }
 
-    // Direct Message / Chat notification navigation -> Open full message page!
-    if (
-      n.type === 'chat' ||
-      n.type === 'message' ||
-      n.type === 'urgent_message' ||
-      n.title?.toLowerCase().includes('message') ||
-      n.title?.toLowerCase().includes('quick message') ||
-      link?.includes('inbox') ||
-      navTarget?.includes('inbox') ||
-      navTarget === 'chat' ||
-      navTarget === 'inbox'
-    ) {
-      if (window.location.pathname === '/') {
-        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
-        try {
-          localStorage.setItem('ggd_active_tab', 'inbox');
-          const url = new URL(window.location.href);
-          url.searchParams.set('tab', 'inbox');
-          window.history.pushState(null, '', url.toString());
-        } catch {}
-      } else {
-        window.location.assign('/?tab=inbox');
-      }
-      return;
-    }
+    // Direct navigate to this exact message on the Notifications Page & open full message
+    try {
+      localStorage.setItem('ggd_active_tab', 'notifications');
+      localStorage.setItem('ggd_selected_notification_id', n.id);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'notifications');
+      url.searchParams.set('notificationId', n.id);
+      window.history.pushState(null, '', url.toString());
+    } catch {}
 
-    if (navTarget) {
-      if (navTarget.startsWith('admin:')) {
-        const parts = navTarget.split(':');
-        const section = parts[1] || 'syndicate';
-        const tab = parts[2] || 'overview';
-        if (window.location.pathname.startsWith('/admin')) {
-          window.dispatchEvent(new CustomEvent('ggd-nav', { detail: navTarget }));
-        } else {
-          window.location.assign(`/admin?section=${section}&tab=${tab}`);
-        }
-      } else {
-        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: navTarget }));
-      }
-    } else if (link) {
-      try {
-        const url = new URL(link, window.location.origin);
-        if (url.origin === window.location.origin) {
-          window.location.assign(link);
-        } else {
-          window.open(link, '_blank', 'noopener,noreferrer');
-        }
-      } catch {
-        window.open(link, '_blank', 'noopener,noreferrer');
-      }
+    if (window.location.pathname === '/') {
+      window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'notifications' }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('ggd-open-notification-detail', { detail: n }));
+      }, 50);
+    } else if (window.location.pathname.startsWith('/notifications')) {
+      window.dispatchEvent(new CustomEvent('ggd-open-notification-detail', { detail: n }));
+    } else {
+      window.location.assign(`/?tab=notifications&notificationId=${encodeURIComponent(n.id)}`);
     }
   };
 
@@ -466,9 +418,9 @@ const NotificationBell = () => {
                               </span>
                             )}
 
-                            {!isTransfer && !isGuide && hasAction && (
+                            {!isTransfer && !isGuide && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:underline">
-                                View <ArrowRight className="h-3 w-3" />
+                                Read full message <ArrowRight className="h-3 w-3" />
                               </span>
                             )}
                           </div>

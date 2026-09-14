@@ -5,6 +5,7 @@ import { playNotificationChime, playMoneyTransferSound } from '@/utils/audio';
 import { toast } from 'sonner';
 
 export interface PushNotificationPayload {
+  id?: string;
   title: string;
   body: string;
   icon?: string;
@@ -148,27 +149,42 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     }
   } catch {}
 
-  // 4. In-app interactive Toast so users never miss an alert
-  const targetUrl = payload.url || (payload.type === 'chat' || payload.type === 'message' ? '/?tab=inbox' : '/');
-  const isMessageNotif = payload.type === 'chat' || payload.type === 'message' || targetUrl.includes('inbox');
+  // 4. In-app interactive Toast so users never miss an alert and can read full message immediately
+  const notifId = payload.id || `push-${Date.now()}`;
+  const targetUrl = payload.url || `/?tab=notifications&notificationId=${encodeURIComponent(notifId)}`;
 
   toast(payload.title, {
     description: payload.body,
     action: {
-      label: isMessageNotif ? 'Open Messages' : 'View',
+      label: 'Read Full Message',
       onClick: () => {
-        if (isMessageNotif) {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
-            try {
-              localStorage.setItem('ggd_active_tab', 'inbox');
-              const url = new URL(window.location.href);
-              url.searchParams.set('tab', 'inbox');
-              window.history.pushState(null, '', url.toString());
-            } catch {}
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('ggd_active_tab', 'notifications');
+            localStorage.setItem('ggd_selected_notification_id', notifId);
+          } catch {}
+
+          if (window.location.pathname === '/') {
+            window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'notifications' }));
+            setTimeout(() => {
+              window.dispatchEvent(
+                new CustomEvent('ggd-open-notification-detail', {
+                  detail: {
+                    id: notifId,
+                    title: payload.title,
+                    message: payload.body,
+                    body: payload.body,
+                    type: payload.type,
+                    link_url: payload.url,
+                    created_at: new Date().toISOString(),
+                    is_read: true,
+                  },
+                })
+              );
+            }, 60);
+          } else {
+            window.location.assign(`/?tab=notifications&notificationId=${encodeURIComponent(notifId)}`);
           }
-        } else if (targetUrl) {
-          window.location.href = targetUrl;
         }
       },
     },

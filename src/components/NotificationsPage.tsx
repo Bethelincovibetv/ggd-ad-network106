@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
+import NotificationMessageDetailModal, { FullNotificationData } from '@/components/NotificationMessageDetailModal';
 import { getTransferHistory, TransferRecord } from '@/services/transferService';
 import {
   isPushSupported,
@@ -35,9 +36,36 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedFullNotification, setSelectedFullNotification] = useState<FullNotificationData | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [transfers, setTransfers] = useState<TransferRecord[]>([]);
   const [loadingTransfers, setLoadingTransfers] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(getPushPermission());
+
+  const handleOpenFullMessage = useCallback((n: any) => {
+    markAsRead(n.id);
+    setSelectedFullNotification({
+      id: n.id,
+      title: n.title,
+      message: n.message || n.body || '',
+      body: n.body || n.message || '',
+      type: n.type,
+      nav_target: n.nav_target,
+      link_url: n.link_url,
+      created_at: n.created_at,
+      is_read: true,
+    });
+    setDetailModalOpen(true);
+    setHighlightedId(n.id);
+
+    setTimeout(() => {
+      const el = document.getElementById(`notif-${n.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }, []);
 
   const handleEnablePush = async () => {
     const granted = await requestPushPermission();
@@ -144,6 +172,69 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  // Listen for direct notification focus via query param, localStorage, or custom events
+  useEffect(() => {
+    const checkTargetNotification = async () => {
+      let targetId: string | null = null;
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        targetId = params.get('notificationId') || params.get('id') || params.get('notifId');
+        if (!targetId) {
+          targetId = localStorage.getItem('ggd_selected_notification_id');
+        }
+      }
+
+      if (!targetId) return;
+
+      // Find in existing list
+      let match = notifications.find((n) => n.id === targetId);
+      if (!match) {
+        // Fetch specific notification if not loaded
+        try {
+          const { data } = await supabase.from('notifications').select('*').eq('id', targetId).maybeSingle();
+          if (data) {
+            match = data;
+            setNotifications((prev) => [data, ...prev.filter((p) => p.id !== data.id)]);
+          }
+        } catch {}
+      }
+
+      if (match) {
+        handleOpenFullMessage(match);
+        try {
+          localStorage.removeItem('ggd_selected_notification_id');
+        } catch {}
+      }
+    };
+
+    if (notifications.length > 0 || !loading) {
+      checkTargetNotification();
+    }
+  }, [notifications, loading, handleOpenFullMessage]);
+
+  // Also listen for runtime custom open event
+  useEffect(() => {
+    const handleCustomOpen = (e: any) => {
+      const payload = e?.detail;
+      if (!payload) return;
+      if (typeof payload === 'string') {
+        const found = notifications.find((n) => n.id === payload);
+        if (found) {
+          handleOpenFullMessage(found);
+        } else {
+          setHighlightedId(payload);
+          const el = document.getElementById(`notif-${payload}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (payload && typeof payload === 'object') {
+        handleOpenFullMessage(payload);
+      }
+    };
+
+    window.addEventListener('ggd-open-notification-detail', handleCustomOpen);
+    return () => window.removeEventListener('ggd-open-notification-detail', handleCustomOpen);
+  }, [notifications, handleOpenFullMessage]);
 
   const markAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
@@ -686,11 +777,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
             return (
               <Card
                 key={n.id}
-                className={`transition-all duration-200 border rounded-2xl overflow-hidden shadow-sm hover:shadow-md ${
-                  !n.is_read
+                id={`notif-${n.id}`}
+                className={`transition-all duration-300 border rounded-2xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer ${
+                  highlightedId === n.id
+                    ? 'ring-4 ring-orange-500/85 border-orange-500 bg-orange-500/15 dark:bg-orange-950/50 shadow-xl scale-[1.01]'
+                    : !n.is_read
                     ? 'bg-gradient-to-r from-orange-50/80 via-background to-background dark:from-orange-950/20 dark:via-card dark:to-card border-orange-300 dark:border-orange-800/60'
                     : 'bg-card border-border/70 hover:border-border'
                 }`}
+                onClick={() => handleOpenFullMessage(n)}
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -719,7 +814,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                         {!n.is_read && (
                           <span className="h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-400/30 animate-pulse" />
                         )}
-                        <h4 className="text-sm sm:text-base font-bold text-foreground">
+                        <h4 className="text-sm sm:text-base font-bold text-foreground hover:text-orange-600 transition-colors">
                           {n.title}
                         </h4>
 
@@ -737,12 +832,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                       </div>
 
                       {n.message && (
-                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words">
+                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words line-clamp-3">
                           {n.message}
                         </p>
                       )}
 
-                      <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
+                      <div className="flex items-center justify-between pt-2 flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                         <span className="text-[11px] font-medium text-muted-foreground">
                           {new Date(n.created_at).toLocaleString(undefined, {
                             dateStyle: 'medium',
@@ -752,6 +847,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleOpenFullMessage(n)}
+                            className="h-8 rounded-xl text-xs font-bold gap-1"
+                          >
+                            <Sparkles className="h-3 w-3 text-orange-500" /> Read Full
+                          </Button>
+
                           {isTransfer && (
                             <Button
                               size="sm"
@@ -776,7 +880,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                           {!isTransfer && !isGuide && (n.nav_target || n.link_url) && (
                             <Button
                               size="sm"
-                              variant="secondary"
+                              variant="outline"
                               onClick={() => handleAction(n)}
                               className="h-8 rounded-xl text-xs font-bold gap-1.5"
                             >
@@ -803,6 +907,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           })}
         </div>
       )}
+
+      {/* Full Message Detail Modal */}
+      <NotificationMessageDetailModal
+        open={detailModalOpen}
+        onOpenChange={setDetailModalOpen}
+        notification={selectedFullNotification}
+        onAction={handleAction}
+        onDelete={removeNotification}
+      />
 
       {/* Transaction Receipt Modal */}
       <TransactionReceiptModal

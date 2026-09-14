@@ -240,8 +240,13 @@ export async function startOutgoingCall({
     const data = snapshot.data() as CallSession | undefined;
     if (!data) return;
 
-    if (data.status === 'rejected' || data.status === 'ended' || data.status === 'busy') {
+    if (data.status === 'rejected' || data.status === 'ended') {
       onEnded(data.status);
+      return;
+    }
+
+    if (data.status === 'busy' && !data.answer && !hasSetRemoteAnswer) {
+      onEnded('busy');
       return;
     }
 
@@ -486,8 +491,8 @@ export async function rejectIncomingCall(callId: string, reason: 'rejected' | 'b
     const snap = await getDoc(callDocRef);
     if (!snap.exists()) return;
     const currentData = snap.data() as CallSession | undefined;
-    // Only reject if call is still ringing, never overwrite an active/connected call session
-    if (currentData?.status === 'ringing') {
+    // Only reject if call is still ringing and has not been answered
+    if (currentData?.status === 'ringing' && !currentData?.answer) {
       await updateDoc(callDocRef, {
         status: reason,
         endedAt: new Date().toISOString(),
