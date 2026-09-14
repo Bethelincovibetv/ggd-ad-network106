@@ -228,6 +228,32 @@ const NotificationBell = () => {
       return;
     }
 
+    // Direct Message / Chat notification navigation -> Open full message page!
+    if (
+      n.type === 'chat' ||
+      n.type === 'message' ||
+      n.type === 'urgent_message' ||
+      n.title?.toLowerCase().includes('message') ||
+      n.title?.toLowerCase().includes('quick message') ||
+      link?.includes('inbox') ||
+      navTarget?.includes('inbox') ||
+      navTarget === 'chat' ||
+      navTarget === 'inbox'
+    ) {
+      if (window.location.pathname === '/') {
+        window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
+        try {
+          localStorage.setItem('ggd_active_tab', 'inbox');
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'inbox');
+          window.history.pushState(null, '', url.toString());
+        } catch {}
+      } else {
+        window.location.assign('/?tab=inbox');
+      }
+      return;
+    }
+
     if (navTarget) {
       if (navTarget.startsWith('admin:')) {
         const parts = navTarget.split(':');

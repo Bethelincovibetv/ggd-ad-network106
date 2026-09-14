@@ -576,34 +576,86 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [localStream, mediaControls.isScreenSharing]);
 
-  // 8. Flip Camera (Mobile Front/Back)
+  // 8. Flip Camera (Front / Back / Rear Environment)
   const flipCamera = useCallback(async () => {
     const pc = peerConnectionRef.current;
-    if (!pc || !localStream) return;
+    if (!localStream) {
+      toast.error('No active video stream to switch.');
+      return;
+    }
 
-    const currentFacing = mediaControls.facingMode;
+    const currentFacing = mediaControls.facingMode || 'user';
     const newFacing = currentFacing === 'user' ? 'environment' : 'user';
 
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: newFacing },
-      });
+      let newStream: MediaStream | null = null;
 
-      const newTrack = newStream.getVideoTracks()[0];
-      const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-
-      if (sender) {
-        await sender.replaceTrack(newTrack);
+      // Attempt 1: Specific facingMode constraint
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: newFacing } },
+          audio: false,
+        });
+      } catch {
+        // Attempt 2: Loose facingMode constraint
+        try {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: newFacing },
+            audio: false,
+          });
+        } catch {
+          // Attempt 3: Enumerate video devices and pick alternative device
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+          if (videoDevices.length > 1) {
+            const currentTrack = localStream.getVideoTracks()[0];
+            const currentLabel = currentTrack?.label?.toLowerCase() || '';
+            const altDevice = videoDevices.find(
+              (d) => !currentLabel.includes(d.label.toLowerCase())
+            ) || videoDevices[1];
+            
+            newStream = await navigator.mediaDevices.getUserMedia({
+              video: { deviceId: { exact: altDevice.deviceId } },
+              audio: false,
+            });
+          }
+        }
       }
 
-      // Stop old track
-      localStream.getVideoTracks().forEach((t) => t.stop());
-      localStream.removeTrack(localStream.getVideoTracks()[0]);
-      localStream.addTrack(newTrack);
+      if (!newStream) {
+        toast.info('Only one camera is available on this device.');
+        return;
+      }
+
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+
+      // Replace video track on WebRTC PeerConnection sender if connected
+      if (pc) {
+        const senders = pc.getSenders();
+        const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          await videoSender.replaceTrack(newTrack);
+        }
+      }
+
+      // Stop old video tracks
+      const oldVideoTracks = localStream.getVideoTracks();
+      oldVideoTracks.forEach((t) => {
+        t.stop();
+        localStream.removeTrack(t);
+      });
+
+      // Add new track to existing audio tracks
+      const audioTracks = localStream.getAudioTracks();
+      const updatedStream = new MediaStream([...audioTracks, newTrack]);
+      setLocalStream(updatedStream);
 
       setMediaControls((prev) => ({ ...prev, facingMode: newFacing }));
-    } catch (err) {
+      toast.success(newFacing === 'environment' ? 'Switched to Back Camera (Rear)' : 'Switched to Front Camera (Selfie)');
+    } catch (err: any) {
       console.warn('Camera flip failed:', err);
+      toast.error('Unable to switch camera: ' + (err.message || 'Permission denied'));
     }
   }, [localStream, mediaControls.facingMode]);
 

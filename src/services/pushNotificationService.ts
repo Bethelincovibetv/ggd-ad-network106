@@ -149,16 +149,29 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
   } catch {}
 
   // 4. In-app interactive Toast so users never miss an alert
+  const targetUrl = payload.url || (payload.type === 'chat' || payload.type === 'message' ? '/?tab=inbox' : '/');
+  const isMessageNotif = payload.type === 'chat' || payload.type === 'message' || targetUrl.includes('inbox');
+
   toast(payload.title, {
     description: payload.body,
-    action: payload.url ? {
-      label: 'View',
+    action: {
+      label: isMessageNotif ? 'Open Messages' : 'View',
       onClick: () => {
-        if (payload.url) {
-          window.location.href = payload.url;
+        if (isMessageNotif) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
+            try {
+              localStorage.setItem('ggd_active_tab', 'inbox');
+              const url = new URL(window.location.href);
+              url.searchParams.set('tab', 'inbox');
+              window.history.pushState(null, '', url.toString());
+            } catch {}
+          }
+        } else if (targetUrl) {
+          window.location.href = targetUrl;
         }
       },
-    } : undefined,
+    },
   });
 
   // 5. Save to Firebase Firestore notifications

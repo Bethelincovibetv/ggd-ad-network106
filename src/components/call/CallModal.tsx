@@ -226,23 +226,36 @@ export const CallModal: React.FC = () => {
               )}
 
               {/* Local Video Picture-in-Picture Preview */}
-              <div className="absolute bottom-24 right-4 z-20 w-28 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black/90">
+              <div className="absolute bottom-24 right-4 z-20 w-32 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black/90 group">
                 {!mediaControls.isVideoDisabled ? (
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover mirror"
-                  />
+                  <>
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover ${mediaControls.facingMode === 'environment' ? '' : 'mirror'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={flipCamera}
+                      title="Switch to Back/Front Camera"
+                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/30 backdrop-blur-xs transition-opacity sm:opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                    </button>
+                  </>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-400 text-xs gap-1">
                     <VideoOff className="h-4 w-4" />
                     <span>Camera Off</span>
                   </div>
                 )}
-                <span className="absolute bottom-1 left-2 text-[10px] text-white/80 font-medium bg-black/50 px-1 rounded">
-                  You
+                <span className="absolute bottom-1 left-2 text-[10px] text-white/90 font-medium bg-black/60 px-1.5 py-0.5 rounded flex items-center gap-1 backdrop-blur-xs">
+                  <span>You</span>
+                  {mediaControls.facingMode === 'environment' && (
+                    <span className="text-[9px] text-emerald-300 font-bold">• Rear</span>
+                  )}
                 </span>
               </div>
             </>
@@ -321,14 +334,22 @@ export const CallModal: React.FC = () => {
             </Button>
           )}
 
-          {/* Flip Camera (Mobile) */}
+          {/* Flip Camera (Front / Rear) */}
           {isVideo && !mediaControls.isVideoDisabled && (
             <Button
               id="flip-camera-btn"
               size="icon"
               onClick={flipCamera}
-              className="h-12 w-12 rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-transform hover:scale-105"
-              title="Flip Camera (Front/Rear)"
+              className={`h-12 w-12 rounded-full border transition-transform hover:scale-105 ${
+                mediaControls.facingMode === 'environment'
+                  ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300'
+                  : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+              }`}
+              title={
+                mediaControls.facingMode === 'environment'
+                  ? 'Currently Back Camera (Rear) - Click to Switch to Front'
+                  : 'Currently Front Camera - Click to Switch to Back (Rear)'
+              }
             >
               <RefreshCw className="h-5 w-5" />
             </Button>

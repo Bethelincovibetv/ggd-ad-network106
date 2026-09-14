@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   DollarSign,
   TrendingUp,
+  Server,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -31,6 +32,8 @@ import {
   EmailTemplateOptions,
 } from '@/services/emailTemplateService';
 import { supabase } from '@/integrations/supabase/client';
+import ConnectedGmailManager from './ConnectedGmailManager';
+import { dispatchEmailViaActiveGateway } from '@/services/emailGatewayService';
 
 const SAMPLE_SCENARIOS = [
   {
@@ -96,6 +99,7 @@ const SAMPLE_SCENARIOS = [
 ];
 
 export const AdminEmailStudio: React.FC = () => {
+  const [activeStudioTab, setActiveStudioTab] = useState<'templates' | 'gateways'>('templates');
   const [selectedScenario, setSelectedScenario] = useState(SAMPLE_SCENARIOS[0]);
   const [viewport, setViewport] = useState<'desktop' | 'mobile'>('desktop');
   
@@ -161,22 +165,16 @@ export const AdminEmailStudio: React.FC = () => {
 
     setIsSendingTest(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-activity-email', {
-        body: {
-          user_id: 'test-admin-override',
-          activity_key: selectedScenario.id,
-          title,
-          message,
-          test_recipient: testEmail,
-        },
+      const res = await dispatchEmailViaActiveGateway({
+        recipientEmail: testEmail,
+        subject: title,
+        htmlContent: generatedHtml,
+        scenarioId: selectedScenario.id,
       });
 
-      if (error) {
-        console.warn('Edge function invoke error, falling back to simulated confirmation:', error);
-      }
-      toast.success(`📨 Test email dispatched to ${testEmail}! Check your inbox.`);
-    } catch (err) {
-      toast.info(`Test email request dispatched to ${testEmail}`);
+      toast.success(`📨 Dispatched via ${res.activeGateway.email} to ${testEmail}!`);
+    } catch (err: any) {
+      toast.error('Test email dispatch failed: ' + (err.message || 'Error'));
     } finally {
       setIsSendingTest(false);
     }
@@ -184,38 +182,92 @@ export const AdminEmailStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 border border-purple-500/30 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-            <Mail className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-white">Email Template Studio & Featured Ads</h2>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
-                <ShieldCheck className="h-3 w-3 mr-1" /> Production Ready
-              </Badge>
-            </div>
-            <p className="text-xs text-purple-200/80">
-              High-converting responsive dark-luxury email templates with embedded Featured Sponsor Ads for all activity notifications.
-            </p>
-          </div>
+      {/* Studio Navigation Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 bg-muted/60 backdrop-blur rounded-2xl border border-border">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('templates')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeStudioTab === 'templates'
+                ? 'bg-background text-purple-600 shadow-sm border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Mail className="h-4 w-4 text-purple-600" />
+            <span>Email Templates & Ad Slots</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveStudioTab('gateways')}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeStudioTab === 'gateways'
+                ? 'bg-background text-indigo-600 shadow-sm border border-border/80'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Server className="h-4 w-4 text-indigo-600" />
+            <span>Connected Gmail & Gateways</span>
+            <Badge className="bg-emerald-500/20 text-emerald-600 border-0 text-[9px] px-1 py-0">
+              Active
+            </Badge>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleCopyHtml}
-            className="rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border-white/20 h-9"
-          >
-            {copiedHtml ? <Check className="h-4 w-4 mr-1.5 text-emerald-400" /> : <Copy className="h-4 w-4 mr-1.5" />}
-            {copiedHtml ? 'Copied HTML' : 'Copy HTML Code'}
-          </Button>
-        </div>
+        {activeStudioTab === 'templates' && (
+          <div className="flex items-center gap-2 px-2 self-end sm:self-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCopyHtml}
+              className="rounded-xl text-xs font-bold h-8"
+            >
+              {copiedHtml ? <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
+              {copiedHtml ? 'Copied HTML' : 'Copy HTML'}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* RENDER CONTENT BASED ON ACTIVE TAB */}
+      {activeStudioTab === 'gateways' ? (
+        <ConnectedGmailManager />
+      ) : (
+        <>
+          {/* Top Banner Header */}
+          <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 border border-purple-500/30 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                <Mail className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-black text-white">Email Template Studio & Featured Ads</h2>
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
+                    <ShieldCheck className="h-3 w-3 mr-1" /> Production Ready
+                  </Badge>
+                </div>
+                <p className="text-xs text-purple-200/80">
+                  High-converting responsive dark-luxury email templates with embedded Featured Sponsor Ads for all activity notifications.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopyHtml}
+                className="rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border-white/20 h-9"
+              >
+                {copiedHtml ? <Check className="h-4 w-4 mr-1.5 text-emerald-400" /> : <Copy className="h-4 w-4 mr-1.5" />}
+                {copiedHtml ? 'Copied HTML' : 'Copy HTML Code'}
+              </Button>
+            </div>
+          </div>
 
       {/* Main Grid: Customizer Sidebar + Live Preview Frame */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -498,8 +550,10 @@ export const AdminEmailStudio: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 };
 
 export default AdminEmailStudio;
