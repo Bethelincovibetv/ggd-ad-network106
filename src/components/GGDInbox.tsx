@@ -713,14 +713,42 @@ const GGDInbox: React.FC = () => {
       <Card className="h-[calc(100vh-8rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 p-3 border-b bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-lg">
-          <button onClick={closeThread}><ArrowLeft className="h-5 w-5" /></button>
-          <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+          <button onClick={closeThread} className="hover:bg-white/20 p-1.5 rounded-lg transition"><ArrowLeft className="h-5 w-5" /></button>
+          <a
+            href={`/user/${activeOther}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0 hover:ring-2 hover:ring-white transition"
+            title="View User / Business Profile"
+          >
             {otherProfile?.avatar_url ? <img loading="lazy" src={otherProfile.avatar_url} className="h-full w-full object-cover" /> : <User className="h-4 w-4" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-bold text-sm truncate">{otherProfile?.business_name || otherProfile?.display_name || "Member"}</p>
+          </a>
+          <a
+            href={`/user/${activeOther}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1 hover:opacity-90 transition block"
+            title="Open Business Website & Public Storefront"
+          >
+            <p className="font-bold text-sm truncate flex items-center gap-1.5">
+              <span>{otherProfile?.business_name || otherProfile?.display_name || "Member"}</span>
+              <ExternalLink className="h-3 w-3 opacity-70" />
+            </p>
             {taskTitle && <p className="text-[10px] text-orange-100 truncate">{taskTitle}</p>}
-          </div>
+          </a>
+
+          {/* Quick Business Site / Storefront Button */}
+          <a
+            href={`/user/${activeOther}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white border border-white/30 text-xs font-bold transition shadow-xs shrink-0"
+            title="Open Business Website & Public Storefront"
+          >
+            <Store className="h-3.5 w-3.5 text-amber-300" />
+            <span className="hidden sm:inline">Business Site</span>
+            <ExternalLink className="h-3 w-3 opacity-80" />
+          </a>
 
           {/* WebRTC Live Audio & Video Call Buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1161,8 +1189,18 @@ const GGDInbox: React.FC = () => {
                         <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                       </div>
                       <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30">
-                        Start Direct Chat
+                        Direct Chat
                       </Badge>
+                      <a
+                        href={`/user/${p.user_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 rounded-lg bg-secondary hover:bg-orange-500/20 text-foreground hover:text-orange-600 transition"
+                        title="View Store / Profile"
+                      >
+                        <Store className="h-4 w-4" />
+                      </a>
                     </button>
                   ))
                 )}
@@ -1187,10 +1225,10 @@ const GGDInbox: React.FC = () => {
                 </div>
               ) : (
                 shownThreads.map((t) => (
-                  <button
+                  <div
                     key={`${t.otherId}:${t.taskId || ""}`}
+                    className="w-full flex items-center gap-3 p-3.5 hover:bg-muted/40 transition group cursor-pointer"
                     onClick={() => openThread(t.otherId, t.taskId)}
-                    className="w-full text-left flex items-center gap-3 p-3.5 hover:bg-muted/40 transition group"
                   >
                     <div className="h-11 w-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
                       {t.avatarUrl ? (
@@ -1225,7 +1263,18 @@ const GGDInbox: React.FC = () => {
                         {t.unread}
                       </Badge>
                     )}
-                  </button>
+                    <a
+                      href={`/user/${t.otherId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-8 px-2.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 font-bold text-xs flex items-center gap-1 shrink-0 transition"
+                      title="Open Business Website & Public Storefront"
+                    >
+                      <Store className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Store</span>
+                    </a>
+                  </div>
                 ))
               )}
             </CardContent>

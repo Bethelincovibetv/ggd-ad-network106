@@ -302,6 +302,20 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
           </div>
         </div>
 
+        {/* Open Business Site & Storefront Primary Button */}
+        <div className="pt-2">
+          <a
+            href={bizProfile?.id ? `/business/${bizProfile.id}` : `/user/${businessUserId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99]"
+          >
+            <Store className="h-4 w-4 text-amber-200" />
+            <span>Open Business Site & Store</span>
+            <ExternalLink className="h-3.5 w-3.5 opacity-80" />
+          </a>
+        </div>
+
         {/* WhatsApp or Direct Call Option */}
         {phone && (
           <div className="pt-2 border-t border-border/60 flex items-center gap-2">
@@ -313,16 +327,14 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
             >
               <Phone className="h-3 w-3" /> WhatsApp
             </a>
-            {bizProfile?.id && (
-              <a
-                href={`/business/${bizProfile.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold text-[11px] flex items-center gap-1 transition"
-              >
-                <ExternalLink className="h-3 w-3" /> Storefront
-              </a>
-            )}
+            <a
+              href={bizProfile?.id ? `/business/${bizProfile.id}` : `/user/${businessUserId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-1.5 px-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold text-[11px] flex items-center gap-1 transition"
+            >
+              <ExternalLink className="h-3 w-3" /> Storefront
+            </a>
           </div>
         )}
       </CardContent>

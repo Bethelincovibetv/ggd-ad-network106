@@ -22,6 +22,7 @@ export const RTC_ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -250,22 +251,25 @@ export async function startOutgoingCall({
       return;
     }
 
-    if (!peerConnection.currentRemoteDescription && data.answer && !hasSetRemoteAnswer) {
+    if (data.answer && !hasSetRemoteAnswer && (!peerConnection.currentRemoteDescription || peerConnection.signalingState === 'have-local-offer')) {
       try {
         hasSetRemoteAnswer = true;
         const answerDescription = new RTCSessionDescription(data.answer);
         await peerConnection.setRemoteDescription(answerDescription);
 
-        // Process any queued candidates
+        // Process any queued candidates safely
         while (pendingCandidates.length > 0) {
           const cand = pendingCandidates.shift();
           if (cand) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (cErr) {
+              console.warn('Queued callee ICE candidate skipped:', cErr);
+            }
           }
         }
       } catch (err) {
-        console.error('Error applying remote answer:', err);
-        onError(err);
+        console.warn('Note applying remote answer (recovering):', err);
       }
     }
   });
@@ -276,13 +280,13 @@ export async function startOutgoingCall({
       if (change.type === 'added') {
         const candidateData = change.doc.data() as RTCIceCandidateInit;
         try {
-          if (peerConnection.remoteDescription) {
+          if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
             await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
           } else {
             pendingCandidates.push(candidateData);
           }
         } catch (err) {
-          console.warn('Error adding callee candidate:', err);
+          console.warn('Error buffering/adding callee candidate:', err);
         }
       }
     });
@@ -349,8 +353,21 @@ export async function answerIncomingCall({
 }> {
   await ensureFirebaseAuth();
 
-  if (!callSession.offer) {
-    throw new Error('Call offer SDP is missing');
+  const callDocRef = doc(db, 'calls', callSession.callId);
+  const calleeCandidatesCollection = collection(callDocRef, 'calleeCandidates');
+  const callerCandidatesCollection = collection(callDocRef, 'callerCandidates');
+
+  let sessionOffer = callSession.offer;
+  if (!sessionOffer || !sessionOffer.sdp) {
+    const freshSnap = await getDoc(callDocRef);
+    if (freshSnap.exists()) {
+      const freshData = freshSnap.data() as CallSession;
+      sessionOffer = freshData.offer;
+    }
+  }
+
+  if (!sessionOffer || !sessionOffer.sdp) {
+    throw new Error('Call offer SDP is missing or incomplete');
   }
 
   const localStream = await getLocalMediaStream(callSession.callType);
@@ -378,10 +395,6 @@ export async function answerIncomingCall({
       p2pImageTransfer.bindDataChannel(event.channel, callSession.calleeId, callSession.callerId);
     }
   };
-
-  const callDocRef = doc(db, 'calls', callSession.callId);
-  const calleeCandidatesCollection = collection(callDocRef, 'calleeCandidates');
-  const callerCandidatesCollection = collection(callDocRef, 'callerCandidates');
 
   // Stream local ICE candidates to calleeCandidates subcollection
   peerConnection.onicecandidate = (event) => {
@@ -411,8 +424,40 @@ export async function answerIncomingCall({
     }
   };
 
+  const pendingCallerCandidates: RTCIceCandidateInit[] = [];
+
+  // Listen for Caller ICE candidates in callerCandidates subcollection
+  const unsubCallerCandidates = onSnapshot(callerCandidatesCollection, (snapshot) => {
+    snapshot.docChanges().forEach(async (change) => {
+      if (change.type === 'added') {
+        const candidateData = change.doc.data() as RTCIceCandidateInit;
+        try {
+          if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+          } else {
+            pendingCallerCandidates.push(candidateData);
+          }
+        } catch (err) {
+          console.warn('Error adding caller candidate:', err);
+        }
+      }
+    });
+  });
+
   // Apply remote offer
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(callSession.offer));
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(sessionOffer));
+
+  // Flush any buffered caller candidates
+  while (pendingCallerCandidates.length > 0) {
+    const cand = pendingCallerCandidates.shift();
+    if (cand) {
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+      } catch (err) {
+        console.warn('Non-fatal caller candidate error:', err);
+      }
+    }
+  }
 
   // Create answer
   const answer = await peerConnection.createAnswer();
@@ -436,20 +481,6 @@ export async function answerIncomingCall({
     if (data.status === 'ended' || data.status === 'rejected') {
       onEnded(data.status);
     }
-  });
-
-  // Listen for Caller ICE candidates in callerCandidates subcollection
-  const unsubCallerCandidates = onSnapshot(callerCandidatesCollection, (snapshot) => {
-    snapshot.docChanges().forEach(async (change) => {
-      if (change.type === 'added') {
-        const candidateData = change.doc.data() as RTCIceCandidateInit;
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
-        } catch (err) {
-          console.warn('Error adding caller candidate:', err);
-        }
-      }
-    });
   });
 
   const cleanup = () => {
