@@ -565,11 +565,6 @@ const UserProfilePublicPage: React.FC = () => {
                       <Sparkles className="h-3.5 w-3.5" /> Trusted Merchant
                     </Badge>
                   )}
-                  {business?.paystack_enabled && (
-                    <Badge className="bg-emerald-600 text-white gap-1 font-bold text-xs py-1 px-2.5 border-0 shadow-sm">
-                      <ShoppingBag className="h-3.5 w-3.5" /> Online Payments
-                    </Badge>
-                  )}
                 </div>
               </div>
 
@@ -1061,7 +1056,7 @@ const UserProfilePublicPage: React.FC = () => {
             </section>
           )}
 
-          {/* SECTION 6: TRUST, ACCREDITATION & PAYMENTS */}
+          {/* SECTION 6: TRUST & ACCREDITATION */}
           <section id="trust" className="scroll-mt-24 space-y-4">
             <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
@@ -1069,30 +1064,11 @@ const UserProfilePublicPage: React.FC = () => {
               </div>
               <div>
                 <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Accreditation & Trust</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Verification status and supported transaction channels</p>
+                <p className="text-xs text-slate-500 mt-0.5">Verification status and accredited business pledge</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {business?.paystack_enabled && (
-                <Card className="bg-gradient-to-br from-emerald-50/70 via-white to-white border border-emerald-200 rounded-2xl p-6 shadow-xs">
-                  <div className="flex items-start gap-3.5">
-                    <div className="h-12 w-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                      <ShoppingBag className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900">Online Payments Enabled</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                        This store accepts secure debit card, bank transfer, and USSD payments powered by Paystack.
-                      </p>
-                      <Badge className="mt-3 bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
-                        Paystack Verified
-                      </Badge>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
               {syndicate && (
                 <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
                   <div className="flex items-start gap-3.5">
@@ -1121,7 +1097,7 @@ const UserProfilePublicPage: React.FC = () => {
               )}
 
               {/* Network Security Guarantee Card */}
-              <Card className="bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 sm:col-span-2 shadow-xs">
+              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? '' : 'sm:col-span-2'} shadow-xs`}>
                 <div className="flex items-start gap-3.5">
                   <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-6 w-6" />
