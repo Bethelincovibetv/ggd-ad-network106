@@ -25,6 +25,7 @@ import AdminNotificationSender from "@/components/AdminNotificationSender";
 import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
+import AdminContactGainManager from "@/components/AdminContactGainManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface NavGroup {
@@ -70,6 +71,7 @@ const navGroups: NavGroup[] = [
     title: 'USERS & COMMUNITY',
     items: [
       { id: 'users', icon: Users, label: 'User Management', sublabel: 'Profiles, roles and credits', color: 'text-white', gradient: 'from-orange-500 to-red-600' },
+      { id: 'contact-gain', icon: Users, label: 'Contact Gain System', sublabel: 'Daily VCF/CSV & Contact Tasks', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'chat', icon: MessageSquare, label: 'User Chat', sublabel: 'Direct support & messaging', color: 'text-white', gradient: 'from-lime-500 to-green-600' },
       { id: 'notifications', icon: Bell, label: 'Notifications', sublabel: 'Broadcast alerts to users', color: 'text-white', gradient: 'from-yellow-400 to-orange-500' },
       { id: 'coowners', icon: Crown, label: 'Co-Owners', sublabel: 'Partner equity & revenue share', color: 'text-white', gradient: 'from-amber-400 to-yellow-600' },
@@ -191,6 +193,7 @@ const AdminPage = () => {
         />
       );
       case 'email-studio': return <AdminEmailStudio />;
+      case 'contact-gain': return <AdminContactGainManager />;
       case 'notifications': return <AdminNotificationSender />;
       case 'chat': return <AdminChatSystem />;
       case 'coowners': return <AdminCoOwnerManager />;

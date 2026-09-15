@@ -67,6 +67,7 @@ import HomeDashboard from "@/components/HomeDashboard";
 import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 import CommunityFeed from "@/components/CommunityFeed";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
+import ContactGainHub from "@/components/ContactGainHub";
 
 interface Ad {
   id: string;
@@ -1128,6 +1129,11 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'feed':
         return isEnabled('community') ? <CommunityFeed onNavigate={handleTabChange} /> : disabled;
+
+      case 'contact-gain':
+      case 'contacts':
+      case 'contact_gain':
+        return <ContactGainHub userId={user?.id} userEmail={userEmail} onNavigateTab={handleTabChange} />;
 
       case 'growth':
         return <BusinessGrowthDashboard onNavigate={handleTabChange} />;

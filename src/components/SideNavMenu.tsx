@@ -65,6 +65,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const discover = [
+    { id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' },
     ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
@@ -93,6 +94,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     syndicate: 'from-violet-500 to-purple-600',
     'syndicate-join': 'from-violet-500 to-purple-600',
     marketplace: 'from-emerald-400 to-green-600',
+    'contact-gain': 'from-orange-500 to-amber-600',
     directory: 'from-orange-400 to-amber-500',
     promo: 'from-pink-500 to-rose-500',
     'share-earn': 'from-pink-500 to-rose-500',

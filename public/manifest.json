@@ -1,0 +1,39 @@
+{
+  "id": "/",
+  "name": "GGD Ad Network",
+  "short_name": "GGD AdNet",
+  "description": "Digital business-growth, business directory, advertising and social distribution network for African creators and entrepreneurs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0c14",
+  "theme_color": "#ea580c",
+  "categories": [
+    "business",
+    "finance",
+    "shopping",
+    "productivity",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -7,6 +7,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
 import AdminChatWidget from "./components/AdminChatWidget";
+import InstallPrompt from "./components/InstallPrompt";
+import PushNotificationPrompt from "./components/PushNotificationPrompt";
 import { CallProvider } from "@/contexts/CallContext";
 import { IncomingCallBanner } from "@/components/call/IncomingCallBanner";
 import { CallModal } from "@/components/call/CallModal";
@@ -60,6 +62,8 @@ const App = () => (
             </Routes>
             </Suspense>
             <AdminChatWidget />
+            <InstallPrompt />
+            <PushNotificationPrompt />
             <IncomingCallBanner />
             <CallModal />
           </BrowserRouter>

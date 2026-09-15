@@ -30,6 +30,7 @@ import { parseBlogPost, CommunityBlogPostData } from '@/types/blog';
 import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
+import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
@@ -853,6 +854,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           </button>
         ))}
       </div>
+
+      {/* Daily Contact Gain Spotlight Card */}
+      {feedFilter === 'all' && (
+        <ContactGainFeedCard onOpenContactHub={() => onNavigate?.('contact-gain')} />
+      )}
 
       {/* Feed */}
       {loading ? (
