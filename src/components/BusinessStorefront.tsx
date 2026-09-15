@@ -123,7 +123,7 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         }
       }
 
-      setProfile(bp || { user_id: user.id, business_name: 'My Business' });
+      setProfile(bp ? { ...bp, state: bp.state || prof?.state || null } : { user_id: user.id, business_name: 'My Business', state: prof?.state || null });
 
       // 4. Fetch Listings (both products and services)
       const { data: listData, error: listErr } = await (supabase.from('business_listings') as any)

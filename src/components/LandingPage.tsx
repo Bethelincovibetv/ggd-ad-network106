@@ -13,6 +13,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
+import AdNetworkFAQ from "@/components/AdNetworkFAQ";
 import ggdLogo from '@/assets/ggd-logo.png';
 import businessImg from '@/assets/landing-business.jpg';
 import syndicateImg from '@/assets/landing-syndicate.jpg';
@@ -178,6 +179,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     { id: 'business', label: 'For Businesses' },
     { id: 'promote-earn', label: 'Promote & Earn' },
     { id: 'how-it-works', label: 'How It Works' },
+    { id: 'faq', label: 'FAQ' },
   ];
 
 
@@ -836,6 +838,20 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <YouTubeEmbed section="homepage" />
         </div>
       </div>
+
+      {/* Reusable Accordion-Style FAQ Section */}
+      <AdNetworkFAQ
+        id="faq"
+        variant="dark"
+        onGetStarted={onGetStarted}
+        onContactSupport={() => {
+          if (waGroupLink) {
+            window.open(waGroupLink, '_blank');
+          } else {
+            window.open('https://wa.me/2348131107416?text=' + encodeURIComponent('Hello GGD Ad Network Support, I have a question about the platform.'), '_blank');
+          }
+        }}
+      />
 
       {/* Contact CTA */}
       <div id="contact" className="container mx-auto px-4 py-16">

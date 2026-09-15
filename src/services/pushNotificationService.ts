@@ -246,7 +246,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
             icon,
             badge: GGD_SITE_LOGO,
             url: payload.url || '/',
-            type: payload.type,
+            notificationType: payload.type,
           });
           return true;
         }

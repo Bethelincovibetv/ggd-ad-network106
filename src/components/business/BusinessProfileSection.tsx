@@ -29,6 +29,9 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { generateBusinessDefaultDescription } from "@/utils/industryData";
+import { NIGERIAN_STATES, detectUserNigerianState } from "@/utils/nigerianStates";
+import { Compass } from "lucide-react";
 
 interface BusinessProfileSectionProps {
   profile: any;
@@ -48,6 +51,29 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
   const [uploadingHero, setUploadingHero] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatingHero, setGeneratingHero] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Auto-detect Nigerian state using Geolocation API
+  const handleAutoDetectLocation = async () => {
+    setDetectingLocation(true);
+    try {
+      const loc = await detectUserNigerianState();
+      if (loc) {
+        setProfile((prev: any) => ({
+          ...prev,
+          state: loc.state,
+          address: prev?.address ? prev.address : `${loc.state}, Nigeria`,
+        }));
+        toast.success(`📍 Detected your location: ${loc.state} State!`);
+      } else {
+        toast.error("Could not determine your GPS location. Please select your State from the dropdown.");
+      }
+    } catch {
+      toast.error("Location access denied or unavailable. Please select your State manually.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
 
   // Upload Business Logo / Primary Identity (Unified across profiles & syndicates)
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,7 +179,8 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
         description: profile.description?.trim().slice(0, 1000) || null,
         category_id: profile.category_id || null,
         phone_number: profile.phone_number?.trim() || null,
-        address: profile.address?.trim() || null,
+        address: profile.address?.trim() || (profile.state ? `${profile.state}, Nigeria` : null),
+        state: profile.state || null,
         whatsapp_link: profile.whatsapp_link?.trim() || null,
         whatsapp_group_link: profile.whatsapp_group_link?.trim() || null,
         website_link: profile.website_link?.trim() || null,
@@ -182,6 +209,7 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
         business_description: payload.description,
         business_phone: payload.phone_number,
         business_location: payload.address,
+        state: payload.state || null,
         business_website: payload.website_link,
         business_category: categoryObj?.name || null,
         business_logo_url: payload.logo_url,
@@ -360,14 +388,35 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
           </div>
 
           <div>
-            <Label className="text-xs font-bold text-foreground">About / Business Description</Label>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <Label className="text-xs font-bold text-foreground">About / Business Description</Label>
+              <button
+                type="button"
+                onClick={() => {
+                  const catObj = categories.find(c => c.id === profile?.category_id);
+                  const defaultText = generateBusinessDefaultDescription(profile?.business_name, catObj?.name || profile?.category_id);
+                  setProfile({ ...profile, description: defaultText });
+                  toast.success("Generated industry description! You can edit or save it.");
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 px-2 py-0.5 rounded-lg border border-orange-200 dark:border-orange-800 transition cursor-pointer"
+              >
+                <Sparkles className="h-3 w-3 text-orange-500" />
+                Generate Category Default
+              </button>
+            </div>
             <Textarea
               value={profile?.description || ''}
               onChange={(e) => setProfile({ ...profile, description: e.target.value })}
-              placeholder="Describe what your business does, your experience, mission, and why customers should choose you..."
+              placeholder={(() => {
+                const catObj = categories.find(c => c.id === profile?.category_id);
+                return generateBusinessDefaultDescription(profile?.business_name, catObj?.name || profile?.category_id);
+              })()}
               rows={3}
               className="mt-1 text-xs leading-relaxed"
             />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              If left blank, a default description based on your business name and industry category will be automatically displayed across the directory.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -385,17 +434,59 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
             </div>
 
             <div>
-              <Label className="text-xs font-bold text-foreground flex items-center gap-1">
-                <MapPin className="h-3 w-3 text-orange-500" />
-                Physical Address / Location
-              </Label>
-              <Input
-                value={profile?.address || ''}
-                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                placeholder="Lagos, Nigeria"
-                className="mt-1 h-11 text-xs"
-              />
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3 text-orange-500" />
+                  Nigerian State (Location)
+                </Label>
+                <button
+                  type="button"
+                  onClick={handleAutoDetectLocation}
+                  disabled={detectingLocation}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 transition cursor-pointer"
+                >
+                  <Compass className={`h-3 w-3 text-blue-500 ${detectingLocation ? 'animate-spin' : ''}`} />
+                  {detectingLocation ? 'Detecting...' : '📍 Auto-Detect State'}
+                </button>
+              </div>
+              <Select
+                value={profile?.state || ''}
+                onValueChange={(val) => {
+                  setProfile((prev: any) => ({
+                    ...prev,
+                    state: val,
+                    address: prev?.address ? prev.address : `${val}, Nigeria`,
+                  }));
+                }}
+              >
+                <SelectTrigger className="h-11 text-xs">
+                  <SelectValue placeholder="Select Nigerian State" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {NIGERIAN_STATES.map((st) => (
+                    <SelectItem key={st} value={st}>
+                      {st} State
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-orange-500" />
+              Detailed Street Address / Office Location (Optional)
+            </Label>
+            <Input
+              value={profile?.address || ''}
+              onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+              placeholder={profile?.state ? `e.g. 14 Marina Road, ${profile.state}` : "e.g. 14 Marina Road, Ikeja, Lagos, Nigeria"}
+              className="mt-1 h-11 text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Visitors will use your state and address to find your business in local search and nearby recommendations.
+            </p>
           </div>
         </CardContent>
       </Card>

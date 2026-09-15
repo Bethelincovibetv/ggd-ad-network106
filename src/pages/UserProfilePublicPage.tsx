@@ -15,6 +15,7 @@ import ggdLogo from '@/assets/ggd-logo.png';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import { toast } from '@/hooks/use-toast';
 import { WEBSITE_TEMPLATES, getWebsiteTemplate, DEFAULT_TEMPLATE_ID } from '@/utils/websiteTemplates';
+import { getEffectiveBusinessDescription } from '@/utils/industryData';
 import { CallButton } from '@/components/call/CallButton';
 import MetaTags from '@/components/MetaTags';
 
@@ -198,11 +199,12 @@ const UserProfilePublicPage: React.FC = () => {
   const initials = name.slice(0, 2).toUpperCase();
   const logoImage = business?.logo_url || profile.business_logo_url || profile.avatar_url;
   const heroBanner = business?.hero_image_url || logoImage;
-  const description = business?.description || profile.business_description;
+  const rawDescription = business?.description || profile.business_description;
   const phone = business?.phone_number || profile.business_phone;
   const website = business?.website_link || profile.business_website;
   const address = business?.address || profile.business_location;
   const catName = category?.name || profile.business_category;
+  const description = getEffectiveBusinessDescription(rawDescription, name, catName);
   const waPhone = (phone || '').replace(/[^\d]/g, '');
   const brandedWa = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello ${name}, I saw your official website on GGD and would like to inquire about your offers.`)}` : null;
 

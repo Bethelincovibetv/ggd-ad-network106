@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Phone, FileText, Image as ImageIcon, Briefcase, MapPin } from 'lucide-react';
+import { Loader2, Upload, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Building2, Phone, FileText, Image as ImageIcon, Briefcase, MapPin, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { NIGERIAN_STATES } from '@/utils/nigerianStates';
+import { NIGERIAN_STATES, detectUserNigerianState } from '@/utils/nigerianStates';
+import { generateBusinessDefaultDescription } from '@/utils/industryData';
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface BusinessProfileWizardProps {
@@ -109,7 +110,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     if (current.key === 'category') return !!form.category_id;
     if (current.key === 'state') return !!form.state;
     if (current.key === 'phone') return /^[+\d][\d\s-]{6,}$/.test(form.business_phone.trim());
-    if (current.key === 'description') return form.business_description.trim().length >= 2;
+    if (current.key === 'description') return true; // Optional, auto-defaults based on category & name
     return true;
   };
 
@@ -125,6 +126,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
     if (!user) { setSaving(false); return; }
     const businessName = form.business_name.trim();
     const categoryName = categories.find(c => c.id === form.category_id)?.name || '';
+    const finalDescription = form.business_description.trim() || generateBusinessDefaultDescription(businessName, categoryName);
     const slugBase = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'business';
     const slug = `${slugBase}-${user.id.slice(0, 6)}`;
     const payload = {
@@ -133,7 +135,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       business_category: categoryName,
       state: form.state || null,
       business_phone: form.business_phone.trim(),
-      business_description: form.business_description.trim(),
+      business_description: finalDescription,
       business_logo_url: form.business_logo_url || null,
       business_slug: slug,
       profile_setup_complete: true,
@@ -151,7 +153,7 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       await supabase.from('business_profiles').insert({
         user_id: user.id,
         business_name: businessName,
-        description: form.business_description.trim() || null,
+        description: finalDescription || null,
         logo_url: form.business_logo_url || null,
         phone_number: form.business_phone.trim() || null,
         category_id: form.category_id || null,
@@ -159,7 +161,10 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
       } as any);
     } else {
       await (supabase.from('business_profiles') as any)
-        .update({ category_id: form.category_id || null }).eq('user_id', user.id);
+        .update({ 
+          category_id: form.category_id || null,
+          description: finalDescription || null
+        }).eq('user_id', user.id);
     }
     setSaving(false);
     try {
@@ -206,17 +211,67 @@ const BusinessProfileWizard: React.FC<BusinessProfileWizardProps> = ({ onComplet
         );
       case 'state':
         return (
-          <Select value={form.state} onValueChange={v => setForm(f => ({ ...f, state: v }))}>
-            <SelectTrigger className="h-11"><SelectValue placeholder="Select your state" /></SelectTrigger>
-            <SelectContent className="max-h-72">
-              {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="space-y-3">
+            <Select value={form.state} onValueChange={v => setForm(f => ({ ...f, state: v }))}>
+              <SelectTrigger className="h-11"><SelectValue placeholder="Select your state" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {NIGERIAN_STATES.map(s => <SelectItem key={s} value={s}>{s} State</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const loc = await detectUserNigerianState();
+                if (loc) {
+                  setForm(f => ({ ...f, state: loc.state }));
+                  toast.success(`📍 Detected: ${loc.state} State!`);
+                } else {
+                  toast.error('Could not detect location. Please select from the dropdown.');
+                }
+              }}
+              className="w-full text-xs font-bold gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 h-9 rounded-xl"
+            >
+              <Compass className="h-3.5 w-3.5 text-blue-500" /> Auto-Detect State from GPS
+            </Button>
+          </div>
         );
       case 'phone':
         return <Input autoFocus type="tel" inputMode="tel" value={form.business_phone} onChange={e => setForm(f => ({ ...f, business_phone: e.target.value }))} placeholder="e.g. +234 801 234 5678" className="h-11" />;
-      case 'description':
-        return <Textarea autoFocus rows={4} value={form.business_description} onChange={e => setForm(f => ({ ...f, business_description: e.target.value }))} placeholder="Tell customers what makes your business great..." />;
+      case 'description': {
+        const catName = categories.find(c => c.id === form.category_id)?.name || '';
+        const suggested = generateBusinessDefaultDescription(form.business_name, catName);
+        return (
+          <div className="space-y-2">
+            <Textarea
+              autoFocus
+              rows={4}
+              value={form.business_description}
+              onChange={e => setForm(f => ({ ...f, business_description: e.target.value }))}
+              placeholder={suggested}
+              className="text-xs sm:text-sm leading-relaxed"
+            />
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-[11px] text-muted-foreground">
+                Leave empty to automatically use the category default.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setForm(f => ({ ...f, business_description: suggested }));
+                  toast.success('Applied category default description!');
+                }}
+                className="text-xs font-bold gap-1 text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-950/40 h-8 rounded-lg"
+              >
+                <Sparkles className="h-3 w-3" /> Use Default
+              </Button>
+            </div>
+          </div>
+        );
+      }
       case 'logo':
         return (
           <div className="space-y-3">
