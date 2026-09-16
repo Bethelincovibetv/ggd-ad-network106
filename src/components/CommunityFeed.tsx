@@ -13,7 +13,8 @@ import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, ArrowLeft, PenLine, Megaphone, ExternalLink,
-  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown, ShoppingBag, Reply, Sparkles
+  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown, ShoppingBag, Reply, Sparkles,
+  ChevronDown, ChevronUp, MessageSquare, CornerDownRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
@@ -1104,8 +1105,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTapRef = useRef<number>(0);
 
-  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string; parentCommentId?: string } | null>(null);
+  const [inlineReplyCommentId, setInlineReplyCommentId] = useState<string | null>(null);
+  const [inlineReplyText, setInlineReplyText] = useState('');
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({});
+  const [activeThreadModalComment, setActiveThreadModalComment] = useState<any | null>(null);
+  const [threadModalReplyText, setThreadModalReplyText] = useState('');
+
   const commentInputRef = useRef<HTMLInputElement>(null);
+  const inlineInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const v = recordPostView(post);
@@ -1142,24 +1150,53 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     if (next && comments.length === 0) await loadComments();
   };
 
-  const handleStartReply = (userToReply: string) => {
-    setReplyingTo({ id: userToReply, name: userToReply });
-    setCommentText(prev => prev.startsWith(`@${userToReply}`) ? prev : `@${userToReply} ${prev}`);
-    if (commentInputRef.current) {
-      commentInputRef.current.focus();
+  const handleStartReply = (commentItem: any) => {
+    const authorName = commentItem.author?.business_name || commentItem.author?.display_name || 'User';
+    setReplyingTo({ id: commentItem.id, name: authorName, parentCommentId: commentItem.id });
+    setInlineReplyCommentId(commentItem.id);
+    setInlineReplyText(`@${authorName} `);
+    setTimeout(() => {
+      if (inlineInputRef.current) inlineInputRef.current.focus();
+    }, 50);
+  };
+
+  const submitComment = async (customText?: string, parentId?: string) => {
+    if (!currentUserId) { toast.error('Please sign in'); return; }
+    const text = (customText !== undefined ? customText : (parentId ? inlineReplyText : commentText)).trim();
+    if (!text) return;
+
+    const { error } = await supabase.from('post_comments').insert({
+      post_id: post.id,
+      user_id: currentUserId,
+      content: text,
+    });
+    if (error) return toast.error(error.message);
+
+    setCommentText('');
+    setInlineReplyText('');
+    setReplyingTo(null);
+    setInlineReplyCommentId(null);
+    setCommentCount(c => c + 1);
+    await loadComments();
+
+    if (parentId) {
+      setExpandedThreads(prev => ({ ...prev, [parentId]: true }));
     }
   };
 
-  const submitComment = async (customText?: string) => {
+  const submitThreadModalReply = async (customText?: string) => {
     if (!currentUserId) { toast.error('Please sign in'); return; }
-    const text = (customText !== undefined ? customText : commentText).trim();
+    const text = (customText !== undefined ? customText : threadModalReplyText).trim();
     if (!text) return;
+
     const { error } = await supabase.from('post_comments').insert({
-      post_id: post.id, user_id: currentUserId, content: text,
+      post_id: post.id,
+      user_id: currentUserId,
+      content: text,
     });
     if (error) return toast.error(error.message);
-    setCommentText('');
-    setReplyingTo(null);
+
+    setThreadModalReplyText('');
     setCommentCount(c => c + 1);
     await loadComments();
   };
@@ -1169,7 +1206,45 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     if (error) return toast.error(error.message);
     setComments(prev => prev.filter(c => c.id !== id));
     setCommentCount(c => Math.max(0, c - 1));
+    if (activeThreadModalComment?.id === id) {
+      setActiveThreadModalComment(null);
+    }
   };
+
+  const toggleThreadReplies = (commentId: string) => {
+    setExpandedThreads(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
+  };
+
+  // Group comments into structured threads (top-level vs replies)
+  const { topLevelComments, repliesByParent } = useMemo(() => {
+    const topLevel: any[] = [];
+    const repliesMap: Record<string, any[]> = {};
+
+    comments.forEach(c => {
+      // Check if comment is a tagged reply or regular comment
+      const match = typeof c.content === 'string' && c.content.match(/^@([a-zA-Z0-9_\s]+?)\s/);
+      if (match && topLevel.length > 0) {
+        // Find matching parent or associate with previous root comment
+        const taggedName = match[1].toLowerCase().trim();
+        const parent = topLevel.find(t => {
+          const tName = (t.author?.business_name || t.author?.display_name || '').toLowerCase().trim();
+          return tName && (tName.includes(taggedName) || taggedName.includes(tName));
+        }) || topLevel[topLevel.length - 1];
+
+        if (parent) {
+          if (!repliesMap[parent.id]) repliesMap[parent.id] = [];
+          repliesMap[parent.id].push(c);
+          return;
+        }
+      }
+      topLevel.push(c);
+    });
+
+    return { topLevelComments: topLevel, repliesByParent: repliesMap };
+  }, [comments]);
 
   const handleImageTap = (url: string) => {
     const now = Date.now();
@@ -1352,14 +1427,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
           </div>
         )}
 
-        {/* Reaction summary */}
+        {/* Reaction & Comment summary bar */}
         {(totalReactions > 0 || commentCount > 0) && (
           <div className="px-3 py-1.5 flex items-center justify-between text-[11px] text-muted-foreground border-t border-b border-border/50">
             <div className="flex items-center gap-1">
               {topReactions.map(r => <span key={r}>{reactionEmoji(r)}</span>)}
               {totalReactions > 0 && <span className="ml-1 font-semibold">{totalReactions}</span>}
             </div>
-            {commentCount > 0 && <span>{commentCount} comment{commentCount === 1 ? '' : 's'}</span>}
+            {commentCount > 0 && (
+              <button
+                type="button"
+                onClick={toggleComments}
+                className="hover:text-foreground font-medium hover:underline flex items-center gap-1 transition"
+              >
+                <span>{commentCount} comment{commentCount === 1 ? '' : 's'}</span>
+                {showComments ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+            )}
           </div>
         )}
 
@@ -1387,104 +1471,262 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
               ))}
             </PopoverContent>
           </Popover>
-          <Button variant="ghost" size="sm" className="gap-1.5 h-9" onClick={toggleComments}>
-            <MessageCircle className="h-4 w-4" /> <span className="text-[13px]">Comment</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`gap-1.5 h-9 ${showComments ? 'text-orange-600 font-bold bg-orange-500/10' : ''}`}
+            onClick={toggleComments}
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span className="text-[13px]">Comment</span>
+            {commentCount > 0 && <span className="text-xs ml-0.5 font-bold">({commentCount})</span>}
           </Button>
         </div>
 
-        {/* Comments */}
+        {/* Facebook-style Collapsible Comments & Threaded Replies Section */}
         {showComments && (
           <div className="px-3 py-3 border-t bg-muted/20 space-y-3">
+            {/* Header with collapse button */}
+            <div className="flex items-center justify-between pb-1 border-b border-border/40 text-xs">
+              <span className="font-bold text-foreground flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-orange-600" /> Comments & Replies ({commentCount})
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowComments(false)}
+                className="text-[11px] text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1"
+              >
+                Hide <ChevronUp className="h-3 w-3" />
+              </button>
+            </div>
+
             {loadingComments ? (
-              <div className="text-center py-2"><Loader2 className="h-5 w-5 animate-spin inline text-orange-500" /></div>
+              <div className="text-center py-4"><Loader2 className="h-5 w-5 animate-spin inline text-orange-500" /></div>
             ) : comments.length === 0 ? (
-              <p className="text-xs text-center text-muted-foreground py-1">No comments yet. Be the first to comment!</p>
+              <p className="text-xs text-center text-muted-foreground py-2">No comments yet. Be the first to start the conversation!</p>
             ) : (
-              comments.map(c => {
-                const cn = c.author?.business_name || c.author?.display_name || 'User';
-                const ca = c.author?.business_logo_url || c.author?.avatar_url;
-                const cHref = c.author?.business_slug ? `/b/${c.author.business_slug}` : `/user/${c.user_id}`;
-                
-                // Detect if content is or has a GIF / image URL
-                const isMediaUrl = typeof c.content === 'string' && (
-                  c.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) ||
-                  c.content.includes('giphy.com/media')
-                );
+              <div className="space-y-3">
+                {topLevelComments.map(c => {
+                  const cn = c.author?.business_name || c.author?.display_name || 'User';
+                  const ca = c.author?.business_logo_url || c.author?.avatar_url;
+                  const cHref = c.author?.business_slug ? `/b/${c.author.business_slug}` : `/user/${c.user_id}`;
+                  
+                  const isMediaUrl = typeof c.content === 'string' && (
+                    c.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) ||
+                    c.content.includes('giphy.com/media')
+                  );
 
-                return (
-                  <div key={c.id} className="flex gap-2 items-start">
-                    <Link to={cHref} className="group shrink-0">
-                      <Avatar className="h-7 w-7 ring-1 ring-transparent group-hover:ring-orange-500 transition-all">
-                        {ca && <AvatarImage src={ca} alt={cn} />}
-                        <AvatarFallback className="text-xs bg-gradient-to-br from-orange-500 to-red-600 text-white">
-                          {cn[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-background rounded-2xl px-3 py-1.5 inline-block max-w-full border border-border/40 shadow-2xs">
-                        <Link to={cHref} className="text-xs font-bold text-foreground hover:text-orange-600 hover:underline block truncate">
-                          {cn}
+                  const replies = repliesByParent[c.id] || [];
+                  const isThreadExpanded = expandedThreads[c.id] ?? (replies.length <= 2);
+                  const isReplyingThis = inlineReplyCommentId === c.id;
+
+                  return (
+                    <div key={c.id} className="space-y-2 group/comment">
+                      {/* Root Comment Row */}
+                      <div className="flex gap-2 items-start">
+                        <Link to={cHref} className="group shrink-0 mt-0.5">
+                          <Avatar className="h-7 w-7 ring-1 ring-transparent group-hover:ring-orange-500 transition-all">
+                            {ca && <AvatarImage src={ca} alt={cn} />}
+                            <AvatarFallback className="text-xs bg-gradient-to-br from-orange-500 to-red-600 text-white">
+                              {cn[0]?.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                         </Link>
-                        {isMediaUrl ? (
-                          <div className="mt-1 rounded-lg overflow-hidden border border-border/60 max-w-xs">
-                            <img loading="lazy" src={c.content} alt="Comment Media" className="max-h-48 object-cover w-full rounded" />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="bg-background rounded-2xl px-3 py-2 inline-block max-w-full border border-border/50 shadow-2xs">
+                            <div className="flex items-center gap-1.5">
+                              <Link to={cHref} className="text-xs font-bold text-foreground hover:text-orange-600 hover:underline block truncate">
+                                {cn}
+                              </Link>
+                              {c.author?.business_slug && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-orange-500/10 text-orange-600">
+                                  Store
+                                </span>
+                              )}
+                            </div>
+
+                            {isMediaUrl ? (
+                              <div className="mt-1.5 rounded-lg overflow-hidden border border-border/60 max-w-xs bg-muted/20">
+                                <img loading="lazy" src={c.content} alt="Comment Media" className="max-h-48 object-cover w-full rounded" />
+                              </div>
+                            ) : (
+                              <p className="text-[13px] whitespace-pre-wrap break-words leading-relaxed text-foreground mt-0.5">{c.content}</p>
+                            )}
                           </div>
-                        ) : (
-                          <p className="text-[13px] whitespace-pre-wrap break-words leading-relaxed text-foreground">{c.content}</p>
-                        )}
-                      </div>
 
-                      {/* Facebook-style Reply & React Actions */}
-                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground px-2">
-                        <span>{timeAgo(c.created_at)}</span>
-                        
-                        <button
-                          type="button"
-                          onClick={() => handleStartReply(cn)}
-                          className="font-bold text-foreground/80 hover:text-orange-600 transition-colors flex items-center gap-1"
-                        >
-                          <Reply className="h-3 w-3" /> Reply
-                        </button>
+                          {/* Facebook-style Action Bar */}
+                          <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground px-2">
+                            <span>{timeAgo(c.created_at)}</span>
+                            
+                            <button
+                              type="button"
+                              onClick={() => handleStartReply(c)}
+                              className="font-bold text-foreground/80 hover:text-orange-600 transition-colors flex items-center gap-1"
+                            >
+                              <Reply className="h-3 w-3" /> Reply
+                            </button>
 
-                        {currentUserId === c.user_id && (
-                          <button onClick={() => deleteComment(c.id)} className="hover:text-destructive text-muted-foreground transition-colors">
-                            Delete
-                          </button>
-                        )}
+                            <button
+                              type="button"
+                              onClick={() => setActiveThreadModalComment(c)}
+                              className="font-bold text-muted-foreground hover:text-orange-600 transition-colors flex items-center gap-1"
+                              title="Open dedicated reply thread page"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              {replies.length > 0 ? `${replies.length} replies` : 'Thread View'}
+                            </button>
 
-                        <EmojiReactionBar targetType="comment" targetId={c.id} currentUserId={currentUserId} />
+                            {currentUserId === c.user_id && (
+                              <button onClick={() => deleteComment(c.id)} className="hover:text-destructive text-muted-foreground transition-colors">
+                                Delete
+                              </button>
+                            )}
+
+                            <EmojiReactionBar targetType="comment" targetId={c.id} currentUserId={currentUserId} />
+                          </div>
+
+                          {/* Nested Replies Thread (Facebook style) */}
+                          {replies.length > 0 && (
+                            <div className="mt-2 ml-2 pl-3 border-l-2 border-orange-500/30 space-y-2">
+                              {replies.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleThreadReplies(c.id)}
+                                  className="text-[11px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 transition"
+                                >
+                                  <CornerDownRight className="h-3 w-3" />
+                                  {isThreadExpanded ? `Hide replies` : `View all ${replies.length} replies`}
+                                </button>
+                              )}
+
+                              {isThreadExpanded && (
+                                <div className="space-y-2 pt-0.5">
+                                  {replies.map(rep => {
+                                    const rCn = rep.author?.business_name || rep.author?.display_name || 'User';
+                                    const rCa = rep.author?.business_logo_url || rep.author?.avatar_url;
+                                    const rHref = rep.author?.business_slug ? `/b/${rep.author.business_slug}` : `/user/${rep.user_id}`;
+                                    const rIsMedia = typeof rep.content === 'string' && (
+                                      rep.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) ||
+                                      rep.content.includes('giphy.com/media')
+                                    );
+
+                                    return (
+                                      <div key={rep.id} className="flex gap-2 items-start">
+                                        <Link to={rHref} className="group shrink-0 mt-0.5">
+                                          <Avatar className="h-6 w-6 ring-1 ring-transparent group-hover:ring-orange-500 transition-all">
+                                            {rCa && <AvatarImage src={rCa} alt={rCn} />}
+                                            <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+                                              {rCn[0]?.toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        </Link>
+
+                                        <div className="flex-1 min-w-0">
+                                          <div className="bg-background/90 rounded-2xl px-3 py-1.5 inline-block max-w-full border border-border/40 shadow-2xs">
+                                            <Link to={rHref} className="text-[11px] font-bold text-foreground hover:text-orange-600 hover:underline block truncate">
+                                              {rCn}
+                                            </Link>
+                                            {rIsMedia ? (
+                                              <div className="mt-1 rounded-lg overflow-hidden border border-border/60 max-w-xs">
+                                                <img loading="lazy" src={rep.content} alt="Reply Media" className="max-h-40 object-cover w-full rounded" />
+                                              </div>
+                                            ) : (
+                                              <p className="text-xs whitespace-pre-wrap break-words leading-relaxed text-foreground mt-0.5">{rep.content}</p>
+                                            )}
+                                          </div>
+
+                                          <div className="flex items-center gap-2.5 mt-0.5 text-[10px] text-muted-foreground px-1.5">
+                                            <span>{timeAgo(rep.created_at)}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStartReply(rep)}
+                                              className="font-bold text-foreground/80 hover:text-orange-600 transition flex items-center gap-0.5"
+                                            >
+                                              <Reply className="h-2.5 w-2.5" /> Reply
+                                            </button>
+                                            {currentUserId === rep.user_id && (
+                                              <button onClick={() => deleteComment(rep.id)} className="hover:text-destructive text-muted-foreground transition">
+                                                Delete
+                                              </button>
+                                            )}
+                                            <EmojiReactionBar targetType="comment" targetId={rep.id} currentUserId={currentUserId} />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Inline Reply Form attached directly under this comment */}
+                          {isReplyingThis && (
+                            <div className="mt-2 ml-2 pl-3 border-l-2 border-orange-500 space-y-1.5 animate-in fade-in">
+                              <div className="flex items-center justify-between text-[11px] px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-600 font-semibold">
+                                <span className="flex items-center gap-1">
+                                  <Reply className="h-3 w-3" /> Replying to @{replyingTo?.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineReplyCommentId(null);
+                                    setReplyingTo(null);
+                                    setInlineReplyText('');
+                                  }}
+                                  className="hover:text-foreground font-bold p-0.5"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="flex gap-1.5 items-center">
+                                <Input
+                                  ref={inlineInputRef}
+                                  placeholder={`Reply to @${replyingTo?.name}...`}
+                                  value={inlineReplyText}
+                                  onChange={e => setInlineReplyText(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      submitComment(undefined, c.id);
+                                    }
+                                  }}
+                                  className="rounded-full bg-background h-8 text-xs flex-1"
+                                />
+
+                                <GifPickerPopover
+                                  onSelectGif={(gifUrl) => {
+                                    submitComment(gifUrl, c.id);
+                                  }}
+                                />
+
+                                <Button
+                                  size="sm"
+                                  onClick={() => submitComment(undefined, c.id)}
+                                  className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-full h-8 px-3 shrink-0"
+                                >
+                                  <Send className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
 
+            {/* Bottom Main Comment Composer */}
             {currentUserId && (
-              <div className="space-y-1.5 pt-1">
-                {replyingTo && (
-                  <div className="flex items-center justify-between text-[11px] px-3 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-600 font-semibold animate-in fade-in">
-                    <span className="flex items-center gap-1.5">
-                      <Reply className="h-3 w-3" /> Replying to @{replyingTo.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplyingTo(null);
-                        setCommentText(prev => prev.replace(new RegExp(`^@${replyingTo.name}\\s*`), ''));
-                      }}
-                      className="hover:text-foreground font-bold p-0.5"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-
+              <div className="space-y-1.5 pt-2 border-t border-border/40">
                 <div className="flex gap-1.5 items-center">
                   <Input
                     ref={commentInputRef}
-                    placeholder={replyingTo ? `Reply to @${replyingTo.name}...` : "Write a comment…"}
+                    placeholder="Write a comment or add animated GIF / Sticker..."
                     value={commentText}
                     onChange={e => setCommentText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
@@ -1504,6 +1746,140 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
               </div>
             )}
           </div>
+        )}
+
+        {/* Dedicated Reply Thread Page Modal */}
+        {activeThreadModalComment && (
+          <Dialog open={!!activeThreadModalComment} onOpenChange={(open) => { if (!open) setActiveThreadModalComment(null); }}>
+            <DialogContent className="max-w-md w-full p-4 max-h-[85vh] flex flex-col rounded-2xl">
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-orange-600" />
+                  <h3 className="text-sm font-black text-foreground">Reply Thread</h3>
+                </div>
+              </div>
+
+              {/* Root Parent Comment Highlight */}
+              <div className="py-2 overflow-y-auto flex-1 space-y-3">
+                <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={activeThreadModalComment.author?.business_logo_url || activeThreadModalComment.author?.avatar_url} />
+                      <AvatarFallback className="text-xs bg-orange-500 text-white font-bold">
+                        {(activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'U')[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-xs font-bold text-foreground">
+                        {activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'User'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">{timeAgo(activeThreadModalComment.created_at)}</div>
+                    </div>
+                  </div>
+
+                  {typeof activeThreadModalComment.content === 'string' && (activeThreadModalComment.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) || activeThreadModalComment.content.includes('giphy.com/media')) ? (
+                    <img loading="lazy" src={activeThreadModalComment.content} alt="Media" className="max-h-48 rounded-lg object-cover w-full mt-1" />
+                  ) : (
+                    <p className="text-xs text-foreground leading-relaxed">{activeThreadModalComment.content}</p>
+                  )}
+
+                  <div className="mt-2 pt-1 border-t border-border/40 flex items-center justify-between">
+                    <EmojiReactionBar targetType="comment" targetId={activeThreadModalComment.id} currentUserId={currentUserId} />
+                    {currentUserId === activeThreadModalComment.user_id && (
+                      <button onClick={() => deleteComment(activeThreadModalComment.id)} className="text-[11px] text-destructive hover:underline">
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* List of all replies to this thread */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold text-muted-foreground px-1">
+                    Replies ({(repliesByParent[activeThreadModalComment.id] || []).length})
+                  </div>
+
+                  {(repliesByParent[activeThreadModalComment.id] || []).map(rep => {
+                    const rCn = rep.author?.business_name || rep.author?.display_name || 'User';
+                    const rCa = rep.author?.business_logo_url || rep.author?.avatar_url;
+                    const rIsMedia = typeof rep.content === 'string' && (
+                      rep.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) ||
+                      rep.content.includes('giphy.com/media')
+                    );
+
+                    return (
+                      <div key={rep.id} className="p-2.5 rounded-xl bg-background border border-border/50 flex gap-2 items-start">
+                        <Avatar className="h-6 w-6 shrink-0 mt-0.5">
+                          <AvatarImage src={rCa} />
+                          <AvatarFallback className="text-[10px] bg-purple-600 text-white font-bold">{rCn[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-foreground truncate">{rCn}</span>
+                            <span className="text-[10px] text-muted-foreground">{timeAgo(rep.created_at)}</span>
+                          </div>
+                          {rIsMedia ? (
+                            <img loading="lazy" src={rep.content} alt="Reply media" className="max-h-36 rounded object-cover w-full mt-1" />
+                          ) : (
+                            <p className="text-xs text-foreground mt-0.5">{rep.content}</p>
+                          )}
+                          <div className="mt-1 flex items-center justify-between">
+                            <EmojiReactionBar targetType="comment" targetId={rep.id} currentUserId={currentUserId} />
+                            {currentUserId === rep.user_id && (
+                              <button onClick={() => deleteComment(rep.id)} className="text-[10px] text-destructive hover:underline">
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {(repliesByParent[activeThreadModalComment.id] || []).length === 0 && (
+                    <p className="text-xs text-center text-muted-foreground py-4">No replies yet in this thread.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Dedicated Reply Form inside the Thread Modal */}
+              <div className="pt-2 border-t border-border flex gap-1.5 items-center">
+                <Input
+                  placeholder={`Reply to ${activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'thread'}...`}
+                  value={threadModalReplyText}
+                  onChange={e => setThreadModalReplyText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      const parentAuthorName = activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'User';
+                      const prefix = threadModalReplyText.startsWith(`@${parentAuthorName}`) ? '' : `@${parentAuthorName} `;
+                      submitThreadModalReply(`${prefix}${threadModalReplyText}`);
+                    }
+                  }}
+                  className="rounded-full bg-background h-9 text-xs flex-1"
+                />
+
+                <GifPickerPopover
+                  onSelectGif={(gifUrl) => {
+                    const parentAuthorName = activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'User';
+                    submitThreadModalReply(`@${parentAuthorName} ${gifUrl}`);
+                  }}
+                />
+
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const parentAuthorName = activeThreadModalComment.author?.business_name || activeThreadModalComment.author?.display_name || 'User';
+                    const prefix = threadModalReplyText.startsWith(`@${parentAuthorName}`) ? '' : `@${parentAuthorName} `;
+                    submitThreadModalReply(`${prefix}${threadModalReplyText}`);
+                  }}
+                  className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-full h-9 px-3 shrink-0"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </CardContent>
     </Card>
