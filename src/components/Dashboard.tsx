@@ -136,6 +136,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [credits, setCredits] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
   const [adCostCredits, setAdCostCredits] = useState(5);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -252,6 +253,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const initDashboard = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setCurrentUserId(user.id);
 
     // Securely ensure task wallet exists & load latest balance
     try {
@@ -1132,7 +1134,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'contact-gain':
       case 'contacts':
       case 'contact_gain':
-        return <ContactGainHub userId={user?.id} userEmail={userEmail} onNavigateTab={handleTabChange} />;
+        return <ContactGainHub userId={currentUserId || undefined} userEmail={userEmail} onNavigateTab={handleTabChange} />;
 
       case 'growth':
         return <BusinessGrowthDashboard onNavigate={handleTabChange} />;

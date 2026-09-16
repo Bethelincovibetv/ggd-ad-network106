@@ -19,7 +19,29 @@ interface Row { id: string; user_id: string; emoji: string }
 const EmojiReactionBar: React.FC<EmojiReactionBarProps> = ({ targetType, targetId, currentUserId, className = '' }) => {
   const [rows, setRows] = useState<Row[]>([]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [targetId]);
+  useEffect(() => {
+    load();
+
+    const channel = supabase
+      .channel(`reactions-${targetType}-${targetId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'emoji_reactions',
+          filter: `target_id=eq.${targetId}`,
+        },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [targetId, targetType]);
 
   const load = async () => {
     const { data } = await supabase

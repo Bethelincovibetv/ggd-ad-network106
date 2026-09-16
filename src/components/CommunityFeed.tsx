@@ -13,11 +13,12 @@ import {
   Image as ImageIcon, Link2, Video, Loader2, Send, Trash2,
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, ArrowLeft, PenLine, Megaphone, ExternalLink,
-  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown
+  Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown, ShoppingBag, Reply, Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
 import EmojiReactionBar from '@/components/EmojiReactionBar';
+import GifPickerPopover from '@/components/chat/GifPickerPopover';
 import { getOrCreateTaskShareUrl } from '@/lib/taskShare';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import CreditTaskComposer, { type CreditTaskPrefill } from '@/components/feed/CreditTaskComposer';
@@ -643,7 +644,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
                   {activeTpl && !imagePreview ? (
                     <div
-                      className="flex-1 rounded-2xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden shadow-inner"
+                      className={`flex-1 rounded-2xl flex items-center justify-center min-h-[140px] p-4 relative overflow-hidden shadow-inner ${activeTpl.isAnimated ? 'animated-post-bg' : ''}`}
                       style={{ background: activeTpl.background }}
                     >
                       <textarea
@@ -771,7 +772,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                     <input
                       type="file"
                       ref={fileRef}
-                      accept="image/*"
+                      accept="image/*,image/gif,.gif"
                       className="hidden"
                       onChange={e => onPickImage(e.target.files?.[0] || null)}
                     />
@@ -784,6 +785,31 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                     >
                       <ImageIcon className="h-4 w-4 mr-1.5 text-green-600" />
                       <span className="text-xs font-semibold">Photo</span>
+                    </Button>
+                    <GifPickerPopover
+                      onSelectGif={(gifUrl) => {
+                        setImagePreview(gifUrl);
+                        setImageFile(null);
+                        setTemplateId(null);
+                        toast.success('Animated GIF attached!');
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2.5 rounded-xl hover:bg-orange-500/10 text-foreground"
+                      onClick={() => {
+                        if (onNavigate) {
+                          onNavigate('directory');
+                        } else {
+                          window.location.href = '/directory';
+                        }
+                      }}
+                      title="Explore products, services & verified merchants"
+                    >
+                      <Store className="h-4 w-4 mr-1.5 text-orange-600" />
+                      <span className="text-xs font-semibold">Marketplace</span>
                     </Button>
                     <Button
                       type="button"
@@ -1078,6 +1104,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTapRef = useRef<number>(0);
 
+  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const v = recordPostView(post);
     setViewsCount(v);
@@ -1113,15 +1142,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     if (next && comments.length === 0) await loadComments();
   };
 
-  const submitComment = async () => {
+  const handleStartReply = (userToReply: string) => {
+    setReplyingTo({ id: userToReply, name: userToReply });
+    setCommentText(prev => prev.startsWith(`@${userToReply}`) ? prev : `@${userToReply} ${prev}`);
+    if (commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  };
+
+  const submitComment = async (customText?: string) => {
     if (!currentUserId) { toast.error('Please sign in'); return; }
-    const text = commentText.trim();
+    const text = (customText !== undefined ? customText : commentText).trim();
     if (!text) return;
     const { error } = await supabase.from('post_comments').insert({
       post_id: post.id, user_id: currentUserId, content: text,
     });
     if (error) return toast.error(error.message);
     setCommentText('');
+    setReplyingTo(null);
     setCommentCount(c => c + 1);
     await loadComments();
   };
@@ -1249,7 +1287,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
         {/* Templated text post */}
         {template && !post.image_url ? (
           <div
-            className="mx-3 mb-2 rounded-xl flex items-center justify-center min-h-[180px] p-5"
+            className={`mx-3 mb-2 rounded-xl flex items-center justify-center min-h-[180px] p-5 ${template.isAnimated ? 'animated-post-bg' : ''}`}
             style={{ background: template.background }}
           >
             <p className={`text-center font-extrabold text-lg sm:text-xl leading-snug whitespace-pre-wrap break-words ${template.textColor}`}>
@@ -1358,12 +1396,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
         {showComments && (
           <div className="px-3 py-3 border-t bg-muted/20 space-y-3">
             {loadingComments ? (
-              <div className="text-center"><Loader2 className="h-4 w-4 animate-spin inline" /></div>
+              <div className="text-center py-2"><Loader2 className="h-5 w-5 animate-spin inline text-orange-500" /></div>
+            ) : comments.length === 0 ? (
+              <p className="text-xs text-center text-muted-foreground py-1">No comments yet. Be the first to comment!</p>
             ) : (
               comments.map(c => {
                 const cn = c.author?.business_name || c.author?.display_name || 'User';
                 const ca = c.author?.business_logo_url || c.author?.avatar_url;
                 const cHref = c.author?.business_slug ? `/b/${c.author.business_slug}` : `/user/${c.user_id}`;
+                
+                // Detect if content is or has a GIF / image URL
+                const isMediaUrl = typeof c.content === 'string' && (
+                  c.content.match(/^https?:\/\/.*\.(gif|png|jpe?g|webp)(\?.*)?$/i) ||
+                  c.content.includes('giphy.com/media')
+                );
+
                 return (
                   <div key={c.id} className="flex gap-2 items-start">
                     <Link to={cHref} className="group shrink-0">
@@ -1375,17 +1422,37 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                       </Avatar>
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <div className="bg-background rounded-2xl px-3 py-1.5 inline-block max-w-full">
-                        <Link to={cHref} className="text-xs font-semibold hover:text-orange-600 hover:underline block truncate">
+                      <div className="bg-background rounded-2xl px-3 py-1.5 inline-block max-w-full border border-border/40 shadow-2xs">
+                        <Link to={cHref} className="text-xs font-bold text-foreground hover:text-orange-600 hover:underline block truncate">
                           {cn}
                         </Link>
-                        <p className="text-[13px] whitespace-pre-wrap break-words">{c.content}</p>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground px-2">
-                        <span>{timeAgo(c.created_at)}</span>
-                        {currentUserId === c.user_id && (
-                          <button onClick={() => deleteComment(c.id)} className="hover:text-destructive">Delete</button>
+                        {isMediaUrl ? (
+                          <div className="mt-1 rounded-lg overflow-hidden border border-border/60 max-w-xs">
+                            <img loading="lazy" src={c.content} alt="Comment Media" className="max-h-48 object-cover w-full rounded" />
+                          </div>
+                        ) : (
+                          <p className="text-[13px] whitespace-pre-wrap break-words leading-relaxed text-foreground">{c.content}</p>
                         )}
+                      </div>
+
+                      {/* Facebook-style Reply & React Actions */}
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground px-2">
+                        <span>{timeAgo(c.created_at)}</span>
+                        
+                        <button
+                          type="button"
+                          onClick={() => handleStartReply(cn)}
+                          className="font-bold text-foreground/80 hover:text-orange-600 transition-colors flex items-center gap-1"
+                        >
+                          <Reply className="h-3 w-3" /> Reply
+                        </button>
+
+                        {currentUserId === c.user_id && (
+                          <button onClick={() => deleteComment(c.id)} className="hover:text-destructive text-muted-foreground transition-colors">
+                            Delete
+                          </button>
+                        )}
+
                         <EmojiReactionBar targetType="comment" targetId={c.id} currentUserId={currentUserId} />
                       </div>
                     </div>
@@ -1393,18 +1460,47 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
                 );
               })
             )}
+
             {currentUserId && (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Write a comment…"
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
-                  className="rounded-full bg-background h-9"
-                />
-                <Button size="sm" onClick={submitComment} className="bg-gradient-to-r from-orange-500 to-red-600 rounded-full">
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="space-y-1.5 pt-1">
+                {replyingTo && (
+                  <div className="flex items-center justify-between text-[11px] px-3 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-600 font-semibold animate-in fade-in">
+                    <span className="flex items-center gap-1.5">
+                      <Reply className="h-3 w-3" /> Replying to @{replyingTo.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingTo(null);
+                        setCommentText(prev => prev.replace(new RegExp(`^@${replyingTo.name}\\s*`), ''));
+                      }}
+                      className="hover:text-foreground font-bold p-0.5"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex gap-1.5 items-center">
+                  <Input
+                    ref={commentInputRef}
+                    placeholder={replyingTo ? `Reply to @${replyingTo.name}...` : "Write a comment…"}
+                    value={commentText}
+                    onChange={e => setCommentText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
+                    className="rounded-full bg-background h-9 text-xs flex-1"
+                  />
+
+                  <GifPickerPopover
+                    onSelectGif={(gifUrl) => {
+                      submitComment(gifUrl);
+                    }}
+                  />
+
+                  <Button size="sm" onClick={() => submitComment()} className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-full h-9 px-3 shrink-0">
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -33,10 +33,11 @@ export const WhatsAppSlideMessage: React.FC<WhatsAppSlideMessageProps> = ({
   const isDragging = useRef<boolean>(false);
   const isHorizontalSwipe = useRef<boolean | null>(null);
 
-  // Load reactions for this message
+  // Load reactions for this message and sync with Realtime
   React.useEffect(() => {
     let mounted = true;
-    (async () => {
+    
+    const fetchReactions = async () => {
       const { data } = await supabase
         .from('emoji_reactions')
         .select('id, user_id, emoji')
@@ -55,9 +56,30 @@ export const WhatsAppSlideMessage: React.FC<WhatsAppSlideMessageProps> = ({
         }).filter((g) => g.count > 0);
         setReactions(grouped);
       }
-    })();
+    };
+
+    fetchReactions();
+
+    // Sync in real-time across all chat participants
+    const channel = supabase
+      .channel(`reactions-msg-${messageId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'emoji_reactions',
+          filter: `target_id=eq.${messageId}`,
+        },
+        () => {
+          if (mounted) fetchReactions();
+        }
+      )
+      .subscribe();
+
     return () => {
       mounted = false;
+      supabase.removeChannel(channel);
     };
   }, [messageId, currentUserId]);
 

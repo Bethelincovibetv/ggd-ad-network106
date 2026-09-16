@@ -205,19 +205,7 @@ export async function fetchCompiledContacts(filterDate?: string): Promise<Contac
     console.warn('Supabase contacts fetch notice:', err);
   }
 
-  // If list is empty, supply rich starter contacts from verified Nigerian merchants network
-  if (contactsMap.size === 0) {
-    const seedList: ContactEntry[] = [
-      { id: 'c1', name: 'Bethel Chukwunyere', phone: '+2348012345678', whatsapp: '+2348012345678', business_name: 'Goodgift Digital', state: 'Lagos', industry: 'Technology & Marketing', created_at: new Date().toISOString(), is_verified: true },
-      { id: 'c2', name: 'Amaka Obi', phone: '+2348023456789', whatsapp: '+2348023456789', business_name: 'Luxe Hair & Beauty Studio', state: 'Abuja (FCT)', industry: 'Fashion & Beauty', created_at: new Date().toISOString(), is_verified: true },
-      { id: 'c3', name: 'Tunde Adeleke', phone: '+2348034567890', whatsapp: '+2348034567890', business_name: 'GreenField Agro Logistics', state: 'Oyo', industry: 'Agriculture & Food', created_at: new Date().toISOString(), is_verified: true },
-      { id: 'c4', name: 'Emeka Nwosu', phone: '+2348045678901', whatsapp: '+2348045678901', business_name: 'SolarWave Energy Solutions', state: 'Rivers', industry: 'Solar & Renewable Energy', created_at: new Date().toISOString(), is_verified: true },
-      { id: 'c5', name: 'Fatima Bello', phone: '+2348056789012', whatsapp: '+2348056789012', business_name: 'Kano Silk & Textiles', state: 'Kano', industry: 'Wholesale & Retail', created_at: new Date().toISOString(), is_verified: true },
-      { id: 'c6', name: 'Chidiebere Okonkwo', phone: '+2348067890123', whatsapp: '+2348067890123', business_name: 'Apex Properties & Realtors', state: 'Anambra', industry: 'Real Estate & Properties', created_at: new Date().toISOString(), is_verified: true },
-    ];
-    seedList.forEach(c => contactsMap.set(c.phone, c));
-  }
-
+  // Return compiled verified contacts from real profiles and business listings
   return Array.from(contactsMap.values());
 }
 
@@ -376,75 +364,16 @@ export async function getActiveContactCampaigns(): Promise<ContactCampaign[]> {
     }
   } catch {}
 
-  // Fallback to local storage / rich default seed campaigns
+  // Fallback to active campaigns stored locally if created by users
   try {
     const local = localStorage.getItem(LOCAL_CAMPAIGNS_KEY);
     if (local) {
       const parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed.filter((c: any) => c.status === 'active');
     }
   } catch {}
 
-  const defaultCampaigns: ContactCampaign[] = [
-    {
-      id: 'camp_1',
-      user_id: 'admin_official',
-      user_email: 'ceo@goodgiftdigital.com',
-      title: 'Save Bethel Chukwunyere (GGD CEO) Contact',
-      contact_name: 'Bethel Chukwunyere',
-      contact_phone: '+2348012345678',
-      contact_whatsapp: '+2348012345678',
-      business_name: 'Goodgift Digital / GGD Ad Network',
-      state: 'Lagos',
-      industry: 'Technology & Ad Network',
-      reward_per_save: 20,
-      total_target: 500,
-      completed_saves: 238,
-      budget_credits: 10000,
-      status: 'active',
-      created_at: new Date().toISOString(),
-      description: 'Save official contact for instant product updates, partnership opportunities, and affiliate payouts.',
-    },
-    {
-      id: 'camp_2',
-      user_id: 'user_solar_1',
-      title: 'SolarWave Energy WhatsApp Status & Deals',
-      contact_name: 'Engr. Emeka Nwosu',
-      contact_phone: '+2348045678901',
-      contact_whatsapp: '+2348045678901',
-      business_name: 'SolarWave Energy Solutions',
-      state: 'Rivers',
-      industry: 'Solar Energy',
-      reward_per_save: 15,
-      total_target: 100,
-      completed_saves: 42,
-      budget_credits: 1500,
-      status: 'active',
-      created_at: new Date(Date.now() - 86400000).toISOString(),
-      description: 'Save our business line to view daily solar inverter discounts and installer discounts on WhatsApp status.',
-    },
-    {
-      id: 'camp_3',
-      user_id: 'user_fashion_1',
-      title: 'Luxe Hair & Wigs VIP Wholesale Line',
-      contact_name: 'Amaka Obi',
-      contact_phone: '+2348023456789',
-      contact_whatsapp: '+2348023456789',
-      business_name: 'Luxe Hair Studio',
-      state: 'Abuja (FCT)',
-      industry: 'Fashion & Beauty',
-      reward_per_save: 15,
-      total_target: 200,
-      completed_saves: 115,
-      budget_credits: 3000,
-      status: 'active',
-      created_at: new Date(Date.now() - 172800000).toISOString(),
-      description: 'Connect with direct hair importers. Save my contact to receive weekly wholesale catalog updates.',
-    },
-  ];
-
-  localStorage.setItem(LOCAL_CAMPAIGNS_KEY, JSON.stringify(defaultCampaigns));
-  return defaultCampaigns;
+  return [];
 }
 
 /**

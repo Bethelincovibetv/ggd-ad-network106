@@ -123,6 +123,18 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
 
   useEffect(() => {
     loadData();
+
+    // Setup Supabase Realtime channel for live campaigns
+    const channel = supabase
+      .channel('contact-gain-live-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_campaigns' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [propUserId]);
 
   const handleDownloadVCF = async () => {
