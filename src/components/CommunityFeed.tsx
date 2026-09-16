@@ -34,6 +34,9 @@ import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
 import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
+import SendGiftModal from '@/components/feed/SendGiftModal';
+import SupportersModal from '@/components/feed/SupportersModal';
+import { getPostGifts, PostGiftRecord } from '@/services/postGiftService';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
 
@@ -397,8 +400,9 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const submitPost = async () => {
     if (!me) { toast.error('Please sign in to post'); return; }
     const text = content.trim();
-    if (!text && !imageFile && !linkUrl.trim() && !videoUrl.trim()) {
-      toast.error('Add some text, an image, a link or a video');
+    const hasMedia = Boolean(imageFile || imagePreview || linkUrl.trim() || videoUrl.trim());
+    if (!text && !hasMedia) {
+      toast.error('Add some text, a GIF, an image, a link or a video');
       return;
     }
     setPosting(true);
@@ -411,6 +415,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           .from('community-posts').upload(path, imageFile, { upsert: false });
         if (upErr) throw upErr;
         image_url = supabase.storage.from('community-posts').getPublicUrl(path).data.publicUrl;
+      } else if (imagePreview && (imagePreview.startsWith('http://') || imagePreview.startsWith('https://') || imagePreview.startsWith('data:'))) {
+        image_url = imagePreview;
       }
       const tags = extractHashtags(text);
       const { error } = await supabase.from('community_posts').insert({
@@ -426,7 +432,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       setContent(''); setLinkUrl(''); setVideoUrl('');
       setShowLink(false); setShowVideo(false);
       setTemplateId(null);
-      onPickImage(null);
+      setImageFile(null);
+      setImagePreview(null);
       toast.success('Posted!');
       await loadFeed(me.id);
     } catch (e: any) {
@@ -933,6 +940,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 key={item.data.id}
                 post={item.data}
                 currentUserId={me?.id || null}
+                currentUserCredits={credits}
+                currentUserName={myName}
+                currentUserAvatar={myAvatar}
+                onCreditsUpdated={(newBal) => setCredits(newBal)}
+                onNavigateToFunding={() => onNavigate?.('funding')}
                 onReact={react}
                 onDelete={deletePost}
                 onEdit={(p) => setEditingPost(p)}
@@ -1021,6 +1033,11 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 interface PostCardProps {
   post: Post;
   currentUserId: string | null;
+  currentUserCredits?: number;
+  currentUserName?: string;
+  currentUserAvatar?: string | null;
+  onCreditsUpdated?: (newBalance: number) => void;
+  onNavigateToFunding?: () => void;
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
   onEdit?: (p: Post) => void;
@@ -1095,7 +1112,21 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
   );
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDelete, onEdit, onTagClick, onImageOpen, onPromote }) => {
+const PostCard: React.FC<PostCardProps> = ({
+  post,
+  currentUserId,
+  currentUserCredits = 0,
+  currentUserName,
+  currentUserAvatar,
+  onCreditsUpdated,
+  onNavigateToFunding,
+  onReact,
+  onDelete,
+  onEdit,
+  onTagClick,
+  onImageOpen,
+  onPromote,
+}) => {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -1104,6 +1135,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
   const [heartBurst, setHeartBurst] = useState(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTapRef = useRef<number>(0);
+
+  // Virtual Gifting & Real-time Supporter State
+  const [giftModalOpen, setGiftModalOpen] = useState(false);
+  const [supportersModalOpen, setSupportersModalOpen] = useState(false);
+  const [giftCelebration, setGiftCelebration] = useState<{ emoji: string; name: string; amount: number; senderName: string } | null>(null);
+  const [postGiftsState, setPostGiftsState] = useState<{
+    gifts: PostGiftRecord[];
+    totalCredits: number;
+    topSupporter?: { name: string; amount: number; avatar?: string | null };
+  }>({ gifts: [], totalCredits: 0 });
 
   const [replyingTo, setReplyingTo] = useState<{ id: string; name: string; parentCommentId?: string } | null>(null);
   const [inlineReplyCommentId, setInlineReplyCommentId] = useState<string | null>(null);
@@ -1119,6 +1160,27 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onReact, onDel
     const v = recordPostView(post);
     setViewsCount(v);
   }, [post.id]);
+
+  // Load gifts on mount
+  useEffect(() => {
+    const data = getPostGifts(post.id);
+    setPostGiftsState(data);
+  }, [post.id]);
+
+  const handleGiftSent = (giftRecord: PostGiftRecord, newBalance: number) => {
+    onCreditsUpdated?.(newBalance);
+    const updated = getPostGifts(post.id);
+    setPostGiftsState(updated);
+    setGiftCelebration({
+      emoji: giftRecord.giftEmoji,
+      name: giftRecord.giftName,
+      amount: giftRecord.amount,
+      senderName: giftRecord.senderName,
+    });
+    setTimeout(() => {
+      setGiftCelebration(null);
+    }, 4500);
+  };
 
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD User';

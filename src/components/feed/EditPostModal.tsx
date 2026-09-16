@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CommunityBlogPostData, parseBlogPost, serializeBlogPost, BlogSection } from '@/types/blog';
+import GifPickerPopover from '@/components/chat/GifPickerPopover';
 
 export interface Template {
   id: string;
@@ -157,6 +158,13 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
     setBlogSections(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handlePickGif = (url: string) => {
+    setImageFile(null);
+    setImagePreview(url);
+    setImageUrl(url);
+    setTemplateId(null);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -184,6 +192,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
             finalImageUrl = pub.publicUrl;
           }
         }
+      } else if (imagePreview && (imagePreview.startsWith('http://') || imagePreview.startsWith('https://') || imagePreview.startsWith('data:'))) {
+        finalImageUrl = imagePreview;
       }
 
       let updatedContent = content.trim();
@@ -444,20 +454,36 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                   <img
                     src={imagePreview}
                     alt="Post media preview"
+                    referrerPolicy="no-referrer"
                     className="w-full max-h-56 object-cover"
                   />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 h-7 px-2 text-xs rounded-full shadow-md"
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" /> Remove Image
-                  </Button>
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                    <GifPickerPopover
+                      onSelectGif={handlePickGif}
+                      trigger={
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 px-2.5 text-xs rounded-full shadow-md bg-black/75 text-white hover:bg-black/90"
+                        >
+                          Change GIF
+                        </Button>
+                      }
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleRemoveImage}
+                      className="h-7 px-2 text-xs rounded-full shadow-md"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" /> Remove
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div>
+                <div className="flex gap-2">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -469,11 +495,26 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                     type="button"
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-9 text-xs font-semibold rounded-xl border-dashed"
+                    className="flex-1 h-9 text-xs font-semibold rounded-xl border-dashed"
                   >
                     <ImageIcon className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
-                    Attach / Change Image
+                    Attach Image
                   </Button>
+                  <GifPickerPopover
+                    onSelectGif={handlePickGif}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 h-9 text-xs font-semibold rounded-xl border-dashed hover:border-purple-500"
+                      >
+                        <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded bg-gradient-to-r from-purple-600 to-pink-600 text-white mr-1.5">
+                          GIF
+                        </span>
+                        Add Animated GIF
+                      </Button>
+                    }
+                  />
                 </div>
               )}
 
