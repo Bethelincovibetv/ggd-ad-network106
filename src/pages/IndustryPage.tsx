@@ -22,6 +22,7 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
+import { getShowcaseListingsByCategory } from '@/utils/showcaseListings';
 import { 
   NIGERIAN_STATES, 
   TOP_COMMERCIAL_STATES, 
@@ -103,29 +104,54 @@ const IndustryPage: React.FC = () => {
         // Fetch businesses in this category
         const { data: bizData } = await (supabase.from('business_profiles') as any)
           .select('*')
-          .eq('is_directory_listed', true)
           .eq('category_id', activeCategory.id);
 
-        const loadedBusinesses = bizData || [];
+        const loadedBusinesses = (bizData || []).filter((b: any) => b.is_directory_listed !== false);
         setBusinesses(loadedBusinesses);
 
+        const bizMap = new Map<string, any>();
+        loadedBusinesses.forEach((b: any) => {
+          if (b.id) bizMap.set(b.id, b);
+          if (b.user_id) bizMap.set(b.user_id, b);
+        });
+
         // Fetch products and services from these businesses
+        let dbListings: any[] = [];
         if (loadedBusinesses.length > 0) {
           const bizIds = loadedBusinesses.map((b: any) => b.id);
           const { data: listData } = await (supabase.from('business_listings') as any)
-            .select('*, business_profiles(id, business_name, logo_url, category_id, address, state)')
+            .select('*')
             .in('business_profile_id', bizIds)
-            .eq('is_active', true)
-            .order('is_featured', { ascending: false })
             .order('created_at', { ascending: false });
 
-          setListings(listData || []);
-        } else {
-          setListings([]);
+          dbListings = (listData || [])
+            .map((l: any) => ({
+              ...l,
+              business_profiles: l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null) || null,
+            }))
+            .filter((l: any) => l.is_active !== false);
         }
+
+        // Get showcase listings for this industry category
+        const categorySlugOrName = activeCategory.slug || activeCategory.name || slug || '';
+        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
+
+        const existingDbIds = new Set(dbListings.map((l: any) => l.id));
+        const combined = [
+          ...dbListings,
+          ...showcaseItems.filter(s => !existingDbIds.has(s.id))
+        ];
+
+        setListings(combined);
+      } else {
+        const categorySlugOrName = slug || '';
+        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
+        setListings(showcaseItems);
       }
     } catch (err) {
       console.error('Error fetching industry data:', err);
+      const categorySlugOrName = slug || '';
+      setListings(getShowcaseListingsByCategory(categorySlugOrName));
     } finally {
       setLoading(false);
     }

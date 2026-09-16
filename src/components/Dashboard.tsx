@@ -20,7 +20,6 @@ import BusinessGrowthDashboard from "@/components/BusinessGrowthDashboard";
 import SlideCarousel from "@/components/SlideCarousel";
 import TaskList from "@/components/TaskList";
 import SupportPage from "@/components/SupportPage";
-import InstallPrompt from "@/components/InstallPrompt";
 import SideNavMenu from "@/components/SideNavMenu";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -1248,7 +1247,6 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
           <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
           <CreateFab onNavigate={handleTabChange} />
-          <InstallPrompt />
 
           <ExtendAdvertModal
             ad={extendingAd}

@@ -15,6 +15,7 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
+import { getShowcaseListingById, SHOWCASE_PRODUCTS_AND_SERVICES } from '@/utils/showcaseListings';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +48,22 @@ const ProductDetailPage: React.FC = () => {
         .maybeSingle();
 
       if (!L) {
+        // Check if this is a curated showcase listing
+        const showcase = getShowcaseListingById(id || '');
+        if (showcase) {
+          setListing(showcase);
+          setActiveImg(showcase.image_url || null);
+          setBusiness(showcase.business_profiles);
+          setCategory({
+            id: showcase.category_slug || 'commercial',
+            name: showcase.category_slug || 'Commercial Business',
+            slug: showcase.category_slug || 'commercial'
+          });
+          const related = SHOWCASE_PRODUCTS_AND_SERVICES
+            .filter(item => item.id !== id && item.category_slug === showcase.category_slug)
+            .slice(0, 4);
+          setRelatedListings(related);
+        }
         setLoading(false);
         return;
       }
@@ -55,10 +72,32 @@ const ProductDetailPage: React.FC = () => {
       setActiveImg(L.image_url || null);
 
       // Fetch parent business profile
-      const { data: B } = await (supabase.from('business_profiles') as any)
-        .select('*')
-        .eq('id', L.business_profile_id)
-        .maybeSingle();
+      let B: any = null;
+      if (L.business_profile_id) {
+        const { data: bData } = await (supabase.from('business_profiles') as any)
+          .select('*')
+          .eq('id', L.business_profile_id)
+          .maybeSingle();
+        B = bData;
+      }
+      if (!B && L.user_id) {
+        const { data: bUserData } = await (supabase.from('business_profiles') as any)
+          .select('*')
+          .eq('user_id', L.user_id)
+          .maybeSingle();
+        B = bUserData;
+      }
+
+      if (!B) {
+        B = {
+          id: L.business_profile_id || L.user_id,
+          business_name: 'Accredited Business',
+          logo_url: null,
+          is_directory_listed: true,
+          address: 'Nigeria',
+          state: null,
+        };
+      }
 
       setBusiness(B);
 
@@ -81,17 +120,16 @@ const ProductDetailPage: React.FC = () => {
 
         // Fetch related products in the same industry
         const { data: relatedBiz } = await (supabase.from('business_profiles') as any)
-          .select('id')
-          .eq('category_id', B.category_id)
-          .eq('is_directory_listed', true);
+          .select('id, is_directory_listed')
+          .eq('category_id', B.category_id);
 
-        if (relatedBiz && relatedBiz.length > 0) {
-          const rIds = relatedBiz.map((rb: any) => rb.id);
+        const validRelatedBiz = (relatedBiz || []).filter((rb: any) => rb.is_directory_listed !== false);
+        if (validRelatedBiz.length > 0) {
+          const rIds = validRelatedBiz.map((rb: any) => rb.id);
           const { data: relatedItems } = await (supabase.from('business_listings') as any)
-            .select('*, business_profiles(business_name, logo_url)')
+            .select('*')
             .in('business_profile_id', rIds)
             .neq('id', id)
-            .eq('is_active', true)
             .limit(6);
           setRelatedListings(relatedItems || []);
         }
@@ -103,12 +141,17 @@ const ProductDetailPage: React.FC = () => {
           .select('*')
           .eq('business_profile_id', L.business_profile_id)
           .neq('id', id)
-          .eq('is_active', true)
           .limit(4);
         setSellerOtherListings(sellerItems || []);
       }
     } catch (err) {
       console.error('Error fetching product details:', err);
+      const showcase = getShowcaseListingById(id || '');
+      if (showcase) {
+        setListing(showcase);
+        setActiveImg(showcase.image_url || null);
+        setBusiness(showcase.business_profiles);
+      }
     } finally {
       setLoading(false);
     }

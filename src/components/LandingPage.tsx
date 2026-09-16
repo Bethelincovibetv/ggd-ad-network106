@@ -9,7 +9,6 @@ import {
   ExternalLink, Phone, ArrowUpRight
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
-import InstallPrompt from "@/components/InstallPrompt";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GlobalSearchBar from "@/components/GlobalSearchBar";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
@@ -881,8 +880,6 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <p className="text-xs">Powered by <span className="text-[#e67e22] font-semibold">Goodgift Digital</span></p>
         </div>
       </footer>
-
-      <InstallPrompt />
     </div>
   );
 };

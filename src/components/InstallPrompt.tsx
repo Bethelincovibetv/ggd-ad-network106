@@ -5,15 +5,43 @@ import { toast } from "sonner";
 import { playNotificationChime } from "@/utils/audio";
 
 const SNOOZE_KEY = 'ggd-install-snooze-until';
-const SNOOZE_HOURS = 6; // Prompt every 6h if dismissed, to ensure mobile users install
+const INSTALLED_KEY = 'ggd_pwa_installed';
+const SNOOZE_HOURS = 24; // If dismissed, snooze for 24h
 
-const isStandalone = () => {
+export const isAppInstalled = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return (
+
+  // 1. Explicitly recorded install in localStorage
+  if (localStorage.getItem(INSTALLED_KEY) === 'true') {
+    return true;
+  }
+
+  // 2. Display mode checks (Desktop PWA, Android Chrome PWA, Edge PWA)
+  const isDisplayStandalone = 
     window.matchMedia?.('(display-mode: standalone)').matches ||
-    // @ts-ignore iOS WebKit standalone flag
-    window.navigator.standalone === true
-  );
+    window.matchMedia?.('(display-mode: fullscreen)').matches ||
+    window.matchMedia?.('(display-mode: minimal-ui)').matches ||
+    window.matchMedia?.('(display-mode: window-controls-overlay)').matches;
+
+  if (isDisplayStandalone) {
+    localStorage.setItem(INSTALLED_KEY, 'true');
+    return true;
+  }
+
+  // 3. iOS WebKit standalone flag
+  // @ts-ignore
+  if (window.navigator?.standalone === true) {
+    localStorage.setItem(INSTALLED_KEY, 'true');
+    return true;
+  }
+
+  // 4. Android TWA / app wrapper referrer
+  if (typeof document !== 'undefined' && document.referrer?.includes('android-app://')) {
+    localStorage.setItem(INSTALLED_KEY, 'true');
+    return true;
+  }
+
+  return false;
 };
 
 const isIOS = () => {
@@ -23,6 +51,12 @@ const isIOS = () => {
 
 export const triggerAppInstall = () => {
   if (typeof window !== 'undefined') {
+    if (isAppInstalled()) {
+      toast.success("GGD Ad Network is already installed on your device! 🚀", {
+        description: "You're running the best app experience."
+      });
+      return;
+    }
     window.dispatchEvent(new CustomEvent('ggd-trigger-install'));
   }
 };
@@ -31,22 +65,26 @@ const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
-  const [isInstalledState, setIsInstalledState] = useState(false);
+  const [isInstalledState, setIsInstalledState] = useState<boolean>(() => isAppInstalled());
 
   useEffect(() => {
-    if (isStandalone()) {
+    // If already installed, never attach listeners or show prompts
+    if (isAppInstalled()) {
       setIsInstalledState(true);
+      setShowPrompt(false);
       return;
     }
 
     const checkPromptNeeded = () => {
+      if (isAppInstalled()) return false;
       const snoozeUntil = Number(localStorage.getItem(SNOOZE_KEY) || 0);
       const snoozed = snoozeUntil && Date.now() < snoozeUntil;
-      return !snoozed && !isStandalone();
+      return !snoozed;
     };
 
     const handler = (e: Event) => {
       e.preventDefault();
+      if (isAppInstalled()) return;
       setDeferredPrompt(e);
       if (checkPromptNeeded()) {
         setShowPrompt(true);
@@ -54,6 +92,11 @@ const InstallPrompt = () => {
     };
 
     const handleCustomTrigger = () => {
+      if (isAppInstalled()) {
+        setIsInstalledState(true);
+        setShowPrompt(false);
+        return;
+      }
       if (isIOS()) {
         setShowIosHelp(true);
         setShowPrompt(true);
@@ -66,25 +109,46 @@ const InstallPrompt = () => {
     };
 
     const handleAppInstalled = () => {
+      localStorage.setItem(INSTALLED_KEY, 'true');
       setIsInstalledState(true);
       setShowPrompt(false);
+      setShowIosHelp(false);
+      setDeferredPrompt(null);
       playNotificationChime();
       toast.success("🎉 GGD Ad Network App installed successfully! Welcome to the standalone experience.");
     };
+
+    // Watch for media display-mode change (e.g. user opens in standalone mode)
+    const mediaQuery = window.matchMedia?.('(display-mode: standalone)');
+    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        localStorage.setItem(INSTALLED_KEY, 'true');
+        setIsInstalledState(true);
+        setShowPrompt(false);
+        setShowIosHelp(false);
+      }
+    };
+
+    if (mediaQuery?.addEventListener) {
+      mediaQuery.addEventListener('change', handleDisplayModeChange);
+    }
 
     window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('ggd-trigger-install', handleCustomTrigger);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    // Initial check: if on mobile, display after 2.5 seconds if not snoozed
+    // Initial check: if on mobile or desktop browser, display after 3.5 seconds if not installed or snoozed
     const t = setTimeout(() => {
       if (checkPromptNeeded()) {
         setShowPrompt(true);
       }
-    }, 2500);
+    }, 3500);
 
     return () => {
       clearTimeout(t);
+      if (mediaQuery?.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleDisplayModeChange);
+      }
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('ggd-trigger-install', handleCustomTrigger);
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -92,13 +156,18 @@ const InstallPrompt = () => {
   }, [deferredPrompt]);
 
   const handleInstallClick = async () => {
+    if (isAppInstalled()) {
+      setIsInstalledState(true);
+      setShowPrompt(false);
+      return;
+    }
+
     if (isIOS()) {
       setShowIosHelp(true);
       return;
     }
 
     if (!deferredPrompt) {
-      // Fallback instructions if browser already intercepted
       toast.info("Tap the browser menu (⋮) in the top-right and select 'Install App' or 'Add to Home Screen'.");
       return;
     }
@@ -107,7 +176,10 @@ const InstallPrompt = () => {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
+        localStorage.setItem(INSTALLED_KEY, 'true');
+        setIsInstalledState(true);
         setShowPrompt(false);
+        setShowIosHelp(false);
         toast.success("Installing GGD Ad Network app...");
       }
       setDeferredPrompt(null);

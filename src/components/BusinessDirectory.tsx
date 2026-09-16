@@ -18,6 +18,7 @@ import directoryHero from "@/assets/directory-hero.jpg";
 import SlideCarousel from "@/components/SlideCarousel";
 import BlazingBadge from "@/components/BlazingBadge";
 import { getIndustryMeta, getEffectiveBusinessDescription } from "@/utils/industryData";
+import { SHOWCASE_PRODUCTS_AND_SERVICES } from "@/utils/showcaseListings";
 import { 
   NIGERIAN_STATES, 
   extractStateFromLocation, 
@@ -77,31 +78,88 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   }, []);
 
   const fetchData = async () => {
-    const [bizRes, catRes, costRes, listRes] = await Promise.all([
-      (supabase.from('business_profiles') as any).select('*').eq('is_directory_listed', true),
-      (supabase.from('business_categories') as any).select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('app_settings').select('value').eq('key', 'directory_listing_cost').maybeSingle(),
-      (supabase.from('business_listings') as any)
-        .select('*, business_profiles!inner(id, business_name, logo_url, category_id, is_directory_listed, address, state, phone_number, whatsapp_link)')
-        .eq('is_active', true)
-        .eq('business_profiles.is_directory_listed', true)
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(100),
-    ]);
-    setBusinesses(bizRes.data || []);
-    setCategories(catRes.data || []);
-    setListings(listRes.data || []);
-    if (costRes.data?.value) setDirectoryCost(parseInt(costRes.data.value));
-    checkOwnListing();
-    setLoading(false);
+    try {
+      const [bizRes, catRes, costRes, listRes] = await Promise.all([
+        (supabase.from('business_profiles') as any).select('*'),
+        (supabase.from('business_categories') as any).select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('app_settings').select('value').eq('key', 'directory_listing_cost').maybeSingle(),
+        (supabase.from('business_listings') as any)
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200),
+      ]);
+
+      const loadedCats = catRes.data || [];
+      const allBiz = (bizRes.data || []).filter((b: any) => b.is_directory_listed !== false);
+      const bizMap = new Map<string, any>();
+      allBiz.forEach((b: any) => {
+        if (b.id) bizMap.set(b.id, b);
+        if (b.user_id) bizMap.set(b.user_id, b);
+      });
+
+      // Format database listings
+      const rawDbListings = listRes.data || [];
+      const dbListings = rawDbListings
+        .map((l: any) => {
+          const attachedBiz = l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null) || {
+            id: l.business_profile_id || l.user_id || 'biz-default',
+            business_name: 'Accredited Business',
+            logo_url: null,
+            category_id: l.category_id || null,
+            is_directory_listed: true,
+            address: 'Nigeria',
+            state: null,
+          };
+          return {
+            ...l,
+            business_profiles: attachedBiz,
+          };
+        })
+        .filter((l: any) => {
+          if (l.business_profiles && l.business_profiles.is_directory_listed === false) {
+            return false;
+          }
+          return l.is_active !== false;
+        });
+
+      // Map showcase items with matching category IDs from loaded categories
+      const mappedShowcase = SHOWCASE_PRODUCTS_AND_SERVICES.map(item => {
+        const matchingCat = loadedCats.find((c: any) => 
+          (c.slug && item.category_slug && c.slug.toLowerCase().includes(item.category_slug.toLowerCase())) ||
+          (c.name && item.category_slug && c.name.toLowerCase().includes(item.category_slug.toLowerCase()))
+        );
+        return {
+          ...item,
+          category_id: matchingCat?.id || item.category_id,
+        };
+      });
+
+      // Combine DB listings and showcase items (avoiding duplicates if DB already has them)
+      const existingIds = new Set(dbListings.map((l: any) => l.id));
+      const combinedListings = [
+        ...dbListings,
+        ...mappedShowcase.filter(s => !existingIds.has(s.id))
+      ];
+
+      setBusinesses(allBiz);
+      setCategories(loadedCats);
+      setListings(combinedListings);
+      if (costRes.data?.value) setDirectoryCost(parseInt(costRes.data.value));
+      checkOwnListing();
+    } catch (err) {
+      console.error('Failed to load directory data:', err);
+      // Fallback to showcase listings even on unexpected network failure
+      setListings(SHOWCASE_PRODUCTS_AND_SERVICES);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const checkOwnListing = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await (supabase.from('business_profiles') as any).select('is_directory_listed, state, address').eq('user_id', user.id).single();
-    if (data?.is_directory_listed) setIsListed(true);
+    const { data } = await (supabase.from('business_profiles') as any).select('is_directory_listed, state, address').eq('user_id', user.id).maybeSingle();
+    if (data && data.is_directory_listed !== false) setIsListed(true);
   };
 
   const handleAutoDetectLocation = async () => {
@@ -201,14 +259,23 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   const filteredListings = listings.filter(l => {
     const q = searchQuery.toLowerCase();
     const lState = getBusinessEffectiveState(l.business_profiles);
+    const catId = l.category_id || l.business_profiles?.category_id;
+
     const matchesSearch = !searchQuery || 
       l.title?.toLowerCase().includes(q) || 
       l.description?.toLowerCase().includes(q) || 
+      l.long_description?.toLowerCase().includes(q) ||
       l.business_profiles?.business_name?.toLowerCase().includes(q) ||
       l.business_profiles?.address?.toLowerCase().includes(q) ||
       (lState && lState.toLowerCase().includes(q));
 
-    const matchesCategory = selectedCategory === 'all' || l.business_profiles?.category_id === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || 
+      catId === selectedCategory ||
+      (activeCategoryObj && (
+        (l.category_slug && activeCategoryObj.slug && activeCategoryObj.slug.toLowerCase().includes(l.category_slug.toLowerCase())) ||
+        (l.category_slug && activeCategoryObj.name && activeCategoryObj.name.toLowerCase().includes(l.category_slug.toLowerCase())) ||
+        (activeCategoryObj.slug && l.category_slug && l.category_slug.toLowerCase().includes(activeCategoryObj.slug.toLowerCase()))
+      ));
     
     const matchesState = selectedState === 'all' || (
       lState && (lState.toLowerCase() === selectedState.toLowerCase() || lState.toLowerCase().includes(selectedState.toLowerCase()))
