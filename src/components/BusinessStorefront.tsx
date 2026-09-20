@@ -36,6 +36,10 @@ import { BusinessProfileSection } from "./business/BusinessProfileSection";
 import { StorefrontSection } from "./business/StorefrontSection";
 import { AdvertisingSection } from "./business/AdvertisingSection";
 import { PerformanceSection } from "./business/PerformanceSection";
+import { BusinessVerificationBadge } from "./business/BusinessVerificationBadge";
+import { BusinessVerificationModal } from "./business/BusinessVerificationModal";
+import { getUserVerificationRecord } from "@/services/businessVerificationEngine";
+import { VerificationSubmissionRecord } from "@/types/verification";
 
 interface BusinessStorefrontProps {
   onNavigate?: (tab: string) => void;
@@ -68,6 +72,8 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [formListingType, setFormListingType] = useState<'product' | 'service'>('product');
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+  const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
 
   // Load All Workspace Data
   const fetchWorkspaceData = async () => {
@@ -78,6 +84,9 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         return;
       }
       setUserId(user.id);
+
+      // Fetch verification record
+      getUserVerificationRecord(user.id).then(rec => setVerificationRecord(rec));
 
       // 1. Fetch categories
       const { data: cats } = await supabase
@@ -252,9 +261,12 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
                   <h1 className="text-lg sm:text-xl font-black text-foreground truncate max-w-xs sm:max-w-md">
                     {profile?.business_name || 'My Business'}
                   </h1>
-                  <Badge variant="outline" className="text-[10px] font-bold px-2 py-0 border-orange-400 text-orange-600 bg-orange-50 dark:bg-orange-950/20">
-                    Verified Storefront
-                  </Badge>
+                  <BusinessVerificationBadge
+                    status={verificationRecord?.status}
+                    isVerified={verificationRecord?.verified_badge_granted}
+                    size="sm"
+                    onClick={() => setVerificationModalOpen(true)}
+                  />
                 </div>
 
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -343,6 +355,38 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 1: OVERVIEW / WORKSPACE HUB                                           */}
         {/* ========================================================================= */}
         <TabsContent value="overview" className="space-y-4">
+          {/* Business Verification Prompt Banner if not verified */}
+          {verificationRecord?.status !== 'VERIFIED' && (
+            <Card className="border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent shadow-sm overflow-hidden">
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-emerald-600 text-white grid place-items-center shrink-0 shadow-md">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                      Get Verified with NIN or CAC Registration
+                      <BusinessVerificationBadge status={verificationRecord?.status} size="sm" showText={false} />
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW'
+                        ? 'Your submission is in review by our admin compliance team.'
+                        : 'Unlock verified search badges, increased buyer trust, and priority directory placement.'}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => setVerificationModalOpen(true)}
+                  size="sm"
+                  className="h-9 px-4 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md shrink-0 w-full sm:w-auto"
+                >
+                  {verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW' ? 'Check Review Status' : 'Start Verification'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Metrics & Highlights */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card
@@ -897,6 +941,19 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         userId={userId}
         onSaved={fetchWorkspaceData}
       />
+
+      {/* Business Verification Engine Modal */}
+      {userId && (
+        <BusinessVerificationModal
+          open={verificationModalOpen}
+          onOpenChange={setVerificationModalOpen}
+          userId={userId}
+          businessProfileId={profile?.id}
+          currentProfileName={userProfile?.display_name || profile?.business_name}
+          currentBusinessName={profile?.business_name}
+          onVerificationComplete={fetchWorkspaceData}
+        />
+      )}
     </div>
   );
 };

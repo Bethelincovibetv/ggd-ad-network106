@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,10 @@ import {
   CreditCard,
   CheckCircle2,
   Image as ImageIcon,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  FileCheck2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +36,10 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { generateBusinessDefaultDescription } from "@/utils/industryData";
 import { NIGERIAN_STATES, detectUserNigerianState } from "@/utils/nigerianStates";
 import { Compass } from "lucide-react";
+import { BusinessVerificationBadge } from "./BusinessVerificationBadge";
+import { BusinessVerificationModal } from "./BusinessVerificationModal";
+import { getUserVerificationRecord } from "@/services/businessVerificationEngine";
+import { VerificationSubmissionRecord } from "@/types/verification";
 
 interface BusinessProfileSectionProps {
   profile: any;
@@ -52,6 +60,28 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
   const [saving, setSaving] = useState(false);
   const [generatingHero, setGeneratingHero] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+  const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
+  const [loadingVerification, setLoadingVerification] = useState(false);
+
+  // Fetch Verification Record
+  const fetchVerificationStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setLoadingVerification(true);
+      const rec = await getUserVerificationRecord(user.id);
+      setVerificationRecord(rec);
+    } catch (err) {
+      console.warn('Verification status check note:', err);
+    } finally {
+      setLoadingVerification(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVerificationStatus();
+  }, [profile?.id, profile?.user_id]);
 
   // Auto-detect Nigerian state using Geolocation API
   const handleAutoDetectLocation = async () => {
@@ -226,6 +256,68 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Business Trust & Verification Card */}
+      <Card className="overflow-hidden border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-card to-card shadow-sm">
+        <CardHeader className="pb-3 border-b border-emerald-500/20 bg-emerald-500/10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white grid place-items-center shadow-md shrink-0">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
+                  Official Business Verification
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Validate your business via CAC Registration or National ID (NIN) to unlock the Verified Badge.
+                </CardDescription>
+              </div>
+            </div>
+
+            <BusinessVerificationBadge
+              status={verificationRecord?.status}
+              isVerified={verificationRecord?.verified_badge_granted}
+              size="md"
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1 max-w-xl text-xs">
+              {verificationRecord?.status === 'VERIFIED' ? (
+                <p className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  Your business identity is officially verified with {verificationRecord.document_type} ({verificationRecord.document_number}).
+                </p>
+              ) : verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW' ? (
+                <p className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-amber-600 shrink-0 animate-pulse" />
+                  Your verification is under quick compliance review. Our admin team will verify the details shortly.
+                </p>
+              ) : verificationRecord?.status === 'REJECTED' ? (
+                <p className="text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0" />
+                  Previous verification attempt was not successful: {verificationRecord.rejection_reason}
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Verified businesses receive higher search rankings, verified trust badges on all product cards, and instant buyer confidence.
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setVerificationModalOpen(true)}
+              className="h-10 px-4 text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl shadow-md shrink-0 w-full sm:w-auto"
+            >
+              <FileCheck2 className="h-4 w-4 mr-1.5" />
+              {verificationRecord?.status === 'VERIFIED' ? 'View Verification Details' : 'Verify with NIN / CAC'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Visual Identity Card */}
       <Card className="overflow-hidden border-border/70 shadow-sm">
         <CardHeader className="pb-3 border-b bg-muted/20">
@@ -654,6 +746,19 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
           )}
         </Button>
       </div>
+
+      {/* Interactive Verification Modal */}
+      {profile && (
+        <BusinessVerificationModal
+          open={verificationModalOpen}
+          onOpenChange={setVerificationModalOpen}
+          userId={profile.user_id || profile.id}
+          businessProfileId={profile.id}
+          currentProfileName={profile.business_name}
+          currentBusinessName={profile.business_name}
+          onVerificationComplete={fetchVerificationStatus}
+        />
+      )}
     </div>
   );
 };

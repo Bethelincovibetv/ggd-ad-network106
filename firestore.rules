@@ -86,5 +86,10 @@ service cloud.firestore {
     match /contact_gain_downloads/{downloadId} {
       allow read, create, update, delete: if true;
     }
+
+    // Marketplace Automated Business & Identity Verifications
+    match /marketplace_verifications/{verificationId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }
