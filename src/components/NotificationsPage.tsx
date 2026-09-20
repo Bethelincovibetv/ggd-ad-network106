@@ -43,29 +43,50 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   const [loadingTransfers, setLoadingTransfers] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(getPushPermission());
 
+  const handledTargetIdsRef = React.useRef<Set<string>>(new Set());
+  const isCheckingTargetRef = React.useRef<boolean>(false);
+
+  const markAsRead = useCallback(async (id: string) => {
+    setNotifications((prev) => {
+      const existing = prev.find((n) => n.id === id);
+      if (existing?.is_read) return prev;
+      return prev.map((n) => (n.id === id ? { ...n, is_read: true } : n));
+    });
+    try {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    } catch (err) {
+      console.warn('Failed to mark notification as read:', err);
+    }
+  }, []);
+
   const handleOpenFullMessage = useCallback((n: any) => {
-    markAsRead(n.id);
+    if (!n) return;
+    if (n.id) {
+      markAsRead(n.id);
+      setHighlightedId(n.id);
+    }
     setSelectedFullNotification({
-      id: n.id,
-      title: n.title,
+      id: n.id || 'notif-detail',
+      title: n.title || 'Notification',
       message: n.message || n.body || '',
       body: n.body || n.message || '',
       type: n.type,
       nav_target: n.nav_target,
       link_url: n.link_url,
-      created_at: n.created_at,
+      created_at: n.created_at || new Date().toISOString(),
       is_read: true,
     });
     setDetailModalOpen(true);
-    setHighlightedId(n.id);
 
-    setTimeout(() => {
-      const el = document.getElementById(`notif-${n.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  }, []);
+    if (n.id) {
+      setTimeout(() => {
+        const el = document.getElementById(`notif-${n.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [markAsRead]);
 
   const handleEnablePush = async () => {
     const granted = await requestPushPermission();
@@ -140,7 +161,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     }
   }, [userId, filterTab, loadHistory]);
 
-
   // Realtime subscription
   useEffect(() => {
     if (!userId) return;
@@ -173,47 +193,60 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     };
   }, [userId]);
 
-  // Listen for direct notification focus via query param, localStorage, or custom events
+  // Listen for direct notification focus via query param or localStorage safely without recursive loop
   useEffect(() => {
-    const checkTargetNotification = async () => {
-      let targetId: string | null = null;
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        targetId = params.get('notificationId') || params.get('id') || params.get('notifId');
-        if (!targetId) {
-          targetId = localStorage.getItem('ggd_selected_notification_id');
-        }
-      }
+    if (loading || isCheckingTargetRef.current) return;
 
-      if (!targetId) return;
-
-      // Find in existing list
-      let match = notifications.find((n) => n.id === targetId);
-      if (!match) {
-        // Fetch specific notification if not loaded
+    let targetId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      targetId = params.get('notificationId') || params.get('id') || params.get('notifId');
+      if (targetId) {
+        // Clear param from URL to prevent loop on subsequent actions
         try {
-          const { data } = await supabase.from('notifications').select('*').eq('id', targetId).maybeSingle();
-          if (data) {
-            match = data;
-            setNotifications((prev) => [data, ...prev.filter((p) => p.id !== data.id)]);
-          }
+          params.delete('notificationId');
+          params.delete('id');
+          params.delete('notifId');
+          const newSearch = params.toString() ? `?${params.toString()}` : '';
+          window.history.replaceState(null, '', `${window.location.pathname}${newSearch}${window.location.hash}`);
         } catch {}
+      } else {
+        targetId = localStorage.getItem('ggd_selected_notification_id');
       }
-
-      if (match) {
-        handleOpenFullMessage(match);
-        try {
-          localStorage.removeItem('ggd_selected_notification_id');
-        } catch {}
-      }
-    };
-
-    if (notifications.length > 0 || !loading) {
-      checkTargetNotification();
     }
-  }, [notifications, loading, handleOpenFullMessage]);
 
-  // Also listen for runtime custom open event
+    if (!targetId || handledTargetIdsRef.current.has(targetId)) return;
+
+    handledTargetIdsRef.current.add(targetId);
+    try {
+      localStorage.removeItem('ggd_selected_notification_id');
+    } catch {}
+
+    isCheckingTargetRef.current = true;
+
+    // Find in existing list or fetch from database
+    const match = notifications.find((n) => n.id === targetId);
+    if (match) {
+      handleOpenFullMessage(match);
+      isCheckingTargetRef.current = false;
+    } else {
+      (async () => {
+        try {
+          const { data } = await supabase.from('notifications').select('*').eq('id', targetId!).maybeSingle();
+          if (data) {
+            setNotifications((prev) => [data, ...prev.filter((p) => p.id !== data.id)]);
+            handleOpenFullMessage(data);
+          }
+        } catch (err) {
+          console.warn('Target notification retrieval note:', err);
+        } finally {
+          isCheckingTargetRef.current = false;
+        }
+      })();
+    }
+  }, [loading, notifications, handleOpenFullMessage]);
+
+  // Listen for runtime custom open event
   useEffect(() => {
     const handleCustomOpen = (e: any) => {
       const payload = e?.detail;
@@ -235,11 +268,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     window.addEventListener('ggd-open-notification-detail', handleCustomOpen);
     return () => window.removeEventListener('ggd-open-notification-detail', handleCustomOpen);
   }, [notifications, handleOpenFullMessage]);
-
-  const markAsRead = async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-  };
 
   const markAllRead = async () => {
     if (!userId) return;
