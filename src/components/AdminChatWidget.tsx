@@ -31,11 +31,11 @@ const AdminChatWidget = () => {
     window.addEventListener('ggd-open-support-chat', openHandler);
 
     // Show contextual recommendation notification once per session if not dismissed
-    const isDismissed = sessionStorage.getItem('ggd_chat_recommendation_dismissed');
+    const isDismissed = localStorage.getItem('ggd_chat_recommendation_dismissed') || sessionStorage.getItem('ggd_chat_recommendation_dismissed');
     if (!isDismissed) {
       const timer = setTimeout(() => {
         setShowRecommendation(true);
-      }, 6000);
+      }, 7000);
       return () => {
         clearTimeout(timer);
         window.removeEventListener('ggd-open-support-chat', openHandler);
@@ -56,6 +56,7 @@ const AdminChatWidget = () => {
 
   const dismissRecommendation = () => {
     setShowRecommendation(false);
+    localStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
     sessionStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
   };
 
