@@ -18,6 +18,9 @@ import { WEBSITE_TEMPLATES, getWebsiteTemplate, DEFAULT_TEMPLATE_ID } from '@/ut
 import { getEffectiveBusinessDescription } from '@/utils/industryData';
 import { CallButton } from '@/components/call/CallButton';
 import MetaTags from '@/components/MetaTags';
+import { BusinessVerificationBadge } from '@/components/business/BusinessVerificationBadge';
+import { getUserVerificationRecord } from '@/services/businessVerificationEngine';
+import { VerificationSubmissionRecord } from '@/types/verification';
 
 const UserProfilePublicPage: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -30,6 +33,7 @@ const UserProfilePublicPage: React.FC = () => {
   const [listingFilter, setListingFilter] = useState<'all' | 'products' | 'services'>('all');
   const [sitesEnabled, setSitesEnabled] = useState(true);
   const [premiumTier, setPremiumTier] = useState<number>(0);
+  const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -120,18 +124,20 @@ const UserProfilePublicPage: React.FC = () => {
         resolvedId = bySlug?.user_id;
       }
       if (!resolvedId) { setLoading(false); return; }
-      const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes] = await Promise.all([
-        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', resolvedId).maybeSingle(),
+      const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes, verifRecord] = await Promise.all([
+        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at, is_verified, verification_status').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
         (supabase.from('business_profiles') as any).select('*').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
         (supabase.from('user_roles') as any).select('premium_tier, premium_expires_at').eq('user_id', resolvedId).eq('role', 'premium').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'default_business_website_template').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', `biz_template_${resolvedId}`).maybeSingle(),
+        getUserVerificationRecord(resolvedId),
       ]);
       setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
+      setVerificationRecord(verifRecord);
       setSitesEnabled(toggle.data?.is_enabled !== false);
       const tier = (roleRow as any)?.data?.premium_tier ?? 0;
       const exp = (roleRow as any)?.data?.premium_expires_at;
@@ -207,6 +213,12 @@ const UserProfilePublicPage: React.FC = () => {
   const description = getEffectiveBusinessDescription(rawDescription, name, catName);
   const waPhone = (phone || '').replace(/[^\d]/g, '');
   const brandedWa = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello ${name}, I saw your official website on GGD and would like to inquire about your offers.`)}` : null;
+
+  const isVerified = Boolean(
+    business?.is_verified === true ||
+    profile?.is_verified === true ||
+    (verificationRecord && verificationRecord.status === 'VERIFIED' && verificationRecord.verified_badge_granted === true)
+  );
 
   const socials = [
     { key: 'whatsapp', href: business?.whatsapp_link || brandedWa, icon: MessageCircle, label: 'WhatsApp', color: 'bg-green-500 hover:bg-green-600' },
@@ -405,7 +417,7 @@ const UserProfilePublicPage: React.FC = () => {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                {premiumTier >= 1 && (
+                {isVerified && (
                   <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm">
                     <CheckCircle className={`h-4 w-4 ${activeTemplate.verifiedIconColor}`} />
                   </div>
@@ -413,9 +425,17 @@ const UserProfilePublicPage: React.FC = () => {
               </div>
 
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-black text-slate-900 leading-tight truncate" title={name}>
-                  {name}
-                </h2>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h2 className="text-base font-black text-slate-900 leading-tight truncate" title={name}>
+                    {name}
+                  </h2>
+                  <BusinessVerificationBadge 
+                    status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
+                    isVerified={isVerified} 
+                    size="sm"
+                    showText={false}
+                  />
+                </div>
                 {catName && (
                   <p className={`text-xs font-bold ${activeTemplate.accentText} mt-0.5 truncate`}>{catName}</p>
                 )}
@@ -581,11 +601,13 @@ const UserProfilePublicPage: React.FC = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="pb-1">
-                      <h1 className={`text-2xl sm:text-4xl font-black ${activeTemplate.headingText} tracking-tight flex items-center gap-2`}>
-                        {name}
-                        {premiumTier >= 1 && (
-                          <CheckCircle className={`h-6 w-6 ${activeTemplate.verifiedIconColor} shrink-0`} />
-                        )}
+                      <h1 className={`text-2xl sm:text-4xl font-black ${activeTemplate.headingText} tracking-tight flex items-center gap-2 flex-wrap`}>
+                        <span>{name}</span>
+                        <BusinessVerificationBadge 
+                          status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
+                          isVerified={isVerified} 
+                          size="md" 
+                        />
                       </h1>
                       <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mt-1 flex-wrap font-medium">
                         {catName && <span className={`${activeTemplate.accentText} font-bold`}>{catName}</span>}
@@ -1071,6 +1093,39 @@ const UserProfilePublicPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Official Verification Status Card */}
+              <Card className={`rounded-2xl p-6 shadow-xs border ${
+                isVerified 
+                  ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200' 
+                  : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200'
+              }`}>
+                <div className="flex items-start gap-3.5">
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
+                    isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {isVerified ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                      <h3 className="text-base font-black text-slate-900">
+                        {isVerified ? 'Accredited & Verified Merchant' : 'Unverified Merchant Profile'}
+                      </h3>
+                      <BusinessVerificationBadge 
+                        status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
+                        isVerified={isVerified} 
+                        size="sm" 
+                      />
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {isVerified 
+                        ? `This merchant has completed official identity verification${verificationRecord?.document_type ? ` via ${verificationRecord.document_type}` : ''} on the GGD Merchant Network.` 
+                        : 'This store has not yet completed official CAC or NIN identity verification.'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
               {syndicate && (
                 <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
                   <div className="flex items-start gap-3.5">
@@ -1099,15 +1154,15 @@ const UserProfilePublicPage: React.FC = () => {
               )}
 
               {/* Network Security Guarantee Card */}
-              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? '' : 'sm:col-span-2'} shadow-xs`}>
+              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-xs`}>
                 <div className="flex items-start gap-3.5">
                   <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">GGD Verified Business Profile</h3>
+                    <h3 className="text-base font-black text-slate-900">GGD Safe Commerce Pledge</h3>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Identity, commercial phone lines, and corporate profiles are periodically monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
+                      Identity, commercial phone lines, and corporate profiles are monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
                     </p>
                   </div>
                 </div>

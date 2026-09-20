@@ -414,17 +414,20 @@ export async function syncVerificationStatusToDatabase(
     // 1. Update profiles table
     await supabase.from('profiles').update({
       is_verified: data.is_verified,
+      verification_status: data.verification_status,
     } as any).eq('user_id', userId);
 
     // 2. Update business_profiles if exists
+    const updatePayload = {
+      is_verified: data.is_verified,
+      verification_status: data.verification_status,
+      is_directory_listed: true,
+    };
+
     if (businessProfileId) {
-      await (supabase.from('business_profiles') as any).update({
-        is_directory_listed: true,
-      }).eq('id', businessProfileId);
+      await (supabase.from('business_profiles') as any).update(updatePayload).eq('id', businessProfileId);
     } else {
-      await (supabase.from('business_profiles') as any).update({
-        is_directory_listed: true,
-      }).eq('user_id', userId);
+      await (supabase.from('business_profiles') as any).update(updatePayload).eq('user_id', userId);
     }
   } catch (err) {
     console.error('Database verification status sync note:', err);
