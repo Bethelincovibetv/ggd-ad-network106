@@ -15,7 +15,6 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
-import { getShowcaseListingById, SHOWCASE_PRODUCTS_AND_SERVICES } from '@/utils/showcaseListings';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -48,22 +47,6 @@ const ProductDetailPage: React.FC = () => {
         .maybeSingle();
 
       if (!L) {
-        // Check if this is a curated showcase listing
-        const showcase = getShowcaseListingById(id || '');
-        if (showcase) {
-          setListing(showcase);
-          setActiveImg(showcase.image_url || null);
-          setBusiness(showcase.business_profiles);
-          setCategory({
-            id: showcase.category_slug || 'commercial',
-            name: showcase.category_slug || 'Commercial Business',
-            slug: showcase.category_slug || 'commercial'
-          });
-          const related = SHOWCASE_PRODUCTS_AND_SERVICES
-            .filter(item => item.id !== id && item.category_slug === showcase.category_slug)
-            .slice(0, 4);
-          setRelatedListings(related);
-        }
         setLoading(false);
         return;
       }
@@ -146,12 +129,6 @@ const ProductDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching product details:', err);
-      const showcase = getShowcaseListingById(id || '');
-      if (showcase) {
-        setListing(showcase);
-        setActiveImg(showcase.image_url || null);
-        setBusiness(showcase.business_profiles);
-      }
     } finally {
       setLoading(false);
     }

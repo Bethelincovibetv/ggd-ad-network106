@@ -18,7 +18,6 @@ import directoryHero from "@/assets/directory-hero.jpg";
 import SlideCarousel from "@/components/SlideCarousel";
 import BlazingBadge from "@/components/BlazingBadge";
 import { getIndustryMeta, getEffectiveBusinessDescription } from "@/utils/industryData";
-import { SHOWCASE_PRODUCTS_AND_SERVICES } from "@/utils/showcaseListings";
 import { 
   NIGERIAN_STATES, 
   extractStateFromLocation, 
@@ -97,22 +96,22 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
         if (b.user_id) bizMap.set(b.user_id, b);
       });
 
-      // Format database listings
+      // Format real database listings
       const rawDbListings = listRes.data || [];
       const dbListings = rawDbListings
         .map((l: any) => {
-          const attachedBiz = l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null) || {
-            id: l.business_profile_id || l.user_id || 'biz-default',
-            business_name: 'Accredited Business',
-            logo_url: null,
-            category_id: l.category_id || null,
-            is_directory_listed: true,
-            address: 'Nigeria',
-            state: null,
-          };
+          const attachedBiz = l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null);
           return {
             ...l,
-            business_profiles: attachedBiz,
+            business_profiles: attachedBiz || {
+              id: l.business_profile_id || l.user_id,
+              business_name: l.title || 'Verified Seller',
+              logo_url: null,
+              category_id: l.category_id || null,
+              is_directory_listed: true,
+              address: 'Nigeria',
+              state: null,
+            },
           };
         })
         .filter((l: any) => {
@@ -122,34 +121,14 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           return l.is_active !== false;
         });
 
-      // Map showcase items with matching category IDs from loaded categories
-      const mappedShowcase = SHOWCASE_PRODUCTS_AND_SERVICES.map(item => {
-        const matchingCat = loadedCats.find((c: any) => 
-          (c.slug && item.category_slug && c.slug.toLowerCase().includes(item.category_slug.toLowerCase())) ||
-          (c.name && item.category_slug && c.name.toLowerCase().includes(item.category_slug.toLowerCase()))
-        );
-        return {
-          ...item,
-          category_id: matchingCat?.id || item.category_id,
-        };
-      });
-
-      // Combine DB listings and showcase items (avoiding duplicates if DB already has them)
-      const existingIds = new Set(dbListings.map((l: any) => l.id));
-      const combinedListings = [
-        ...dbListings,
-        ...mappedShowcase.filter(s => !existingIds.has(s.id))
-      ];
-
       setBusinesses(allBiz);
       setCategories(loadedCats);
-      setListings(combinedListings);
+      setListings(dbListings);
       if (costRes.data?.value) setDirectoryCost(parseInt(costRes.data.value));
       checkOwnListing();
     } catch (err) {
       console.error('Failed to load directory data:', err);
-      // Fallback to showcase listings even on unexpected network failure
-      setListings(SHOWCASE_PRODUCTS_AND_SERVICES);
+      setListings([]);
     } finally {
       setLoading(false);
     }

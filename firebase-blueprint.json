@@ -109,6 +109,81 @@
         "createdAt": { "type": "string" }
       },
       "required": ["candidate", "createdAt"]
+    },
+    "ContactGainEntry": {
+      "title": "ContactGainEntry",
+      "description": "Verified Nigerian business contact registered for daily phonebook compilation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "whatsapp": { "type": "string", "maxLength": 30 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 50 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "phone", "state", "createdAt"]
+    },
+    "ContactGainCampaign": {
+      "title": "ContactGainCampaign",
+      "description": "User created campaign to pay others for saving their business contact",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "title": { "type": "string", "maxLength": 120 },
+        "contactName": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 30 },
+        "contactWhatsapp": { "type": "string", "maxLength": 30 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 50 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "rewardPerSave": { "type": "number" },
+        "totalTarget": { "type": "number" },
+        "completedSaves": { "type": "number" },
+        "budgetCredits": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed", "paused"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "title", "contactName", "contactPhone", "rewardPerSave", "totalTarget", "status", "createdAt"]
+    },
+    "ContactGainProof": {
+      "title": "ContactGainProof",
+      "description": "Proof of contact saved submission with screenshot",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "campaignTitle": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rewardCredits": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "rejectionReason": { "type": "string" }
+      },
+      "required": ["campaignId", "userId", "userName", "screenshotUrl", "status", "rewardCredits", "createdAt"]
+    },
+    "ContactGainDownload": {
+      "title": "ContactGainDownload",
+      "description": "Audit record of daily VCF/CSV downloads and credit reward claims",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "creditsAwarded": { "type": "number" },
+        "downloadedAt": { "type": "string" }
+      },
+      "required": ["userId", "date", "creditsAwarded", "downloadedAt"]
     }
   },
   "firestore": {
@@ -143,6 +218,22 @@
     "/call_logs/{logId}": {
       "schema": { "$ref": "#/entities/CallLog" },
       "description": "Call history records for incoming, outgoing, and missed calls"
+    },
+    "/contact_gain_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/ContactGainEntry" },
+      "description": "Verified Nigerian entrepreneur contacts compiled in daily phonebook"
+    },
+    "/contact_gain_campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/ContactGainCampaign" },
+      "description": "Save My Contact promotional campaigns"
+    },
+    "/contact_gain_proofs/{proofId}": {
+      "schema": { "$ref": "#/entities/ContactGainProof" },
+      "description": "Proof submissions for saving contacts"
+    },
+    "/contact_gain_downloads/{downloadId}": {
+      "schema": { "$ref": "#/entities/ContactGainDownload" },
+      "description": "User daily download logs and reward tracking"
     }
   }
 }

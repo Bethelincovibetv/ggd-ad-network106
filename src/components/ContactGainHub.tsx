@@ -21,7 +21,7 @@ import {
   getActiveContactCampaigns,
   createContactCampaign,
   submitContactProof,
-  getLocalProofs,
+  fetchContactProofs,
   getContactGainSettings,
   ContactEntry,
   ContactCampaign,
@@ -108,10 +108,10 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
           if (profile.state) setNewState(profile.state);
         }
 
-        const allProofs = getLocalProofs();
-        setMyProofs(allProofs.filter(p => p.user_id === user.id));
+        const userProofs = await fetchContactProofs(user.id);
+        setMyProofs(userProofs);
       } else {
-        const allProofs = getLocalProofs();
+        const allProofs = await fetchContactProofs();
         setMyProofs(allProofs);
       }
     } catch (err) {

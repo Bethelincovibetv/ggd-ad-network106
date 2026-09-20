@@ -66,5 +66,25 @@ service cloud.firestore {
     match /call_logs/{logId} {
       allow read, create, update, delete: if true;
     }
+
+    // Contact Gain - Verified Registered Business Contacts
+    match /contact_gain_entries/{entryId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Contact Gain - Save My Contact Campaigns
+    match /contact_gain_campaigns/{campaignId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Contact Gain - Proof of Save Submissions
+    match /contact_gain_proofs/{proofId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Contact Gain - Daily Download Log & Rewards
+    match /contact_gain_downloads/{downloadId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

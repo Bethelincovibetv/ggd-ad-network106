@@ -22,7 +22,6 @@ import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
-import { getShowcaseListingsByCategory } from '@/utils/showcaseListings';
 import { 
   NIGERIAN_STATES, 
   TOP_COMMERCIAL_STATES, 
@@ -132,26 +131,13 @@ const IndustryPage: React.FC = () => {
             .filter((l: any) => l.is_active !== false);
         }
 
-        // Get showcase listings for this industry category
-        const categorySlugOrName = activeCategory.slug || activeCategory.name || slug || '';
-        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
-
-        const existingDbIds = new Set(dbListings.map((l: any) => l.id));
-        const combined = [
-          ...dbListings,
-          ...showcaseItems.filter(s => !existingDbIds.has(s.id))
-        ];
-
-        setListings(combined);
+        setListings(dbListings);
       } else {
-        const categorySlugOrName = slug || '';
-        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
-        setListings(showcaseItems);
+        setListings([]);
       }
     } catch (err) {
       console.error('Error fetching industry data:', err);
-      const categorySlugOrName = slug || '';
-      setListings(getShowcaseListingsByCategory(categorySlugOrName));
+      setListings([]);
     } finally {
       setLoading(false);
     }
