@@ -6,20 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Comprehensive mapping of Nigerian bank codes for Paystack transfer recipients
+// Comprehensive mapping of Nigerian bank codes for Paystack transfer recipients & NUBAN resolution
 const NIGERIAN_BANK_CODES: Record<string, string> = {
   'access': '044',
   'access bank': '044',
   'access bank (diamond)': '063',
+  'alat': '035A',
+  'alat by wema': '035A',
+  'carbon': '565',
   'citibank': '023',
+  'citibank nigeria': '023',
+  'dot': '50162',
+  'dot microfinance bank': '50162',
+  'dot mfb': '50162',
   'ecobank': '050',
   'ecobank nigeria': '050',
+  'fairmoney': '51318',
+  'fairmoney mfb': '51318',
+  'fairmoney microfinance bank': '51318',
   'fidelity': '070',
   'fidelity bank': '070',
   'first bank': '011',
   'first bank of nigeria': '011',
   'first city monument bank': '214',
   'fcmb': '214',
+  'globus': '103',
+  'globus bank': '103',
+  'gomoney': '100022',
   'gtb': '058',
   'gtbank': '058',
   'guaranty trust bank': '058',
@@ -29,18 +42,35 @@ const NIGERIAN_BANK_CODES: Record<string, string> = {
   'jaiz bank': '301',
   'keystone': '082',
   'keystone bank': '082',
-  'kuda': '090110',
-  'kuda bank': '090110',
-  'kuda microfinance bank': '090110',
-  'moniepoint': '090405',
-  'moniepoint mfb': '090405',
+  'kuda': '50211',
+  'kuda bank': '50211',
+  'kuda microfinance bank': '50211',
+  'lotus': '303',
+  'lotus bank': '303',
+  'moniepoint': '50515',
+  'moniepoint mfb': '50515',
+  'moniepoint microfinance bank': '50515',
   'opay': '999992',
   'opay digital services': '999992',
+  'opay digital services (paycom)': '999992',
+  'paycom': '999992',
+  'optimus': '107',
+  'optimus bank': '107',
   'palmpay': '999991',
+  'parallex': '104',
+  'parallex bank': '104',
   'polaris': '076',
   'polaris bank': '076',
+  'premiumtrust': '105',
+  'premiumtrust bank': '105',
   'providus': '101',
   'providus bank': '101',
+  'raven': '51204',
+  'raven bank': '51204',
+  'rubies': '125',
+  'rubies mfb': '125',
+  'signature': '106',
+  'signature bank': '106',
   'stanbic': '221',
   'stanbic ibtc': '221',
   'stanbic ibtc bank': '221',
@@ -48,8 +78,10 @@ const NIGERIAN_BANK_CODES: Record<string, string> = {
   'sterling': '232',
   'sterling bank': '232',
   'suntrust': '100',
+  'suntrust bank': '100',
   'taj': '302',
   'taj bank': '302',
+  'tangerine': '51269',
   'titan': '102',
   'titan trust bank': '102',
   'union': '032',
@@ -146,16 +178,44 @@ Deno.serve(async (req) => {
         })
       }
 
-      const resolveRes = await fetch(`https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number.trim())}&bank_code=${encodeURIComponent(resolvedCode)}`, {
-        headers: { 'Authorization': `Bearer ${paystackSecret}` },
-      })
+      const candidateCodes = [resolvedCode]
+      if (resolvedCode === '50211') candidateCodes.push('090110', '090267')
+      if (resolvedCode === '090110') candidateCodes.push('50211')
+      if (resolvedCode === '50515') candidateCodes.push('090405', '090392')
+      if (resolvedCode === '090405') candidateCodes.push('50515')
+      if (resolvedCode === '999992') candidateCodes.push('100004', '304')
+      if (resolvedCode === '999991') candidateCodes.push('100033', '322')
+      if (resolvedCode === '50162') candidateCodes.push('50163')
+      if (resolvedCode === '044') candidateCodes.push('063')
+      if (resolvedCode === '063') candidateCodes.push('044')
 
-      const resolveData = await resolveRes.json()
+      let resolveData: any = null
+      let successfulCode = resolvedCode
+      let lastMessage = 'Could not verify account details with Paystack.'
 
-      if (!resolveData.status || !resolveData.data?.account_name) {
+      for (const code of candidateCodes) {
+        try {
+          const res = await fetch(`https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number.trim())}&bank_code=${encodeURIComponent(code)}`, {
+            headers: { 'Authorization': `Bearer ${paystackSecret.trim()}` },
+          })
+          const data = await res.json()
+          if (data?.status && data?.data?.account_name) {
+            resolveData = data
+            successfulCode = code
+            break
+          }
+          if (data?.message) {
+            lastMessage = data.message
+          }
+        } catch {
+          // continue to next candidate
+        }
+      }
+
+      if (!resolveData || !resolveData.data?.account_name) {
         return new Response(JSON.stringify({
           success: false,
-          error: resolveData.message || 'Could not verify account details with Paystack. Please check the account number and bank.',
+          error: lastMessage || 'Could not verify account details with Paystack. Please check the account number and bank.',
         }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
@@ -164,8 +224,8 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         account_name: resolveData.data.account_name,
-        account_number: resolveData.data.account_number,
-        bank_code: resolvedCode,
+        account_number: resolveData.data.account_number || account_number.trim(),
+        bank_code: successfulCode,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

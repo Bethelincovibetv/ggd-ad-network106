@@ -569,13 +569,24 @@ app.get('/api/email/logs', (req, res) => {
 let cachedPaystackKey: { key: string; expiry: number } | null = null;
 let cachedPaystackBanks: { banks: any[]; expiry: number } | null = null;
 
+function sanitizeSecretKey(key?: string | null): string | null {
+  if (!key || typeof key !== 'string') return null;
+  const clean = key.trim().replace(/^["']|["']$/g, '').trim();
+  if (clean.length < 10) return null;
+  return clean;
+}
+
 async function getPaystackSecretKey(overrideKey?: string): Promise<string | null> {
-  if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim()) {
-    return overrideKey.trim();
-  }
-  if (process.env.PAYSTACK_SECRET_KEY) return process.env.PAYSTACK_SECRET_KEY.trim();
-  if (process.env.PAYSTACK_LIVE_SECRET_KEY) return process.env.PAYSTACK_LIVE_SECRET_KEY.trim();
-  if (process.env.VITE_PAYSTACK_SECRET_KEY) return process.env.VITE_PAYSTACK_SECRET_KEY.trim();
+  const sanitizedOverride = sanitizeSecretKey(overrideKey);
+  if (sanitizedOverride) return sanitizedOverride;
+
+  const envKey = sanitizeSecretKey(
+    process.env.PAYSTACK_SECRET_KEY ||
+    process.env.PAYSTACK_LIVE_SECRET_KEY ||
+    process.env.VITE_PAYSTACK_SECRET_KEY ||
+    process.env.PAYSTACK_TEST_SECRET_KEY
+  );
+  if (envKey) return envKey;
 
   // Check in-memory cache (5 min TTL)
   const now = Date.now();
@@ -586,7 +597,7 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
     const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
-    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.paystack_secret_key&select=value`, {
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=in.(paystack_secret_key,paystack_live_secret_key,paystack_key,paystack_test_secret_key)&select=value`, {
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`
@@ -594,10 +605,14 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
     });
     if (resp.ok) {
       const data = await resp.json();
-      if (Array.isArray(data) && data[0]?.value) {
-        const key = data[0].value.trim();
-        cachedPaystackKey = { key, expiry: now + 5 * 60 * 1000 };
-        return key;
+      if (Array.isArray(data) && data.length > 0) {
+        for (const item of data) {
+          const clean = sanitizeSecretKey(item?.value);
+          if (clean) {
+            cachedPaystackKey = { key: clean, expiry: now + 5 * 60 * 1000 };
+            return clean;
+          }
+        }
       }
     }
   } catch (err) {
@@ -606,33 +621,156 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
   return null;
 }
 
-// ----------------------------------------------------
-// API Route: Paystack Account Resolution (NUBAN Verification)
-// ----------------------------------------------------
-app.get('/api/paystack/resolve-account', async (req, res) => {
-  const accountNumber = String(req.query.account_number || '').trim().replace(/\D/g, '');
-  const bankCode = String(req.query.bank_code || '').trim();
-  const bankName = String(req.query.bank_name || '').trim();
-  const manualName = String(req.query.account_name || '').trim();
+// Map comprehensive candidate bank codes for Paystack NUBAN resolution
+function getCandidateBankCodes(primaryCode: string, bankName?: string): string[] {
+  const codes = new Set<string>();
+  if (primaryCode && primaryCode.trim()) {
+    codes.add(primaryCode.trim());
+  }
+
+  const normalized = (bankName || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+
+  // OPay / Paycom
+  if (primaryCode === '999992' || primaryCode === '100004' || primaryCode === '304' || normalized.includes('opay') || normalized.includes('paycom')) {
+    codes.add('999992');
+    codes.add('100004');
+    codes.add('304');
+    codes.add('090110');
+  }
+
+  // PalmPay
+  if (primaryCode === '999991' || primaryCode === '100033' || primaryCode === '322' || normalized.includes('palmpay')) {
+    codes.add('999991');
+    codes.add('100033');
+    codes.add('322');
+  }
+
+  // Kuda Bank
+  if (primaryCode === '50211' || primaryCode === '090110' || primaryCode === '090267' || normalized.includes('kuda')) {
+    codes.add('50211');
+    codes.add('090110');
+    codes.add('090267');
+  }
+
+  // Moniepoint
+  if (primaryCode === '50515' || primaryCode === '090405' || primaryCode === '090392' || primaryCode === '100022' || normalized.includes('moniepoint')) {
+    codes.add('50515');
+    codes.add('090405');
+    codes.add('090392');
+  }
+
+  // Dot Microfinance Bank
+  if (primaryCode === '50162' || primaryCode === '50163' || normalized.includes('dot')) {
+    codes.add('50162');
+    codes.add('50163');
+  }
+
+  // ALAT / Wema Bank
+  if (primaryCode === '035' || primaryCode === '035A' || normalized.includes('alat') || normalized.includes('wema')) {
+    codes.add('035');
+    codes.add('035A');
+  }
+
+  // Access Bank & Access Diamond
+  if (primaryCode === '044' || primaryCode === '063' || normalized.includes('access') || normalized.includes('diamond')) {
+    codes.add('044');
+    codes.add('063');
+  }
+
+  // First Bank
+  if (primaryCode === '011' || (normalized.includes('first bank') && !normalized.includes('monument'))) {
+    codes.add('011');
+    codes.add('000016');
+  }
+
+  // GTBank
+  if (primaryCode === '058' || normalized.includes('gtb') || normalized.includes('guaranty')) {
+    codes.add('058');
+    codes.add('000013');
+  }
+
+  // Zenith Bank
+  if (primaryCode === '057' || normalized.includes('zenith')) {
+    codes.add('057');
+    codes.add('000015');
+  }
+
+  // UBA
+  if (primaryCode === '033' || normalized.includes('uba') || normalized.includes('united bank')) {
+    codes.add('033');
+    codes.add('000004');
+  }
+
+  // FCMB
+  if (primaryCode === '214' || normalized.includes('fcmb') || normalized.includes('monument')) {
+    codes.add('214');
+    codes.add('000003');
+  }
+
+  // Sterling
+  if (primaryCode === '232' || normalized.includes('sterling')) {
+    codes.add('232');
+    codes.add('000023');
+  }
+
+  // Providus
+  if (primaryCode === '101' || normalized.includes('providus')) {
+    codes.add('101');
+    codes.add('000026');
+  }
+
+  // Stanbic IBTC
+  if (primaryCode === '221' || normalized.includes('stanbic')) {
+    codes.add('221');
+    codes.add('000012');
+  }
+
+  // FairMoney
+  if (primaryCode === '51318' || normalized.includes('fairmoney')) {
+    codes.add('51318');
+    codes.add('090551');
+  }
+
+  // Rubies
+  if (primaryCode === '125' || normalized.includes('rubies')) {
+    codes.add('125');
+    codes.add('090175');
+  }
+
+  // Carbon
+  if (primaryCode === '565' || normalized.includes('carbon')) {
+    codes.add('565');
+    codes.add('100026');
+  }
+
+  return Array.from(codes);
+}
+
+// Handler function for resolving NUBAN account with Paystack
+async function handlePaystackResolve(req: express.Request, res: express.Response) {
+  const query = req.method === 'POST' ? req.body : req.query;
+  const accountNumber = String(query.account_number || '').trim().replace(/\D/g, '');
+  const bankCode = String(query.bank_code || '').trim();
+  const bankName = String(query.bank_name || '').trim();
+  const manualName = String(query.account_name || '').trim();
+  const explicitKey = String(query.paystack_secret_key || query.secret_key || '').trim();
 
   if (!accountNumber || accountNumber.length !== 10) {
     return res.status(400).json({ success: false, error: 'Account number must be exactly 10 digits' });
   }
 
-  if (!bankCode) {
-    return res.status(400).json({ success: false, error: 'Bank code is required' });
+  if (!bankCode && !bankName) {
+    return res.status(400).json({ success: false, error: 'Bank code or bank name is required' });
   }
 
-  const secretKey = await getPaystackSecretKey(
-    (req.query.paystack_secret_key as string) || (req.query.secret_key as string)
-  );
+  const secretKey = await getPaystackSecretKey(explicitKey);
 
   if (!secretKey) {
     if (manualName) {
       return res.json({
         success: true,
         verified: false,
-        account_name: manualName,
+        account_name: manualName.toUpperCase(),
         account_number: accountNumber,
         bank_code: bankCode,
         bank_name: bankName,
@@ -645,17 +783,7 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
     });
   }
 
-  // Define potential fallback codes for banks with multiple CBN / Paystack mapping codes
-  const candidateCodes = [bankCode];
-  if (bankCode === '090110') candidateCodes.push('50211');
-  if (bankCode === '50211') candidateCodes.push('090110');
-  if (bankCode === '090405') candidateCodes.push('50515');
-  if (bankCode === '50515') candidateCodes.push('090405');
-  if (bankCode === '999992') candidateCodes.push('100004', '304');
-  if (bankCode === '999991') candidateCodes.push('100033', '322');
-  if (bankCode === '063') candidateCodes.push('044');
-  if (bankCode === '044') candidateCodes.push('063');
-
+  const candidateCodes = getCandidateBankCodes(bankCode, bankName);
   let lastErrorMsg = 'Could not resolve account name. Please check your bank and account number.';
 
   for (const code of candidateCodes) {
@@ -693,13 +821,14 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
   // If live resolution could not resolve with Paystack
   if (manualName) {
     return res.json({
-      success: false,
+      success: true,
       verified: false,
-      account_name: manualName,
+      account_name: manualName.toUpperCase(),
       account_number: accountNumber,
       bank_code: bankCode,
       bank_name: bankName,
       error: lastErrorMsg,
+      warning: 'Live verification could not find account name. Using provided manual name.',
     });
   }
 
@@ -711,7 +840,12 @@ app.get('/api/paystack/resolve-account', async (req, res) => {
     bank_code: bankCode,
     bank_name: bankName,
   });
-});
+}
+
+// ----------------------------------------------------
+// API Route: Paystack Account Resolution (NUBAN Verification)
+// ----------------------------------------------------
+app.all(['/api/paystack/resolve-account', '/api/paystack/bank/resolve'], handlePaystackResolve);
 
 // ----------------------------------------------------
 // API Route: Paystack Bank List (Live & Cached)
@@ -1362,7 +1496,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
