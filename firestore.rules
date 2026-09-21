@@ -91,5 +91,10 @@ service cloud.firestore {
     match /marketplace_verifications/{verificationId} {
       allow read, create, update, delete: if true;
     }
+
+    // Real Customer Business Reviews & Ratings
+    match /business_reviews/{reviewId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

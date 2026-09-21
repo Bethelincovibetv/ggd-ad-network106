@@ -21,6 +21,14 @@ import MetaTags from '@/components/MetaTags';
 import { BusinessVerificationBadge } from '@/components/business/BusinessVerificationBadge';
 import { getUserVerificationRecord, subscribeToUserVerification } from '@/services/businessVerificationEngine';
 import { VerificationSubmissionRecord } from '@/types/verification';
+import { BusinessReviewsSection } from '@/components/business/BusinessReviewsSection';
+import { AdminDirectVerificationBar } from '@/components/business/AdminDirectVerificationBar';
+import { 
+  subscribeToBusinessReviews, 
+  BusinessReview, 
+  ReviewStats, 
+  calculateReviewStats 
+} from '@/services/businessReviewService';
 
 const UserProfilePublicPage: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -34,18 +42,20 @@ const UserProfilePublicPage: React.FC = () => {
   const [sitesEnabled, setSitesEnabled] = useState(true);
   const [premiumTier, setPremiumTier] = useState<number>(0);
   const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
+  const [reviews, setReviews] = useState<BusinessReview[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats>(calculateReviewStats([]));
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust' | 'reviews'>('overview');
   const [templateKey, setTemplateKey] = useState<string>(DEFAULT_TEMPLATE_ID);
   const [showAdminTemplatePicker, setShowAdminTemplatePicker] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   const activeTemplate = getWebsiteTemplate(templateKey);
 
-  const scrollToSection = (sectionId: 'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust') => {
+  const scrollToSection = (sectionId: 'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust' | 'reviews') => {
     setActiveSection(sectionId);
     setSidebarOpen(false);
     const element = document.getElementById(sectionId);
@@ -117,6 +127,7 @@ const UserProfilePublicPage: React.FC = () => {
   useEffect(() => {
     if (!id && !slug) return;
     let unsubscribeVerif: (() => void) | undefined;
+    let unsubscribeReviews: (() => void) | undefined;
 
     (async () => {
       let resolvedId = id;
@@ -173,6 +184,12 @@ const UserProfilePublicPage: React.FC = () => {
       // Real-time verification subscription
       unsubscribeVerif = subscribeToUserVerification(resolvedId, (rec) => {
         if (rec) setVerificationRecord(rec);
+      });
+
+      // Real-time reviews subscription
+      unsubscribeReviews = subscribeToBusinessReviews(resolvedId, (revs, stats) => {
+        setReviews(revs);
+        setReviewStats(stats);
       });
 
       const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes, verifRecord] = await Promise.all([
@@ -244,6 +261,7 @@ const UserProfilePublicPage: React.FC = () => {
 
     return () => {
       if (unsubscribeVerif) unsubscribeVerif();
+      if (unsubscribeReviews) unsubscribeReviews();
     };
   }, [id, slug]);
 
@@ -320,6 +338,7 @@ const UserProfilePublicPage: React.FC = () => {
     { id: 'overview' as const, label: 'Home Overview', icon: Home },
     { id: 'catalog' as const, label: 'Products & Services', icon: ShoppingBag, count: listings.length },
     { id: 'about' as const, label: 'About Business', icon: Info },
+    { id: 'reviews' as const, label: 'Customer Reviews', icon: Star, count: reviewStats.totalReviews },
     { id: 'contact' as const, label: 'Contact & Location', icon: Phone },
     { id: 'socials' as const, label: 'Social Channels', icon: Globe, count: socials.length },
     { id: 'trust' as const, label: 'Trust & Verification', icon: ShieldCheck },
@@ -346,49 +365,64 @@ const UserProfilePublicPage: React.FC = () => {
         }}
       />
       
-      {/* Admin Template Bar: lets Admin select and preview website templates */}
+      {/* Admin Template Bar & Direct Verification Control */}
       {isAdmin && (
-        <div className="sticky top-0 z-50 bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 shadow-md flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
-              <Palette className="h-4 w-4" />
+        <div className="sticky top-0 z-50">
+          <div className="bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 shadow-md flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
+                <Palette className="h-4 w-4" />
+              </div>
+              <span className="font-bold text-xs text-slate-200">Admin Website Template:</span>
+              <span className="bg-white/10 px-2.5 py-0.5 rounded-full text-xs font-semibold text-orange-300 flex items-center gap-1.5 border border-white/10">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeTemplate.swatchPrimary }} />
+                {activeTemplate.name}
+              </span>
             </div>
-            <span className="font-bold text-xs text-slate-200">Admin Website Template:</span>
-            <span className="bg-white/10 px-2.5 py-0.5 rounded-full text-xs font-semibold text-orange-300 flex items-center gap-1.5 border border-white/10">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeTemplate.swatchPrimary }} />
-              {activeTemplate.name}
-            </span>
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {Object.values(WEBSITE_TEMPLATES).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => handleAdminSaveTemplate(t.id, false)}
+            <div className="flex items-center gap-2 flex-wrap">
+              {Object.values(WEBSITE_TEMPLATES).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleAdminSaveTemplate(t.id, false)}
+                  disabled={savingTemplate}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                    templateKey === t.id
+                      ? 'bg-orange-500 text-white border-orange-400 shadow-sm'
+                      : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
+                  }`}
+                  title={t.subtitle}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.swatchPrimary }} />
+                  <span>{t.name.replace(' (Default)', '')}</span>
+                </button>
+              ))}
+
+              <Button
+                size="sm"
                 disabled={savingTemplate}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                  templateKey === t.id
-                    ? 'bg-orange-500 text-white border-orange-400 shadow-sm'
-                    : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
-                }`}
-                title={t.subtitle}
+                onClick={() => handleAdminSaveTemplate(templateKey, true)}
+                className="h-8 px-3 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl shadow"
+                title="Save this template as default for all new/unconfigured business websites"
               >
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.swatchPrimary }} />
-                <span>{t.name.replace(' (Default)', '')}</span>
-              </button>
-            ))}
-
-            <Button
-              size="sm"
-              disabled={savingTemplate}
-              onClick={() => handleAdminSaveTemplate(templateKey, true)}
-              className="h-8 px-3 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl shadow"
-              title="Save this template as default for all new/unconfigured business websites"
-            >
-              Set as Platform Default
-            </Button>
+                Set as Platform Default
+              </Button>
+            </div>
           </div>
+
+          <AdminDirectVerificationBar
+            userId={profile.user_id}
+            businessProfileId={business?.id}
+            profileName={name}
+            isVerified={isVerified}
+            verificationRecord={verificationRecord}
+            currentUser={currentUser}
+            onStatusChanged={() => {
+              setProfile((prev: any) => prev ? { ...prev, is_verified: !isVerified, verification_status: !isVerified ? 'VERIFIED' : 'UNVERIFIED' } : prev);
+              if (business) setBusiness((prev: any) => prev ? { ...prev, is_verified: !isVerified } : prev);
+            }}
+          />
         </div>
       )}
 
@@ -758,8 +792,12 @@ const UserProfilePublicPage: React.FC = () => {
                   <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Satisfaction</p>
                     <p className="text-lg sm:text-xl font-black text-amber-500 mt-0.5 flex items-center justify-center gap-1">
-                      <Star className="h-4 w-4 fill-current" /> 4.9 / 5.0
+                      <Star className="h-4 w-4 fill-current" />
+                      {reviewStats.totalReviews > 0 ? `${reviewStats.averageRating.toFixed(1)} / 5.0` : '5.0 (New)'}
                     </p>
+                    <span className="text-[9px] text-slate-400 font-medium block">
+                      {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} genuine ratings` : 'Real client rating'}
+                    </span>
                   </div>
                   <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Response</p>
@@ -1154,7 +1192,18 @@ const UserProfilePublicPage: React.FC = () => {
             </section>
           )}
 
-          {/* SECTION 6: TRUST & ACCREDITATION */}
+          {/* SECTION 6: CUSTOMER REVIEWS & RATINGS */}
+          <BusinessReviewsSection
+            businessUserId={profile.user_id}
+            businessName={name}
+            reviews={reviews}
+            stats={reviewStats}
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            activeTemplate={activeTemplate}
+          />
+
+          {/* SECTION 7: TRUST & ACCREDITATION */}
           <section id="trust" className="scroll-mt-24 space-y-4">
             <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">

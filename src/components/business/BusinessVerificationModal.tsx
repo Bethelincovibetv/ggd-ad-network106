@@ -278,12 +278,12 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
   // Dry-run live test evaluation
   const handleTestEvaluation = () => {
-    if (!documentNumber.trim()) {
-      toast.error(`Please enter your ${documentType === 'NIN' ? '11-digit NIN' : 'CAC Registration / RC Number'}`);
+    if (!documentFileUrl) {
+      toast.error(`Please upload your ${documentType === 'CAC' ? 'CAC Certificate' : 'National ID / NIN Slip'} document.`);
       return;
     }
     if (!submittedName.trim()) {
-      toast.error("Please enter the name appearing on your document.");
+      toast.error("Please enter the legal name appearing on your document.");
       return;
     }
 
@@ -292,9 +292,10 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
       const evalRes = evaluateVerificationSubmission({
         accountType,
         documentType,
-        documentNumber: documentNumber.trim(),
+        documentNumber: documentNumber.trim() || (documentType === 'CAC' ? 'CAC-UPLOAD' : 'NIN-UPLOAD'),
         submittedName: submittedName.trim(),
-        registeredProfileName: registeredProfileName.trim() || submittedName.trim()
+        registeredProfileName: registeredProfileName.trim() || submittedName.trim(),
+        documentFileUrl: documentFileUrl || undefined
       });
 
       setEvaluationResult(evalRes);
@@ -313,8 +314,8 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
   // Final submission to verification engine
   const handleSubmitVerification = async () => {
-    if (!documentNumber.trim()) {
-      toast.error(`Please enter your ${documentType === 'NIN' ? '11-digit NIN' : 'CAC Registration / RC Number'}`);
+    if (!documentFileUrl) {
+      toast.error(`Please upload your ${documentType === 'CAC' ? 'CAC Certificate' : 'National ID / NIN Slip'} document first.`);
       return;
     }
     if (!submittedName.trim()) {
@@ -333,7 +334,7 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
         userEmail,
         accountType,
         documentType,
-        documentNumber: documentNumber.trim(),
+        documentNumber: documentNumber.trim() || (documentType === 'CAC' ? 'CAC-CERT-UPLOAD' : 'NIN-SLIP-UPLOAD'),
         submittedName: submittedName.trim(),
         registeredProfileName: registeredProfileName.trim() || submittedName.trim(),
         documentFileUrl: documentFileUrl || undefined
@@ -345,9 +346,9 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
       if (evaluation.status === 'VERIFIED') {
         toast.success("🎉 Verification successful! Your official Verified Business Badge is now active on your storefront!");
       } else if (evaluation.status === 'FLAGGED_FOR_MANUAL_REVIEW') {
-        toast.info("Submission received! Your identity has been queued for quick manual compliance verification.");
+        toast.info("Submission received! Your identity document has been queued for quick compliance review.");
       } else {
-        toast.error(`Verification rejected: ${evaluation.rejection_reason}`);
+        toast.error(`Verification note: ${evaluation.rejection_reason}`);
       }
 
       if (onVerificationComplete) {
@@ -601,41 +602,28 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
               {/* Form Input Details */}
               <div className="space-y-3 pt-1">
-                {/* Document Number */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs font-bold text-foreground">
-                      {documentType === 'NIN' ? 'National Identification Number (NIN)' : 'CAC Registration / RC Number'}
-                    </Label>
-                    {documentType === 'NIN' && (
-                      <span className={`text-[10px] font-bold ${
-                        documentNumber.length === 11 ? 'text-emerald-600' : 'text-muted-foreground'
-                      }`}>
-                        {documentNumber.length}/11 Digits
-                      </span>
+                {/* Optional CAC Registration Number (Only for Registered Business / CAC) */}
+                {documentType === 'CAC' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs font-bold text-foreground">
+                        CAC Registration / RC Number (Optional if Document is Uploaded)
+                      </Label>
+                    </div>
+                    <Input
+                      value={documentNumber}
+                      onChange={(e) => setDocumentNumber(e.target.value)}
+                      placeholder="e.g. RC-1234567 or BN-1234567"
+                      className="h-10 text-xs font-mono font-semibold rounded-xl"
+                    />
+                    {documentNumber && !cacValidation?.valid && (
+                      <p className="text-[11px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        {cacValidation?.reason}
+                      </p>
                     )}
                   </div>
-                  <Input
-                    value={documentNumber}
-                    onChange={(e) => setDocumentNumber(e.target.value)}
-                    placeholder={documentType === 'NIN' ? 'Enter 11-digit NIN (e.g. 12345678901)' : 'e.g. RC-1234567 or BN-1234567'}
-                    className={`h-10 text-xs font-mono font-semibold rounded-xl ${
-                      documentType === 'NIN' && documentNumber && (!ninValidation?.valid ? 'border-rose-400 focus-visible:ring-rose-400' : 'border-emerald-500')
-                    }`}
-                  />
-                  {documentType === 'NIN' && documentNumber && !ninValidation?.valid && (
-                    <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      {ninValidation?.reason}
-                    </p>
-                  )}
-                  {documentType === 'CAC' && documentNumber && !cacValidation?.valid && (
-                    <p className="text-[11px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
-                      <Info className="h-3 w-3" />
-                      {cacValidation?.reason}
-                    </p>
-                  )}
-                </div>
+                )}
 
                 {/* Submitted Legal / Business Name */}
                 <div>

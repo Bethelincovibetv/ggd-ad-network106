@@ -208,6 +208,24 @@
         "last_updated_at": { "type": "string" }
       },
       "required": ["id", "user_id", "account_type", "document_type", "document_number", "status", "verified_badge_granted", "submitted_at"]
+    },
+    "BusinessReview": {
+      "title": "BusinessReview",
+      "description": "Real verified customer reviews and ratings for merchant websites and public storefronts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "business_user_id": { "type": "string" },
+        "reviewer_id": { "type": "string" },
+        "reviewer_name": { "type": "string", "maxLength": 100 },
+        "reviewer_email": { "type": "string", "maxLength": 120 },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "comment": { "type": "string", "maxLength": 2000 },
+        "verified_purchase": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "hidden"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "business_user_id", "reviewer_name", "rating", "comment", "created_at"]
     }
   },
   "firestore": {
@@ -262,6 +280,10 @@
     "/marketplace_verifications/{verificationId}": {
       "schema": { "$ref": "#/entities/MarketplaceVerification" },
       "description": "Live business identity submissions, automated evaluations and verified status"
+    },
+    "/business_reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/BusinessReview" },
+      "description": "Real verified customer reviews and star ratings for merchants and business websites"
     }
   }
 }

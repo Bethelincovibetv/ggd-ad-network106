@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { adminDirectVerifyUser } from "@/services/businessVerificationEngine";
 
 const roleStyles: Record<string, string> = {
   admin: 'bg-red-100 text-red-700 border-red-200',
@@ -526,6 +527,62 @@ const AdminUserManager = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Direct Admin Verification Control */}
+                    <div className="border-t pt-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold flex items-center gap-1">
+                          <Shield className="h-3.5 w-3.5 text-emerald-600" />
+                          Official Identity & Business Verification
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] font-bold ${
+                            selectedUser.is_verified
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}
+                        >
+                          {selectedUser.is_verified ? 'VERIFIED' : 'UNVERIFIED'}
+                        </Badge>
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedUser.is_verified
+                          ? 'This user is verified and displays the official verification badge across storefronts and ads.'
+                          : 'User has not completed verification or is pending approval. You can verify them directly.'}
+                      </p>
+
+                      <Button
+                        size="sm"
+                        variant={selectedUser.is_verified ? "outline" : "default"}
+                        onClick={async () => {
+                          const newStatus = !selectedUser.is_verified;
+                          try {
+                            await adminDirectVerifyUser({
+                              userId: selectedUser.user_id,
+                              businessProfileId: bp?.id,
+                              verify: newStatus,
+                              profileName: selectedUser.display_name || selectedUser.business_name || selectedUser.email,
+                              adminId: 'admin_dashboard',
+                              adminNote: newStatus ? 'Verified via Admin User Manager sheet' : 'Revoked via Admin User Manager sheet'
+                            });
+                            toast.success(newStatus ? 'User successfully verified!' : 'Verification revoked');
+                            setSelectedUser((prev: any) => prev ? { ...prev, is_verified: newStatus } : null);
+                            loadAll();
+                          } catch (err: any) {
+                            toast.error(err?.message || 'Verification update failed');
+                          }
+                        }}
+                        className={`w-full text-xs font-bold ${
+                          selectedUser.is_verified
+                            ? 'text-rose-700 border-rose-300 hover:bg-rose-50'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        }`}
+                      >
+                        {selectedUser.is_verified ? 'Revoke Verified Badge' : 'Directly Verify User (Grant Badge)'}
+                      </Button>
+                    </div>
 
                     <Button onClick={() => toggleBan(selectedUser.user_id, selectedUser.is_banned)}
                       variant={selectedUser.is_banned ? "default" : "destructive"} className="w-full text-xs mt-2">

@@ -227,9 +227,10 @@ export function computeNameSimilarity(submitted: string, registered: string, isB
 export interface VerificationEvaluationInput {
   accountType: 'individual' | 'registered_business';
   documentType: DocumentType;
-  documentNumber: string;
+  documentNumber?: string;
   submittedName: string;
   registeredProfileName: string;
+  documentFileUrl?: string;
 }
 
 /**
@@ -239,21 +240,42 @@ export interface VerificationEvaluationInput {
 export function evaluateVerificationSubmission(
   input: VerificationEvaluationInput
 ): VerificationEvaluationResult {
-  const { accountType, documentType, documentNumber, submittedName, registeredProfileName } = input;
+  const { accountType, documentType, documentNumber = '', submittedName, registeredProfileName, documentFileUrl } = input;
 
   const isBusiness = accountType === 'registered_business' || documentType === 'CAC';
 
-  // 1. Document Format Validation
+  // 1. Document Format & Upload Validation
   let docValidation: { valid: boolean; reason?: string; clean?: string } = { valid: false };
 
+  // If user uploaded a document slip/image/pdf, we permit upload-first verification
+  const hasUploadedDoc = !!(documentFileUrl && documentFileUrl.length > 5);
+
   if (documentType === 'NIN') {
-    const res = validateNIN(documentNumber);
-    docValidation = { valid: res.valid, reason: res.reason, clean: res.cleanNIN };
+    if (documentNumber && documentNumber.trim()) {
+      const res = validateNIN(documentNumber);
+      docValidation = { valid: res.valid, reason: res.reason, clean: res.cleanNIN };
+    } else if (hasUploadedDoc) {
+      // Document upload mode for NIN
+      docValidation = { valid: true, clean: 'NIN-SLIP-UPLOADED' };
+    } else {
+      docValidation = { valid: false, reason: 'Please upload your National ID / NIN slip.' };
+    }
   } else if (documentType === 'CAC') {
-    const res = validateCAC(documentNumber);
-    docValidation = { valid: res.valid, reason: res.reason, clean: res.cleanCAC };
+    if (documentNumber && documentNumber.trim()) {
+      const res = validateCAC(documentNumber);
+      docValidation = { valid: res.valid, reason: res.reason, clean: res.cleanCAC };
+    } else if (hasUploadedDoc) {
+      // Document upload mode for CAC
+      docValidation = { valid: true, clean: 'CAC-CERT-UPLOADED' };
+    } else {
+      docValidation = { valid: false, reason: 'Please upload your CAC Registration Certificate.' };
+    }
   } else {
-    docValidation = { valid: false, reason: 'Unsupported or UNKNOWN document type provided.' };
+    if (hasUploadedDoc) {
+      docValidation = { valid: true, clean: 'OFFICIAL-DOC-UPLOADED' };
+    } else {
+      docValidation = { valid: false, reason: 'Unsupported or UNKNOWN document type provided.' };
+    }
   }
 
   // Format Rejection Check
@@ -276,13 +298,14 @@ export function evaluateVerificationSubmission(
   }
 
   // 2. Name Matching & Similarity Evaluation
-  const sim = computeNameSimilarity(submittedName, registeredProfileName, isBusiness);
+  const effectiveSubName = submittedName || registeredProfileName;
+  const sim = computeNameSimilarity(effectiveSubName, registeredProfileName, isBusiness);
 
   const extractionDetails: ExtractionDetails = {
-    submitted_name: submittedName,
+    submitted_name: effectiveSubName,
     registered_profile_name: registeredProfileName,
     document_type: documentType,
-    document_number: docValidation.clean || documentNumber,
+    document_number: docValidation.clean || documentNumber || 'DOC-UPLOADED',
     clean_document_number: docValidation.clean,
     normalized_submitted_name: sim.normSub,
     normalized_registered_name: sim.normReg,
@@ -290,8 +313,8 @@ export function evaluateVerificationSubmission(
   };
 
   // 3. Exact Matching & Confidence Evaluation Rules
-  // CASE A: Exact Name Match
-  if (sim.exactMatch || sim.similarity >= 0.95) {
+  // CASE A: Exact Name Match with document attached
+  if (sim.exactMatch || sim.similarity >= 0.90) {
     return {
       status: 'VERIFIED',
       verified_badge_granted: true,
@@ -302,13 +325,13 @@ export function evaluateVerificationSubmission(
   }
 
   // CASE B: Token Subset / Missing Middle Name / Minor Discrepancy (e.g. John Doe vs John Emeka Doe)
-  if (sim.similarity >= 0.70) {
+  if (sim.similarity >= 0.65) {
     return {
       status: 'FLAGGED_FOR_MANUAL_REVIEW',
       verified_badge_granted: false,
       match_confidence: 'MEDIUM',
       extraction_details: extractionDetails,
-      rejection_reason: `Minor discrepancy detected between submitted name ("${submittedName}") and registered profile name ("${registeredProfileName}"). Flagged for authorized manual review.`
+      rejection_reason: `Minor discrepancy detected between submitted name ("${effectiveSubName}") and registered profile name ("${registeredProfileName}"). Flagged for authorized manual review.`
     };
   }
 
@@ -318,7 +341,7 @@ export function evaluateVerificationSubmission(
     verified_badge_granted: false,
     match_confidence: 'LOW',
     extraction_details: extractionDetails,
-    rejection_reason: `Submitted name ("${submittedName}") does not match registered profile name ("${registeredProfileName}"). Confidence score (${Math.round(sim.similarity * 100)}%) is below threshold.`
+    rejection_reason: `Submitted name ("${effectiveSubName}") does not match registered profile name ("${registeredProfileName}"). Confidence score (${Math.round(sim.similarity * 100)}%) is below threshold.`
   };
 }
 
@@ -612,3 +635,75 @@ export async function processAdminVerificationOverride(
 
   return updatedRecord;
 }
+
+/**
+ * Direct Admin Verification for any User or Business Profile
+ * Allows Admin to directly verify or revoke a merchant with 1-click directly from their profile page.
+ */
+export async function adminDirectVerifyUser(payload: {
+  userId: string;
+  businessProfileId?: string;
+  verify: boolean;
+  adminNote?: string;
+  adminId?: string;
+  adminEmail?: string;
+  profileName?: string;
+}): Promise<VerificationSubmissionRecord> {
+  const { userId, businessProfileId, verify, adminNote, adminId, adminEmail, profileName } = payload;
+  const now = new Date().toISOString();
+
+  // 1. Check if an existing record exists for this user in Firestore
+  let existing = await getUserVerificationRecord(userId);
+  const recordId = existing?.id || `verif_${userId}_${Date.now()}`;
+
+  const updatedRecord: VerificationSubmissionRecord = {
+    id: recordId,
+    user_id: userId,
+    business_profile_id: businessProfileId || existing?.business_profile_id,
+    user_email: adminEmail,
+    account_type: existing?.account_type || 'registered_business',
+    document_type: existing?.document_type || 'CAC',
+    document_number: existing?.document_number || (verify ? 'ADMIN-DIRECT-VERIFIED' : 'UNVERIFIED'),
+    submitted_name: existing?.submitted_name || profileName || 'Verified Merchant',
+    registered_profile_name: existing?.registered_profile_name || profileName || 'Verified Merchant',
+    document_file_url: existing?.document_file_url,
+    status: verify ? 'VERIFIED' : 'REJECTED',
+    verified_badge_granted: verify,
+    match_confidence: 'HIGH',
+    rejection_reason: verify ? null : 'Verification revoked by platform administrator.',
+    extraction_details: existing?.extraction_details || {
+      submitted_name: profileName || 'Merchant',
+      registered_profile_name: profileName || 'Merchant',
+      document_type: 'CAC',
+      document_number: 'ADMIN-DIRECT-VERIFIED',
+      similarity_score: 1.0,
+    },
+    admin_action: verify ? 'APPROVE' : 'REJECT',
+    admin_note: adminNote || (verify ? 'Directly verified by Platform Administrator.' : 'Verification revoked by Administrator.'),
+    admin_id: adminId || null,
+    admin_email: adminEmail || null,
+    submitted_at: existing?.submitted_at || now,
+    evaluated_at: now,
+    reviewed_at: now,
+    last_updated_at: now,
+  };
+
+  // 2. Persist to Firestore
+  try {
+    const docRef = doc(db, VERIFICATIONS_COLLECTION, recordId);
+    await setDoc(docRef, updatedRecord, { merge: true });
+  } catch (fsErr) {
+    console.warn('Firestore admin direct verify save warning:', fsErr);
+  }
+
+  // 3. Sync to Supabase profiles and business_profiles
+  await syncVerificationStatusToDatabase(userId, businessProfileId, {
+    is_verified: verify,
+    verification_status: verify ? 'VERIFIED' : 'UNVERIFIED',
+    verification_document_type: updatedRecord.document_type,
+    verified_at: verify ? now : null,
+  });
+
+  return updatedRecord;
+}
+
