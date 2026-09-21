@@ -23,6 +23,7 @@ import { getUserVerificationRecord, subscribeToUserVerification } from '@/servic
 import { VerificationSubmissionRecord } from '@/types/verification';
 import { BusinessReviewsSection } from '@/components/business/BusinessReviewsSection';
 import { AdminDirectVerificationBar } from '@/components/business/AdminDirectVerificationBar';
+import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { 
   subscribeToBusinessReviews, 
   BusinessReview, 
@@ -773,6 +774,29 @@ const UserProfilePublicPage: React.FC = () => {
                         <span>WhatsApp</span>
                       </Button>
                     )}
+
+                    <FavoriteButton
+                      item={{
+                        targetId: business?.id || profile.user_id || id || 'biz',
+                        type: 'business',
+                        title: name,
+                        subtitle: catName || 'Verified Merchant Storefront',
+                        description: description,
+                        imageUrl: logoImage,
+                        location: address,
+                        category: catName,
+                        verified: isVerified,
+                        linkUrl: window.location.pathname,
+                        businessName: name,
+                        businessPhone: phone,
+                        businessWebsite: website,
+                      }}
+                      variant="outline"
+                      size="default"
+                      showLabel
+                      className="border-slate-200 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 hover:border-rose-300 text-xs sm:text-sm h-11 px-4 rounded-xl shadow-xs"
+                    />
+
                     <Button
                       variant="outline"
                       onClick={share}
@@ -895,6 +919,30 @@ const UserProfilePublicPage: React.FC = () => {
                         <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
                           <Crown className="h-3 w-3" /> Featured {listing.listing_type === 'service' ? 'Service' : 'Product'}
                         </div>
+
+                        {/* Favorite Overlay on Featured Card */}
+                        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+                          <FavoriteButton
+                            item={{
+                              targetId: listing.id,
+                              type: listing.listing_type === 'service' ? 'service' : 'product',
+                              title: listing.title,
+                              subtitle: name,
+                              description: listing.description,
+                              imageUrl: listing.image_url,
+                              price: listing.price,
+                              location: address,
+                              category: catName,
+                              verified: isVerified,
+                              linkUrl: `/product/${listing.id}`,
+                              businessName: name,
+                              businessPhone: phone,
+                              businessWebsite: website,
+                            }}
+                            variant="overlay"
+                            size="md"
+                          />
+                        </div>
                         {listing.video_url && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
                             <div className="h-12 w-12 rounded-full bg-white/95 text-orange-600 flex items-center justify-center shadow-lg">
@@ -976,6 +1024,30 @@ const UserProfilePublicPage: React.FC = () => {
                       <Badge className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur text-slate-800 text-[10px] border border-slate-200 font-bold shadow-xs">
                         {listing.listing_type === 'service' ? 'Service' : 'Product'}
                       </Badge>
+
+                      {/* Favorite Button on Standard Catalog Card */}
+                      <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
+                        <FavoriteButton
+                          item={{
+                            targetId: listing.id,
+                            type: listing.listing_type === 'service' ? 'service' : 'product',
+                            title: listing.title,
+                            subtitle: name,
+                            description: listing.description,
+                            imageUrl: listing.image_url,
+                            price: listing.price,
+                            location: address,
+                            category: catName,
+                            verified: isVerified,
+                            linkUrl: `/product/${listing.id}`,
+                            businessName: name,
+                            businessPhone: phone,
+                            businessWebsite: website,
+                          }}
+                          variant="overlay"
+                          size="sm"
+                        />
+                      </div>
                       {listing.video_url && (
                         <div className="absolute top-2.5 right-2.5 bg-orange-600 text-white p-1 rounded-full shadow">
                           <Play className="h-3 w-3 fill-current" />

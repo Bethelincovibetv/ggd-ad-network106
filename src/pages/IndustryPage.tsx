@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
+import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
 import { 
   NIGERIAN_STATES, 
@@ -548,10 +549,32 @@ const IndustryPage: React.FC = () => {
                           </div>
                         )}
                         {item.video_url && (
-                          <div className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 grid place-items-center z-10">
+                          <div className="absolute top-1.5 right-8 h-6 w-6 rounded-full bg-black/60 grid place-items-center z-10">
                             <Play className="h-3 w-3 text-white" fill="white" />
                           </div>
                         )}
+                        <div className="absolute top-1.5 right-1.5 z-20" onClick={(e) => e.stopPropagation()}>
+                          <FavoriteButton
+                            item={{
+                              targetId: item.id,
+                              type: 'product',
+                              title: item.title,
+                              subtitle: item.business_profiles?.business_name,
+                              description: item.description,
+                              imageUrl: item.image_url,
+                              price: item.price,
+                              location: getBusinessEffectiveState(item.business_profiles),
+                              category: category?.name,
+                              verified: true,
+                              linkUrl: `/product/${item.id}`,
+                              businessName: item.business_profiles?.business_name,
+                              businessPhone: item.business_profiles?.phone_number,
+                              businessWebsite: item.business_profiles?.website_link,
+                            }}
+                            variant="overlay"
+                            size="sm"
+                          />
+                        </div>
                         <div className="absolute bottom-1.5 left-1.5 z-10">
                           <Badge className="bg-emerald-600 text-white text-[8px] font-bold border-0 rounded-full px-1.5 shadow-sm">
                             📦 Product
@@ -628,7 +651,31 @@ const IndustryPage: React.FC = () => {
                         <Badge className="bg-blue-600 text-white text-[9px] font-bold border-0 rounded-full px-2 py-0.5">
                           💼 Professional Service
                         </Badge>
-                        {srv.is_featured && <BlazingBadge label="FEATURED" size="sm" />}
+                        <div className="flex items-center gap-1">
+                          {srv.is_featured && <BlazingBadge label="FEATURED" size="sm" />}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <FavoriteButton
+                              item={{
+                                targetId: srv.id,
+                                type: 'service',
+                                title: srv.title,
+                                subtitle: srv.business_profiles?.business_name,
+                                description: srv.description,
+                                imageUrl: srv.image_url,
+                                price: srv.price,
+                                location: getBusinessEffectiveState(srv.business_profiles),
+                                category: category?.name,
+                                verified: true,
+                                linkUrl: `/product/${srv.id}`,
+                                businessName: srv.business_profiles?.business_name,
+                                businessPhone: srv.business_profiles?.phone_number,
+                                businessWebsite: srv.business_profiles?.website_link,
+                              }}
+                              variant="overlay"
+                              size="sm"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <h3 className="font-black text-sm text-foreground group-hover:text-blue-600 transition-colors line-clamp-1">
@@ -739,6 +786,28 @@ const IndustryPage: React.FC = () => {
                               </p>
                             )}
                           </div>
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                          <FavoriteButton
+                            item={{
+                              targetId: biz.id,
+                              type: 'business',
+                              title: biz.business_name,
+                              subtitle: category?.name,
+                              description: biz.description,
+                              imageUrl: biz.logo_url,
+                              location: getBusinessEffectiveState(biz),
+                              category: category?.name,
+                              verified: true,
+                              linkUrl: `/business/${biz.id}`,
+                              businessName: biz.business_name,
+                              businessPhone: biz.phone_number,
+                              businessWebsite: biz.website,
+                            }}
+                            variant="overlay"
+                            size="sm"
+                          />
                         </div>
                       </div>
 

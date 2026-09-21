@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Store, MapPin, Share2, BadgeCheck } from "lucide-react";
 import GuestGateModal from "./GuestGateModal";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 
 interface Props {
   onRequireAuth: () => void;
@@ -107,6 +108,24 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
                         {biz.business_category}
                       </Badge>
                     )}
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <FavoriteButton
+                      item={{
+                        targetId: biz.user_id,
+                        type: 'business',
+                        title: biz.business_name || 'Partner Storefront',
+                        subtitle: biz.business_category,
+                        imageUrl: biz.business_logo_url,
+                        location: biz.business_location,
+                        category: biz.business_category,
+                        verified: true,
+                        linkUrl: biz.business_slug ? `/b/${biz.business_slug}` : `/user/${biz.user_id}`,
+                        businessName: biz.business_name,
+                      }}
+                      variant="overlay"
+                      size="sm"
+                    />
                   </div>
                 </div>
 

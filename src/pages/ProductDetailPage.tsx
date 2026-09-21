@@ -7,13 +7,14 @@ import {
   ArrowLeft, Loader2, MessageCircle, Phone, Globe, Store, 
   ExternalLink, Share2, Crown, ShoppingBag, Play, Package, 
   Briefcase, ChevronRight, MapPin, Sparkles, ShieldCheck, 
-  Layers, ArrowRight 
+  Layers, ArrowRight, Heart 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
+import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
 
 const ProductDetailPage: React.FC = () => {
@@ -234,6 +235,27 @@ const ProductDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1.5">
+            <FavoriteButton
+              item={{
+                targetId: listing.id,
+                type: isService ? 'service' : 'product',
+                title: listing.title,
+                subtitle: category?.name,
+                description: listing.description || listing.long_description,
+                imageUrl: listing.image_url,
+                price: listing.price,
+                location: business?.address,
+                category: category?.name,
+                verified: true,
+                linkUrl: `/product/${listing.id}`,
+                businessName: bizName,
+                businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                businessWebsite: profile?.business_website,
+              }}
+              variant="outline"
+              size="sm"
+              showLabel
+            />
             <Button variant="ghost" size="sm" onClick={share} className="gap-1 rounded-xl text-xs font-bold">
               <Share2 className="h-4 w-4" />
               <span className="hidden sm:inline">Share</span>
@@ -265,7 +287,31 @@ const ProductDetailPage: React.FC = () => {
         )}
 
         {/* Media Gallery / Video Card */}
-        <Card className="overflow-hidden border border-border/80 shadow-lg rounded-3xl">
+        <Card className="overflow-hidden border border-border/80 shadow-lg rounded-3xl relative">
+          {/* Overlay Favorite Button on Hero Image */}
+          <div className="absolute top-4 right-4 z-20">
+            <FavoriteButton
+              item={{
+                targetId: listing.id,
+                type: isService ? 'service' : 'product',
+                title: listing.title,
+                subtitle: category?.name,
+                description: listing.description || listing.long_description,
+                imageUrl: listing.image_url,
+                price: listing.price,
+                location: business?.address,
+                category: category?.name,
+                verified: true,
+                linkUrl: `/product/${listing.id}`,
+                businessName: bizName,
+                businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                businessWebsite: profile?.business_website,
+              }}
+              variant="overlay"
+              size="lg"
+            />
+          </div>
+
           {listing.video_url ? (
             <div className="aspect-video bg-black">
               {/youtube\.com|youtu\.be/.test(listing.video_url) ? (
@@ -464,13 +510,34 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <Button
-                onClick={() => navigate(bizUrl)}
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl text-xs font-bold gap-1.5 h-10 px-4 shadow-md cursor-pointer"
-              >
-                <Store className="h-4 w-4" />
-                Visit Storefront
-              </Button>
+              <div className="flex items-center gap-2">
+                <FavoriteButton
+                  item={{
+                    targetId: business?.id || profile?.user_id || listing?.business_profile_id || 'biz',
+                    type: 'business',
+                    title: bizName,
+                    subtitle: category?.name || 'Verified Merchant Storefront',
+                    description: business?.description || profile?.business_description,
+                    imageUrl: profile?.business_logo_url || profile?.avatar_url || business?.logo_url,
+                    location: business?.address,
+                    category: category?.name,
+                    verified: true,
+                    linkUrl: bizUrl,
+                    businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                    businessWebsite: profile?.business_website,
+                  }}
+                  variant="outline"
+                  size="sm"
+                  showLabel
+                />
+                <Button
+                  onClick={() => navigate(bizUrl)}
+                  className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl text-xs font-bold gap-1.5 h-10 px-4 shadow-md cursor-pointer"
+                >
+                  <Store className="h-4 w-4" />
+                  Visit Storefront
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

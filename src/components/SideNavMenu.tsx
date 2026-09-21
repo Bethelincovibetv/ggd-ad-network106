@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -65,6 +65,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const discover = [
+    { id: 'favorites', icon: Heart, label: 'Saved & Favorites' },
     { id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' },
     ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
@@ -95,6 +96,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     'syndicate-join': 'from-violet-500 to-purple-600',
     marketplace: 'from-emerald-400 to-green-600',
     'contact-gain': 'from-orange-500 to-amber-600',
+    favorites: 'from-rose-500 to-pink-600',
     directory: 'from-orange-400 to-amber-500',
     promo: 'from-pink-500 to-rose-500',
     'share-earn': 'from-pink-500 to-rose-500',

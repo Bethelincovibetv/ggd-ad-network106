@@ -67,6 +67,8 @@ import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 import CommunityFeed from "@/components/CommunityFeed";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import ContactGainHub from "@/components/ContactGainHub";
+import { FavoritesQuickButton } from "@/components/favorites/FavoritesQuickButton";
+import { FavoritesPage } from "@/components/favorites/FavoritesPage";
 
 interface Ad {
   id: string;
@@ -1042,6 +1044,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'inbox':
         return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
+      case 'favorites':
+      case 'saved':
+      case 'wishlist':
+      case 'bookmarks':
+        return <FavoritesPage onNavigate={handleTabChange} />;
+
       case 'directory':
         return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
 
@@ -1233,6 +1241,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
                   {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
                   {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
+                  
+                  {/* Saved & Favorites Quick Drawer/Modal Trigger */}
+                  <FavoritesQuickButton onNavigate={(tab) => handleTabChange(tab)} />
+                  
                   <NotificationBell />
                   <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
                 </div>

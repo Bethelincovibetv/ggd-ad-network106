@@ -18,6 +18,7 @@ import directoryHero from "@/assets/directory-hero.jpg";
 import SlideCarousel from "@/components/SlideCarousel";
 import BlazingBadge from "@/components/BlazingBadge";
 import { getIndustryMeta, getEffectiveBusinessDescription } from "@/utils/industryData";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
 import { 
   NIGERIAN_STATES, 
   extractStateFromLocation, 
@@ -1001,10 +1002,33 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             </div>
                           )}
                           {l.video_url && (
-                            <div className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 grid place-items-center z-10">
+                            <div className="absolute top-2 right-10 h-7 w-7 rounded-full bg-black/60 grid place-items-center z-10">
                               <Play className="h-3.5 w-3.5 text-white" fill="white" />
                             </div>
                           )}
+                          {/* Favorite button top right overlay */}
+                          <div className="absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
+                            <FavoriteButton
+                              item={{
+                                targetId: l.id,
+                                type: isSrv ? 'service' : 'product',
+                                title: l.title,
+                                subtitle: l.business_profiles?.business_name,
+                                description: l.description,
+                                imageUrl: l.image_url,
+                                price: l.price,
+                                location: getBusinessEffectiveState(l.business_profiles),
+                                category: catObj?.name,
+                                verified: true,
+                                linkUrl: `/product/${l.id}`,
+                                businessName: l.business_profiles?.business_name,
+                                businessPhone: l.business_profiles?.phone_number,
+                                businessWebsite: l.business_profiles?.website_link,
+                              }}
+                              variant="overlay"
+                              size="sm"
+                            />
+                          </div>
                           <div className="absolute bottom-2 left-2 z-10">
                             <Badge className={`text-[8px] font-bold border-0 rounded-full px-2 py-0.5 shadow-sm ${
                               isSrv ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
@@ -1138,8 +1162,29 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                           )}
                         </div>
                       </div>
-                      <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                        <Eye className="h-4 w-4 text-white" />
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <FavoriteButton
+                          item={{
+                            targetId: biz.id,
+                            type: 'business',
+                            title: biz.business_name,
+                            subtitle: bizCategory?.name || 'Accredited Business',
+                            description: biz.description,
+                            imageUrl: biz.logo_url,
+                            location: getBusinessEffectiveState(biz),
+                            category: bizCategory?.name,
+                            verified: true,
+                            linkUrl: `/business/${biz.id}`,
+                            businessName: biz.business_name,
+                            businessPhone: biz.phone_number,
+                            businessWebsite: biz.website_link,
+                          }}
+                          variant="overlay"
+                          size="sm"
+                        />
+                        <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                          <Eye className="h-4 w-4 text-white" />
+                        </div>
                       </div>
                     </div>
 
