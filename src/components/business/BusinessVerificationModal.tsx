@@ -48,6 +48,7 @@ import {
   evaluateVerificationSubmission,
   submitVerificationToEngine,
   getUserVerificationRecord,
+  subscribeToUserVerification,
   validateNIN,
   validateCAC
 } from "@/services/businessVerificationEngine";
@@ -106,8 +107,10 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync profile names on modal open
+  // Sync profile names on modal open & subscribe in real-time
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     if (open && userId) {
       const defaultRegName = (accountType === 'registered_business' ? currentBusinessName : currentProfileName) 
         || currentBusinessName 
@@ -118,7 +121,17 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
         setSubmittedName(defaultRegName);
       }
       fetchExistingRecord();
+
+      unsubscribe = subscribeToUserVerification(userId, (rec) => {
+        if (rec) {
+          setExistingRecord(rec);
+        }
+      });
     }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [open, userId, accountType, currentProfileName, currentBusinessName]);
 
   const fetchExistingRecord = async () => {

@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { db, OperationType, handleFirestoreError } from '@/lib/firebase';
 import { 
   collection, 
   doc, 
@@ -8,7 +8,8 @@ import {
   query, 
   where, 
   orderBy, 
-  updateDoc 
+  updateDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -458,6 +459,50 @@ export async function getUserVerificationRecord(userId: string): Promise<Verific
 }
 
 /**
+ * Real-time listener for a user's verification record via Firebase Firestore
+ */
+export function subscribeToUserVerification(
+  userId: string,
+  onUpdate: (record: VerificationSubmissionRecord | null) => void,
+  onError?: (err: any) => void
+): () => void {
+  if (!userId) {
+    onUpdate(null);
+    return () => {};
+  }
+
+  try {
+    const q = query(
+      collection(db, VERIFICATIONS_COLLECTION),
+      where('user_id', '==', userId),
+      orderBy('submitted_at', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        if (!snap.empty) {
+          const latest = snap.docs[0].data() as VerificationSubmissionRecord;
+          onUpdate(latest);
+        } else {
+          onUpdate(null);
+        }
+      },
+      (error) => {
+        console.warn('Real-time Firestore user verification listener note:', error);
+        if (onError) onError(error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Error initializing real-time verification listener:', err);
+    getUserVerificationRecord(userId).then(onUpdate);
+    return () => {};
+  }
+}
+
+/**
  * Retrieves all verification submissions for Admin review
  */
 export async function getAllVerificationRecords(): Promise<VerificationSubmissionRecord[]> {
@@ -475,6 +520,42 @@ export async function getAllVerificationRecords(): Promise<VerificationSubmissio
   } catch (err) {
     console.error('Error fetching verification records:', err);
     return [];
+  }
+}
+
+/**
+ * Real-time listener for all verification submissions for Admin dashboard
+ */
+export function subscribeToAllVerifications(
+  onUpdate: (records: VerificationSubmissionRecord[]) => void,
+  onError?: (err: any) => void
+): () => void {
+  try {
+    const q = query(
+      collection(db, VERIFICATIONS_COLLECTION),
+      orderBy('submitted_at', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const results: VerificationSubmissionRecord[] = [];
+        snap.forEach(docSnap => {
+          results.push(docSnap.data() as VerificationSubmissionRecord);
+        });
+        onUpdate(results);
+      },
+      (error) => {
+        console.warn('Real-time Firestore all verifications listener note:', error);
+        if (onError) onError(error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Error initializing real-time admin verifications listener:', err);
+    getAllVerificationRecords().then(onUpdate);
+    return () => {};
   }
 }
 

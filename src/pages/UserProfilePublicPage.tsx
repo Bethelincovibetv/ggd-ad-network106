@@ -19,7 +19,7 @@ import { getEffectiveBusinessDescription } from '@/utils/industryData';
 import { CallButton } from '@/components/call/CallButton';
 import MetaTags from '@/components/MetaTags';
 import { BusinessVerificationBadge } from '@/components/business/BusinessVerificationBadge';
-import { getUserVerificationRecord } from '@/services/businessVerificationEngine';
+import { getUserVerificationRecord, subscribeToUserVerification } from '@/services/businessVerificationEngine';
 import { VerificationSubmissionRecord } from '@/types/verification';
 
 const UserProfilePublicPage: React.FC = () => {
@@ -116,14 +116,65 @@ const UserProfilePublicPage: React.FC = () => {
 
   useEffect(() => {
     if (!id && !slug) return;
+    let unsubscribeVerif: (() => void) | undefined;
+
     (async () => {
       let resolvedId = id;
+
       if (!resolvedId && slug) {
+        // 1. Try profiles business_slug
         const { data: bySlug } = await supabase
           .from('profiles').select('user_id').eq('business_slug', slug).maybeSingle();
-        resolvedId = bySlug?.user_id;
+        if (bySlug?.user_id) {
+          resolvedId = bySlug.user_id;
+        } else {
+          // 2. Try business_profiles slug
+          const { data: bpBySlug } = await (supabase.from('business_profiles') as any)
+            .select('user_id').eq('slug', slug).maybeSingle();
+          if (bpBySlug?.user_id) {
+            resolvedId = bpBySlug.user_id;
+          } else {
+            // 3. Try profiles user_id directly or referral_code
+            const { data: byUid } = await supabase
+              .from('profiles').select('user_id').or(`user_id.eq.${slug},referral_code.eq.${slug}`).maybeSingle();
+            if (byUid?.user_id) {
+              resolvedId = byUid.user_id;
+            } else {
+              // 4. Try business_profiles id
+              const { data: bpById } = await (supabase.from('business_profiles') as any)
+                .select('user_id').eq('id', slug).maybeSingle();
+              if (bpById?.user_id) {
+                resolvedId = bpById.user_id;
+              }
+            }
+          }
+        }
+      } else if (resolvedId) {
+        // If id was provided, check if it's actually a business_profile id
+        const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedId);
+        if (uuidLike) {
+          const { data: byProf } = await supabase
+            .from('profiles').select('user_id').eq('user_id', resolvedId).maybeSingle();
+          if (!byProf) {
+            const { data: bpById } = await (supabase.from('business_profiles') as any)
+              .select('user_id').eq('id', resolvedId).maybeSingle();
+            if (bpById?.user_id) {
+              resolvedId = bpById.user_id;
+            }
+          }
+        }
       }
-      if (!resolvedId) { setLoading(false); return; }
+
+      if (!resolvedId) {
+        setLoading(false);
+        return;
+      }
+
+      // Real-time verification subscription
+      unsubscribeVerif = subscribeToUserVerification(resolvedId, (rec) => {
+        if (rec) setVerificationRecord(rec);
+      });
+
       const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes, verifRecord] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at, is_verified, verification_status').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
@@ -134,10 +185,29 @@ const UserProfilePublicPage: React.FC = () => {
         supabase.from('app_settings').select('value').eq('key', `biz_template_${resolvedId}`).maybeSingle(),
         getUserVerificationRecord(resolvedId),
       ]);
-      setProfile(p.data);
+
+      // Fallback: If user profile not found, synthesize from business_profiles
+      const effectiveProfile = p.data || (b.data ? {
+        user_id: resolvedId,
+        display_name: b.data.business_name || 'Enterprise Business',
+        business_name: b.data.business_name || 'Enterprise Business',
+        avatar_url: b.data.logo_url,
+        business_logo_url: b.data.logo_url,
+        business_description: b.data.description,
+        business_category: b.data.category_name,
+        business_location: b.data.address,
+        business_phone: b.data.phone_number,
+        business_website: b.data.website_link,
+        business_slug: b.data.slug || slug,
+        created_at: b.data.created_at || new Date().toISOString(),
+        is_verified: b.data.is_verified || false,
+        verification_status: b.data.is_verified ? 'VERIFIED' : 'UNVERIFIED'
+      } : null);
+
+      setProfile(effectiveProfile);
       setSyndicate(s.data);
       setBusiness(b.data);
-      setVerificationRecord(verifRecord);
+      if (verifRecord) setVerificationRecord(verifRecord);
       setSitesEnabled(toggle.data?.is_enabled !== false);
       const tier = (roleRow as any)?.data?.premium_tier ?? 0;
       const exp = (roleRow as any)?.data?.premium_expires_at;
@@ -171,6 +241,10 @@ const UserProfilePublicPage: React.FC = () => {
       }
       setLoading(false);
     })();
+
+    return () => {
+      if (unsubscribeVerif) unsubscribeVerif();
+    };
   }, [id, slug]);
 
   const share = async () => {

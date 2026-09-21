@@ -38,7 +38,7 @@ import { NIGERIAN_STATES, detectUserNigerianState } from "@/utils/nigerianStates
 import { Compass } from "lucide-react";
 import { BusinessVerificationBadge } from "./BusinessVerificationBadge";
 import { BusinessVerificationModal } from "./BusinessVerificationModal";
-import { getUserVerificationRecord } from "@/services/businessVerificationEngine";
+import { getUserVerificationRecord, subscribeToUserVerification } from "@/services/businessVerificationEngine";
 import { VerificationSubmissionRecord } from "@/types/verification";
 
 interface BusinessProfileSectionProps {
@@ -80,7 +80,20 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
   };
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
     fetchVerificationStatus();
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        unsubscribe = subscribeToUserVerification(user.id, (rec) => {
+          setVerificationRecord(rec);
+        });
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [profile?.id, profile?.user_id]);
 
   // Auto-detect Nigerian state using Geolocation API

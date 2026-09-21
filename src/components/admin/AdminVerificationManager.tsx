@@ -44,6 +44,7 @@ import {
 } from "@/types/verification";
 import {
   getAllVerificationRecords,
+  subscribeToAllVerifications,
   processAdminVerificationOverride,
   evaluateVerificationSubmission
 } from "@/services/businessVerificationEngine";
@@ -84,7 +85,15 @@ export const AdminVerificationManager: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchRecords();
+    setLoading(true);
+    const unsubscribe = subscribeToAllVerifications((records) => {
+      setSubmissions(records);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleOpenReview = (submission: VerificationSubmissionRecord) => {

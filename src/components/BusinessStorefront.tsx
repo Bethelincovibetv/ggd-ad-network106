@@ -38,7 +38,7 @@ import { AdvertisingSection } from "./business/AdvertisingSection";
 import { PerformanceSection } from "./business/PerformanceSection";
 import { BusinessVerificationBadge } from "./business/BusinessVerificationBadge";
 import { BusinessVerificationModal } from "./business/BusinessVerificationModal";
-import { getUserVerificationRecord } from "@/services/businessVerificationEngine";
+import { getUserVerificationRecord, subscribeToUserVerification } from "@/services/businessVerificationEngine";
 import { VerificationSubmissionRecord } from "@/types/verification";
 
 interface BusinessStorefrontProps {
@@ -152,7 +152,21 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
   };
 
   useEffect(() => {
+    let unsubscribeVerif: (() => void) | undefined;
+
     fetchWorkspaceData();
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        unsubscribeVerif = subscribeToUserVerification(user.id, (rec) => {
+          setVerificationRecord(rec);
+        });
+      }
+    });
+
+    return () => {
+      if (unsubscribeVerif) unsubscribeVerif();
+    };
   }, []);
 
   const handleOpenChoiceModal = () => {
@@ -221,7 +235,8 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
     return true;
   });
 
-  const storefrontPath = profile?.slug ? `/b/${profile.slug}` : `/user/${userId}`;
+  const effectiveSlug = profile?.slug || profile?.business_slug || userProfile?.business_slug;
+  const storefrontPath = effectiveSlug ? `/b/${effectiveSlug}` : `/user/${userId}`;
 
   if (loading) {
     return (

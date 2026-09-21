@@ -184,6 +184,30 @@
         "downloadedAt": { "type": "string" }
       },
       "required": ["userId", "date", "creditsAwarded", "downloadedAt"]
+    },
+    "MarketplaceVerification": {
+      "title": "MarketplaceVerification",
+      "description": "Real-time automated and manual business verification submissions and badge status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "business_profile_id": { "type": "string" },
+        "user_email": { "type": "string" },
+        "account_type": { "type": "string", "enum": ["individual", "registered_business"] },
+        "document_type": { "type": "string", "enum": ["NIN", "CAC", "DRIVERS_LICENSE", "PASSPORT", "VOTERS_CARD", "UNKNOWN"] },
+        "document_number": { "type": "string" },
+        "submitted_name": { "type": "string" },
+        "registered_profile_name": { "type": "string" },
+        "document_file_url": { "type": "string" },
+        "status": { "type": "string", "enum": ["UNVERIFIED", "FLAGGED_FOR_MANUAL_REVIEW", "VERIFIED", "REJECTED"] },
+        "verified_badge_granted": { "type": "boolean" },
+        "match_confidence": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "submitted_at": { "type": "string" },
+        "evaluated_at": { "type": "string" },
+        "last_updated_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "account_type", "document_type", "document_number", "status", "verified_badge_granted", "submitted_at"]
     }
   },
   "firestore": {
@@ -234,6 +258,10 @@
     "/contact_gain_downloads/{downloadId}": {
       "schema": { "$ref": "#/entities/ContactGainDownload" },
       "description": "User daily download logs and reward tracking"
+    },
+    "/marketplace_verifications/{verificationId}": {
+      "schema": { "$ref": "#/entities/MarketplaceVerification" },
+      "description": "Live business identity submissions, automated evaluations and verified status"
     }
   }
 }
