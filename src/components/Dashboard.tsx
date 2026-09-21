@@ -69,6 +69,7 @@ import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import ContactGainHub from "@/components/ContactGainHub";
 import { FavoritesQuickButton } from "@/components/favorites/FavoritesQuickButton";
 import { FavoritesPage } from "@/components/favorites/FavoritesPage";
+import { HeaderWallets } from "@/components/wallet/HeaderWallets";
 
 interface Ad {
   id: string;
@@ -1196,56 +1197,38 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b border-border sticky top-0 z-40">
-            <div className="px-3 sm:px-4 py-2.5 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <SidebarTrigger className="flex-shrink-0 h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-6 [&_svg]:w-6 [&_svg]:text-white" />
-                  <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
-                  <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
+          <header className="bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40">
+            <div className="px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 max-w-7xl mx-auto w-full">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                {/* Left Brand & Sidebar Trigger Zone */}
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink">
+                  <SidebarTrigger className="flex-shrink-0 h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-5 sm:[&_svg]:h-6 [&_svg]:w-5 sm:[&_svg]:w-6 [&_svg]:text-white transition-all active:scale-95" />
+                  <img loading="lazy" src={ggdLogo} alt="GGD" className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex-shrink-0 md:hidden" />
+                  <h1 className="text-xs sm:text-base md:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate hidden min-[360px]:inline">
                     GGD AD NETWORK
                   </h1>
                 </div>
+
+                {/* Right Utility & Wallets Zone */}
                 <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                  {/* Live Connected Cash Wallet Pill */}
-                  <button
-                    onClick={() => handleTabChange('task-wallet')}
-                    className="flex items-center gap-1 sm:gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
-                    title="Naira Cash Wallet (Click to open)"
-                  >
-                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-emerald-700 dark:text-emerald-400 font-black text-[11px] sm:text-xs">₦{walletBalance.toLocaleString()}</span>
-                    <Banknote className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-                  </button>
+                  {/* Structured Responsive Cash & Credit Wallets */}
+                  <HeaderWallets
+                    walletBalance={walletBalance}
+                    credits={credits}
+                    isAdmin={isAdmin}
+                    isPremium={isPremium}
+                    isBusiness={isBusiness}
+                    isSyndicate={isSyndicate}
+                    onNavigate={handleTabChange}
+                  />
 
-                  {/* Live Connected Credit Wallet Pill */}
-                  <button
-                    onClick={() => handleTabChange('fund-credits')}
-                    className="flex items-center gap-1 sm:gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
-                    title="Credit Wallet (Click to open / top up)"
-                  >
-                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-orange-500"></span>
-                    </span>
-                    <span className="text-orange-700 dark:text-orange-400 font-black text-[11px] sm:text-xs">
-                      {isAdmin ? '∞' : credits.toLocaleString()} <span className="text-[10px] font-extrabold opacity-80">cr</span>
-                    </span>
-                    <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
-                  </button>
-
-                  {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
-                  {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
-                  {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
-                  {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
-                  
                   {/* Saved & Favorites Quick Drawer/Modal Trigger */}
-                  <FavoritesQuickButton onNavigate={(tab) => handleTabChange(tab)} />
-                  
+                  <FavoritesQuickButton onNavigateTab={(tab) => handleTabChange(tab)} />
+
+                  {/* Notifications */}
                   <NotificationBell />
+
+                  {/* User Profile Avatar Menu */}
                   <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
                 </div>
               </div>
