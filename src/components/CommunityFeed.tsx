@@ -890,7 +890,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       </div>
 
       {/* Daily Contact Gain Spotlight Card */}
-      {feedFilter === 'all' && (
+      {feedFilter === 'all' && isEnabled('contact_gain') && (
         <ContactGainFeedCard onOpenContactHub={() => onNavigate?.('contact-gain')} />
       )}
 

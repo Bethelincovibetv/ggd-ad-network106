@@ -1034,11 +1034,10 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'business-site':
       case 'business-website':
       case 'store':
-      case 'growth':
       case 'biz':
       case 'my-biz':
       case 'business-hub':
-        return (isEnabled('nav_my_business') || isEnabled('business_sites') || isBusiness || isAdmin || true) 
+        return (isEnabled('nav_my_business') || isEnabled('business_sites') || isBusiness || isAdmin) 
           ? <BusinessStorefront onNavigate={handleTabChange} /> 
           : disabled;
 
@@ -1154,7 +1153,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'contact-gain':
       case 'contacts':
       case 'contact_gain':
-        return <ContactGainHub userId={currentUserId || undefined} userEmail={userEmail} onNavigateTab={handleTabChange} />;
+        return isEnabled('contact_gain') 
+          ? <ContactGainHub userId={currentUserId || undefined} userEmail={userEmail} onNavigateTab={handleTabChange} />
+          : disabled;
 
       case 'growth':
         return <BusinessGrowthDashboard onNavigate={handleTabChange} />;

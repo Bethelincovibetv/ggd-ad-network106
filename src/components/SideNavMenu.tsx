@@ -66,7 +66,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const discover = [
     { id: 'favorites', icon: Heart, label: 'Saved & Favorites' },
-    { id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' },
+    ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
     ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),

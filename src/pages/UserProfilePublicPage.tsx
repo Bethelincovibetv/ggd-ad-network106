@@ -129,6 +129,8 @@ const UserProfilePublicPage: React.FC = () => {
     if (!id && !slug) return;
     let unsubscribeVerif: (() => void) | undefined;
     let unsubscribeReviews: (() => void) | undefined;
+    let rtChannel: any = null;
+    let handleGlobalVerifEvent: ((e: any) => void) | undefined;
 
     (async () => {
       let resolvedId = id;
@@ -199,7 +201,7 @@ const UserProfilePublicPage: React.FC = () => {
       });
 
       // Real-time Supabase profile changes listener
-      const rtChannel = supabase
+      rtChannel = supabase
         .channel(`profile_rt_${resolvedId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `user_id=eq.${resolvedId}` }, (payload: any) => {
           if (payload.new) {
@@ -214,7 +216,7 @@ const UserProfilePublicPage: React.FC = () => {
         })
         .subscribe();
 
-      const handleGlobalVerifEvent = (e: any) => {
+      handleGlobalVerifEvent = (e: any) => {
         const detail = e.detail;
         if (detail && (detail.userId === resolvedId || (business?.id && detail.businessProfileId === business.id))) {
           const isV = Boolean(detail.isVerified);
@@ -298,7 +300,7 @@ const UserProfilePublicPage: React.FC = () => {
       if (unsubscribeVerif) unsubscribeVerif();
       if (unsubscribeReviews) unsubscribeReviews();
       if (rtChannel) supabase.removeChannel(rtChannel);
-      window.removeEventListener('ggd_verification_updated', handleGlobalVerifEvent);
+      if (handleGlobalVerifEvent) window.removeEventListener('ggd_verification_updated', handleGlobalVerifEvent);
     };
   }, [id, slug]);
 
