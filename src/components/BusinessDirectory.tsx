@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import {
   ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star, 
   Sparkles, Play, Package, Briefcase, Layers, X, ArrowRight, 
   ChevronRight, Grid3X3, ShieldCheck, Tag, Compass, Navigation,
-  MapPinned, LocateFixed, Check
+  MapPinned, LocateFixed, Check, ShieldAlert, CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,8 @@ import {
   calculateDistanceKm,
   NIGERIAN_STATE_DETAILS
 } from "@/utils/nigerianStates";
+import { subscribeToAllVerifications } from "@/services/businessVerificationEngine";
+import { VerificationSubmissionRecord } from "@/types/verification";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -53,6 +55,8 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
+  const [verificationsMap, setVerificationsMap] = useState<Map<string, VerificationSubmissionRecord>>(new Map());
+  const [onlyVerified, setOnlyVerified] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -75,6 +79,50 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
     if (savedState && NIGERIAN_STATES.includes(savedState)) {
       setSelectedState(savedState);
     }
+
+    // 1. Real-time Supabase subscriptions
+    const rtChannel = supabase
+      .channel('business_directory_realtime_ch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profiles' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_listings' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    // 2. Real-time Firestore verifications subscription
+    const unsubVerifications = subscribeToAllVerifications((records) => {
+      const vMap = new Map<string, VerificationSubmissionRecord>();
+      records.forEach(r => {
+        if (r.user_id) vMap.set(r.user_id, r);
+      });
+      setVerificationsMap(vMap);
+    });
+
+    // 3. Global verification update events listener
+    const handleVerifUpdated = () => {
+      fetchData();
+    };
+    window.addEventListener('ggd_verification_updated', handleVerifUpdated);
+
+    // 4. Cross-tab storage synchronization
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'ggd_last_verif_change') {
+        fetchData();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (rtChannel) supabase.removeChannel(rtChannel);
+      if (unsubVerifications) unsubVerifications();
+      window.removeEventListener('ggd_verification_updated', handleVerifUpdated);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -106,7 +154,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
             ...l,
             business_profiles: attachedBiz || {
               id: l.business_profile_id || l.user_id,
-              business_name: l.title || 'Verified Seller',
+              business_name: l.title || 'Merchant',
               logo_url: null,
               category_id: l.category_id || null,
               is_directory_listed: true,
@@ -207,7 +255,22 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
     return null;
   };
 
+  const isBusinessVerified = (b: any): boolean => {
+    if (!b) return false;
+    if (b.is_verified === true || b.verification_status === 'VERIFIED') return true;
+    const uid = b.user_id || b.business_profiles?.user_id;
+    if (uid && verificationsMap.has(uid)) {
+      const v = verificationsMap.get(uid);
+      if (v?.status === 'VERIFIED' && v?.verified_badge_granted) return true;
+    }
+    return false;
+  };
+
   const activeCategoryObj = categories.find(c => c.id === selectedCategory);
+
+  const verifiedBusinessesCount = useMemo(() => {
+    return businesses.filter(b => isBusinessVerified(b)).length;
+  }, [businesses, verificationsMap]);
 
   // Business state counts
   const businessCountByState = businesses.reduce((acc: Record<string, number>, b) => {
@@ -219,6 +282,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   }, {});
 
   const filtered = businesses.filter(b => {
+    if (onlyVerified && !isBusinessVerified(b)) return false;
     const q = searchQuery.toLowerCase();
     const bState = getBusinessEffectiveState(b);
     const matchesSearch = !searchQuery || 
@@ -237,6 +301,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   });
 
   const filteredListings = listings.filter(l => {
+    if (onlyVerified && !isBusinessVerified(l.business_profiles)) return false;
     const q = searchQuery.toLowerCase();
     const lState = getBusinessEffectiveState(l.business_profiles);
     const catId = l.category_id || l.business_profiles?.category_id;
@@ -682,8 +747,26 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           )}
         </div>
 
-        {/* Quick State Filter Chips for Nigeria Commercial Hubs */}
+        {/* Quick State Filter Chips for Nigeria Commercial Hubs & Verified Filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar text-xs">
+          {/* Verified Only Toggle Button */}
+          <button
+            onClick={() => setOnlyVerified(!onlyVerified)}
+            className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all whitespace-nowrap flex items-center gap-1.5 border shadow-2xs ${
+              onlyVerified
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>Verified Merchants Only</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${onlyVerified ? 'bg-white/25 text-white' : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-200'}`}>
+              {verifiedBusinessesCount}
+            </span>
+          </button>
+
+          <div className="h-4 w-px bg-border/80 mx-1 shrink-0" />
+
           <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap mr-1 flex items-center gap-1">
             <MapPinned className="h-3 w-3 text-rose-500" /> State Hubs:
           </span>
@@ -725,10 +808,23 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
         </div>
 
         {/* Active Filter Pills */}
-        {(selectedCategory !== 'all' || selectedState !== 'all' || searchQuery) && (
+        {(selectedCategory !== 'all' || selectedState !== 'all' || searchQuery || onlyVerified) && (
           <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
             <span className="text-xs text-muted-foreground font-semibold">Active Filter:</span>
             
+            {onlyVerified && (
+              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded-xl px-2.5 py-1 text-xs gap-1">
+                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Verified Only
+                <button
+                  onClick={() => setOnlyVerified(false)}
+                  className="hover:text-red-600 ml-1 cursor-pointer"
+                  title="Show All Businesses"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+
             {selectedState !== 'all' && (
               <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 rounded-xl px-2.5 py-1 text-xs gap-1">
                 <MapPin className="h-3 w-3" /> State: {selectedState}
@@ -842,7 +938,9 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       <h4 className="font-black text-xs text-foreground truncate group-hover:text-rose-600 transition-colors">
                         {biz.business_name}
                       </h4>
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {isBusinessVerified(biz) && (
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" title="Verified Merchant" />
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                       {bizCat?.name || 'Accredited Business'}
@@ -1019,7 +1117,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                                 price: l.price,
                                 location: getBusinessEffectiveState(l.business_profiles),
                                 category: catObj?.name,
-                                verified: true,
+                                verified: isBusinessVerified(l.business_profiles || l),
                                 linkUrl: `/product/${l.id}`,
                                 businessName: l.business_profiles?.business_name,
                                 businessPhone: l.business_profiles?.phone_number,
@@ -1113,6 +1211,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(biz => {
               const bizCategory = categories.find(c => c.id === biz.category_id);
+              const isBizVerifiedStatus = isBusinessVerified(biz);
               return (
                 <Card 
                   key={biz.id} 
@@ -1134,9 +1233,18 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <h3 className="font-black text-sm truncate group-hover:underline">{biz.business_name}</h3>
-                          <ShieldCheck className="h-4 w-4 text-emerald-300 flex-shrink-0" />
+                          {isBizVerifiedStatus ? (
+                            <div className="inline-flex items-center gap-1 bg-emerald-500/25 text-emerald-100 border border-emerald-300/40 rounded-full px-1.5 py-0.5 text-[9px] font-black shrink-0 shadow-xs" title="Verified & Accredited Merchant">
+                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-200" />
+                              <span>VERIFIED</span>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] font-bold text-white/80 bg-white/15 px-1.5 py-0.5 rounded-full border border-white/20 shrink-0">
+                              Standard
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-white/85 line-clamp-2 leading-relaxed mt-0.5">
                           {getEffectiveBusinessDescription(biz.description, biz.business_name, bizCategory?.name || biz.category_id)}
@@ -1173,7 +1281,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             imageUrl: biz.logo_url,
                             location: getBusinessEffectiveState(biz),
                             category: bizCategory?.name,
-                            verified: true,
+                            verified: isBizVerifiedStatus,
                             linkUrl: `/business/${biz.id}`,
                             businessName: biz.business_name,
                             businessPhone: biz.phone_number,

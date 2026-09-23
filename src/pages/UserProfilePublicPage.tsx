@@ -184,7 +184,12 @@ const UserProfilePublicPage: React.FC = () => {
 
       // Real-time verification subscription
       unsubscribeVerif = subscribeToUserVerification(resolvedId, (rec) => {
-        if (rec) setVerificationRecord(rec);
+        setVerificationRecord(rec);
+        if (rec) {
+          const isAppr = rec.status === 'VERIFIED' && rec.verified_badge_granted === true;
+          setProfile((prev: any) => prev ? { ...prev, is_verified: isAppr, verification_status: rec.status } : prev);
+          setBusiness((prev: any) => prev ? { ...prev, is_verified: isAppr, verification_status: rec.status } : prev);
+        }
       });
 
       // Real-time reviews subscription
@@ -192,6 +197,35 @@ const UserProfilePublicPage: React.FC = () => {
         setReviews(revs);
         setReviewStats(stats);
       });
+
+      // Real-time Supabase profile changes listener
+      const rtChannel = supabase
+        .channel(`profile_rt_${resolvedId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `user_id=eq.${resolvedId}` }, (payload: any) => {
+          if (payload.new) {
+            setProfile((prev: any) => ({ ...prev, ...payload.new }));
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profiles', filter: `user_id=eq.${resolvedId}` }, (payload: any) => {
+          if (payload.new) {
+            setBusiness((prev: any) => ({ ...prev, ...payload.new }));
+            setProfile((prev: any) => prev ? { ...prev, is_verified: payload.new.is_verified } : prev);
+          }
+        })
+        .subscribe();
+
+      const handleGlobalVerifEvent = (e: any) => {
+        const detail = e.detail;
+        if (detail && (detail.userId === resolvedId || (business?.id && detail.businessProfileId === business.id))) {
+          const isV = Boolean(detail.isVerified);
+          setProfile((prev: any) => prev ? { ...prev, is_verified: isV, verification_status: detail.status || (isV ? 'VERIFIED' : 'UNVERIFIED') } : prev);
+          setBusiness((prev: any) => prev ? { ...prev, is_verified: isV, verification_status: detail.status || (isV ? 'VERIFIED' : 'UNVERIFIED') } : prev);
+          if (detail.record) {
+            setVerificationRecord(detail.record);
+          }
+        }
+      };
+      window.addEventListener('ggd_verification_updated', handleGlobalVerifEvent);
 
       const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes, verifRecord] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at, is_verified, verification_status').eq('user_id', resolvedId).maybeSingle(),
@@ -263,6 +297,8 @@ const UserProfilePublicPage: React.FC = () => {
     return () => {
       if (unsubscribeVerif) unsubscribeVerif();
       if (unsubscribeReviews) unsubscribeReviews();
+      if (rtChannel) supabase.removeChannel(rtChannel);
+      window.removeEventListener('ggd_verification_updated', handleGlobalVerifEvent);
     };
   }, [id, slug]);
 

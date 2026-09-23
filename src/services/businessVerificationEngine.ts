@@ -418,7 +418,36 @@ export async function submitVerificationToEngine(payload: {
     verified_at: evaluation.verified_badge_granted ? now : null,
   });
 
+  // 4. Broadcast real-time change
+  broadcastVerificationChange({
+    userId: payload.userId,
+    businessProfileId: payload.businessProfileId,
+    isVerified: evaluation.verified_badge_granted,
+    status: evaluation.status,
+    record,
+  });
+
   return { evaluation, recordId };
+}
+
+/**
+ * Broadcasts verification state update across active browser tabs and components in real time
+ */
+export function broadcastVerificationChange(payload: {
+  userId: string;
+  businessProfileId?: string;
+  isVerified: boolean;
+  status: string;
+  record?: VerificationSubmissionRecord | null;
+}) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ggd_verification_updated', { detail: payload }));
+      localStorage.setItem('ggd_last_verif_change', JSON.stringify({ ...payload, timestamp: Date.now() }));
+    }
+  } catch (e) {
+    console.warn('Could not broadcast verification update event:', e);
+  }
 }
 
 /**
@@ -453,6 +482,14 @@ export async function syncVerificationStatusToDatabase(
     } else {
       await (supabase.from('business_profiles') as any).update(updatePayload).eq('user_id', userId);
     }
+
+    // 3. Broadcast real-time change
+    broadcastVerificationChange({
+      userId,
+      businessProfileId,
+      isVerified: data.is_verified,
+      status: data.verification_status,
+    });
   } catch (err) {
     console.error('Database verification status sync note:', err);
   }
