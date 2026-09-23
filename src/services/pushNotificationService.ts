@@ -10,8 +10,10 @@ export interface PushNotificationPayload {
   body: string;
   icon?: string;
   url?: string;
-  type?: 'system' | 'welcome' | 'credit_task' | 'chat' | 'message' | 'urgent_message' | 'syndicate' | 'bonus';
-  userId?: string;
+  type?: 'system' | 'welcome' | 'credit_task' | 'chat' | 'message' | 'urgent_message' | 'syndicate' | 'bonus' | 'admin' | 'credit_transfer';
+  userId?: string; // target user ID
+  targetUserId?: string; // alias for target user ID
+  senderId?: string; // ID of user initiating the notification
   saveToDb?: boolean;
 }
 
@@ -120,13 +122,76 @@ export async function registerPushNotification(userId?: string): Promise<{ succe
 }
 
 /**
- * Dispatch real-time notification with sound, vibration, native push, in-app toast, and persistence
+ * Helper to get active user ID in the current browser session
+ */
+async function getCurrentSessionUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data?.user?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Targeted Push Notification Dispatcher
+ * Strictly isolates recipient notifications:
+ * - If targeted for a specific recipient other than current user: persists to database so recipient receives it via real-time subscriber. Never alerts the sender!
+ * - If targeted for current user (or broadcast): plays audio, displays in-app toast, and triggers native notification.
  */
 export async function triggerRealtimePush(payload: PushNotificationPayload): Promise<boolean> {
+  const targetId = payload.userId || payload.targetUserId;
+  const isBroadcast = !targetId || targetId === 'broadcast' || targetId === 'all';
   const icon = payload.icon || GGD_SITE_LOGO;
-  const soundType = payload.type === 'bonus' || payload.type === 'credit_task' ? 'cash' : 'message';
-  
-  // 1. Play sound
+  const soundType = payload.type === 'bonus' || payload.type === 'credit_task' || payload.type === 'credit_transfer' ? 'cash' : 'message';
+
+  let currentUserId: string | null = null;
+  try {
+    currentUserId = await getCurrentSessionUserId();
+  } catch {}
+
+  // Check if this notification is targeted strictly to another user
+  const isForAnotherUser = !isBroadcast && targetId && currentUserId && targetId !== currentUserId;
+
+  // 1. Save to Database for the designated recipient (Supabase)
+  if (targetId && payload.saveToDb !== false && !isBroadcast) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: targetId,
+        title: payload.title,
+        message: payload.body,
+        type: payload.type || 'system',
+        link_url: payload.url || '/',
+      });
+    } catch (err) {
+      console.warn('Supabase notification insert note:', err);
+    }
+  }
+
+  // 2. Save to Firestore notifications
+  if (payload.saveToDb !== false && db) {
+    try {
+      await addDoc(collection(db, 'notifications'), {
+        userId: targetId || 'broadcast',
+        title: payload.title,
+        body: payload.body,
+        icon,
+        url: payload.url || '/',
+        type: payload.type || 'system',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('Firebase notification record note:', err);
+    }
+  }
+
+  // If this notification belongs to another user, DO NOT alert current user in this browser!
+  if (isForAnotherUser) {
+    return true;
+  }
+
+  // 3. Play audio chime on the intended user's device
   try {
     if (soundType === 'cash') {
       playMoneyTransferSound();
@@ -135,24 +200,22 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     }
   } catch {}
 
-  // 2. Device vibration if supported
+  // 4. Device vibration
   try {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([150, 75, 150]);
     }
   } catch {}
 
-  // 3. Dispatch global browser custom event for instant in-app notification badge sync
+  // 5. Dispatch global browser custom event
   try {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ggd-push-notification', { detail: payload }));
     }
   } catch {}
 
-  // 4. In-app interactive Toast so users never miss an alert and can read full message immediately
+  // 6. In-app interactive Toast for the intended recipient
   const notifId = payload.id || `push-${Date.now()}`;
-  const targetUrl = payload.url || `/?tab=notifications&notificationId=${encodeURIComponent(notifId)}`;
-
   toast(payload.title, {
     description: payload.body,
     action: {
@@ -190,39 +253,6 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
     },
   });
 
-  // 5. Save to Firebase Firestore notifications
-  try {
-    if (db && payload.saveToDb !== false) {
-      await addDoc(collection(db, 'notifications'), {
-        userId: payload.userId || 'broadcast',
-        title: payload.title,
-        body: payload.body,
-        icon,
-        url: payload.url || '/',
-        type: payload.type || 'system',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      });
-    }
-  } catch (err) {
-    console.warn('Firebase notification record note:', err);
-  }
-
-  // 6. Save to Supabase notifications table if requested
-  if (payload.userId && payload.saveToDb !== false) {
-    try {
-      await supabase.from('notifications').insert({
-        user_id: payload.userId,
-        title: payload.title,
-        message: payload.body,
-        type: payload.type || 'system',
-        link_url: payload.url || '/',
-      });
-    } catch (err) {
-      console.warn('Supabase notification insert note:', err);
-    }
-  }
-
   // 7. Native Web Push / ServiceWorker Notification display
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
     try {
@@ -251,8 +281,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
           return true;
         }
       }
-      
-      // Fallback window Notification (guarded against Android/mobile Illegal Constructor)
+
       if (typeof window.Notification === 'function') {
         try {
           new Notification(payload.title, {
@@ -274,7 +303,7 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
 }
 
 /**
- * Dispatch an instant Quick Message notification to recipient
+ * Dispatch an instant targeted Quick Message notification to recipient ONLY
  */
 export async function sendQuickMessageNotification({
   recipientUserId,
@@ -287,11 +316,13 @@ export async function sendQuickMessageNotification({
   messagePreview: string;
   chatUrl?: string;
 }): Promise<void> {
+  if (!recipientUserId) return;
+
   const sender = senderName || 'GGD Member';
   const title = `💬 Quick Message from ${sender}`;
   const body = messagePreview.length > 100 ? `${messagePreview.slice(0, 97)}...` : messagePreview;
 
-  // Insert notification into recipient's database record
+  // Insert notification targeted strictly to recipient's database record
   try {
     await supabase.from('notifications').insert({
       user_id: recipientUserId,
@@ -304,15 +335,21 @@ export async function sendQuickMessageNotification({
     console.warn('Could not insert message notification:', err);
   }
 
-  // Also trigger active push sound + banner
-  await triggerRealtimePush({
-    userId: recipientUserId,
-    title,
-    body,
-    type: 'chat',
-    url: chatUrl || '/inbox',
-    saveToDb: false, // Already inserted above
-  });
+  // Save to Firestore notifications specifically for recipient
+  try {
+    if (db) {
+      await addDoc(collection(db, 'notifications'), {
+        userId: recipientUserId,
+        title,
+        body,
+        icon: GGD_SITE_LOGO,
+        url: chatUrl || '/inbox',
+        type: 'chat',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } catch {}
 }
 
 /**
@@ -355,7 +392,3 @@ export async function broadcastFeaturedProductNotification(product: {
     type: 'system',
   });
 }
-
-
-
-

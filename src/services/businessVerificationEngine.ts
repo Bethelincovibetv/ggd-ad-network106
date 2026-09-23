@@ -19,6 +19,7 @@ import {
   AdminOverridePayload,
   ExtractionDetails
 } from '@/types/verification';
+import { notifyVerificationStatusChange } from '@/services/automatedEmailNotificationService';
 
 // ============================================================================
 // 1. PATTERN MATCHING & VALIDATION UTILITIES
@@ -427,6 +428,21 @@ export async function submitVerificationToEngine(payload: {
     record,
   });
 
+  // 5. Dispatch automated email notification via SMTP gateway & targeted push notification
+  try {
+    notifyVerificationStatusChange({
+      userId: payload.userId,
+      userEmail: payload.userEmail,
+      businessName: payload.submittedName || payload.registeredProfileName || 'Business Member',
+      status: evaluation.status as any,
+      documentType: payload.documentType,
+      documentNumber: payload.documentNumber,
+      rejectionReason: evaluation.rejection_reason || undefined,
+    }).catch((err) => console.warn('Automated verification email notification note:', err));
+  } catch (notifErr) {
+    console.warn('Notification dispatch non-blocking note:', notifErr);
+  }
+
   return { evaluation, recordId };
 }
 
@@ -670,6 +686,21 @@ export async function processAdminVerificationOverride(
     verified_at: isApproval ? now : null,
   });
 
+  // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
+  try {
+    notifyVerificationStatusChange({
+      userId: current.user_id,
+      userEmail: current.user_email || undefined,
+      businessName: current.submitted_name || current.registered_profile_name || 'Business Member',
+      status: updatedRecord.status as any,
+      documentType: current.document_type,
+      documentNumber: current.document_number,
+      adminNote: updatedRecord.admin_note || undefined,
+    }).catch((err) => console.warn('Admin override automated email note:', err));
+  } catch (notifErr) {
+    console.warn('Admin override notification non-blocking note:', notifErr);
+  }
+
   return updatedRecord;
 }
 
@@ -740,6 +771,21 @@ export async function adminDirectVerifyUser(payload: {
     verification_document_type: updatedRecord.document_type,
     verified_at: verify ? now : null,
   });
+
+  // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
+  try {
+    notifyVerificationStatusChange({
+      userId,
+      userEmail: adminEmail || existing?.user_email || undefined,
+      businessName: updatedRecord.submitted_name || profileName || 'Business Member',
+      status: (verify ? 'VERIFIED' : 'REVOKED') as any,
+      documentType: updatedRecord.document_type,
+      documentNumber: updatedRecord.document_number,
+      adminNote: updatedRecord.admin_note || undefined,
+    }).catch((err) => console.warn('Admin direct verify email note:', err));
+  } catch (notifErr) {
+    console.warn('Admin direct verify notification non-blocking note:', notifErr);
+  }
 
   return updatedRecord;
 }

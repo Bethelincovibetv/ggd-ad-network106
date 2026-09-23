@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
 import { sendQuickMessageNotification } from '@/services/pushNotificationService';
+import { notifyNewEnquiry } from '@/services/automatedEmailNotificationService';
 import VoiceNoteRecorder from '@/components/chat/VoiceNoteRecorder';
 import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
 import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
@@ -221,14 +222,17 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
         setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as ChatMsg) : m)));
       }
 
-      // 2. Alert the business owner via notifications table and real-time push
+      // 2. Alert the business owner via automated email alert & targeted in-app notification
       try {
-        await sendQuickMessageNotification({
+        notifyNewEnquiry({
           recipientUserId: businessUserId,
+          businessName: businessName,
+          senderUserId: currentUserId,
           senderName: currentUserName,
-          messagePreview: text,
-          chatUrl: '/inbox',
-        });
+          messageText: text,
+          enquiryType: 'general',
+          chatUrl: `/inbox?chat=${currentUserId}`,
+        }).catch((err) => console.warn('Automated email enquiry dispatch note:', err));
       } catch {
         // Non-blocking notification
       }
@@ -275,6 +279,20 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
       if (data) {
         setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as any) : m)));
       }
+
+      // Alert the business owner via automated email alert & targeted notification
+      try {
+        notifyNewEnquiry({
+          recipientUserId: businessUserId,
+          businessName: businessName,
+          senderUserId: currentUserId,
+          senderName: currentUserName,
+          messageText: `🎤 Sent a ${durationSeconds}s Voice Note inquiry`,
+          enquiryType: 'general',
+          chatUrl: `/inbox?chat=${currentUserId}`,
+        }).catch((err) => console.warn('Automated email voice note note:', err));
+      } catch {}
+
       toast.success('Voice note sent to business');
     } catch (err) {
       toast.error('Failed to send voice note');
