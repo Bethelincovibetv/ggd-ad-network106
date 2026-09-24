@@ -1954,9 +1954,9 @@ async function startServer() {
   const distPath = path.join(process.cwd(), 'dist');
   const indexHtmlPath = path.join(distPath, 'index.html');
 
-  if (process.env.NODE_ENV === 'production' || (fs.existsSync(indexHtmlPath) && !process.env.VITE_DEV_SERVER)) {
+  if (process.env.NODE_ENV === 'production') {
     // Serve production static assets from dist
-    app.use(express.static(distPath, { index: false }));
+    app.use(express.static(distPath));
 
     // SPA fallback: Route all non-API GET requests to index.html
     app.get('*', (req, res, next) => {
@@ -1980,7 +1980,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT} (http://0.0.0.0:${PORT})`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
