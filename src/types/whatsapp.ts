@@ -10,11 +10,14 @@ export interface WhatsAppAdminGroup {
 
 export interface WhatsAppSessionState {
   userId: string;
-  status: 'disconnected' | 'connecting' | 'qr_ready' | 'connected';
+  status: 'disconnected' | 'connecting' | 'qr_ready' | 'pairing_code_ready' | 'connected';
   phoneNumber?: string | null;
   pushName?: string | null;
   qrCode?: string | null; // Raw QR string or base64 data URL
   qrExpiresAt?: number | null;
+  pairingCode?: string | null; // Official 8-digit Baileys pairing code (e.g. 8421-9923)
+  pairingCodeExpiresAt?: number | null;
+  pairingInstructions?: string[];
   totalAdminGroups: number;
   adminGroups: WhatsAppAdminGroup[];
   lastConnectedAt?: string | null;

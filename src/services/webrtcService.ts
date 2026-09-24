@@ -237,60 +237,72 @@ export async function startOutgoingCall({
   let hasSetRemoteAnswer = false;
   const pendingCandidates: RTCIceCandidateInit[] = [];
 
-  const unsubCall = onSnapshot(callDocRef, async (snapshot) => {
-    const data = snapshot.data() as CallSession | undefined;
-    if (!data) return;
+  const unsubCall = onSnapshot(
+    callDocRef,
+    async (snapshot) => {
+      const data = snapshot.data() as CallSession | undefined;
+      if (!data) return;
 
-    if (data.status === 'rejected' || data.status === 'ended') {
-      onEnded(data.status);
-      return;
-    }
+      if (data.status === 'rejected' || data.status === 'ended') {
+        onEnded(data.status);
+        return;
+      }
 
-    if (data.status === 'busy' && !data.answer && !hasSetRemoteAnswer) {
-      onEnded('busy');
-      return;
-    }
+      if (data.status === 'busy' && !data.answer && !hasSetRemoteAnswer) {
+        onEnded('busy');
+        return;
+      }
 
-    if (data.answer && !hasSetRemoteAnswer && (!peerConnection.currentRemoteDescription || peerConnection.signalingState === 'have-local-offer')) {
-      try {
-        hasSetRemoteAnswer = true;
-        const answerDescription = new RTCSessionDescription(data.answer);
-        await peerConnection.setRemoteDescription(answerDescription);
+      if (data.answer && !hasSetRemoteAnswer && (!peerConnection.currentRemoteDescription || peerConnection.signalingState === 'have-local-offer')) {
+        try {
+          hasSetRemoteAnswer = true;
+          const answerDescription = new RTCSessionDescription(data.answer);
+          await peerConnection.setRemoteDescription(answerDescription);
 
-        // Process any queued candidates safely
-        while (pendingCandidates.length > 0) {
-          const cand = pendingCandidates.shift();
-          if (cand) {
-            try {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
-            } catch (cErr) {
-              console.warn('Queued callee ICE candidate skipped:', cErr);
+          // Process any queued candidates safely
+          while (pendingCandidates.length > 0) {
+            const cand = pendingCandidates.shift();
+            if (cand) {
+              try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (cErr) {
+                console.warn('Queued callee ICE candidate skipped:', cErr);
+              }
             }
           }
+        } catch (err) {
+          console.warn('Note applying remote answer (recovering):', err);
         }
-      } catch (err) {
-        console.warn('Note applying remote answer (recovering):', err);
       }
+    },
+    (err) => {
+      console.debug('Caller onSnapshot note:', err?.message);
     }
-  });
+  );
 
   // Listen for Callee ICE candidates in subcollection
-  const unsubCalleeCandidates = onSnapshot(calleeCandidatesCollection, (snapshot) => {
-    snapshot.docChanges().forEach(async (change) => {
-      if (change.type === 'added') {
-        const candidateData = change.doc.data() as RTCIceCandidateInit;
-        try {
-          if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
-          } else {
-            pendingCandidates.push(candidateData);
+  const unsubCalleeCandidates = onSnapshot(
+    calleeCandidatesCollection,
+    (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added') {
+          const candidateData = change.doc.data() as RTCIceCandidateInit;
+          try {
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+            } else {
+              pendingCandidates.push(candidateData);
+            }
+          } catch (err) {
+            console.warn('Error buffering/adding callee candidate:', err);
           }
-        } catch (err) {
-          console.warn('Error buffering/adding callee candidate:', err);
         }
-      }
-    });
-  });
+      });
+    },
+    (err) => {
+      console.debug('Callee candidates onSnapshot note:', err?.message);
+    }
+  );
 
   // Cleanup helper
   const cleanup = () => {
@@ -427,22 +439,28 @@ export async function answerIncomingCall({
   const pendingCallerCandidates: RTCIceCandidateInit[] = [];
 
   // Listen for Caller ICE candidates in callerCandidates subcollection
-  const unsubCallerCandidates = onSnapshot(callerCandidatesCollection, (snapshot) => {
-    snapshot.docChanges().forEach(async (change) => {
-      if (change.type === 'added') {
-        const candidateData = change.doc.data() as RTCIceCandidateInit;
-        try {
-          if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
-          } else {
-            pendingCallerCandidates.push(candidateData);
+  const unsubCallerCandidates = onSnapshot(
+    callerCandidatesCollection,
+    (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added') {
+          const candidateData = change.doc.data() as RTCIceCandidateInit;
+          try {
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+            } else {
+              pendingCallerCandidates.push(candidateData);
+            }
+          } catch (err) {
+            console.warn('Error adding caller candidate:', err);
           }
-        } catch (err) {
-          console.warn('Error adding caller candidate:', err);
         }
-      }
-    });
-  });
+      });
+    },
+    (err) => {
+      console.debug('Caller candidates onSnapshot note:', err?.message);
+    }
+  );
 
   // Apply remote offer
   await peerConnection.setRemoteDescription(new RTCSessionDescription(sessionOffer));
@@ -475,13 +493,19 @@ export async function answerIncomingCall({
   });
 
   // Listen for status changes (e.g. caller hangs up)
-  const unsubCall = onSnapshot(callDocRef, (snapshot) => {
-    const data = snapshot.data() as CallSession | undefined;
-    if (!data) return;
-    if (data.status === 'ended' || data.status === 'rejected') {
-      onEnded(data.status);
+  const unsubCall = onSnapshot(
+    callDocRef,
+    (snapshot) => {
+      const data = snapshot.data() as CallSession | undefined;
+      if (!data) return;
+      if (data.status === 'ended' || data.status === 'rejected') {
+        onEnded(data.status);
+      }
+    },
+    (err) => {
+      console.debug('Callee status onSnapshot note:', err?.message);
     }
-  });
+  );
 
   const cleanup = () => {
     unsubCall();

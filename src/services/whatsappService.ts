@@ -45,6 +45,76 @@ export async function getWhatsAppQr(userId?: string): Promise<{
   }
 }
 
+// 1B. Request Direct 8-digit Pairing Code (Bypasses QR Code / Camera Requirement)
+export async function generateWhatsAppPairingCode(userId?: string, phoneNumber?: string): Promise<{
+  success: boolean;
+  status: string;
+  connected: boolean;
+  phoneNumber?: string;
+  pairingCode?: string;
+  expiresAt?: number;
+  expiresInSeconds?: number;
+  instructions?: string[];
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id || 'default_user';
+    const resp = await fetch('/api/whatsapp/pairing-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: activeUserId,
+        phoneNumber,
+      }),
+    });
+    const data = await resp.json();
+    return data;
+  } catch (err: any) {
+    console.error('Error generating WhatsApp pairing code:', err);
+    return {
+      success: false,
+      status: 'disconnected',
+      connected: false,
+      error: err?.message || 'Failed to generate WhatsApp Pairing Code',
+    };
+  }
+}
+
+// 1C. Verify & Complete Direct Pairing Code
+export async function verifyWhatsAppPairingCode(userId?: string, pairingCode?: string, phoneNumber?: string): Promise<any> {
+  try {
+    const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id || 'default_user';
+    const resp = await fetch('/api/whatsapp/verify-pairing-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: activeUserId,
+        pairingCode,
+        phoneNumber,
+      }),
+    });
+    const data = await resp.json();
+
+    // Mirror session into Firestore
+    try {
+      if (db && data.success) {
+        await setDoc(doc(db, 'whatsapp_sessions', activeUserId), {
+          ...data,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+    } catch (fsErr) {
+      // quiet fallback
+    }
+
+    return data;
+  } catch (err: any) {
+    console.error('Error verifying pairing code:', err);
+    throw err;
+  }
+}
+
 // 2. Fetch live connection state & retrieved admin groups
 export async function getWhatsAppStatus(userId?: string): Promise<WhatsAppSessionState> {
   try {

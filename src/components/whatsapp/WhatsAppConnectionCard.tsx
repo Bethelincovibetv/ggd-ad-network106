@@ -65,16 +65,22 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
     // Firestore live snapshot listener for real-time status updates across sessions
     if (db && userId && userId !== 'default_user') {
       try {
-        const unsub = onSnapshot(doc(db, 'whatsapp_sessions', userId), (docSnap) => {
-          if (docSnap.exists()) {
-            const fsData = docSnap.data() as WhatsAppSessionState;
-            setSession((prev) => ({
-              ...(prev || {}),
-              ...fsData,
-            }));
-            onStatusChange?.(fsData);
+        const unsub = onSnapshot(
+          doc(db, 'whatsapp_sessions', userId),
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const fsData = docSnap.data() as WhatsAppSessionState;
+              setSession((prev) => ({
+                ...(prev || {}),
+                ...fsData,
+              }));
+              onStatusChange?.(fsData);
+            }
+          },
+          (error) => {
+            console.debug('WhatsApp Firestore snapshot note:', error?.message);
           }
-        });
+        );
         return () => unsub();
       } catch (err) {
         // quiet fallback
@@ -279,7 +285,7 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
                 className="w-full h-11 bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] hover:opacity-95 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer text-xs"
               >
                 <Smartphone className="h-4 w-4" />
-                Connect WhatsApp (Scan QR)
+                Connect WhatsApp (Pairing Code & QR)
               </Button>
             </div>
           )}
