@@ -278,23 +278,28 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
   // Dry-run live test evaluation
   const handleTestEvaluation = () => {
-    if (!documentFileUrl) {
-      toast.error(`Please upload your ${documentType === 'CAC' ? 'CAC Certificate' : 'National ID / NIN Slip'} document.`);
+    const hasDocOrNumber = Boolean(documentFileUrl) || Boolean(documentNumber.trim());
+    if (!hasDocOrNumber) {
+      toast.error(`Please provide your ${documentType === 'CAC' ? 'CAC RC/BN Number' : '11-digit NIN Number'} or upload your document.`);
       return;
     }
-    if (!submittedName.trim()) {
-      toast.error("Please enter the legal name appearing on your document.");
+
+    const effectiveName = (submittedName.trim() || registeredProfileName.trim() || currentBusinessName || currentProfileName || '').trim();
+    if (!effectiveName) {
+      toast.error("Please enter the legal or business name appearing on your document.");
       return;
     }
+
+    const effectiveDocNumber = documentNumber.trim() || (documentType === 'CAC' ? 'CAC-CERT-UPLOADED' : 'NIN-SLIP-UPLOADED');
 
     setEvaluating(true);
     try {
       const evalRes = evaluateVerificationSubmission({
         accountType,
         documentType,
-        documentNumber: documentNumber.trim() || (documentType === 'CAC' ? 'CAC-UPLOAD' : 'NIN-UPLOAD'),
-        submittedName: submittedName.trim(),
-        registeredProfileName: registeredProfileName.trim() || submittedName.trim(),
+        documentNumber: effectiveDocNumber,
+        submittedName: effectiveName,
+        registeredProfileName: registeredProfileName.trim() || effectiveName,
         documentFileUrl: documentFileUrl || undefined
       });
 
@@ -305,7 +310,7 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
       } else if (evalRes.status === 'FLAGGED_FOR_MANUAL_REVIEW') {
         toast.info("Evaluation note: Minor name variation flagged for quick manual compliance review.");
       } else {
-        toast.error(`Evaluation failed: ${evalRes.rejection_reason || 'Format or name mismatch.'}`);
+        toast.error(`Evaluation note: ${evalRes.rejection_reason || 'Format or name mismatch.'}`);
       }
     } finally {
       setEvaluating(false);
@@ -314,14 +319,19 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
   // Final submission to verification engine
   const handleSubmitVerification = async () => {
-    if (!documentFileUrl) {
-      toast.error(`Please upload your ${documentType === 'CAC' ? 'CAC Certificate' : 'National ID / NIN Slip'} document first.`);
+    const hasDocOrNumber = Boolean(documentFileUrl) || Boolean(documentNumber.trim());
+    if (!hasDocOrNumber) {
+      toast.error(`Please provide your ${documentType === 'CAC' ? 'CAC RC/BN Number' : '11-digit NIN Number'} or upload your document first.`);
       return;
     }
-    if (!submittedName.trim()) {
+
+    const effectiveName = (submittedName.trim() || registeredProfileName.trim() || currentBusinessName || currentProfileName || '').trim();
+    if (!effectiveName) {
       toast.error("Please enter the official name on your document.");
       return;
     }
+
+    const effectiveDocNumber = documentNumber.trim() || (documentType === 'CAC' ? 'CAC-CERT-UPLOADED' : 'NIN-SLIP-UPLOADED');
 
     setSubmitting(true);
     try {
@@ -334,9 +344,9 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
         userEmail,
         accountType,
         documentType,
-        documentNumber: documentNumber.trim() || (documentType === 'CAC' ? 'CAC-CERT-UPLOAD' : 'NIN-SLIP-UPLOAD'),
-        submittedName: submittedName.trim(),
-        registeredProfileName: registeredProfileName.trim() || submittedName.trim(),
+        documentNumber: effectiveDocNumber,
+        submittedName: effectiveName,
+        registeredProfileName: registeredProfileName.trim() || effectiveName,
         documentFileUrl: documentFileUrl || undefined
       });
 
@@ -363,6 +373,8 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
   const ninValidation = documentType === 'NIN' ? validateNIN(documentNumber) : null;
   const cacValidation = documentType === 'CAC' ? validateCAC(documentNumber) : null;
+  const isFormReady = (Boolean(documentFileUrl) || Boolean(documentNumber.trim())) && 
+    Boolean((submittedName || registeredProfileName || currentBusinessName || currentProfileName).trim());
 
   return (
     <>
@@ -602,13 +614,14 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
 
               {/* Form Input Details */}
               <div className="space-y-3 pt-1">
-                {/* Optional CAC Registration Number (Only for Registered Business / CAC) */}
+                {/* CAC Registration Number (Only for Registered Business / CAC) */}
                 {documentType === 'CAC' && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <Label className="text-xs font-bold text-foreground">
-                        CAC Registration / RC Number (Optional if Document is Uploaded)
+                        CAC Registration / RC or BN Number
                       </Label>
+                      <span className="text-[10px] text-muted-foreground font-medium">Optional if document is uploaded</span>
                     </div>
                     <Input
                       value={documentNumber}
@@ -620,6 +633,31 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
                       <p className="text-[11px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
                         <Info className="h-3 w-3" />
                         {cacValidation?.reason}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* NIN Number (Only for Individual Merchant / NIN) */}
+                {documentType === 'NIN' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs font-bold text-foreground">
+                        11-Digit National Identification Number (NIN)
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground font-medium">Optional if NIN slip is uploaded</span>
+                    </div>
+                    <Input
+                      value={documentNumber}
+                      onChange={(e) => setDocumentNumber(e.target.value)}
+                      placeholder="e.g. 12345678901"
+                      maxLength={11}
+                      className="h-10 text-xs font-mono font-semibold rounded-xl"
+                    />
+                    {documentNumber && !ninValidation?.valid && (
+                      <p className="text-[11px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        {ninValidation?.reason}
                       </p>
                     )}
                   </div>
@@ -872,7 +910,7 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
               type="button"
               variant="outline"
               onClick={handleTestEvaluation}
-              disabled={evaluating || submitting || !documentNumber.trim()}
+              disabled={evaluating || submitting || !isFormReady}
               className="h-10 text-xs font-bold rounded-xl cursor-pointer"
             >
               {evaluating ? (
@@ -891,7 +929,7 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
             <Button
               type="button"
               onClick={handleSubmitVerification}
-              disabled={submitting || evaluating || !documentNumber.trim() || !submittedName.trim()}
+              disabled={submitting || evaluating || !isFormReady}
               className="h-10 text-xs font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md shadow-emerald-500/20 rounded-xl cursor-pointer"
             >
               {submitting ? (

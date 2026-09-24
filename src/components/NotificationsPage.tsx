@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Bell, CheckCircle2, Trash2, MailOpen, Volume2, Search, ArrowRight,
+  Bell, CheckCircle2, Check, Mail, MailOpen, Trash2, Volume2, Search, ArrowRight,
   ExternalLink, ArrowDownLeft, ArrowUpRight, BookOpen, Sparkles, Filter,
-  ShieldCheck, Loader2, RefreshCw, Receipt,
+  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
@@ -24,14 +24,13 @@ import {
 } from '@/services/pushNotificationService';
 
 interface NotificationsPageProps {
-
   onNavigate?: (tab: string) => void;
 }
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'transfers' | 'history' | 'guide' | 'system'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'read' | 'transfers' | 'history' | 'guide' | 'system'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
@@ -46,18 +45,43 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   const handledTargetIdsRef = React.useRef<Set<string>>(new Set());
   const isCheckingTargetRef = React.useRef<boolean>(false);
 
-  const markAsRead = useCallback(async (id: string) => {
+  const markAsRead = useCallback(async (id: string, notifyUser = false) => {
     setNotifications((prev) => {
       const existing = prev.find((n) => n.id === id);
       if (existing?.is_read) return prev;
       return prev.map((n) => (n.id === id ? { ...n, is_read: true } : n));
     });
+    setSelectedFullNotification((prev) => (prev && prev.id === id ? { ...prev, is_read: true } : prev));
     try {
       await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      if (notifyUser) {
+        toast.success('Marked as seen');
+      }
     } catch (err) {
       console.warn('Failed to mark notification as read:', err);
     }
   }, []);
+
+  const markAsUnread = useCallback(async (id: string) => {
+    setNotifications((prev) => {
+      return prev.map((n) => (n.id === id ? { ...n, is_read: false } : n));
+    });
+    setSelectedFullNotification((prev) => (prev && prev.id === id ? { ...prev, is_read: false } : prev));
+    try {
+      await supabase.from('notifications').update({ is_read: false }).eq('id', id);
+      toast.success('Marked as unread');
+    } catch (err) {
+      console.warn('Failed to mark notification as unread:', err);
+    }
+  }, []);
+
+  const toggleReadStatus = useCallback((id: string, currentReadStatus: boolean) => {
+    if (currentReadStatus) {
+      markAsUnread(id);
+    } else {
+      markAsRead(id, true);
+    }
+  }, [markAsRead, markAsUnread]);
 
   const handleOpenFullMessage = useCallback((n: any) => {
     if (!n) return;
@@ -277,7 +301,18 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       .update({ is_read: true })
       .eq('user_id', userId)
       .eq('is_read', false);
-    toast.success('All notifications marked as read');
+    toast.success('All notifications marked as seen');
+  };
+
+  const markAllUnread = async () => {
+    if (!userId) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: false })));
+    await supabase
+      .from('notifications')
+      .update({ is_read: false })
+      .eq('user_id', userId)
+      .eq('is_read', true);
+    toast.success('All notifications marked as unread');
   };
 
   const removeNotification = async (id: string) => {
@@ -432,7 +467,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       return;
     }
 
-
     if (navTarget) {
       if (navTarget.startsWith('receipt:')) {
         handleOpenReceipt(n);
@@ -453,6 +487,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     return notifications.filter((n) => {
       // Tab filter
       if (filterTab === 'unread' && n.is_read) return false;
+      if (filterTab === 'read' && !n.is_read) return false;
 
       const isTransfer =
         n.type === 'credit_transfer' ||
@@ -483,6 +518,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   }, [notifications, filterTab, searchQuery]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const readCount = notifications.filter((n) => n.is_read).length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-16">
@@ -492,15 +528,33 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
         <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-400 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
                 <Bell className="h-5 w-5 text-white" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Notification Center</h1>
+              
+              {/* Status Summary Badges */}
+              <div className="flex items-center gap-1.5 ml-1">
+                {unreadCount > 0 ? (
+                  <Badge className="bg-orange-500 text-white border-0 text-[11px] font-black px-2 py-0.5 shadow-sm">
+                    {unreadCount} UNREAD
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[11px] font-black px-2 py-0.5">
+                    ALL CAUGHT UP ✓
+                  </Badge>
+                )}
+                {readCount > 0 && (
+                  <Badge className="bg-white/10 text-white/80 border-white/10 text-[11px] font-semibold px-2 py-0.5">
+                    {readCount} SEEN
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="text-xs sm:text-sm text-gray-300 max-w-xl">
-              Realtime notifications for credit transfers, receipts, task updates, guide progress, and system alerts.
+              Realtime notifications for credit transfers, receipts, task updates, guide progress, and system alerts. Clear markers help you spot unread items instantly.
             </p>
           </div>
 
@@ -524,15 +578,25 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
             )}
-            {unreadCount > 0 && (
+            {unreadCount > 0 ? (
               <Button
                 size="sm"
                 onClick={markAllRead}
                 className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold rounded-xl text-xs gap-1.5 h-9 shadow-md"
               >
-                <MailOpen className="h-3.5 w-3.5" /> Mark All Read ({unreadCount})
+                <CheckCheck className="h-3.5 w-3.5" /> Mark All Seen ({unreadCount})
               </Button>
-            )}
+            ) : notifications.length > 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={markAllUnread}
+                className="border-white/20 bg-white/10 text-white hover:bg-white/20 font-bold rounded-xl text-xs gap-1.5 h-9"
+                title="Mark all notifications as unread"
+              >
+                <Mail className="h-3.5 w-3.5" /> Mark All Unread
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -603,23 +667,33 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               onValueChange={(v: any) => setFilterTab(v)}
               className="w-full sm:w-auto"
             >
-              <TabsList className="bg-muted/70 p-1 rounded-xl h-auto flex flex-wrap">
+              <TabsList className="bg-muted/70 p-1 rounded-xl h-auto flex flex-wrap gap-1">
                 <TabsTrigger value="all" className="rounded-lg text-xs font-bold py-1.5 px-3">
                   All ({notifications.length})
                 </TabsTrigger>
-                <TabsTrigger value="unread" className="rounded-lg text-xs font-bold py-1.5 px-3">
-                  Unread ({unreadCount})
+                <TabsTrigger
+                  value="unread"
+                  className={`rounded-lg text-xs font-bold py-1.5 px-3 ${
+                    unreadCount > 0 ? 'text-orange-600 dark:text-orange-400 font-black' : ''
+                  }`}
+                >
+                  🔴 Unread ({unreadCount})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="read"
+                  className="rounded-lg text-xs font-bold py-1.5 px-3 text-emerald-600 dark:text-emerald-400"
+                >
+                  ✓ Seen ({readCount})
                 </TabsTrigger>
                 <TabsTrigger value="transfers" className="rounded-lg text-xs font-bold py-1.5 px-3 text-emerald-600 dark:text-emerald-400">
                   💰 Transfers
                 </TabsTrigger>
                 <TabsTrigger value="history" className="rounded-lg text-xs font-bold py-1.5 px-3 text-amber-600 dark:text-amber-400">
-                  🧾 Receipts & History ({transfers.length})
+                  🧾 Ledger ({transfers.length})
                 </TabsTrigger>
                 <TabsTrigger value="guide" className="rounded-lg text-xs font-bold py-1.5 px-3 text-indigo-600 dark:text-indigo-400">
                   📘 Guide
                 </TabsTrigger>
-
                 <TabsTrigger value="system" className="rounded-lg text-xs font-bold py-1.5 px-3">
                   System
                 </TabsTrigger>
@@ -766,7 +840,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
           </div>
         )
       ) : loading ? (
-
         <div className="py-20 text-center space-y-3">
           <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
           <p className="text-xs font-semibold text-muted-foreground">Loading your notifications...</p>
@@ -783,6 +856,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                 ? 'No notifications matched your search query.'
                 : filterTab === 'unread'
                 ? 'You are all caught up! No unread notifications.'
+                : filterTab === 'read'
+                ? 'No seen notifications yet. Open or mark incoming notifications as seen to track them here.'
                 : 'When you receive credit transfers, task assignments, or guide completions, they will appear here.'}
             </p>
           </CardContent>
@@ -802,6 +877,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               n.title?.toLowerCase().includes('guide') ||
               n.nav_target?.toLowerCase().includes('guide');
 
+            const isRead = Boolean(n.is_read);
+
             return (
               <Card
                 key={n.id}
@@ -809,9 +886,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                 className={`transition-all duration-300 border rounded-2xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer ${
                   highlightedId === n.id
                     ? 'ring-4 ring-orange-500/85 border-orange-500 bg-orange-500/15 dark:bg-orange-950/50 shadow-xl scale-[1.01]'
-                    : !n.is_read
-                    ? 'bg-gradient-to-r from-orange-50/80 via-background to-background dark:from-orange-950/20 dark:via-card dark:to-card border-orange-300 dark:border-orange-800/60'
-                    : 'bg-card border-border/70 hover:border-border'
+                    : !isRead
+                    ? 'border-l-[6px] border-l-orange-500 bg-gradient-to-r from-orange-500/10 via-card to-card border-orange-300/80 dark:border-orange-500/40 shadow-sm'
+                    : 'border-l-[6px] border-l-slate-300 dark:border-l-slate-700 bg-card border-border/70 hover:border-border opacity-95 hover:opacity-100'
                 }`}
                 onClick={() => handleOpenFullMessage(n)}
               >
@@ -819,12 +896,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                   <div className="flex items-start justify-between gap-3">
                     {/* Icon Badge */}
                     <div
-                      className={`h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
+                      className={`h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
                         isTransfer
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                           : isGuide
                           ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                          : 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
+                          : !isRead
+                          ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                          : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {isTransfer ? (
@@ -837,12 +916,26 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                     </div>
 
                     {/* Main Content */}
-                    <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {!n.is_read && (
-                          <span className="h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-400/30 animate-pulse" />
+                        {/* Distinct Status Marker Badge */}
+                        {!isRead ? (
+                          <Badge className="bg-orange-500 text-white dark:bg-orange-600 border-0 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 px-2 py-0.5 shadow-sm">
+                            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                            NEW
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-muted text-muted-foreground border-border/70 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5">
+                            <Check className="h-3 w-3 text-emerald-500" />
+                            SEEN
+                          </Badge>
                         )}
-                        <h4 className="text-sm sm:text-base font-bold text-foreground hover:text-orange-600 transition-colors">
+
+                        <h4 className={`text-sm sm:text-base tracking-tight transition-colors ${
+                          !isRead
+                            ? 'font-black text-foreground hover:text-orange-600'
+                            : 'font-semibold text-foreground/90 hover:text-foreground'
+                        }`}>
                           {n.title}
                         </h4>
 
@@ -860,28 +953,63 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                       </div>
 
                       {n.message && (
-                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words line-clamp-3">
+                        <p className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line break-words line-clamp-3 ${
+                          !isRead ? 'text-foreground/80 font-medium' : 'text-muted-foreground'
+                        }`}>
                           {n.message}
                         </p>
                       )}
 
                       <div className="flex items-center justify-between pt-2 flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-[11px] font-medium text-muted-foreground">
-                          {new Date(n.created_at).toLocaleString(undefined, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-medium text-muted-foreground">
+                            {new Date(n.created_at).toLocaleString(undefined, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </span>
+                        </div>
 
                         {/* Action buttons */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* 1-Click Status Toggle Marker Button */}
+                          {!isRead ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(n.id, true);
+                              }}
+                              className="h-8 rounded-xl text-xs font-bold border-orange-200 dark:border-orange-900/60 text-orange-700 dark:text-orange-300 hover:bg-orange-100/60 dark:hover:bg-orange-950/50 gap-1 px-2.5"
+                              title="Mark this notification as seen"
+                            >
+                              <Check className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                              <span className="hidden xs:inline">Mark Seen</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsUnread(n.id);
+                              }}
+                              className="h-8 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted gap-1 px-2.5"
+                              title="Mark this notification as unread"
+                            >
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="hidden xs:inline">Mark Unread</span>
+                            </Button>
+                          )}
+
                           <Button
                             size="sm"
                             variant="secondary"
                             onClick={() => handleOpenFullMessage(n)}
-                            className="h-8 rounded-xl text-xs font-bold gap-1"
+                            className="h-8 rounded-xl text-xs font-bold gap-1 px-2.5"
                           >
-                            <Sparkles className="h-3 w-3 text-orange-500" /> Read Full
+                            <Sparkles className="h-3 w-3 text-orange-500" /> Read
                           </Button>
 
                           {isTransfer && (
@@ -889,7 +1017,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                               size="sm"
                               variant="outline"
                               onClick={() => handleOpenReceipt(n)}
-                              className="h-8 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 gap-1.5"
+                              className="h-8 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 gap-1.5 px-2.5"
                             >
                               <Receipt className="h-3.5 w-3.5" /> View Receipt
                             </Button>
@@ -899,9 +1027,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             <Button
                               size="sm"
                               onClick={() => handleAction(n)}
-                              className="h-8 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                              className="h-8 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 px-2.5"
                             >
-                              <BookOpen className="h-3.5 w-3.5" /> Open Guide <ArrowRight className="h-3 w-3" />
+                              <BookOpen className="h-3.5 w-3.5" /> Guide <ArrowRight className="h-3 w-3" />
                             </Button>
                           )}
 
@@ -910,7 +1038,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                               size="sm"
                               variant="outline"
                               onClick={() => handleAction(n)}
-                              className="h-8 rounded-xl text-xs font-bold gap-1.5"
+                              className="h-8 rounded-xl text-xs font-bold gap-1.5 px-2.5"
                             >
                               Open <ExternalLink className="h-3 w-3" />
                             </Button>
@@ -943,6 +1071,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
         notification={selectedFullNotification}
         onAction={handleAction}
         onDelete={removeNotification}
+        onToggleRead={toggleReadStatus}
       />
 
       {/* Transaction Receipt Modal */}
@@ -956,3 +1085,4 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
 };
 
 export default NotificationsPage;
+

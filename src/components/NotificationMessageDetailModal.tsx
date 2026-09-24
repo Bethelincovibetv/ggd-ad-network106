@@ -11,6 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   Bell,
   CheckCircle2,
+  Check,
+  Mail,
+  MailOpen,
   Copy,
   ExternalLink,
   BookOpen,
@@ -47,6 +50,7 @@ interface NotificationMessageDetailModalProps {
   notification: FullNotificationData | null;
   onAction?: (notification: FullNotificationData) => void;
   onDelete?: (id: string) => void;
+  onToggleRead?: (id: string, currentReadStatus: boolean) => void;
 }
 
 export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailModalProps> = ({
@@ -55,12 +59,14 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
   notification,
   onAction,
   onDelete,
+  onToggleRead,
 }) => {
   if (!notification) return null;
 
   const contentText = (notification.message || notification.body || '').trim();
   const title = notification.title || 'Notification Message';
   const type = notification.type || 'system';
+  const isRead = notification.is_read ?? true;
 
   const isTransfer =
     type === 'credit_transfer' ||
@@ -101,6 +107,12 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
     if (onDelete && notification.id) {
       onDelete(notification.id);
       onOpenChange(false);
+    }
+  };
+
+  const handleToggleReadStatus = () => {
+    if (onToggleRead && notification.id) {
+      onToggleRead(notification.id, isRead);
     }
   };
 
@@ -157,6 +169,17 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
 
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Read / Seen Status Marker */}
+                  {isRead ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Seen
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/40 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse inline-block" /> New
+                    </Badge>
+                  )}
+
                   {isTransfer && (
                     <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
                       Money / Transfer
@@ -240,15 +263,20 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
             <span className="font-mono text-[11px]">
               ID: {notification.id.slice(0, 14)}...
             </span>
-            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="h-4 w-4" /> Verified Delivery
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 font-medium text-muted-foreground">
+                Status: <strong className={isRead ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}>{isRead ? 'Seen' : 'Unread'}</strong>
+              </span>
+              <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                <ShieldCheck className="h-4 w-4" /> Verified Delivery
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Footer Actions */}
         <div className="p-4 sm:p-5 bg-muted/20 border-t border-border/80 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               type="button"
               variant="outline"
@@ -258,6 +286,27 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
             >
               <Copy className="h-3.5 w-3.5" /> Copy Text
             </Button>
+
+            {onToggleRead && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleToggleReadStatus}
+                className="rounded-xl text-xs font-bold gap-1.5 h-9 border-border/80"
+                title={isRead ? 'Mark notification as unread' : 'Mark notification as read'}
+              >
+                {isRead ? (
+                  <>
+                    <Mail className="h-3.5 w-3.5 text-orange-500" /> Mark Unread
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-500" /> Mark Seen
+                  </>
+                )}
+              </Button>
+            )}
 
             {onDelete && (
               <Button
@@ -325,3 +374,4 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
 };
 
 export default NotificationMessageDetailModal;
+
