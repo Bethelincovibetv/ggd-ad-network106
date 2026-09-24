@@ -1950,12 +1950,28 @@ app.post('/api/whatsapp/broadcast', async (req, res) => {
 // ----------------------------------------------------
 // Vite Middleware / Static Serve
 // ----------------------------------------------------
+function getDistPaths() {
+  const candidates = [
+    path.resolve(process.cwd(), 'dist'),
+    path.resolve(__dirname, 'dist'),
+    path.resolve(__dirname),
+    path.resolve(process.cwd(), 'build'),
+  ];
+  for (const dir of candidates) {
+    const htmlPath = path.join(dir, 'index.html');
+    if (fs.existsSync(htmlPath)) {
+      return { distPath: dir, indexHtmlPath: htmlPath, exists: true };
+    }
+  }
+  const fallbackDir = path.resolve(process.cwd(), 'dist');
+  return { distPath: fallbackDir, indexHtmlPath: path.join(fallbackDir, 'index.html'), exists: false };
+}
+
 async function startServer() {
-  const distPath = path.join(process.cwd(), 'dist');
-  const indexHtmlPath = path.join(distPath, 'index.html');
+  const { distPath, indexHtmlPath, exists } = getDistPaths();
 
   if (process.env.NODE_ENV === 'production') {
-    // Serve production static assets from dist
+    // Serve production static assets from the resolved dist folder
     app.use(express.static(distPath));
 
     // SPA fallback: Route all non-API GET requests to index.html
@@ -1966,7 +1982,7 @@ async function startServer() {
       if (fs.existsSync(indexHtmlPath)) {
         res.sendFile(indexHtmlPath);
       } else {
-        res.status(404).send('Frontend bundle (dist/index.html) not found. Run npm run build first.');
+        res.status(404).send('Frontend bundle (index.html) not found in build directory. Run npm run build first.');
       }
     });
   } else {
