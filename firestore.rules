@@ -21,6 +21,11 @@ service cloud.firestore {
       );
     }
 
+    // Test Connection Check
+    match /test/{testId} {
+      allow read: if true;
+    }
+
     // Notifications
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
