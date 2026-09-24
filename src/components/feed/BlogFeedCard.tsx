@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { CommunityBlogPostData } from '@/types/blog';
 import BlogArticleReaderModal from './BlogArticleReaderModal';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
+import { ShareToEarnBroadcastModal } from '@/components/whatsapp/ShareToEarnBroadcastModal';
 
 interface BlogFeedCardProps {
   post: any;
@@ -49,6 +50,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   timeAgoStr,
 }) => {
   const [readerOpen, setReaderOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD Creator';
@@ -290,7 +292,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
           )}
 
           {/* Action Row */}
-          <div className="grid grid-cols-2 px-1 py-0.5 border-t border-border/50">
+          <div className="grid grid-cols-3 px-1 py-0.5 border-t border-border/50">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -303,7 +305,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
                   ) : (
                     <ThumbsUp className="h-4 w-4" />
                   )}
-                  <span className="text-[13px]">
+                  <span className="text-[12px] truncate">
                     {post.myReaction
                       ? REACTIONS.find(r => r.key === post.myReaction)?.label
                       : 'Like'}
@@ -327,15 +329,41 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5 h-9"
+              className="gap-1.5 h-9 text-[12px] truncate"
               onClick={() => setReaderOpen(true)}
             >
               <MessageCircle className="h-4 w-4" />
-              <span className="text-[13px]">Read & Comment</span>
+              <span>Read</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 h-9 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-bold text-[12px] truncate"
+              onClick={() => setShareModalOpen(true)}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span>Share & Earn</span>
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Share to Earn WhatsApp Modal */}
+      <ShareToEarnBroadcastModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        post={{
+          id: post.id,
+          title: blog.title || post.content?.slice(0, 50) || 'GGD Article',
+          description: blog.subtitle || post.content?.slice(0, 120),
+          imageUrl: blog.cover_image || post.image_url,
+          targetUrl: `${window.location.origin}/post/${post.id}`,
+          rewardCredits: 50,
+          authorName,
+        }}
+        userId={currentUserId || undefined}
+      />
 
       {/* Reader Modal */}
       <BlogArticleReaderModal

@@ -14,7 +14,7 @@ import {
   MessageCircle, ThumbsUp, X, Palette, Search, Heart,
   Coins, Gift, Youtube, Share2, ArrowRight, ArrowLeft, PenLine, Megaphone, ExternalLink,
   Store, BookOpen, MoreHorizontal, Edit3, Copy, Eye, Crown, ShoppingBag, Reply, Sparkles,
-  ChevronDown, ChevronUp, MessageSquare, CornerDownRight
+  ChevronDown, ChevronUp, MessageSquare, CornerDownRight, Smartphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { POST_TEMPLATES, TEMPLATE_CATEGORIES, findTemplate, extractHashtags } from '@/lib/postTemplates';
@@ -37,6 +37,8 @@ import { recordPostView, formatViewsCount } from '@/lib/postViews';
 import SendGiftModal from '@/components/feed/SendGiftModal';
 import SupportersModal from '@/components/feed/SupportersModal';
 import { getPostGifts, PostGiftRecord } from '@/services/postGiftService';
+import { WhatsAppConnectionCard } from '@/components/whatsapp/WhatsAppConnectionCard';
+import { ShareToEarnBroadcastModal } from '@/components/whatsapp/ShareToEarnBroadcastModal';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
 
@@ -184,6 +186,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<any | null>(null);
+  const [shareToEarnItem, setShareToEarnItem] = useState<any | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handlePostUpdated = (updatedPost: any) => {
@@ -567,6 +570,14 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
       <CommunitySearchResults query={filterQuery} />
 
+      {/* WhatsApp Share-to-Earn Baileys Connection Card */}
+      {me && (
+        <WhatsAppConnectionCard
+          userId={me.id}
+          onStatusChange={() => {}}
+        />
+      )}
+
       {/* Composer (Facebook-style Default Open Box with Top Action Bar) */}
       {me ? (
         <Card className="border border-border/80 shadow-sm overflow-hidden bg-card rounded-2xl">
@@ -907,7 +918,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         feedItems.map(item => item.kind === 'listing' ? (
           <FeaturedListingCard key={`listing-${item.data.id}`} listing={item.data} />
         ) : item.kind === 'ad' ? (
-          <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} />
+          <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} currentUserId={me?.id || null} />
         ) : item.kind === 'post' ? (
           (() => {
             const blogData = parseBlogPost(item.data.content);
@@ -948,6 +959,15 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 onReact={react}
                 onDelete={deletePost}
                 onEdit={(p) => setEditingPost(p)}
+                onShareToEarn={(p) => setShareToEarnItem({
+                  id: p.id,
+                  title: p.content?.slice(0, 60) || 'GGD Community Post',
+                  description: p.content || '',
+                  imageUrl: p.image_url || undefined,
+                  targetUrl: p.link_url || `${window.location.origin}/post/${p.id}`,
+                  rewardCredits: 50,
+                  authorName: p.author?.business_name || p.author?.display_name || 'Community Member',
+                })}
                 onTagClick={(t) => { setActiveTag(t); setFilterQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 onImageOpen={(url) => setLightboxUrl(url)}
                 onPromote={(p) => {
@@ -993,7 +1013,25 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
               <p className="text-[11px] text-muted-foreground">{shareTarget?.title}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {FEED_SHARE_PLATFORMS.map(p => (
+              <Button
+                variant="outline"
+                className="h-11 rounded-xl text-xs font-bold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                onClick={() => {
+                  const target = shareTarget;
+                  setShareTarget(null);
+                  setShareToEarnItem({
+                    id: target.id,
+                    title: target.title,
+                    description: target.description,
+                    imageUrl: target.flyer_url,
+                    targetUrl: target.target_url || target.link_url,
+                    rewardCredits: target.reward_amount || target.credits_per_share || 50,
+                  });
+                }}
+              >
+                <Smartphone className="h-4 w-4 mr-1.5 text-emerald-600" /> WhatsApp (Auto)
+              </Button>
+              {FEED_SHARE_PLATFORMS.filter(p => p.key !== 'whatsapp').map(p => (
                 <Button
                   key={p.key}
                   variant="outline"
@@ -1007,6 +1045,17 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* WhatsApp Share-to-Earn Broadcast Modal */}
+      <ShareToEarnBroadcastModal
+        isOpen={!!shareToEarnItem}
+        onClose={() => setShareToEarnItem(null)}
+        post={shareToEarnItem}
+        userId={me?.id || undefined}
+        onRewardClaimed={(pts) => {
+          setCredits((prev) => prev + pts);
+        }}
+      />
 
       {/* Image lightbox */}
       <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
@@ -1041,6 +1090,7 @@ interface PostCardProps {
   onReact: (p: Post, r: Reaction) => void;
   onDelete: (p: Post) => void;
   onEdit?: (p: Post) => void;
+  onShareToEarn?: (p: Post) => void;
   onTagClick: (tag: string) => void;
   onImageOpen: (url: string) => void;
   /** Convert this community post into a paid Credit Task. */
@@ -1123,6 +1173,7 @@ const PostCard: React.FC<PostCardProps> = ({
   onReact,
   onDelete,
   onEdit,
+  onShareToEarn,
   onTagClick,
   onImageOpen,
   onPromote,
@@ -1510,12 +1561,12 @@ const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {/* Action buttons */}
-        <div className="grid grid-cols-2 px-1 py-0.5">
+        <div className="grid grid-cols-3 px-1 py-0.5 border-t border-border/50">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className={`gap-1.5 h-9 ${post.myReaction ? 'text-orange-600 font-bold' : ''}`}>
                 {post.myReaction ? <span className="text-base">{reactionEmoji(post.myReaction)}</span> : <ThumbsUp className="h-4 w-4" />}
-                <span className="text-[13px]">
+                <span className="text-[12px] truncate">
                   {post.myReaction ? REACTIONS.find(r => r.key === post.myReaction)?.label : 'Like'}
                 </span>
               </Button>
@@ -1533,15 +1584,26 @@ const PostCard: React.FC<PostCardProps> = ({
               ))}
             </PopoverContent>
           </Popover>
+
           <Button
             variant="ghost"
             size="sm"
-            className={`gap-1.5 h-9 ${showComments ? 'text-orange-600 font-bold bg-orange-500/10' : ''}`}
+            className={`gap-1.5 h-9 text-[12px] truncate ${showComments ? 'text-orange-600 font-bold bg-orange-500/10' : ''}`}
             onClick={toggleComments}
           >
             <MessageCircle className="h-4 w-4" />
-            <span className="text-[13px]">Comment</span>
-            {commentCount > 0 && <span className="text-xs ml-0.5 font-bold">({commentCount})</span>}
+            <span>Comment</span>
+            {commentCount > 0 && <span className="text-[11px] font-bold">({commentCount})</span>}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 h-9 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-bold text-[12px] truncate"
+            onClick={() => onShareToEarn?.(post)}
+          >
+            <Smartphone className="h-3.5 w-3.5" />
+            <span>Share & Earn</span>
           </Button>
         </div>
 

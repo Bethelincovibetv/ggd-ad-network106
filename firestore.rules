@@ -101,5 +101,15 @@ service cloud.firestore {
     match /business_reviews/{reviewId} {
       allow read, create, update, delete: if true;
     }
+
+    // WhatsApp Baileys Sessions & Connection State
+    match /whatsapp_sessions/{sessionId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // WhatsApp Share-to-Earn Broadcast Logs
+    match /whatsapp_broadcasts/{broadcastId} {
+      allow read, create, update, delete: if true;
+    }
   }
 }

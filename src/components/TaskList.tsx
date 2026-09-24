@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,8 @@ import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
 import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
+import { WhatsAppConnectionCard } from "@/components/whatsapp/WhatsAppConnectionCard";
+import { ShareToEarnBroadcastModal } from "@/components/whatsapp/ShareToEarnBroadcastModal";
 
 interface TaskListProps {
   onCreditsUpdate: (newCredits: number) => void;
@@ -43,6 +45,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [whatsAppModalTask, setWhatsAppModalTask] = useState<any | null>(null);
 
   // YouTube Dedicated Engagement State
   const [ytActiveTask, setYtActiveTask] = useState<any | null>(null);
@@ -360,6 +363,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   };
 
   const startVerification = (task: any, platformKey: string) => {
+    if (platformKey === 'whatsapp') {
+      setShareTarget(null);
+      setWhatsAppModalTask(task);
+      return;
+    }
+
     openShare(task, platformKey);
     setShareTarget(null);
 
@@ -518,6 +527,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           <Plus className="h-3 w-3 mr-1" />New Task
         </Button>
       </div>
+
+      {/* WhatsApp Baileys Status & Syndicate Management Card */}
+      <WhatsAppConnectionCard
+        userId={uid || undefined}
+        onStatusChange={() => {}}
+      />
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -1290,6 +1305,27 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           </div>
         )}
       </div>
+
+      {/* WhatsApp Share to Earn Baileys Modal */}
+      <ShareToEarnBroadcastModal
+        isOpen={!!whatsAppModalTask}
+        onClose={() => setWhatsAppModalTask(null)}
+        post={whatsAppModalTask ? {
+          id: whatsAppModalTask.id,
+          title: whatsAppModalTask.title,
+          description: whatsAppModalTask.description,
+          imageUrl: whatsAppModalTask.flyer_url,
+          targetUrl: whatsAppModalTask.share_url || `${window.location.origin}/s/${whatsAppModalTask.id}`,
+          rewardCredits: whatsAppModalTask.reward_credits || 50,
+        } : null}
+        userId={uid || undefined}
+        onRewardClaimed={(pts) => {
+          onCreditsUpdate(credits + pts);
+          if (whatsAppModalTask) {
+            setCompletions(prev => Array.from(new Set([...prev, whatsAppModalTask.id])));
+          }
+        }}
+      />
     </div>
   );
 };
