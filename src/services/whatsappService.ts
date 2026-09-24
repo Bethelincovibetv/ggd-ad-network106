@@ -51,6 +51,26 @@ export async function getWhatsAppStatus(userId?: string): Promise<WhatsAppSessio
     const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id || 'default_user';
     const resp = await fetch(`/api/whatsapp/status?userId=${encodeURIComponent(activeUserId)}`);
     const data = await resp.json();
+
+    // Check Firestore for any persisted session state if API returns disconnected
+    if (!data.connected && db && activeUserId !== 'default_user') {
+      try {
+        const snap = await getDoc(doc(db, 'whatsapp_sessions', activeUserId));
+        if (snap.exists()) {
+          const fsData = snap.data();
+          if (fsData.status === 'connected') {
+            return {
+              ...data,
+              ...fsData,
+              connected: true,
+            };
+          }
+        }
+      } catch (fsErr) {
+        // Firestore read fallback
+      }
+    }
+
     return data;
   } catch (err) {
     console.error('Error fetching WhatsApp status:', err);

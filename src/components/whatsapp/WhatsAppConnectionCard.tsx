@@ -26,6 +26,8 @@ import {
   syncWhatsAppAdminGroups,
 } from '@/services/whatsappService';
 import { WhatsAppSessionState, WhatsAppAdminGroup } from '@/types/whatsapp';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface WhatsAppConnectionCardProps {
   userId?: string;
@@ -59,6 +61,25 @@ export const WhatsAppConnectionCard: React.FC<WhatsAppConnectionCardProps> = ({
 
   useEffect(() => {
     fetchStatus();
+
+    // Firestore live snapshot listener for real-time status updates across sessions
+    if (db && userId && userId !== 'default_user') {
+      try {
+        const unsub = onSnapshot(doc(db, 'whatsapp_sessions', userId), (docSnap) => {
+          if (docSnap.exists()) {
+            const fsData = docSnap.data() as WhatsAppSessionState;
+            setSession((prev) => ({
+              ...(prev || {}),
+              ...fsData,
+            }));
+            onStatusChange?.(fsData);
+          }
+        });
+        return () => unsub();
+      } catch (err) {
+        // quiet fallback
+      }
+    }
   }, [userId]);
 
   const handleSync = async () => {

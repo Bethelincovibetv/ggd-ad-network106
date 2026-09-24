@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getWhatsAppQr, connectWhatsApp } from '@/services/whatsappService';
+import { getWhatsAppQr, getWhatsAppStatus, connectWhatsApp } from '@/services/whatsappService';
 import { playRewardSound } from '@/lib/soundEffects';
 
 interface WhatsAppQrModalProps {
@@ -75,6 +75,29 @@ export const WhatsAppQrModal: React.FC<WhatsAppQrModalProps> = ({
       fetchQr();
     }
   }, [isOpen]);
+
+  // Real-time status poll while QR is open to automatically detect mobile phone scan
+  useEffect(() => {
+    if (!isOpen || isSuccess) return;
+    const pollInterval = setInterval(async () => {
+      try {
+        const statusData = await getWhatsAppStatus(userId);
+        if (statusData.status === 'connected' || statusData.connected) {
+          setIsSuccess(true);
+          playRewardSound();
+          toast.success('🎉 WhatsApp connected successfully via Baileys engine!');
+          onConnected?.(statusData);
+          setTimeout(() => {
+            onClose();
+          }, 1200);
+        }
+      } catch (e) {
+        // quiet poll
+      }
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
+  }, [isOpen, isSuccess, userId, onConnected, onClose]);
 
   // Countdown timer for QR refresh
   useEffect(() => {
