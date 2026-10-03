@@ -1,16 +1,3 @@
-import { db, OperationType, handleFirestoreError } from '@/lib/firebase';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  updateDoc,
-  onSnapshot
-} from 'firebase/firestore';
 import { supabase } from '@/integrations/supabase/client';
 import {
   DocumentType,
@@ -350,11 +337,9 @@ export function evaluateVerificationSubmission(
 // 4. PERSISTENCE, ADMIN OVERRIDES & WORKSPACE SYNCHRONIZATION
 // ============================================================================
 
-const VERIFICATIONS_COLLECTION = 'marketplace_verifications';
-
 /**
  * Submits and processes a new verification request, saving the evaluation
- * to Firestore and syncing verified badges to Supabase profiles & business_profiles.
+ * to Lovable Cloud and syncing verified badges through the database trigger.
  */
 export async function submitVerificationToEngine(payload: {
   userId: string;
@@ -375,13 +360,11 @@ export async function submitVerificationToEngine(payload: {
     documentNumber: payload.documentNumber,
     submittedName: payload.submittedName,
     registeredProfileName: payload.registeredProfileName,
+    documentFileUrl: payload.documentFileUrl,
   });
 
   const now = new Date().toISOString();
-  const recordId = `verif_${payload.userId}_${Date.now()}`;
-
-  const record: VerificationSubmissionRecord = {
-    id: recordId,
+  const recordInput = {
     user_id: payload.userId,
     business_profile_id: payload.businessProfileId,
     user_email: payload.userEmail,
@@ -396,6 +379,7 @@ export async function submitVerificationToEngine(payload: {
     match_confidence: evaluation.match_confidence,
     rejection_reason: evaluation.rejection_reason,
     extraction_details: evaluation.extraction_details,
+    metadata: payload.metadata || {},
     admin_action: 'NONE',
     admin_note: null,
     submitted_at: now,
@@ -403,23 +387,19 @@ export async function submitVerificationToEngine(payload: {
     last_updated_at: now,
   };
 
-  // 2. Persist to Firestore
-  try {
-    const docRef = doc(db, VERIFICATIONS_COLLECTION, recordId);
-    await setDoc(docRef, record);
-  } catch (fsErr) {
-    console.warn('Firestore verification save warning:', fsErr);
+  const { data: savedRecord, error } = await supabase
+    .from('business_verifications')
+    .insert(recordInput)
+    .select()
+    .single();
+
+  if (error || !savedRecord) {
+    throw new Error(error?.message || 'Unable to save verification submission.');
   }
 
-  // 3. Sync to Supabase Profiles & Business Profiles
-  await syncVerificationStatusToDatabase(payload.userId, payload.businessProfileId, {
-    is_verified: evaluation.verified_badge_granted,
-    verification_status: evaluation.status,
-    verification_document_type: payload.documentType,
-    verified_at: evaluation.verified_badge_granted ? now : null,
-  });
+  const record = savedRecord as VerificationSubmissionRecord;
 
-  // 4. Broadcast real-time change
+  // The database trigger updates profile and business verification flags.
   broadcastVerificationChange({
     userId: payload.userId,
     businessProfileId: payload.businessProfileId,
@@ -443,7 +423,7 @@ export async function submitVerificationToEngine(payload: {
     console.warn('Notification dispatch non-blocking note:', notifErr);
   }
 
-  return { evaluation, recordId };
+  return { evaluation, recordId: record.id };
 }
 
 /**
@@ -467,75 +447,29 @@ export function broadcastVerificationChange(payload: {
 }
 
 /**
- * Synchronizes verification flags across Supabase profiles and business_profiles
- */
-export async function syncVerificationStatusToDatabase(
-  userId: string,
-  businessProfileId: string | undefined,
-  data: {
-    is_verified: boolean;
-    verification_status: string;
-    verification_document_type: string;
-    verified_at: string | null;
-  }
-) {
-  try {
-    // 1. Update profiles table
-    await supabase.from('profiles').update({
-      is_verified: data.is_verified,
-      verification_status: data.verification_status,
-    } as any).eq('user_id', userId);
-
-    // 2. Update business_profiles if exists
-    const updatePayload = {
-      is_verified: data.is_verified,
-      verification_status: data.verification_status,
-      is_directory_listed: true,
-    };
-
-    if (businessProfileId) {
-      await (supabase.from('business_profiles') as any).update(updatePayload).eq('id', businessProfileId);
-    } else {
-      await (supabase.from('business_profiles') as any).update(updatePayload).eq('user_id', userId);
-    }
-
-    // 3. Broadcast real-time change
-    broadcastVerificationChange({
-      userId,
-      businessProfileId,
-      isVerified: data.is_verified,
-      status: data.verification_status,
-    });
-  } catch (err) {
-    console.error('Database verification status sync note:', err);
-  }
-}
-
-/**
  * Retrieves the latest verification submission for a user
  */
 export async function getUserVerificationRecord(userId: string): Promise<VerificationSubmissionRecord | null> {
   if (!userId) return null;
 
-  try {
-    const q = query(
-      collection(db, VERIFICATIONS_COLLECTION),
-      where('user_id', '==', userId),
-      orderBy('submitted_at', 'desc')
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      return snap.docs[0].data() as VerificationSubmissionRecord;
-    }
-  } catch (err) {
-    console.warn('Error querying verification record from Firestore:', err);
+  const { data, error } = await supabase
+    .from('business_verifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('submitted_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Error querying verification record:', error);
+    return null;
   }
 
-  return null;
+  return data ? (data as VerificationSubmissionRecord) : null;
 }
 
 /**
- * Real-time listener for a user's verification record via Firebase Firestore
+ * Real-time listener for a user's verification record via Lovable Cloud Realtime
  */
 export function subscribeToUserVerification(
   userId: string,
@@ -547,56 +481,44 @@ export function subscribeToUserVerification(
     return () => {};
   }
 
-  try {
-    const q = query(
-      collection(db, VERIFICATIONS_COLLECTION),
-      where('user_id', '==', userId),
-      orderBy('submitted_at', 'desc')
-    );
+  void getUserVerificationRecord(userId).then(onUpdate);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        if (!snap.empty) {
-          const latest = snap.docs[0].data() as VerificationSubmissionRecord;
-          onUpdate(latest);
-        } else {
-          onUpdate(null);
-        }
-      },
-      (error) => {
-        console.warn('Real-time Firestore user verification listener note:', error);
-        if (onError) onError(error);
+  const channel = supabase
+    .channel(`business-verification-user-${userId}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'business_verifications',
+      filter: `user_id=eq.${userId}`,
+    }, () => {
+      void getUserVerificationRecord(userId).then(onUpdate).catch((error) => onError?.(error));
+    })
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        onError?.(new Error(`Verification realtime subscription ${status.toLowerCase()}.`));
       }
-    );
+    });
 
-    return unsubscribe;
-  } catch (err) {
-    console.warn('Error initializing real-time verification listener:', err);
-    getUserVerificationRecord(userId).then(onUpdate);
-    return () => {};
-  }
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 /**
  * Retrieves all verification submissions for Admin review
  */
 export async function getAllVerificationRecords(): Promise<VerificationSubmissionRecord[]> {
-  try {
-    const q = query(
-      collection(db, VERIFICATIONS_COLLECTION),
-      orderBy('submitted_at', 'desc')
-    );
-    const snap = await getDocs(q);
-    const results: VerificationSubmissionRecord[] = [];
-    snap.forEach(docSnap => {
-      results.push(docSnap.data() as VerificationSubmissionRecord);
-    });
-    return results;
-  } catch (err) {
-    console.error('Error fetching verification records:', err);
+  const { data, error } = await supabase
+    .from('business_verifications')
+    .select('*')
+    .order('submitted_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching verification records:', error);
     return [];
   }
+
+  return (data || []) as VerificationSubmissionRecord[];
 }
 
 /**
@@ -606,33 +528,26 @@ export function subscribeToAllVerifications(
   onUpdate: (records: VerificationSubmissionRecord[]) => void,
   onError?: (err: any) => void
 ): () => void {
-  try {
-    const q = query(
-      collection(db, VERIFICATIONS_COLLECTION),
-      orderBy('submitted_at', 'desc')
-    );
+  void getAllVerificationRecords().then(onUpdate);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const results: VerificationSubmissionRecord[] = [];
-        snap.forEach(docSnap => {
-          results.push(docSnap.data() as VerificationSubmissionRecord);
-        });
-        onUpdate(results);
-      },
-      (error) => {
-        console.warn('Real-time Firestore all verifications listener note:', error);
-        if (onError) onError(error);
+  const channel = supabase
+    .channel('business-verifications-admin')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'business_verifications',
+    }, () => {
+      void getAllVerificationRecords().then(onUpdate).catch((error) => onError?.(error));
+    })
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        onError?.(new Error(`Verification realtime subscription ${status.toLowerCase()}.`));
       }
-    );
+    });
 
-    return unsubscribe;
-  } catch (err) {
-    console.warn('Error initializing real-time admin verifications listener:', err);
-    getAllVerificationRecords().then(onUpdate);
-    return () => {};
-  }
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 /**
@@ -646,45 +561,38 @@ export async function processAdminVerificationOverride(
   const now = new Date().toISOString();
   const isApproval = payload.admin_action === 'APPROVE';
 
-  const docRef = doc(db, VERIFICATIONS_COLLECTION, recordId);
-  const snap = await getDoc(docRef);
+  const { data: current, error: fetchError } = await supabase
+    .from('business_verifications')
+    .select('*')
+    .eq('id', recordId)
+    .maybeSingle();
 
-  if (!snap.exists()) {
+  if (fetchError) throw new Error(fetchError.message);
+  if (!current) {
     throw new Error(`Verification submission ${recordId} not found.`);
   }
 
-  const current = snap.data() as VerificationSubmissionRecord;
+  const { data: savedRecord, error: updateError } = await supabase
+    .from('business_verifications')
+    .update({
+      status: isApproval ? 'VERIFIED' : 'REJECTED',
+      verified_badge_granted: isApproval,
+      admin_action: payload.admin_action,
+      admin_note: payload.admin_note || (isApproval ? 'Approved by authorized Administrator.' : 'Rejected by Administrator.'),
+      admin_id: payload.admin_id || null,
+      admin_email: payload.admin_email || null,
+      reviewed_at: now,
+      last_updated_at: now,
+    })
+    .eq('id', recordId)
+    .select()
+    .single();
 
-  const updatedRecord: VerificationSubmissionRecord = {
-    ...current,
-    status: isApproval ? 'VERIFIED' : 'REJECTED',
-    verified_badge_granted: isApproval,
-    admin_action: payload.admin_action,
-    admin_note: payload.admin_note || (isApproval ? 'Approved by authorized Administrator.' : 'Rejected by Administrator.'),
-    admin_id: payload.admin_id || null,
-    admin_email: payload.admin_email || null,
-    reviewed_at: now,
-    last_updated_at: now,
-  };
+  if (updateError || !savedRecord) {
+    throw new Error(updateError?.message || 'Unable to update verification submission.');
+  }
 
-  await updateDoc(docRef, {
-    status: updatedRecord.status,
-    verified_badge_granted: updatedRecord.verified_badge_granted,
-    admin_action: updatedRecord.admin_action,
-    admin_note: updatedRecord.admin_note,
-    admin_id: updatedRecord.admin_id,
-    admin_email: updatedRecord.admin_email,
-    reviewed_at: updatedRecord.reviewed_at,
-    last_updated_at: updatedRecord.last_updated_at,
-  });
-
-  // Sync with DB
-  await syncVerificationStatusToDatabase(current.user_id, current.business_profile_id, {
-    is_verified: isApproval,
-    verification_status: updatedRecord.status,
-    verification_document_type: current.document_type,
-    verified_at: isApproval ? now : null,
-  });
+  const updatedRecord = savedRecord as VerificationSubmissionRecord;
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
@@ -720,12 +628,9 @@ export async function adminDirectVerifyUser(payload: {
   const { userId, businessProfileId, verify, adminNote, adminId, adminEmail, profileName } = payload;
   const now = new Date().toISOString();
 
-  // 1. Check if an existing record exists for this user in Firestore
+  // 1. Check if an existing record exists for this user in Lovable Cloud
   let existing = await getUserVerificationRecord(userId);
-  const recordId = existing?.id || `verif_${userId}_${Date.now()}`;
-
-  const updatedRecord: VerificationSubmissionRecord = {
-    id: recordId,
+  const recordInput = {
     user_id: userId,
     business_profile_id: businessProfileId || existing?.business_profile_id,
     user_email: adminEmail,
@@ -756,21 +661,25 @@ export async function adminDirectVerifyUser(payload: {
     last_updated_at: now,
   };
 
-  // 2. Persist to Firestore
-  try {
-    const docRef = doc(db, VERIFICATIONS_COLLECTION, recordId);
-    await setDoc(docRef, updatedRecord, { merge: true });
-  } catch (fsErr) {
-    console.warn('Firestore admin direct verify save warning:', fsErr);
+  let updatedRecord: VerificationSubmissionRecord;
+  if (existing) {
+    const { data, error } = await supabase
+      .from('business_verifications')
+      .update(recordInput)
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error || !data) throw new Error(error?.message || 'Unable to update direct verification.');
+    updatedRecord = data as VerificationSubmissionRecord;
+  } else {
+    const { data, error } = await supabase
+      .from('business_verifications')
+      .insert(recordInput)
+      .select()
+      .single();
+    if (error || !data) throw new Error(error?.message || 'Unable to create direct verification.');
+    updatedRecord = data as VerificationSubmissionRecord;
   }
-
-  // 3. Sync to Supabase profiles and business_profiles
-  await syncVerificationStatusToDatabase(userId, businessProfileId, {
-    is_verified: verify,
-    verification_status: verify ? 'VERIFIED' : 'UNVERIFIED',
-    verification_document_type: updatedRecord.document_type,
-    verified_at: verify ? now : null,
-  });
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
