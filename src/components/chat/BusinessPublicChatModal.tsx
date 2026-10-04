@@ -404,7 +404,7 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                         {m.kind === 'voice' ? (
                           <div className="min-w-[200px]">
                             <VoiceNotePlayer
-                              src={(m as any).action_payload?.audio_url || m.image_url || ''}
+                              src={(m as any).action_payload?.audio_url || (m as any).image_url || ''}
                               duration={(m as any).action_payload?.duration || 0}
                               isMine={isMe}
                             />

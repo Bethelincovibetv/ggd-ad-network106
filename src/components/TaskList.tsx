@@ -405,7 +405,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
             title: '100 Credits Awarded',
             message: 'You earned 100 promotional credits for sharing GGD Ad Network!',
             type: 'platform_share_100_completed',
-            read: true,
+            is_read: true,
           });
 
           // Fetch fresh credits and add 100

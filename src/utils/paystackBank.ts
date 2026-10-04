@@ -526,8 +526,8 @@ export async function directUpdateSyndicateSubaccountWithPin(
     const secretKey = settings?.find(s => s.key === 'paystack_secret_key')?.value;
     const effectivePct = parseInt(settings?.find(s => s.key === 'syndicate_payout_percentage')?.value || '70', 10) || 70;
 
-    let updatedSubaccountCode = subaccountCode || currentProfile?.paystack_subaccount_code || null;
-    let updatedSubaccountId = subaccountId || currentProfile?.paystack_subaccount_id || null;
+    let updatedSubaccountCode = subaccountCode || (currentProfile as any)?.paystack_subaccount_code || null;
+    let updatedSubaccountId = subaccountId || (currentProfile as any)?.paystack_subaccount_id || null;
 
     // 3. Call server update-subaccount API route using the existing subaccount code/id
     try {

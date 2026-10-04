@@ -96,14 +96,14 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
         setCurrentUser({ id: user.id, email: user.email });
         const { data: profile } = await supabase
           .from('profiles')
-          .select('credits, display_name, phone_number, business_name, state, industry')
+          .select('credits, display_name, business_phone, whatsapp_number, business_name, state, industry')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (profile) {
           setUserCredits(profile.credits || 0);
           if (!newContactName) setNewContactName(profile.display_name || '');
-          if (!newContactPhone) setNewContactPhone(profile.phone_number || '');
+          if (!newContactPhone) setNewContactPhone(profile.whatsapp_number || profile.business_phone || '');
           if (!newBusinessName) setNewBusinessName(profile.business_name || '');
           if (profile.state) setNewState(profile.state);
         }

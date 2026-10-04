@@ -673,8 +673,8 @@ const AdminSettings = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.previewColor }} />
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.accentColor }} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatchPrimary }} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatchSecondary }} />
                       </div>
                       {active && (
                         <span className="text-[9px] font-black uppercase tracking-wider text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
@@ -683,10 +683,10 @@ const AdminSettings = () => {
                       )}
                     </div>
                     <p className="text-xs font-black text-foreground">{t.name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{t.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{t.subtitle}</p>
                   </div>
                   <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[9px] text-muted-foreground">
-                    <span className="capitalize">{t.tone}</span>
+                    <span className="capitalize">{t.tag}</span>
                     <span className="font-semibold text-slate-700">Light / Modern</span>
                   </div>
                 </button>

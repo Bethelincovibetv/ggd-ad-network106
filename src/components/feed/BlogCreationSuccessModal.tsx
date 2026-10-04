@@ -82,7 +82,7 @@ export const BlogCreationSuccessModal: React.FC<BlogCreationSuccessModalProps> =
                     {blog.category || 'General'}
                   </Badge>
                   <Badge variant="secondary" className="bg-black/70 text-white text-[10px] font-bold border-0 flex items-center gap-1">
-                    <Clock className="h-2.5 w-2.5" /> {blog.reading_time_minutes || 3} min read
+                    <Clock className="h-2.5 w-2.5" /> {(blog as any).reading_time_minutes || 3} min read
                   </Badge>
                 </div>
               </div>

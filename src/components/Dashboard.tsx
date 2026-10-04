@@ -440,7 +440,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           try {
             const [notifRes, tasksRes] = await Promise.all([
               supabase.from('notifications').select('id, title, message').eq('user_id', user.id).eq('is_read', false).limit(3),
-              supabase.from('credit_tasks').select('id', { count: 'exact', head: true }).eq('is_active', true),
+              (supabase.from as any)('credit_tasks').select('id', { count: 'exact', head: true }).eq('is_active', true),
             ]);
             const unreadCount = notifRes.data?.length || 0;
             const taskCount = tasksRes.count || 0;
@@ -1048,7 +1048,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'saved':
       case 'wishlist':
       case 'bookmarks':
-        return <FavoritesPage onNavigate={handleTabChange} />;
+        return <FavoritesPage onNavigateTab={handleTabChange} />;
 
       case 'directory':
         return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;

@@ -389,7 +389,7 @@ export async function submitVerificationToEngine(payload: {
 
   const { data: savedRecord, error } = await supabase
     .from('business_verifications')
-    .insert(recordInput)
+    .insert(recordInput as any)
     .select()
     .single();
 
@@ -397,7 +397,7 @@ export async function submitVerificationToEngine(payload: {
     throw new Error(error?.message || 'Unable to save verification submission.');
   }
 
-  const record = savedRecord as VerificationSubmissionRecord;
+  const record = savedRecord as unknown as VerificationSubmissionRecord;
 
   // The database trigger updates profile and business verification flags.
   broadcastVerificationChange({
@@ -465,7 +465,7 @@ export async function getUserVerificationRecord(userId: string): Promise<Verific
     return null;
   }
 
-  return data ? (data as VerificationSubmissionRecord) : null;
+  return data ? (data as unknown as VerificationSubmissionRecord) : null;
 }
 
 /**
@@ -484,7 +484,7 @@ export function subscribeToUserVerification(
   void getUserVerificationRecord(userId).then(onUpdate);
 
   const channel = supabase
-    .channel(`business-verification-user-${userId}`)
+    .channel(`business-verification-user-${userId}-${Math.random().toString(36).slice(2, 10)}`)
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -518,7 +518,7 @@ export async function getAllVerificationRecords(): Promise<VerificationSubmissio
     return [];
   }
 
-  return (data || []) as VerificationSubmissionRecord[];
+  return (data || []) as unknown as VerificationSubmissionRecord[];
 }
 
 /**
@@ -531,7 +531,7 @@ export function subscribeToAllVerifications(
   void getAllVerificationRecords().then(onUpdate);
 
   const channel = supabase
-    .channel('business-verifications-admin')
+    .channel(`business-verifications-admin-${Math.random().toString(36).slice(2, 10)}`)
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -592,7 +592,7 @@ export async function processAdminVerificationOverride(
     throw new Error(updateError?.message || 'Unable to update verification submission.');
   }
 
-  const updatedRecord = savedRecord as VerificationSubmissionRecord;
+  const updatedRecord = savedRecord as unknown as VerificationSubmissionRecord;
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
@@ -633,7 +633,7 @@ export async function adminDirectVerifyUser(payload: {
   const recordInput = {
     user_id: userId,
     business_profile_id: businessProfileId || existing?.business_profile_id,
-    user_email: adminEmail,
+    user_email: existing?.user_email || null,
     account_type: existing?.account_type || 'registered_business',
     document_type: existing?.document_type || 'CAC',
     document_number: existing?.document_number || (verify ? 'ADMIN-DIRECT-VERIFIED' : 'UNVERIFIED'),
@@ -665,27 +665,27 @@ export async function adminDirectVerifyUser(payload: {
   if (existing) {
     const { data, error } = await supabase
       .from('business_verifications')
-      .update(recordInput)
+      .update(recordInput as any)
       .eq('id', existing.id)
       .select()
       .single();
     if (error || !data) throw new Error(error?.message || 'Unable to update direct verification.');
-    updatedRecord = data as VerificationSubmissionRecord;
+    updatedRecord = data as unknown as VerificationSubmissionRecord;
   } else {
     const { data, error } = await supabase
       .from('business_verifications')
-      .insert(recordInput)
+      .insert(recordInput as any)
       .select()
       .single();
     if (error || !data) throw new Error(error?.message || 'Unable to create direct verification.');
-    updatedRecord = data as VerificationSubmissionRecord;
+    updatedRecord = data as unknown as VerificationSubmissionRecord;
   }
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
     notifyVerificationStatusChange({
       userId,
-      userEmail: adminEmail || existing?.user_email || undefined,
+      userEmail: existing?.user_email || undefined,
       businessName: updatedRecord.submitted_name || profileName || 'Business Member',
       status: (verify ? 'VERIFIED' : 'REVOKED') as any,
       documentType: updatedRecord.document_type,
