@@ -484,7 +484,7 @@ export function subscribeToUserVerification(
   void getUserVerificationRecord(userId).then(onUpdate);
 
   const channel = supabase
-    .channel(`business-verification-user-${userId}`)
+    .channel(`business-verification-user-${userId}-${Math.random().toString(36).slice(2, 10)}`)
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -531,7 +531,7 @@ export function subscribeToAllVerifications(
   void getAllVerificationRecords().then(onUpdate);
 
   const channel = supabase
-    .channel('business-verifications-admin')
+    .channel(`business-verifications-admin-${Math.random().toString(36).slice(2, 10)}`)
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -633,7 +633,7 @@ export async function adminDirectVerifyUser(payload: {
   const recordInput = {
     user_id: userId,
     business_profile_id: businessProfileId || existing?.business_profile_id,
-    user_email: adminEmail,
+    user_email: existing?.user_email || null,
     account_type: existing?.account_type || 'registered_business',
     document_type: existing?.document_type || 'CAC',
     document_number: existing?.document_number || (verify ? 'ADMIN-DIRECT-VERIFIED' : 'UNVERIFIED'),
@@ -685,7 +685,7 @@ export async function adminDirectVerifyUser(payload: {
   try {
     notifyVerificationStatusChange({
       userId,
-      userEmail: adminEmail || existing?.user_email || undefined,
+      userEmail: existing?.user_email || undefined,
       businessName: updatedRecord.submitted_name || profileName || 'Business Member',
       status: (verify ? 'VERIFIED' : 'REVOKED') as any,
       documentType: updatedRecord.document_type,
