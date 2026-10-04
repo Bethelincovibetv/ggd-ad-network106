@@ -389,7 +389,7 @@ export async function submitVerificationToEngine(payload: {
 
   const { data: savedRecord, error } = await supabase
     .from('business_verifications')
-    .insert(recordInput)
+    .insert(recordInput as any)
     .select()
     .single();
 
@@ -397,7 +397,7 @@ export async function submitVerificationToEngine(payload: {
     throw new Error(error?.message || 'Unable to save verification submission.');
   }
 
-  const record = savedRecord as VerificationSubmissionRecord;
+  const record = savedRecord as unknown as VerificationSubmissionRecord;
 
   // The database trigger updates profile and business verification flags.
   broadcastVerificationChange({
@@ -465,7 +465,7 @@ export async function getUserVerificationRecord(userId: string): Promise<Verific
     return null;
   }
 
-  return data ? (data as VerificationSubmissionRecord) : null;
+  return data ? (data as unknown as VerificationSubmissionRecord) : null;
 }
 
 /**
@@ -518,7 +518,7 @@ export async function getAllVerificationRecords(): Promise<VerificationSubmissio
     return [];
   }
 
-  return (data || []) as VerificationSubmissionRecord[];
+  return (data || []) as unknown as VerificationSubmissionRecord[];
 }
 
 /**
@@ -592,7 +592,7 @@ export async function processAdminVerificationOverride(
     throw new Error(updateError?.message || 'Unable to update verification submission.');
   }
 
-  const updatedRecord = savedRecord as VerificationSubmissionRecord;
+  const updatedRecord = savedRecord as unknown as VerificationSubmissionRecord;
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
@@ -665,20 +665,20 @@ export async function adminDirectVerifyUser(payload: {
   if (existing) {
     const { data, error } = await supabase
       .from('business_verifications')
-      .update(recordInput)
+      .update(recordInput as any)
       .eq('id', existing.id)
       .select()
       .single();
     if (error || !data) throw new Error(error?.message || 'Unable to update direct verification.');
-    updatedRecord = data as VerificationSubmissionRecord;
+    updatedRecord = data as unknown as VerificationSubmissionRecord;
   } else {
     const { data, error } = await supabase
       .from('business_verifications')
-      .insert(recordInput)
+      .insert(recordInput as any)
       .select()
       .single();
     if (error || !data) throw new Error(error?.message || 'Unable to create direct verification.');
-    updatedRecord = data as VerificationSubmissionRecord;
+    updatedRecord = data as unknown as VerificationSubmissionRecord;
   }
 
   // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
