@@ -48,7 +48,7 @@ function calculateBaseViews(post: { id: string; created_at: string; reactions?: 
   const hoursOld = Math.max(1, (now - created) / (1000 * 60 * 60));
   
   const reactionCount = typeof post.reactions === 'object' && post.reactions
-    ? Object.values(post.reactions).reduce((a: number, b: any) => a + Number(b || 0), 0)
+    ? Object.values(post.reactions).reduce((a: number, b: any) => a + Number(b || 0), 0) as number
     : 0;
   const comments = Number(post.commentCount || 0);
   

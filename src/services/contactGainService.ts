@@ -225,13 +225,13 @@ export async function fetchCompiledContacts(filterDate?: string): Promise<Contac
     try {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, display_name, business_name, phone_number, whatsapp_number, address, state, industry, created_at')
-        .not('phone_number', 'is', null)
+        .select('user_id, display_name, business_name, business_phone, whatsapp_number, state, industry, created_at')
+        .or('whatsapp_number.not.is.null,business_phone.not.is.null')
         .limit(300);
 
       if (profiles && profiles.length > 0) {
         for (const p of profiles) {
-          const phone = sanitizePhoneNumber(p.whatsapp_number || p.phone_number || '');
+          const phone = sanitizePhoneNumber(p.whatsapp_number || p.business_phone || '');
           if (!phone || phone.length < 7) continue;
 
           // Don't overwrite explicit Firestore entries

@@ -830,7 +830,7 @@ const UserProfilePublicPage: React.FC = () => {
                         businessWebsite: website,
                       }}
                       variant="outline"
-                      size="default"
+                      size="md"
                       showLabel
                       className="border-slate-200 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 hover:border-rose-300 text-xs sm:text-sm h-11 px-4 rounded-xl shadow-xs"
                     />

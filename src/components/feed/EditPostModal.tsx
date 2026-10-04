@@ -207,6 +207,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
           return;
         }
         const updatedBlog: CommunityBlogPostData = {
+          is_blog: true,
           title: blogTitle.trim(),
           subtitle: blogSubtitle.trim(),
           category: blogCategory,

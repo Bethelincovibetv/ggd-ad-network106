@@ -57,7 +57,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
   const authorHref = author?.business_slug ? `/b/${author.business_slug}` : `/user/${post.user_id}`;
 
-  const totalReactions = Object.values(post.reactions || {}).reduce((a: any, b: any) => a + Number(b), 0);
+  const totalReactions: number = Object.values(post.reactions || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
   const topReactions = (Object.entries(post.reactions || {}) as [string, number][])
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1])

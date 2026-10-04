@@ -128,7 +128,7 @@ export const WhatsAppQrModal: React.FC<WhatsAppQrModalProps> = ({
       }
       if (data.qrCode) {
         setQrCodeUrl(data.qrCode);
-        setSecondsLeft(data.expiresInSeconds || 60);
+        setSecondsLeft((data as any).expiresInSeconds || 60);
       } else {
         toast.error(data.error || 'Could not generate WhatsApp pairing QR code');
       }
@@ -156,7 +156,7 @@ export const WhatsAppQrModal: React.FC<WhatsAppQrModalProps> = ({
     const pollInterval = setInterval(async () => {
       try {
         const statusData = await getWhatsAppStatus(userId);
-        if (statusData.status === 'connected' || statusData.connected) {
+        if (statusData.status === 'connected' || (statusData as any).connected) {
           setIsSuccess(true);
           playRewardSound();
           toast.success('🎉 WhatsApp connected successfully via Baileys engine!');

@@ -62,7 +62,7 @@ const IndustryPage: React.FC = () => {
         localStorage.setItem('ggd_user_state', detected.state);
         toast.success(`Location detected: ${detected.state} State, Nigeria`);
       } else {
-        toast.info(detected.formattedAddress || 'Could not precisely identify Nigerian state. Please select from the dropdown.');
+        toast.info((detected as any)?.formattedAddress || 'Could not precisely identify Nigerian state. Please select from the dropdown.');
       }
     } catch (err: any) {
       toast.error('Could not access GPS. Please choose your Nigerian state.');

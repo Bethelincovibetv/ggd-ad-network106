@@ -939,7 +939,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                         {biz.business_name}
                       </h4>
                       {isBusinessVerified(biz) && (
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" title="Verified Merchant" />
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Verified Merchant" />
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">

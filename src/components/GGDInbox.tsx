@@ -1162,7 +1162,6 @@ const GGDInbox: React.FC = () => {
       {inboxView === "calls" ? (
         <CallHistoryList
           userId={me}
-          onCallUser={(targetId) => openThread(targetId, null)}
         />
       ) : (
         <div className="space-y-3">

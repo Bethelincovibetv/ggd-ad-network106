@@ -647,7 +647,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 authorProfile={me.profile}
                 onSuccess={() => {
                   setComposerMode('normal');
-                  loadPosts();
+                  loadFeed(me.id);
                 }}
                 onCancel={() => setComposerMode('normal')}
               />
@@ -1404,7 +1404,7 @@ const PostCard: React.FC<PostCardProps> = ({
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                 <span>{timeAgo(post.created_at)}</span>
-                {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
+                {(post as any).updated_at && new Date((post as any).updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
                   <span className="text-[10px] text-muted-foreground/80 italic font-medium">(edited)</span>
                 )}
                 <span>•</span>

@@ -256,7 +256,7 @@ export async function startOutgoingCall({
       if (data.answer && !hasSetRemoteAnswer && (!peerConnection.currentRemoteDescription || peerConnection.signalingState === 'have-local-offer')) {
         try {
           hasSetRemoteAnswer = true;
-          const answerDescription = new RTCSessionDescription(data.answer);
+          const answerDescription = new RTCSessionDescription(data.answer as RTCSessionDescriptionInit);
           await peerConnection.setRemoteDescription(answerDescription);
 
           // Process any queued candidates safely
@@ -463,7 +463,7 @@ export async function answerIncomingCall({
   );
 
   // Apply remote offer
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(sessionOffer));
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(sessionOffer as RTCSessionDescriptionInit));
 
   // Flush any buffered caller candidates
   while (pendingCallerCandidates.length > 0) {

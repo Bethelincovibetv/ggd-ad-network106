@@ -139,7 +139,7 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
                 .eq('user_id', uid);
 
               try {
-                await supabase.from('credit_transactions').insert({
+                await (supabase.from as any)('credit_transactions').insert({
                   user_id: uid,
                   amount: BONUS_CREDITS,
                   type: 'bonus',
