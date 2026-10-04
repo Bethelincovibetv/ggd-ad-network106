@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image as ImageIcon,
   User, MapPin, Calendar, Search, Archive, BarChart3, Trophy, Hourglass, Trash2, ChevronRight, Megaphone
+  Globe, CheckCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
