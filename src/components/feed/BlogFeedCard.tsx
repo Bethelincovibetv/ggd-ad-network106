@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { CommunityBlogPostData } from '@/types/blog';
 import BlogArticleReaderModal from './BlogArticleReaderModal';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
-import { ShareToEarnBroadcastModal } from '@/components/whatsapp/ShareToEarnBroadcastModal';
 
 interface BlogFeedCardProps {
   post: any;
@@ -50,7 +49,6 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   timeAgoStr,
 }) => {
   const [readerOpen, setReaderOpen] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const author = post.author;
   const authorName = author?.business_name || author?.display_name || 'GGD Creator';
@@ -336,34 +334,55 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
               <span>Read</span>
             </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 h-9 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-bold text-[12px] truncate"
-              onClick={() => setShareModalOpen(true)}
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              <span>Share & Earn</span>
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 h-9 text-[12px] truncate">
+                  <Share2 className="h-4 w-4" />
+                  <span>Share</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2 space-y-1" side="top">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    const text = `📰 "${blog.title || 'Article'}" by ${authorName} on GGD Ad Network`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank');
+                  }}
+                >
+                  <span className="mr-2">💬</span> WhatsApp
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    const text = `📰 "${blog.title || 'Article'}" by ${authorName} on GGD Ad Network`;
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                  }}
+                >
+                  <span className="mr-2">🐦</span> X / Twitter
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success('Article link copied to clipboard!');
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-2" /> Copy Link
+                </Button>
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>
-
-      {/* Share to Earn WhatsApp Modal */}
-      <ShareToEarnBroadcastModal
-        isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-        post={{
-          id: post.id,
-          title: blog.title || post.content?.slice(0, 50) || 'GGD Article',
-          description: blog.subtitle || post.content?.slice(0, 120),
-          imageUrl: blog.cover_image || post.image_url,
-          targetUrl: `${window.location.origin}/post/${post.id}`,
-          rewardCredits: 50,
-          authorName,
-        }}
-        userId={currentUserId || undefined}
-      />
 
       {/* Reader Modal */}
       <BlogArticleReaderModal
