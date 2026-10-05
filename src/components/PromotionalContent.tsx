@@ -3,6 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   Share2, 
   Copy, 
@@ -20,7 +25,14 @@ import {
   ShieldCheck,
   TrendingUp,
   Percent,
-  Megaphone
+  Megaphone,
+  Edit,
+  Upload,
+  Trash2,
+  Plus,
+  Loader2,
+  Save,
+  Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +51,14 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
   const [previewTitle, setPreviewTitle] = useState<string>('');
   const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
 
+  // Admin Management State
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [editingFlyer, setEditingFlyer] = useState<any | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newFlyer, setNewFlyer] = useState({ title: '', description: '', image_url: '', is_active: true });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingReplaceImage, setUploadingReplaceImage] = useState(false);
+
   useEffect(() => {
     if (initialTab === 'promo' || initialTab === 'flyers') {
       setActiveSubTab('flyers');
@@ -49,27 +69,142 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
     }
   }, [initialTab]);
 
-  useEffect(() => {
-    // Load promotional materials from database
-    supabase
-      .from('promotional_materials')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setFlyers(data || []));
+  const loadData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    let admin = false;
+    if (user) {
+      const [{ data: prof }, { data: setting }, { data: roles }] = await Promise.all([
+        supabase.from('profiles').select('referral_code').eq('user_id', user.id).single(),
+        supabase.from('app_settings').select('value').eq('key', 'referral_percentage').maybeSingle(),
+        supabase.from('user_roles').select('role').eq('user_id', user.id),
+      ]);
+      if (prof?.referral_code) setReferralCode(prof.referral_code);
+      if (setting?.value) setPercentage(setting.value);
+      admin = (roles || []).some((r: any) => r.role === 'admin' || r.role === 'co_owner');
+      setIsAdmin(admin);
+    }
 
-    // Load referral code & commission percentage
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const [{ data: prof }, { data: setting }] = await Promise.all([
-          supabase.from('profiles').select('referral_code').eq('user_id', user.id).single(),
-          supabase.from('app_settings').select('value').eq('key', 'referral_percentage').maybeSingle(),
-        ]);
-        if (prof?.referral_code) setReferralCode(prof.referral_code);
-        if (setting?.value) setPercentage(setting.value);
-      }
-    });
+    let query = supabase.from('promotional_materials').select('*').order('created_at', { ascending: false });
+    if (!admin) {
+      query = query.eq('is_active', true) as any;
+    }
+    const { data: flyersData } = await query;
+    setFlyers(flyersData || []);
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const refreshFlyers = async () => {
+    let query = supabase.from('promotional_materials').select('*').order('created_at', { ascending: false });
+    if (!isAdmin) {
+      query = query.eq('is_active', true) as any;
+    }
+    const { data } = await query;
+    setFlyers(data || []);
+  };
+
+  const handleToggleFlyerActive = async (flyer: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const nextStatus = flyer.is_active === false ? true : false;
+    const { error } = await supabase
+      .from('promotional_materials')
+      .update({ is_active: nextStatus })
+      .eq('id', flyer.id);
+
+    if (error) {
+      toast.error('Failed to change flyer status: ' + error.message);
+      return;
+    }
+    toast.success(nextStatus ? 'Flyer activated (LIVE)' : 'Flyer deactivated (PAUSED)');
+    refreshFlyers();
+  };
+
+  const handleDeleteFlyer = async (flyerId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm('Are you sure you want to permanently delete this promotional flyer?')) return;
+    const { error } = await supabase.from('promotional_materials').delete().eq('id', flyerId);
+    if (error) {
+      toast.error('Failed to delete flyer: ' + error.message);
+      return;
+    }
+    toast.success('Promotional flyer deleted!');
+    refreshFlyers();
+  };
+
+  const handleUploadNewFlyerImage = async (file: File) => {
+    setUploadingImage(true);
+    const fileName = `promos/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+      setNewFlyer(prev => ({ ...prev, image_url: publicUrl }));
+      toast.success('Flyer image uploaded');
+    } else {
+      toast.error('Failed to upload flyer image');
+    }
+    setUploadingImage(false);
+  };
+
+  const handleUploadReplaceFlyerImage = async (file: File) => {
+    setUploadingReplaceImage(true);
+    const fileName = `promos/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+      setEditingFlyer((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
+      toast.success('Replacement flyer image uploaded!');
+    } else {
+      toast.error('Failed to upload replacement image');
+    }
+    setUploadingReplaceImage(false);
+  };
+
+  const handleCreateNewFlyer = async () => {
+    if (!newFlyer.title.trim()) { toast.error('Enter flyer title'); return; }
+    if (!newFlyer.image_url) { toast.error('Upload a flyer image'); return; }
+
+    const { error } = await supabase.from('promotional_materials').insert({
+      title: newFlyer.title.trim(),
+      description: newFlyer.description.trim() || null,
+      image_url: newFlyer.image_url,
+      is_active: newFlyer.is_active,
+      type: 'flyer',
+      target_audience: 'users',
+    });
+
+    if (error) {
+      toast.error('Failed to create flyer: ' + error.message);
+      return;
+    }
+
+    toast.success('New promotional flyer added!');
+    setNewFlyer({ title: '', description: '', image_url: '', is_active: true });
+    setShowCreateModal(false);
+    refreshFlyers();
+  };
+
+  const handleSaveEditFlyer = async () => {
+    if (!editingFlyer) return;
+    if (!editingFlyer.title?.trim()) { toast.error('Enter flyer title'); return; }
+
+    const { error } = await supabase.from('promotional_materials').update({
+      title: editingFlyer.title.trim(),
+      description: editingFlyer.description || null,
+      image_url: editingFlyer.image_url || null,
+      is_active: editingFlyer.is_active !== false,
+    }).eq('id', editingFlyer.id);
+
+    if (error) {
+      toast.error('Failed to update flyer: ' + error.message);
+      return;
+    }
+
+    toast.success('Promotional flyer updated successfully!');
+    setEditingFlyer(null);
+    refreshFlyers();
+  };
 
   const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/?ref=${referralCode}` : '';
 
@@ -319,7 +454,7 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
         <TabsContent value="flyers" className="space-y-4 outline-none">
           <Card className="border-border shadow-sm">
             <CardHeader className="p-4 sm:p-5 pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Megaphone className="h-5 w-5 text-orange-500" />
@@ -329,9 +464,20 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
                     Download official banners to post on WhatsApp Status, Instagram Stories, and Facebook.
                   </p>
                 </div>
-                <Badge variant="outline" className="text-xs font-semibold w-fit">
-                  {flyers.length} {flyers.length === 1 ? 'Flyer' : 'Flyers'} Available
-                </Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs font-semibold">
+                    {flyers.length} {flyers.length === 1 ? 'Flyer' : 'Flyers'} Available
+                  </Badge>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowCreateModal(true)}
+                      className="h-8 px-3 text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-xs gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add New Flyer
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-5 pt-0">
@@ -354,11 +500,20 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                     Check back soon or share the pre-written messages from the Share Messages tab!
                   </p>
+                  {isAdmin && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setShowCreateModal(true)}
+                      className="mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Create First Flyer
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
                   {flyers.map((f: any) => (
-                    <Card key={f.id} className="overflow-hidden border border-border/80 hover:border-orange-500/40 transition-all flex flex-col justify-between shadow-sm">
+                    <Card key={f.id} className="overflow-hidden border border-border/80 hover:border-orange-500/40 transition-all flex flex-col justify-between shadow-sm relative">
                       <div>
                         {f.image_url ? (
                           <div 
@@ -380,6 +535,19 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
                               </span>
                               <span className="text-xs text-white font-bold">Tap to Preview</span>
                             </div>
+
+                            {/* Admin Status Pill on Image */}
+                            {isAdmin && (
+                              <div className="absolute top-2 left-2 z-10">
+                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-md ${
+                                  f.is_active !== false 
+                                    ? 'bg-emerald-600 text-white' 
+                                    : 'bg-rose-600 text-white'
+                                }`}>
+                                  {f.is_active !== false ? 'ACTIVE' : 'INACTIVE'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="aspect-[4/3] bg-muted flex items-center justify-center text-muted-foreground text-xs">
@@ -400,10 +568,45 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
                             size="sm" 
                             type="button"
                             onClick={() => downloadFlyer(f.image_url, f.title || 'GGD_Flyer')}
-                            className="w-full h-11 rounded-xl text-xs sm:text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-sm flex items-center justify-center gap-2"
+                            className="w-full h-10 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-sm flex items-center justify-center gap-2"
                           >
                             <Download className="h-4 w-4" /> Download Flyer
                           </Button>
+                        )}
+
+                        {/* Admin Action Deck on Card */}
+                        {isAdmin && (
+                          <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1.5 bg-muted/20 p-2 rounded-xl">
+                            <div className="flex items-center gap-1.5">
+                              <Switch 
+                                checked={f.is_active !== false} 
+                                onCheckedChange={(e) => handleToggleFlyerActive(f)}
+                                title={f.is_active !== false ? "Click to deactivate flyer" : "Click to activate flyer"}
+                              />
+                              <span className="text-[10px] font-semibold text-muted-foreground">
+                                {f.is_active !== false ? 'Live' : 'Paused'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px] font-semibold rounded-lg text-purple-700 border-purple-200 hover:bg-purple-50 gap-1"
+                                onClick={() => setEditingFlyer({ ...f })}
+                              >
+                                <Edit className="h-3 w-3" /> Edit / Replace
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-destructive hover:bg-rose-50 rounded-lg"
+                                onClick={() => handleDeleteFlyer(f.id)}
+                                title="Delete flyer"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </Card>
@@ -413,6 +616,192 @@ const PromotionalContent: React.FC<PromotionalContentProps> = ({ initialTab = 'r
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ADMIN EDIT FLYER MODAL */}
+        <Dialog open={!!editingFlyer} onOpenChange={(open) => { if (!open) setEditingFlyer(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Edit className="h-4 w-4 text-purple-600" />
+                Edit Promotional Flyer
+              </DialogTitle>
+            </DialogHeader>
+
+            {editingFlyer && (
+              <div className="space-y-3.5 py-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Flyer Title</Label>
+                  <Input 
+                    value={editingFlyer.title || ''} 
+                    onChange={e => setEditingFlyer({ ...editingFlyer, title: e.target.value })} 
+                    className="text-xs" 
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Description</Label>
+                  <Textarea 
+                    rows={3} 
+                    value={editingFlyer.description || ''} 
+                    onChange={e => setEditingFlyer({ ...editingFlyer, description: e.target.value })} 
+                    className="text-xs" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold">Flyer Image & Replacement</Label>
+                  {editingFlyer.image_url && (
+                    <div className="rounded-xl overflow-hidden border border-border h-36 bg-black/5">
+                      <img src={editingFlyer.image_url} alt="Flyer" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    id="promoReplaceInput" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadReplaceFlyerImage(f);
+                    }} 
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={uploadingReplaceImage}
+                    className="w-full text-xs font-semibold gap-1.5"
+                    onClick={() => document.getElementById('promoReplaceInput')?.click()}
+                  >
+                    {uploadingReplaceImage ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5 text-purple-600" />
+                    )}
+                    {uploadingReplaceImage ? 'Uploading Replacement...' : 'Replace Flyer Image'}
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 bg-muted/40 rounded-xl border">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Flyer Status</p>
+                    <p className="text-[10px] text-muted-foreground">Make this flyer active and visible for user downloads</p>
+                  </div>
+                  <Switch 
+                    checked={editingFlyer.is_active !== false} 
+                    onCheckedChange={checked => setEditingFlyer({ ...editingFlyer, is_active: checked })} 
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" size="sm" onClick={() => setEditingFlyer(null)}>
+                Cancel
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={handleSaveEditFlyer}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5"
+              >
+                <Save className="h-3.5 w-3.5" /> Save Flyer Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ADMIN CREATE FLYER MODAL */}
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Plus className="h-4 w-4 text-purple-600" />
+                Add New Promotional Flyer
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3.5 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Flyer Title *</Label>
+                <Input 
+                  placeholder="e.g. Syndicate Earnings WhatsApp Flyer"
+                  value={newFlyer.title} 
+                  onChange={e => setNewFlyer({ ...newFlyer, title: e.target.value })} 
+                  className="text-xs" 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Description</Label>
+                <Textarea 
+                  placeholder="Instructions for promoters and users..."
+                  rows={3} 
+                  value={newFlyer.description} 
+                  onChange={e => setNewFlyer({ ...newFlyer, description: e.target.value })} 
+                  className="text-xs" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold">Flyer Image Banner *</Label>
+                {newFlyer.image_url && (
+                  <div className="rounded-xl overflow-hidden border border-border h-36 bg-black/5">
+                    <img src={newFlyer.image_url} alt="New Flyer" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  id="newPromoFileInput" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUploadNewFlyerImage(f);
+                  }} 
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={uploadingImage}
+                  className="w-full text-xs font-semibold gap-1.5"
+                  onClick={() => document.getElementById('newPromoFileInput')?.click()}
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5 text-purple-600" />
+                  )}
+                  {uploadingImage ? 'Uploading Image...' : (newFlyer.image_url ? 'Change Image' : 'Upload Flyer Image')}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-muted/40 rounded-xl border">
+                <div>
+                  <p className="text-xs font-bold text-foreground">Make Active Immediately</p>
+                  <p className="text-[10px] text-muted-foreground">Publish to all users right away</p>
+                </div>
+                <Switch 
+                  checked={newFlyer.is_active} 
+                  onCheckedChange={checked => setNewFlyer({ ...newFlyer, is_active: checked })} 
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" size="sm" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={handleCreateNewFlyer}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Publish Flyer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* TAB 4: HOW IT WORKS & FAQ */}
         <TabsContent value="guide" className="space-y-4 outline-none">

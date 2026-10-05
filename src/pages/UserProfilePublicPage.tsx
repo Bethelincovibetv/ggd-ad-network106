@@ -596,12 +596,20 @@ const UserProfilePublicPage: React.FC = () => {
             </div>
 
             {/* Quick Status Pill */}
-            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2 text-xs">
+            <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border ${
+              isVerified ? 'bg-emerald-50 border-emerald-200/80' : 'bg-slate-50 border-slate-200'
+            }`}>
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-emerald-700 font-bold text-[11px]">Open for Inquiries</span>
+                <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                <span className={`${isVerified ? 'text-emerald-700' : 'text-slate-700'} font-bold text-[11px]`}>
+                  {isVerified ? 'Open for Inquiries' : 'Standard Merchant'}
+                </span>
               </div>
-              <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
+              {isVerified ? (
+                <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
+              ) : (
+                <span className="text-[10px] text-slate-500 font-medium">Unverified Site</span>
+              )}
             </div>
           </div>
 
@@ -723,18 +731,14 @@ const UserProfilePublicPage: React.FC = () => {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent" />
                 
-                {/* Badges on Hero Banner */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 flex-wrap">
-                  {premiumTier >= 1 ? (
-                    <Badge className="bg-sky-500 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
-                      <CheckCircle className="h-3.5 w-3.5 fill-white text-sky-500" /> Verified Business
+                {/* Badges on Hero Banner - Only shown when merchant is verified */}
+                {isVerified && (
+                  <div className="absolute top-4 right-4 flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-emerald-600 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
+                      <CheckCircle className="h-3.5 w-3.5 fill-white text-emerald-600" /> Verified Partner
                     </Badge>
-                  ) : (
-                    <Badge className="bg-amber-400 text-amber-950 gap-1.5 font-bold text-xs py-1 px-3 border-0 shadow-sm">
-                      <Sparkles className="h-3.5 w-3.5" /> Trusted Merchant
-                    </Badge>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Business Identity and Introduction Info */}

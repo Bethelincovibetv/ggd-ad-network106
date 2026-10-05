@@ -40,7 +40,7 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
         // Fetch user profile
         const { data: prof } = await supabase
           .from('profiles')
-          .select('user_id, business_name, display_name, avatar_url, business_logo_url, business_phone, whatsapp_number, bio')
+          .select('user_id, business_name, display_name, avatar_url, business_logo_url, business_phone, whatsapp_number, bio, is_verified, verification_status')
           .eq('user_id', businessUserId)
           .maybeSingle();
 
@@ -103,7 +103,12 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
     );
 
   // Recommendation strategy
-  let typeLabel = 'Accredited Partner';
+  const isBizVerified = Boolean(
+    profile?.is_verified ||
+    bizProfile?.is_verified ||
+    profile?.verification_status === 'VERIFIED'
+  );
+  let typeLabel = isBizVerified ? 'Accredited Partner' : 'Business Merchant';
   let Icon = Store;
   let themeColor = 'from-orange-500 to-amber-500';
   let badgeColor = 'bg-orange-500/15 text-orange-600 border-orange-500/30';

@@ -13,7 +13,7 @@ import {
   Search, Plus, Crown, Ban, CheckCircle, Minus, Shield, Briefcase,
   Users, Sparkles, Calendar, Wallet, Mail, Hash, Filter,
   ExternalLink, MapPin, Award, MessageCircle, ChevronRight, Loader2,
-  Banknote, ArrowUpRight, ArrowDownRight, History, RefreshCw
+  Banknote, ArrowUpRight, ArrowDownRight, History, RefreshCw, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -495,6 +495,18 @@ const AdminUserManager = () => {
                     <Shield className="h-3 w-3" />
                     {user.is_verified ? 'Revoke' : 'Verify'}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(`/admin?section=chat&userId=${user.user_id}`, '_blank');
+                    }}
+                    title="Direct Chat with User"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </Button>
                   <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
                 </div>
               </CardContent>
@@ -657,6 +669,19 @@ const AdminUserManager = () => {
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         Open Front-End Profile & Verification Bar
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          window.open(`/admin?section=chat&userId=${selectedUser.user_id}`, '_blank');
+                        }}
+                        className="w-full text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 gap-1.5"
+                        title="Open real-time direct chat conversation with this user"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Direct Chat with {selectedUser.display_name || 'User'}
                       </Button>
                     </div>
 
