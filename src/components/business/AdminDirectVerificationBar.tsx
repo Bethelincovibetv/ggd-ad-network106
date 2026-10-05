@@ -10,7 +10,9 @@ import {
   Sparkles,
   FileCheck,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { adminDirectVerifyUser } from '@/services/businessVerificationEngine';
@@ -143,6 +145,20 @@ export const AdminDirectVerificationBar: React.FC<AdminDirectVerificationBarProp
             Revoke Verified Badge
           </Button>
         )}
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            window.open(`/admin?section=users&userId=${userId}`, '_blank');
+          }}
+          className="h-8 px-3 text-xs font-semibold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border-indigo-400/40 rounded-xl gap-1.5 cursor-pointer"
+          title="Open this user in Admin User Manager"
+        >
+          <Users className="h-3.5 w-3.5" />
+          <span>Admin User Manager</span>
+          <ExternalLink className="h-3 w-3 opacity-70" />
+        </Button>
       </div>
     </div>
   );

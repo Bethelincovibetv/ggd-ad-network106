@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,8 +49,62 @@ const AdminUserManager = () => {
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [searchParams] = useSearchParams();
 
   useEffect(() => { loadAll(); }, []);
+
+  // Listen for real-time verification changes dispatched from front-end profile or other tabs
+  useEffect(() => {
+    const handleVerifUpdated = (e: any) => {
+      const detail = e.detail;
+      if (detail && detail.userId) {
+        setUsers(prev => prev.map(u => u.user_id === detail.userId ? { ...u, is_verified: detail.isVerified, verification_status: detail.status } : u));
+        setSelectedUser((prev: any) => prev && prev.user_id === detail.userId ? { ...prev, is_verified: detail.isVerified, verification_status: detail.status } : prev);
+      }
+    };
+    window.addEventListener('ggd_verification_updated', handleVerifUpdated);
+    return () => window.removeEventListener('ggd_verification_updated', handleVerifUpdated);
+  }, []);
+
+  // Automatically select target user if userId query param is provided (e.g. from front-end verification bar)
+  useEffect(() => {
+    const targetUserId = searchParams.get('userId');
+    if (targetUserId && users.length > 0) {
+      const match = users.find(u => u.user_id === targetUserId || u.id === targetUserId);
+      if (match) {
+        setSelectedUser(match);
+        setEditForm({ display_name: match.display_name, business_name: match.business_name });
+      }
+    }
+  }, [searchParams, users]);
+
+  // Unified Direct Verification Function connected directly to the engine and front-end bar
+  const handleDirectVerify = async (user: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const newStatus = !user.is_verified;
+    const bp = businessProfiles[user.user_id];
+    try {
+      const { data: { user: adminAuthUser } } = await supabase.auth.getUser();
+      await adminDirectVerifyUser({
+        userId: user.user_id,
+        businessProfileId: bp?.id,
+        verify: newStatus,
+        profileName: user.display_name || user.business_name || user.email,
+        adminId: adminAuthUser?.id || 'admin_dashboard',
+        adminEmail: adminAuthUser?.email || undefined,
+        adminNote: newStatus
+          ? `Directly verified via Admin User Manager by ${adminAuthUser?.email || 'admin'}`
+          : `Verification revoked via Admin User Manager by ${adminAuthUser?.email || 'admin'}`,
+      });
+      toast.success(newStatus ? `🎉 ${user.display_name || 'User'} successfully verified!` : `Verification revoked for ${user.display_name || 'user'}`);
+      setUsers(prev => prev.map(u => u.user_id === user.user_id ? { ...u, is_verified: newStatus, verification_status: newStatus ? 'VERIFIED' : 'UNVERIFIED' } : u));
+      if (selectedUser?.user_id === user.user_id) {
+        setSelectedUser((prev: any) => prev ? { ...prev, is_verified: newStatus, verification_status: newStatus ? 'VERIFIED' : 'UNVERIFIED' } : null);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Verification update failed');
+    }
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -400,8 +455,17 @@ const AdminUserManager = () => {
                   <AvatarFallback className="bg-gradient-to-br from-orange-400 to-red-500 text-white text-sm font-bold">{initials(user)}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-sm font-semibold text-foreground truncate">{user.display_name || 'Unnamed'}</p>
+                    {user.is_verified || user.verification_status === 'VERIFIED' ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] h-4 gap-0.5 px-1.5 font-bold">
+                        <CheckCircle className="h-2.5 w-2.5 text-emerald-600" /> Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200 text-[9px] h-4 px-1">
+                        Unverified
+                      </Badge>
+                    )}
                     {user.is_banned && <Badge variant="destructive" className="text-[9px] h-4 px-1">banned</Badge>}
                   </div>
                   <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
@@ -412,10 +476,26 @@ const AdminUserManager = () => {
                     ))}
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs font-bold text-emerald-600">₦{Number(wallet?.balance || 0).toLocaleString()}</p>
-                  <p className="text-[10px] text-muted-foreground">{user.credits}<span className="text-[9px]"> cr</span> (≈₦{(user.credits * exchangeRate).toLocaleString()})</p>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground inline mt-0.5" />
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-emerald-600">₦{Number(wallet?.balance || 0).toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">{user.credits}<span className="text-[9px]"> cr</span> (≈₦{(user.credits * exchangeRate).toLocaleString()})</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={user.is_verified ? "outline" : "default"}
+                    onClick={(e) => handleDirectVerify(user, e)}
+                    className={`h-7 px-2.5 text-[10px] font-black rounded-lg gap-1 shrink-0 ${
+                      user.is_verified
+                        ? 'text-rose-600 border-rose-300 hover:bg-rose-50'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                    }`}
+                    title={user.is_verified ? "Revoke Verified Badge" : "Directly Verify User"}
+                  >
+                    <Shield className="h-3 w-3" />
+                    {user.is_verified ? 'Revoke' : 'Verify'}
+                  </Button>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
                 </div>
               </CardContent>
             </Card>
@@ -556,31 +636,27 @@ const AdminUserManager = () => {
                       <Button
                         size="sm"
                         variant={selectedUser.is_verified ? "outline" : "default"}
-                        onClick={async () => {
-                          const newStatus = !selectedUser.is_verified;
-                          try {
-                            await adminDirectVerifyUser({
-                              userId: selectedUser.user_id,
-                              businessProfileId: bp?.id,
-                              verify: newStatus,
-                              profileName: selectedUser.display_name || selectedUser.business_name || selectedUser.email,
-                              adminId: 'admin_dashboard',
-                              adminNote: newStatus ? 'Verified via Admin User Manager sheet' : 'Revoked via Admin User Manager sheet'
-                            });
-                            toast.success(newStatus ? 'User successfully verified!' : 'Verification revoked');
-                            setSelectedUser((prev: any) => prev ? { ...prev, is_verified: newStatus } : null);
-                            loadAll();
-                          } catch (err: any) {
-                            toast.error(err?.message || 'Verification update failed');
-                          }
-                        }}
+                        onClick={() => handleDirectVerify(selectedUser)}
                         className={`w-full text-xs font-bold ${
                           selectedUser.is_verified
                             ? 'text-rose-700 border-rose-300 hover:bg-rose-50'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                         }`}
                       >
                         {selectedUser.is_verified ? 'Revoke Verified Badge' : 'Directly Verify User (Grant Badge)'}
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          window.open(`/user/${selectedUser.user_id}`, '_blank');
+                        }}
+                        className="w-full text-xs font-semibold text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 gap-1.5"
+                        title="Open this profile directly on the front-end with the Admin Verification Bar active"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Front-End Profile & Verification Bar
                       </Button>
                     </div>
 

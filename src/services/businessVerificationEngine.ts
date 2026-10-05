@@ -594,7 +594,45 @@ export async function processAdminVerificationOverride(
 
   const updatedRecord = savedRecord as unknown as VerificationSubmissionRecord;
 
-  // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
+  // 2. Synchronize profiles table verification columns
+  try {
+    await supabase
+      .from('profiles')
+      .update({
+        is_verified: isApproval,
+        verification_status: isApproval ? 'VERIFIED' : 'UNVERIFIED',
+        verified_at: isApproval ? now : null,
+        verification_document_type: updatedRecord.document_type || current.document_type || 'CAC',
+      })
+      .eq('user_id', current.user_id);
+  } catch (profEx) {
+    console.warn('Exception updating profile verification status in override:', profEx);
+  }
+
+  // 3. Synchronize business_profiles table verification columns
+  try {
+    await (supabase.from('business_profiles') as any)
+      .update({
+        is_verified: isApproval,
+        verification_status: isApproval ? 'VERIFIED' : 'UNVERIFIED',
+        verified_at: isApproval ? now : null,
+        verification_document_type: updatedRecord.document_type || current.document_type || 'CAC',
+      })
+      .eq('user_id', current.user_id);
+  } catch (bpEx) {
+    console.warn('Exception updating business_profile verification status in override:', bpEx);
+  }
+
+  // 4. Broadcast verification change so all components update across tabs in real time
+  broadcastVerificationChange({
+    userId: current.user_id,
+    businessProfileId: current.business_profile_id,
+    isVerified: isApproval,
+    status: updatedRecord.status,
+    record: updatedRecord,
+  });
+
+  // 5. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
     notifyVerificationStatusChange({
       userId: current.user_id,
@@ -681,7 +719,51 @@ export async function adminDirectVerifyUser(payload: {
     updatedRecord = data as unknown as VerificationSubmissionRecord;
   }
 
-  // 4. Dispatch automated email notification via SMTP gateway & targeted push notification
+  // 2. Synchronize the profiles table verification columns
+  try {
+    const { error: profErr } = await supabase
+      .from('profiles')
+      .update({
+        is_verified: verify,
+        verification_status: verify ? 'VERIFIED' : 'UNVERIFIED',
+        verified_at: verify ? now : null,
+        verification_document_type: updatedRecord.document_type || 'CAC',
+      })
+      .eq('user_id', userId);
+    if (profErr) {
+      console.warn('Could not update profile verification status in Supabase:', profErr);
+    }
+  } catch (profEx) {
+    console.warn('Exception updating profile verification status:', profEx);
+  }
+
+  // 3. Synchronize the business_profiles table verification columns
+  try {
+    const { error: bpErr } = await (supabase.from('business_profiles') as any)
+      .update({
+        is_verified: verify,
+        verification_status: verify ? 'VERIFIED' : 'UNVERIFIED',
+        verified_at: verify ? now : null,
+        verification_document_type: updatedRecord.document_type || 'CAC',
+      })
+      .eq('user_id', userId);
+    if (bpErr) {
+      console.warn('Could not update business_profile verification status in Supabase:', bpErr);
+    }
+  } catch (bpEx) {
+    console.warn('Exception updating business_profile verification status:', bpEx);
+  }
+
+  // 4. Broadcast verification change so all components update across tabs in real time
+  broadcastVerificationChange({
+    userId,
+    businessProfileId: businessProfileId || updatedRecord.business_profile_id,
+    isVerified: verify,
+    status: verify ? 'VERIFIED' : 'REJECTED',
+    record: updatedRecord,
+  });
+
+  // 5. Dispatch automated email notification via SMTP gateway & targeted push notification
   try {
     notifyVerificationStatusChange({
       userId,

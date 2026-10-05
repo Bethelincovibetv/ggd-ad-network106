@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Github
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -66,6 +66,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const discover = [
     { id: 'favorites', icon: Heart, label: 'Saved & Favorites' },
+    { id: 'github-import', icon: Github, label: 'GitHub Repo Importer' },
     ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
     ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
@@ -101,6 +102,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     promo: 'from-pink-500 to-rose-500',
     'share-earn': 'from-pink-500 to-rose-500',
     'api-keys': 'from-slate-500 to-gray-700',
+    'github-import': 'from-purple-600 to-indigo-700',
     guide: 'from-indigo-400 to-purple-500',
     about: 'from-slate-400 to-slate-600',
   };
