@@ -23,7 +23,6 @@ export const MAIN_NAV_ITEMS = [
   { path: '/bgmusic', label: 'Music HQ', icon: 'fa-music', badge: 'Tracks', color: 'from-amber-400 to-yellow-500' },
   { path: '/growth', label: 'Growth SEO', icon: 'fa-bolt-lightning', badge: 'Tags & Hooks', color: 'from-emerald-500 to-teal-600' },
   { path: '/tools', label: 'All Tools', icon: 'fa-shapes', badge: '12+ Tools', color: 'from-blue-500 to-indigo-600' },
-  { path: '/developer', label: 'Dev API', icon: 'fa-code', badge: 'v1 REST', color: 'from-violet-500 to-purple-600' },
   { path: '/contact', label: 'Contact', icon: 'fa-headset', badge: 'Support', color: 'from-green-500 to-emerald-600' },
   { path: '/coach', label: 'Coach', icon: 'fa-cross', badge: 'Mentorship', color: 'from-amber-600 to-orange-700' },
 ];
@@ -148,19 +147,6 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
                 <span className="hidden lg:inline">Channel</span>
               </button>
             )}
-
-            {/* DEV API MODAL QUICK ACCESS */}
-            <button
-              onClick={onOpenGlobalApi}
-              title="API Integration & Endpoints"
-              className={`p-2 rounded-xl border transition-all active:scale-95 cursor-pointer ${
-                themeMode === 'light'
-                  ? 'bg-slate-100 border-slate-200 text-purple-600 hover:bg-purple-50'
-                  : 'bg-white/5 border-white/10 text-purple-400 hover:bg-purple-500/10'
-              }`}
-            >
-              <i className="fa-solid fa-code text-xs"></i>
-            </button>
 
             {/* EXPORT CODEBASE QUICK ACCESS */}
             <button

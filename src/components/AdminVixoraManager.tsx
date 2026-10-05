@@ -191,7 +191,21 @@ const AdminVixoraManager: React.FC = () => {
         await supabase.from('app_settings').upsert(item, { onConflict: 'key' });
       }
 
-      toast.success('Vixora AI Engine configuration saved successfully!');
+      // Sync directly to server runtime in memory
+      try {
+        await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            geminiApiKey: geminiKey.trim(),
+            pexelsApiKey: pexelsKey.trim(),
+          })
+        });
+      } catch (syncErr) {
+        console.warn('Notice syncing keys to backend:', syncErr);
+      }
+
+      toast.success('Vixora AI Engine configuration saved and synced to backend successfully!');
     } catch (err: any) {
       toast.error('Error saving configuration: ' + err?.message);
     } finally {

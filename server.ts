@@ -111,6 +111,54 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // ----------------------------------------------------
+// API Route: Generic AI Content Generation (Vixora & Applet AI Proxy)
+// ----------------------------------------------------
+app.post('/api/ai/generate', async (req, res) => {
+  try {
+    const { contents, systemInstruction, temperature, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
+    const client = await getGeminiClient(apiKey);
+    if (!client) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Gemini AI service unavailable. Please ensure GEMINI_API_KEY is configured in admin settings.',
+      });
+    }
+
+    const config: any = {};
+    if (systemInstruction) config.systemInstruction = systemInstruction;
+    if (typeof temperature === 'number') config.temperature = temperature;
+    if (responseMimeType) config.responseMimeType = responseMimeType;
+
+    const response = await client.models.generateContent({
+      model,
+      contents,
+      config: Object.keys(config).length > 0 ? config : undefined,
+    });
+
+    return res.json({
+      ok: true,
+      text: response.text || '',
+      candidates: response.candidates || [],
+    });
+  } catch (err: any) {
+    console.error('Error generating AI content in /api/ai/generate:', err);
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || 'Failed to generate AI content',
+    });
+  }
+});
+
+// Ephemeral live key resolution for Web Audio live agent
+app.get('/api/vixora/ai/live-key', async (req, res) => {
+  const key = await getGeminiApiKey();
+  return res.json({
+    ok: true,
+    apiKey: key || '',
+  });
+});
+
+// ----------------------------------------------------
 // Real Email Gateway & SMTP Transport Infrastructure
 // ----------------------------------------------------
 interface ServerEmailAccount {

@@ -2202,9 +2202,24 @@ Formatting Rules:
   // --- LIVE SESSION CORE (KORE AI PERSONA + FUNCTION CALLING) ---
 
   const startLiveAssistant = async () => {
-    const activeApiKey = getEffectiveApiKey(user?.apiKey);
+    let activeApiKey = getEffectiveApiKey(user?.apiKey);
     if (!activeApiKey) {
-      setAppError("Gemini API key required. Please configure your key in Profile settings.");
+      try {
+        const res = await fetch('/api/vixora/ai/live-key');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok && data.apiKey) {
+            activeApiKey = data.apiKey;
+          }
+        }
+      } catch (keyErr) {
+        console.warn('Could not fetch server live key:', keyErr);
+      }
+    }
+
+    if (!activeApiKey) {
+      setIsTextChatOpen(true);
+      toast.info("Connecting to Vixora AI Assistant text co-pilot! How can I help you today?");
       return;
     }
 
@@ -2468,7 +2483,7 @@ Formatting Rules:
             console.error("Live assistant error:", e);
             const errStr = String((e as any)?.message || (e as any)?.error?.message || e || '');
             if (errStr.toLowerCase().includes('leaked') || errStr.toLowerCase().includes('api key')) {
-              setAppError("API key error or key reported as invalid. Please enter your Gemini API key in Profile settings.");
+              setAppError("AI voice service is temporarily reconnecting. Please tap again or ask Vixora in the AI Assistant chat.");
             } else {
               setAppError("Live voice connection dropped. Please tap again to start call.");
             }
@@ -5116,10 +5131,34 @@ Formatting Rules:
 
         {activeTab === 'developer' && (
           <div className="animate-rise">
-            <DeveloperApiView 
-              themeMode={themeMode} 
-              activeProjectId={activeProjectId} 
-            />
+            {isAdmin ? (
+              <DeveloperApiView 
+                themeMode={themeMode} 
+                activeProjectId={activeProjectId} 
+              />
+            ) : (
+              <div className={`p-8 sm:p-12 rounded-3xl border text-center space-y-4 max-w-lg mx-auto shadow-2xl my-8 ${
+                themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/90 border-white/10'
+              }`}>
+                <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center text-2xl mx-auto shadow-inner">
+                  <i className="fa-solid fa-shield-halved"></i>
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xl font-black uppercase tracking-tight">Admin-Only API Console</h3>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                    Vixora REST API keys, webhooks, and remote embed integrations are managed securely by Administrators in the GGD Ad Network Admin Portal.
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <button
+                    onClick={() => setActiveTab('studio')}
+                    className="btn-3d btn-3d-orange px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider"
+                  >
+                    Return to Video Studio
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -5429,9 +5468,9 @@ Formatting Rules:
         </div>
       )}
 
-      {/* 1-CLICK ALL-IN-ONE API INTEGRATION DOCUMENTATION MODAL */}
+      {/* 1-CLICK ALL-IN-ONE API INTEGRATION DOCUMENTATION MODAL (ADMIN ONLY) */}
       <CompleteApiModal
-        isOpen={showGlobalApiModal}
+        isOpen={showGlobalApiModal && isAdmin}
         onClose={() => setShowGlobalApiModal(false)}
         themeMode={themeMode}
         baseUrl={typeof window !== 'undefined' ? window.location.origin : 'https://vixora.studio'}

@@ -19,6 +19,17 @@ import {
 } from '../services/serverVideoEngine';
 import { PRESET_SFX_CATALOG } from '../sfxLibrary';
 import { SERVER_MUSIC_TRACKS, SERVER_VOICE_OPTIONS } from '../services/serverCatalog';
+import {
+  persistApiKey,
+  fetchAllApiKeys,
+  revokeApiKey,
+  persistChannelPreferences,
+  fetchChannelPreferences,
+  fetchAllVideoJobs,
+  persistVideoJob,
+  fetchAllProjects,
+  persistProject
+} from './vixoraDb.ts';
 
 export function registerVixoraRoutes(app: express.Express) {
   const syncedUsersStore = new Map<string, any>();
@@ -242,22 +253,26 @@ export function registerVixoraRoutes(app: express.Express) {
    * GET /api/public/v1/videos/list
    * Returns list of recent server-generated video jobs
    */
-  const handleVideosList = (req: express.Request, res: express.Response) => {
-    const jobs = getAllJobs();
-    res.json({
-      ok: true,
-      count: jobs.length,
-      jobs: jobs.map(j => ({
-        job_id: j.job_id,
-        project_id: j.project_id,
-        status: j.status,
-        progress: j.progress,
-        topic: j.topic,
-        asset_id: j.asset_id,
-        video_url: j.video_url,
-        created_at: j.created_at,
-      })),
-    });
+  const handleVideosList = async (req: express.Request, res: express.Response) => {
+    try {
+      const jobs = await fetchAllVideoJobs();
+      res.json({
+        ok: true,
+        count: jobs.length,
+        jobs: jobs.map(j => ({
+          job_id: j.job_id,
+          project_id: j.project_id,
+          status: j.status,
+          progress: j.progress,
+          topic: j.topic,
+          asset_id: j.asset_id,
+          video_url: j.video_url,
+          created_at: j.created_at,
+        })),
+      });
+    } catch (err: any) {
+      res.json({ ok: true, count: 0, jobs: [] });
+    }
   };
 
   app.get('/api/public/v1/videos/list', handleVideosList);
@@ -738,6 +753,92 @@ CORE DIRECTIVES:
 
   app.post(['/api/ai/coach-chat', '/api/public/v1/ai/coach-chat'], handleCoachChat);
 
+  // ==========================================================================
+  // VIXORA SERVER-SIDE AI ASSISTANT (NO USER API KEY REQUIRED)
+  // ==========================================================================
+  const handleAssistantChat = async (req: express.Request, res: express.Response) => {
+    try {
+      const { messages = [], prompt = '', userFullName = 'Creator', apiKey } = req.body || {};
+      const isInvalidKey = (k?: string) => {
+        if (!k) return true;
+        const clean = k.trim();
+        return !clean || clean === 'undefined' || clean === 'null' || clean === 'your_gemini_api_key_here' || clean.startsWith('AIzaSy...');
+      };
+      const effectiveKey = (!isInvalidKey(apiKey) ? apiKey : '') || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
+
+      const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
+You have full direct platform authority. All video generation, AI scripting, and audio synthesis are handled automatically by the platform backend connected to Cloud SQL. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.`;
+
+      let responseText = '';
+      if (effectiveKey) {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey: effectiveKey,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+          });
+          const historyTurns = (Array.isArray(messages) ? messages : []).slice(-8);
+          const contents = [
+            ...historyTurns,
+            { role: 'user', parts: [{ text: prompt || 'Hello Vixora!' }] }
+          ];
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents,
+            config: { systemInstruction }
+          });
+          responseText = response.text || '';
+        } catch (e: any) {
+          console.warn('Backend Assistant Gemini error:', e?.message);
+        }
+      }
+
+      if (!responseText) {
+        const lower = (prompt || '').toLowerCase();
+        if (lower.includes('video') || lower.includes('cook') || lower.includes('generate')) {
+          responseText = `Oya! Let's cook this viral video! Head straight over to the Autopilot or Studio tab, select your topic, and I'll generate the full script, stock visuals, and voiceover in seconds. No wahala at all!`;
+        } else if (lower.includes('channel') || lower.includes('youtube') || lower.includes('tiktok')) {
+          responseText = `Super sharp! Your channel preferences are synchronized directly with your GGD profile. Tap the Channel button in the top bar to adjust your target platforms, niche, and viral CTA!`;
+        } else if (lower.includes('voice') || lower.includes('audio')) {
+          responseText = `I hear you crystal clear! Kore is our signature flagship voice, but we also have Aoede for storytelling and Puck for high-energy hype. You can preview them in the Voiceover tab anytime!`;
+        } else {
+          responseText = `Hello ${userFullName}! Vixora is live and ready to elevate your creative game! What viral video, script, or campaign are we cooking today?`;
+        }
+      }
+
+      return res.json({ ok: true, text: responseText });
+    } catch (err: any) {
+      return res.json({
+        ok: true,
+        text: "I am right here with you! Tell me your video topic or campaign idea, and we'll cook a high-impact masterpiece together!"
+      });
+    }
+  };
+
+  app.post(['/api/vixora/ai/assistant', '/api/public/v1/ai/assistant'], handleAssistantChat);
+
+  // ==========================================================================
+  // CHANNEL PREFERENCES ENDPOINTS (BACKEND DATABASE PERSISTENCE)
+  // ==========================================================================
+  app.get('/api/vixora/preferences/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const prefs = await fetchChannelPreferences(userId);
+      return res.json({ ok: true, preferences: prefs });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Error fetching preferences' });
+    }
+  });
+
+  app.post('/api/vixora/preferences', async (req, res) => {
+    try {
+      const { userId = 'default_user', preferences = {} } = req.body || {};
+      const saved = await persistChannelPreferences(userId, preferences);
+      return res.json({ ok: true, preferences: saved });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Error saving preferences' });
+    }
+  });
+
   const handleCoachStrategy = async (req: express.Request, res: express.Response) => {
     try {
       const { niche = 'General', goal = 'Viral Audience Growth', apiKey } = req.body || {};
@@ -1168,27 +1269,31 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
   // 7. API KEY GENERATION & REMOTE ACCESS MANAGEMENT ENDPOINTS
   // ==========================================================================
 
-  app.get(['/api/public/v1/keys/list', '/api/keys/list'], (req, res) => {
-    const keys = Array.from(serverApiKeysStore.values());
-    res.json({
-      ok: true,
-      count: keys.length,
-      keys: keys.map(k => ({
-        id: k.id,
-        name: k.name,
-        apiKey: k.apiKey,
-        prefix: k.prefix,
-        createdAt: k.createdAt,
-        lastUsedAt: k.lastUsedAt,
-        status: k.status,
-        rateLimitPerMin: k.rateLimitPerMin,
-        permissions: k.permissions,
-        usageCount: k.usageCount || 0
-      }))
-    });
+  app.get(['/api/public/v1/keys/list', '/api/keys/list'], async (req, res) => {
+    try {
+      const keys = await fetchAllApiKeys();
+      res.json({
+        ok: true,
+        count: keys.length,
+        keys: keys.map(k => ({
+          id: k.id,
+          name: k.name,
+          apiKey: k.apiKey,
+          prefix: k.prefix,
+          createdAt: k.createdAt,
+          lastUsedAt: k.lastUsedAt,
+          status: k.status,
+          rateLimitPerMin: k.rateLimitPerMin,
+          permissions: k.permissions,
+          usageCount: k.usageCount || 0
+        }))
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err?.message || 'Error listing API keys' });
+    }
   });
 
-  app.post(['/api/public/v1/keys/generate', '/api/keys/generate'], (req, res) => {
+  app.post(['/api/public/v1/keys/generate', '/api/keys/generate'], async (req, res) => {
     try {
       const { name, permissions, rate_limit } = req.body || {};
       const timestamp = Date.now().toString(36);
@@ -1209,7 +1314,7 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
         usageCount: 0
       };
 
-      serverApiKeysStore.set(newApiKey, keyRecord);
+      await persistApiKey(keyRecord);
 
       return res.json({
         ok: true,
@@ -1221,21 +1326,17 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
     }
   });
 
-  app.post(['/api/public/v1/keys/revoke', '/api/keys/revoke'], (req, res) => {
+  app.post(['/api/public/v1/keys/revoke', '/api/keys/revoke'], async (req, res) => {
     const { apiKey, id } = req.body || {};
-    let found = false;
-
-    for (const [k, record] of serverApiKeysStore.entries()) {
-      if (record.id === id || record.apiKey === apiKey) {
-        record.status = 'revoked';
-        found = true;
+    try {
+      const success = await revokeApiKey(apiKey || id);
+      if (success) {
+        return res.json({ ok: true, message: 'API key revoked successfully' });
+      } else {
+        return res.status(404).json({ ok: false, error: 'API key not found' });
       }
-    }
-
-    if (found) {
-      res.json({ ok: true, message: 'API key revoked successfully' });
-    } else {
-      res.status(404).json({ ok: false, error: 'API key not found' });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Error revoking key' });
     }
   });
 

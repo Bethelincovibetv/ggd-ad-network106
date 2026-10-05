@@ -29,7 +29,7 @@ interface VixoraTextChatPanelProps {
 const DEFAULT_WELCOME_MSG: ChatMessage = {
   id: 'msg_welcome',
   sender: 'vixora',
-  text: "How far my creator! 👋 I am Vixora, your AI Creator Assistant. You can chat with me, configure your API keys in Profile, or give me direct commands—I can generate videos on autopilot, change narrator voices, switch tabs, or write viral scripts! What are we cooking today?",
+  text: "How far my creator! 👋 I am Vixora, your AI Creator Assistant. Everything is powered seamlessly in the cloud—no API keys or setup required! You can chat with me or give me direct commands—I can generate videos on autopilot, change narrator voices, switch tabs, manage channel preferences, or write viral scripts! What are we cooking today?",
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 };
 
@@ -172,22 +172,18 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
       const envApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
       let activeKey = !isInvalidKey(apiKey) ? apiKey : !isInvalidKey(envApiKey) ? envApiKey : '';
 
-      if (!activeKey) {
-        throw new Error("No valid Gemini API key found. Please open Profile to configure your API key.");
-      }
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-
       const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${appContext.userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
 
 YOUR MANDATE:
 You can CONTROL the Vixora AI Studio app directly for the user using function calls/tools!
-Whenever the user asks you to open the profile page, configure API keys, make a video, switch tabs, change voice, edit script, change caption style, generate a flyer, or learn a skill, CALL THE APPROPRIATE TOOL!
+Whenever the user asks you to make a video, switch tabs, change voice, edit script, change caption style, generate a flyer, or learn a skill, CALL THE APPROPRIATE TOOL!
+You have full direct platform authority. All AI video generation, scripts, voiceover TTS, and stock media are handled automatically by the platform backend connected to Cloud SQL. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.
 
 AMBIGUITY RULE:
 If the user's request is ambiguous or missing information, ask a quick, friendly clarifying question first in chat.
 
 NAVIGATION:
-If user asks to open profile, settings, studio, autopilot, scripts, voiceover, tools, or any page, call the navigateToTab tool immediately!`;
+If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, call the navigateToTab tool immediately!`;
 
       // Build conversation history turns for Gemini
       const historyTurns = messages
@@ -210,88 +206,103 @@ If user asks to open profile, settings, studio, autopilot, scripts, voiceover, t
 
       if (currentController.signal.aborted) return;
 
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: historyTurns,
-          config: {
-            systemInstruction,
-            tools: [{
-              functionDeclarations: VIXORA_AGENT_TOOLS.map(t => ({
-                name: t.name,
-                description: t.description,
-                parameters: t.parameters
-              }))
-            }]
-          }
-        });
+      if (activeKey) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: activeKey });
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: historyTurns,
+            config: {
+              systemInstruction,
+              tools: [{
+                functionDeclarations: VIXORA_AGENT_TOOLS.map(t => ({
+                  name: t.name,
+                  description: t.description,
+                  parameters: t.parameters
+                }))
+              }]
+            }
+          });
 
-        if (currentController.signal.aborted) return;
+          if (currentController.signal.aborted) return;
 
-        responseText = response.text || '';
+          responseText = response.text || '';
 
-        // Handle Function Calls
-        if (response.functionCalls && response.functionCalls.length > 0) {
-          for (const fc of response.functionCalls) {
-            const tool = VIXORA_AGENT_TOOLS.find(t => t.name === fc.name);
-            if (tool) {
-              const toolResult = await tool.execute(fc.args, appContext);
-              actionBadgeText = `⚡ ${toolResult.message}`;
-              if (toolResult.data?.imageUrl) {
-                generatedImageUrl = toolResult.data.imageUrl;
-              }
-              if (fc.name === 'navigateToTab' && fc.args?.tab) {
-                targetNavTab = String(fc.args.tab);
-              }
-
-              try {
-                const secondPassTurns = [
-                  ...historyTurns,
-                  {
-                    role: 'model',
-                    parts: [{ functionCall: { name: fc.name, args: fc.args } }]
-                  },
-                  {
-                    role: 'user',
-                    parts: [{
-                      functionResponse: {
-                        name: fc.name,
-                        response: { result: toolResult.message }
-                      }
-                    }]
-                  }
-                ];
-
-                const secondRes = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: secondPassTurns,
-                  config: { systemInstruction }
-                });
-
-                if (secondRes.text) {
-                  responseText = secondRes.text;
+          // Handle Function Calls
+          if (response.functionCalls && response.functionCalls.length > 0) {
+            for (const fc of response.functionCalls) {
+              const tool = VIXORA_AGENT_TOOLS.find(t => t.name === fc.name);
+              if (tool) {
+                const toolResult = await tool.execute(fc.args, appContext);
+                actionBadgeText = `⚡ ${toolResult.message}`;
+                if (toolResult.data?.imageUrl) {
+                  generatedImageUrl = toolResult.data.imageUrl;
                 }
-              } catch (err) {
-                if (!responseText) {
-                  responseText = `No wahala! I have executed ${fc.name}: ${toolResult.message}`;
+                if (fc.name === 'navigateToTab' && fc.args?.tab) {
+                  targetNavTab = String(fc.args.tab);
+                }
+
+                try {
+                  const secondPassTurns = [
+                    ...historyTurns,
+                    {
+                      role: 'model',
+                      parts: [{ functionCall: { name: fc.name, args: fc.args } }]
+                    },
+                    {
+                      role: 'user',
+                      parts: [{
+                        functionResponse: {
+                          name: fc.name,
+                          response: { result: toolResult.message }
+                        }
+                      }]
+                    }
+                  ];
+
+                  const secondRes = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: secondPassTurns,
+                    config: { systemInstruction }
+                  });
+
+                  if (secondRes.text) {
+                    responseText = secondRes.text;
+                  }
+                } catch (err) {
+                  if (!responseText) {
+                    responseText = `No wahala! I have executed ${fc.name}: ${toolResult.message}`;
+                  }
                 }
               }
             }
           }
+        } catch (firstPassErr) {
+          console.warn("First pass chat model call warning:", firstPassErr);
         }
-      } catch (firstPassErr) {
-        console.warn("First pass chat model call with tools warning:", firstPassErr);
-        if (currentController.signal.aborted) return;
-        // Fallback pass without tools functionDeclarations
+      }
+
+      // If client-side GenAI didn't produce a response, use server-side AI assistant proxy
+      if (!responseText && !currentController.signal.aborted) {
         try {
-          const fallbackRes = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: historyTurns,
-            config: { systemInstruction }
+          const res = await fetch('/api/vixora/ai/assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: historyTurns,
+              prompt: fullPromptText,
+              userFullName: appContext.userFullName || 'Creator'
+            }),
+            signal: currentController.signal
           });
-          responseText = fallbackRes.text || '';
-        } catch (secondPassErr) {
-          console.warn("Second pass chat model call warning:", secondPassErr);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ok && data.text) {
+              responseText = data.text;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("Server AI assistant proxy error:", fetchErr);
         }
       }
 
@@ -301,10 +312,8 @@ If user asks to open profile, settings, studio, autopilot, scripts, voiceover, t
       if (!responseText) {
         const lower = fullPromptText.toLowerCase();
         if (lower.includes('key') || lower.includes('setting') || lower.includes('developer') || lower.includes('fish.audio') || lower.includes('fish audio')) {
-          appContext.setActiveTab('developer');
-          targetNavTab = 'developer';
-          actionBadgeText = '⚡ Navigated to Developer API & Keys';
-          responseText = "I've opened the Developer API & Keys page! You can test endpoints and review API credentials.";
+          actionBadgeText = '⚡ Backend AI & Cloud SQL Active';
+          responseText = "All AI and video generation engines are fully managed by the platform backend connected to Cloud SQL. You don't need to configure or provide any API keys!";
         } else if (lower.includes('channel') || lower.includes('niche') || lower.includes('preference')) {
           appContext.setActiveTab('studio');
           targetNavTab = 'studio';
@@ -466,18 +475,18 @@ If user asks to open profile, settings, studio, autopilot, scripts, voiceover, t
 
             <button 
               onClick={() => {
-                appContext.setActiveTab('profile');
+                appContext.setActiveTab('studio');
                 if (!isFullTab) onClose();
               }}
-              title="Open Profile & API Keys"
+              title="Studio Workspace"
               className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 ${
                 themeMode === 'light' 
-                  ? 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100' 
-                  : 'bg-purple-500/15 border-purple-500/30 text-purple-300 hover:bg-purple-500/25'
+                  ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
+                  : 'bg-orange-500/15 border-orange-500/30 text-orange-300 hover:bg-orange-500/25'
               }`}
             >
-              <i className="fa-solid fa-user-gear text-xs"></i>
-              <span className="hidden sm:inline">Profile</span>
+              <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
+              <span className="hidden sm:inline">Studio</span>
             </button>
 
             <button 
