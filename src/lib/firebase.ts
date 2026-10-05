@@ -5,20 +5,23 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// CRITICAL: Initialize Firestore using the firestoreDatabaseId from configuration
-// with experimentalAutoDetectLongPolling enabled for robust connectivity across all web & sandbox environments
+// CRITICAL: Initialize Firestore using the configured database ID
+// with auto-detect long polling and ignoreUndefinedProperties for seamless connectivity
+const firestoreDbId = (firebaseConfig as any)?.firestoreDatabaseId?.trim() || undefined;
+
 export const db = (() => {
   try {
     return initializeFirestore(app, {
       experimentalAutoDetectLongPolling: true,
-    }, firebaseConfig.firestoreDatabaseId);
+      ignoreUndefinedProperties: true,
+    }, firestoreDbId);
   } catch {
-    return getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    return getFirestore(app, firestoreDbId);
   }
 })();
 
 export const auth = getAuth(app);
-export { firebaseConfig };
+export { app, firebaseConfig };
 
 let isAuthInitializing = false;
 export async function ensureFirebaseAuth() {

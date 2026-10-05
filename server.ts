@@ -4,6 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
+import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,7 +12,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Permissive CORS middleware for web previews and embed widgets
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, X-Requested-With, X-Project-Id, x-api-key');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 
 let customGeminiKey = '';
 let customPexelsKey = '';
@@ -1690,6 +1701,14 @@ function getDistPaths() {
 }
 
 async function startServer() {
+  // Register Vixora AI Creator & Video Studio API Routes
+  try {
+    registerVixoraRoutes(app);
+    console.log('[Vixora Engine] AI Video Creator and Studio routes registered successfully');
+  } catch (vixoraErr) {
+    console.warn('[Vixora Engine] Route registration notice:', vixoraErr);
+  }
+
   const { distPath, indexHtmlPath, exists } = getDistPaths();
 
   if (process.env.NODE_ENV === 'production') {

@@ -1,5 +1,74 @@
 {
   "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile with display name, referral attribution and credits",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "email": { "type": "string" },
+        "display_name": { "type": "string" },
+        "referral_code": { "type": "string" },
+        "referred_by": { "type": "string" },
+        "referred_by_user_id": { "type": "string" },
+        "credits": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["user_id", "email", "created_at"]
+    },
+    "AppUser": {
+      "title": "AppUser",
+      "description": "User account document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
+    },
+    "EmailGateway": {
+      "title": "EmailGateway",
+      "description": "Configured SMTP / Gmail sending gateway",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "provider": { "type": "string" },
+        "host": { "type": "string" },
+        "port": { "type": "number" },
+        "secure": { "type": "boolean" },
+        "user": { "type": "string" },
+        "isActiveSender": { "type": "boolean" },
+        "isVerified": { "type": "boolean" }
+      },
+      "required": ["id", "email", "host", "port"]
+    },
+    "SystemSetting": {
+      "title": "SystemSetting",
+      "description": "System-level configurations and parameters",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    },
+    "ContactGainSettings": {
+      "title": "ContactGainSettings",
+      "description": "Settings for contact gain and phonebook synchronization",
+      "type": "object",
+      "properties": {
+        "dailyRewardCredits": { "type": "number" },
+        "minSaveSeconds": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["dailyRewardCredits"]
+    },
     "Notification": {
       "title": "Notification",
       "description": "Real-time user notification and push alert",
@@ -229,6 +298,26 @@
     }
   },
   "firestore": {
+    "/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "User profile data, referrals and credits"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/AppUser" },
+      "description": "User account documents"
+    },
+    "/email_gateways/{gatewayId}": {
+      "schema": { "$ref": "#/entities/EmailGateway" },
+      "description": "Configured SMTP gateways and sender accounts"
+    },
+    "/system_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SystemSetting" },
+      "description": "System-level configuration parameters"
+    },
+    "/contact_gain_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ContactGainSettings" },
+      "description": "Contact gain global reward settings"
+    },
     "/notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/Notification" },
       "description": "User push and in-app notifications"

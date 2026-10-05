@@ -33,30 +33,37 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
 
   useEffect(() => {
     (async () => {
-      // Pull up to 8 businesses with a logo + business_name
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, business_name, business_slug, business_logo_url, business_category, business_location")
-        .not("business_name", "is", null)
-        .not("business_logo_url", "is", null)
-        .order("updated_at", { ascending: false })
-        .limit(8);
+      try {
+        // Pull up to 8 businesses with a logo + business_name
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, business_name, business_slug, business_logo_url, business_category, business_location")
+          .not("business_name", "is", null)
+          .not("business_logo_url", "is", null)
+          .order("updated_at", { ascending: false })
+          .limit(8);
 
-      const list: FeaturedBiz[] = [];
-      for (const p of profiles || []) {
-        const { data: listings } = await supabase
-          .from("business_listings")
-          .select("id, title, image_url")
-          .eq("user_id", p.user_id)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(3);
-        if ((listings || []).length === 0) continue;
-        list.push({ ...(p as any), products: listings || [] });
-        if (list.length >= 6) break;
+        const list: FeaturedBiz[] = [];
+        for (const p of profiles || []) {
+          try {
+            const { data: listings } = await supabase
+              .from("business_listings")
+              .select("id, title, image_url")
+              .eq("user_id", p.user_id)
+              .eq("is_active", true)
+              .order("created_at", { ascending: false })
+              .limit(3);
+            if ((listings || []).length === 0) continue;
+            list.push({ ...(p as any), products: listings || [] });
+            if (list.length >= 6) break;
+          } catch {}
+        }
+        setItems(list);
+      } catch (err) {
+        console.warn("FeaturedStorefronts fetch skipped:", err);
+      } finally {
+        setLoading(false);
       }
-      setItems(list);
-      setLoading(false);
     })();
   }, []);
 

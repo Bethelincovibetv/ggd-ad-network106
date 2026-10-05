@@ -5,8 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Loader2, Users, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { captureAndGetReferralCode, ensureUserProfileAndReferral, resolveReferrerByCode } from '@/services/referralService';
+import { captureAndGetReferralCode, resolveReferrerByCode } from '@/services/referralService';
+import { resilientSignIn, resilientSignUp } from '@/services/authService';
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
@@ -56,40 +56,18 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     setIsLoading(true);
     try {
       if (isLogin) {
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        if (error) throw error;
-        if (signInData.user) {
-          await ensureUserProfileAndReferral(signInData.user, undefined, formData.ref);
-        }
+        await resilientSignIn(formData.email, formData.password);
         toast.success("Logged in successfully!");
         onAuthSuccess();
       } else {
-        const { data: signUpData, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              display_name: formData.displayName || formData.email.split('@')[0],
-              ref: formData.ref || undefined,
-            },
-          },
-        });
-        if (error) throw error;
-        if (signUpData.user) {
-          await ensureUserProfileAndReferral(signUpData.user, formData.displayName, formData.ref);
-        }
-        toast.success("Account created! Check your email to verify.");
+        await resilientSignUp(formData.email, formData.password, formData.displayName, formData.ref);
+        toast.success("Account created successfully!");
         onAuthSuccess();
       }
     } catch (error: any) {
       console.error("Auth error:", error);
       const rawMsg = error?.message || error?.error_description || String(error);
-      if (rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError") || rawMsg.includes("Load failed")) {
-        toast.error("Database connection failure. Could not reach the authentication server. Please check your internet connection or try again shortly.", { duration: 6000 });
-      } else if (rawMsg.includes("Invalid login credentials")) {
+      if (rawMsg.includes("Invalid login credentials")) {
         toast.error("Invalid email or password. Please check your credentials.");
       } else if (rawMsg.includes("Email not confirmed")) {
         toast.error("Email not confirmed. Please check your inbox for the verification link.");

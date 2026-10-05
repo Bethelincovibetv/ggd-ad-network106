@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
+import { getCurrentUser } from "@/services/authService";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -37,6 +38,7 @@ import GitHubImporterHub from "@/components/GitHubImporterHub";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
 import PremiumRenewalBanner from "@/components/PremiumRenewalBanner";
+const VixoraCreatorApp = lazy(() => import('@/vixora/VixoraCreatorApp'));
 
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
@@ -208,34 +210,42 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     let subChannel: any = null;
     let isMounted = true;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !isMounted) return;
-      subChannel = supabase
-        .channel(`dashboard-wallet-sync-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'task_wallets', filter: `user_id=eq.${user.id}` },
-          (payload: any) => {
-            if (payload.new && typeof payload.new.balance === 'number' && isMounted) {
-              setWalletBalance(payload.new.balance);
+      try {
+        const user = await getCurrentUser();
+        if (!user || !isMounted) return;
+        subChannel = supabase
+          .channel(`dashboard-wallet-sync-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'task_wallets', filter: `user_id=eq.${user.id}` },
+            (payload: any) => {
+              if (payload.new && typeof payload.new.balance === 'number' && isMounted) {
+                setWalletBalance(payload.new.balance);
+              }
             }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
-          (payload: any) => {
-            if (payload.new && typeof payload.new.credits === 'number' && isMounted) {
-              setCredits(payload.new.credits);
+          )
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
+            (payload: any) => {
+              if (payload.new && typeof payload.new.credits === 'number' && isMounted) {
+                setCredits(payload.new.credits);
+              }
             }
-          }
-        )
-        .subscribe();
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn("Real-time channel init skipped:", err);
+      }
     })();
 
     return () => {
       isMounted = false;
-      if (subChannel) supabase.removeChannel(subChannel);
+      if (subChannel) {
+        try {
+          supabase.removeChannel(subChannel);
+        } catch {}
+      }
     };
   }, []);
 
@@ -255,184 +265,131 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   }, []);
 
   const initDashboard = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setCurrentUserId(user.id);
-
-    // Securely ensure task wallet exists & load latest balance
     try {
-      let { data: tw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
-      if (!tw) {
-        await supabase.from('task_wallets').insert({ user_id: user.id, balance: 0, total_funded: 0 } as any);
-        const { data: createdTw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
-        tw = createdTw;
+      const user = await getCurrentUser();
+      if (!user) {
+        setLoading(false);
+        return;
       }
-      setWalletBalance(Number(tw?.balance || 0));
-    } catch (e) {
-      console.warn('Dashboard task wallet sync:', e);
-    }
+      setCurrentUserId(user.id);
+      setDisplayName(user.user_metadata?.display_name || user.email?.split('@')[0] || 'GGD Member');
 
-    const [rolesRes, synProfRes, synAppRes] = await Promise.all([
-      supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
-      supabase.from('syndicate_profiles').select('id, is_suspended').eq('user_id', user.id).maybeSingle(),
-      supabase.from('syndicate_applications').select('status').eq('user_id', user.id).maybeSingle(),
-    ]);
-
-    const userRoles = (rolesRes.data || []).map(r => r.role);
-    setIsAdmin(userRoles.includes('admin'));
-    setIsPremium(userRoles.includes('premium'));
-    const premRow: any = (rolesRes.data || []).find((r: any) => r.role === 'premium');
-    if (premRow) {
-      setCurrentTier(premRow.premium_tier ?? 0);
-      setPremiumExpiresAt(premRow.premium_expires_at ?? null);
-    }
-    // Every registered user is a business by default
-    setIsBusiness(true);
-    const hasSyndicateAccess = userRoles.includes('syndicate') || 
-      Boolean(synProfRes.data && !synProfRes.data.is_suspended) ||
-      synAppRes.data?.status === 'approved';
-    setIsSyndicate(hasSyndicateAccess);
-
-    // Automatically sync any pending incoming transfers from credit_transfers
-    try {
-      const syncResult = await syncPendingTransfersForUser(user.id);
-      if (syncResult.credited && syncResult.totalAdded > 0) {
-        toast.success(`🎉 +${syncResult.totalAdded} credits received from transfer!`);
-      }
-    } catch {
-      // Non-blocking sync
-    }
-
-    let { data: profile } = await (supabase.from('profiles')
-      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, business_phone, business_slug, profile_setup_complete, login_bonus_credits, syndicate_status')
-      .eq('user_id', user.id)
-      .maybeSingle() as any);
-    if (!profile) {
-      const ensured = await ensureUserProfileAndReferral(user);
-      profile = (ensured as any)?.profile || ensured;
-    }
-    if (profile?.syndicate_status === 'active') {
-      setIsSyndicate(true);
-    }
-
-    // Check if user already has an active business storefront or ads
-    let hasExistingBusinessProfile = false;
-    try {
-      const { data: bp } = await (supabase.from('business_profiles') as any)
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (bp?.id) hasExistingBusinessProfile = true;
-    } catch {}
-
-    let hasExistingAds = false;
-    try {
-      const { count } = await supabase
-        .from('ads')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      if (count && count > 0) hasExistingAds = true;
-    } catch {}
-
-    // An activated user is any user who:
-    // - Is an admin
-    // - Has profile_setup_complete marked true
-    // - Already has business_name, business_phone, or business_slug configured
-    // - Has active syndicate status or syndicate access
-    // - Has a business profile or has created ads
-    // - Or has already completed/seen the wizard previously in localStorage
-    const isAlreadyActivated = 
-      userRoles.includes('admin') ||
-      Boolean((profile as any)?.profile_setup_complete) ||
-      Boolean((profile as any)?.business_name && (profile as any).business_name.trim().length > 0) ||
-      Boolean((profile as any)?.business_phone && (profile as any).business_phone.trim().length > 0) ||
-      Boolean((profile as any)?.business_slug && (profile as any).business_slug.trim().length > 0) ||
-      Boolean((profile as any)?.syndicate_status === 'active') ||
-      hasSyndicateAccess ||
-      hasExistingBusinessProfile ||
-      hasExistingAds ||
-      localStorage.getItem('ggd_wizard_seen') === 'true' ||
-      localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
-      localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
-      localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
-
-    setProfileSetupComplete(isAlreadyActivated);
-
-    if (isAlreadyActivated) {
-      // Auto-heal remote profile if profile_setup_complete was not set in DB
-      if (profile && !(profile as any).profile_setup_complete) {
-        supabase.from('profiles').update({ profile_setup_complete: true } as any).eq('user_id', user.id).then(() => {});
-      }
+      // Securely ensure task wallet exists & load latest balance
       try {
-        localStorage.setItem('ggd_wizard_seen', 'true');
-        localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
-        localStorage.setItem('ggd_profile_setup_complete', 'true');
-        localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
-      } catch {}
-    }
-
-    const { data: settings } = await supabase.from('app_settings').select('*');
-    
-    const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
-    const adCost = parseInt(settings?.find(s => s.key === 'ad_cost_credits')?.value || '5');
-    setAdCostCredits(adCost);
-    const waGroup = settings?.find(s => s.key === 'whatsapp_group_link')?.value || '';
-    setWhatsappGroupLink(waGroup);
-
-    // The mandatory business setup replaces the old optional onboarding wizard.
-    setShowWizard(false);
-
-    if (profile) {
-      setAvatarUrl(profile.avatar_url || null);
-      setDisplayName(profile.display_name || profile.business_name || user.email || '');
-      if (!profile.referral_code) {
-        const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
-      }
-      const currentCredits = profile.credits || 0;
-      const today = new Date().toISOString().split('T')[0];
-      const userKey = `${user.id}_${today}`;
-      const isAlreadyCreditedToday = 
-        profile.last_credit_date === today || 
-        dailyLoginCheckedUsersRef.current.has(userKey) ||
-        (typeof window !== 'undefined' && localStorage.getItem(`ggd_daily_credit_${userKey}`) === 'true');
-
-      // Only grant free daily credits once per day per user account when credits balance is 0
-      if (!isAlreadyCreditedToday && currentCredits === 0 && !userRoles.includes('admin')) {
-        dailyLoginCheckedUsersRef.current.add(userKey);
-        try {
-          localStorage.setItem(`ggd_daily_credit_${userKey}`, 'true');
-        } catch {}
-
-        const newCredits = loginCreditsAmount;
-        const newLoginBonus = Number((profile as any).login_bonus_credits || 0) + newCredits;
-
-        // Perform atomic update conditioned on last_credit_date != today to prevent duplicate credits
-        const { data: updatedRows } = await supabase
-          .from('profiles')
-          .update({ 
-            credits: newCredits, 
-            last_credit_date: today, 
-            login_bonus_credits: newLoginBonus 
-          } as any)
-          .eq('user_id', user.id)
-          .or(`last_credit_date.is.null,last_credit_date.neq.${today}`)
-          .select('credits, last_credit_date');
-
-        if (updatedRows && updatedRows.length > 0) {
-          setCredits(newCredits);
-          toast.success(`🎉 You received ${loginCreditsAmount} free daily credits!`);
-        } else {
-          setCredits(currentCredits);
+        let { data: tw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+        if (!tw) {
+          await supabase.from('task_wallets').insert({ user_id: user.id, balance: 0, total_funded: 0 } as any);
+          const { data: createdTw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+          tw = createdTw;
         }
-      } else {
-        dailyLoginCheckedUsersRef.current.add(userKey);
-        setCredits(currentCredits);
+        setWalletBalance(Number(tw?.balance || 0));
+      } catch (e) {
+        console.warn('Dashboard task wallet sync:', e);
       }
-    }
 
-      fetchAds();
-      fetchApiKeys();
+      try {
+        const [rolesRes, synProfRes, synAppRes] = await Promise.all([
+          supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
+          supabase.from('syndicate_profiles').select('id, is_suspended').eq('user_id', user.id).maybeSingle(),
+          supabase.from('syndicate_applications').select('status').eq('user_id', user.id).maybeSingle(),
+        ]);
+
+        const userRoles = (rolesRes.data || []).map(r => r.role);
+        setIsAdmin(userRoles.includes('admin') || user.email === 'goodgiftdigital@gmail.com' || user.email === 'accessa787@gmail.com');
+        setIsPremium(userRoles.includes('premium'));
+        const premRow: any = (rolesRes.data || []).find((r: any) => r.role === 'premium');
+        if (premRow) {
+          setCurrentTier(premRow.premium_tier ?? 0);
+          setPremiumExpiresAt(premRow.premium_expires_at ?? null);
+        }
+        setIsBusiness(true);
+        const hasSyndicateAccess = userRoles.includes('syndicate') || 
+          Boolean(synProfRes.data && !synProfRes.data.is_suspended) ||
+          synAppRes.data?.status === 'approved';
+        setIsSyndicate(hasSyndicateAccess);
+      } catch (err) {
+        console.warn('Roles fetch non-blocking:', err);
+      }
+
+      // Automatically sync any pending incoming transfers from credit_transfers
+      try {
+        const syncResult = await syncPendingTransfersForUser(user.id);
+        if (syncResult.credited && syncResult.totalAdded > 0) {
+          toast.success(`🎉 +${syncResult.totalAdded} credits received from transfer!`);
+        }
+      } catch {
+        // Non-blocking sync
+      }
+
+      let profile: any = null;
+      try {
+        const { data: p } = await (supabase.from('profiles')
+          .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, business_phone, business_slug, profile_setup_complete, login_bonus_credits, syndicate_status')
+          .eq('user_id', user.id)
+          .maybeSingle() as any);
+        profile = p;
+      } catch {}
+
+      if (!profile) {
+        try {
+          const ensured = await ensureUserProfileAndReferral(user);
+          profile = (ensured as any)?.profile || ensured;
+        } catch {}
+      }
+      if (profile?.syndicate_status === 'active') {
+        setIsSyndicate(true);
+      }
+
+      // Check if user already has an active business storefront or ads
+      let hasExistingBusinessProfile = false;
+      try {
+        const { data: bp } = await (supabase.from('business_profiles') as any)
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (bp?.id) hasExistingBusinessProfile = true;
+      } catch {}
+
+      let hasExistingAds = false;
+      try {
+        const { count } = await supabase
+          .from('ads')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (count && count > 0) hasExistingAds = true;
+      } catch {}
+
+      const isAlreadyActivated = 
+        Boolean((profile as any)?.profile_setup_complete) ||
+        Boolean((profile as any)?.business_name && (profile as any).business_name.trim().length > 0) ||
+        Boolean((profile as any)?.business_phone && (profile as any).business_phone.trim().length > 0) ||
+        Boolean((profile as any)?.business_slug && (profile as any).business_slug.trim().length > 0) ||
+        Boolean((profile as any)?.syndicate_status === 'active') ||
+        hasExistingBusinessProfile ||
+        hasExistingAds ||
+        localStorage.getItem('ggd_wizard_seen') === 'true' ||
+        localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
+        localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
+        localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
+
+      setProfileSetupComplete(isAlreadyActivated);
+
+      try {
+        const { data: settings } = await supabase.from('app_settings').select('*');
+        const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
+        const adCost = parseInt(settings?.find(s => s.key === 'ad_cost_credits')?.value || '5');
+        setAdCostCredits(adCost);
+        const waGroup = settings?.find(s => s.key === 'whatsapp_group_link')?.value || '';
+        setWhatsappGroupLink(waGroup);
+      } catch {}
+
+      setShowWizard(false);
+
+      if (profile) {
+        setAvatarUrl(profile.avatar_url || null);
+        setDisplayName(profile.display_name || profile.business_name || user.email || '');
+        setCredits(profile.credits || 10);
+      }
 
       // Check and display activity notifications upon user entry
       if (typeof window !== 'undefined' && !sessionStorage.getItem('ggd_entry_activities_checked')) {
@@ -467,19 +424,36 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           }
         }, 1200);
       }
-    };
+
+      await fetchAds();
+      await fetchApiKeys();
+    } catch (criticalErr) {
+      console.warn('initDashboard non-blocking error handled:', criticalErr);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchAds = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    setAds(data || []);
-    setLoading(false);
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+      const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      setAds(data || []);
+    } catch (e) {
+      console.warn('fetchAds non-blocking:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchApiKeys = async () => {
-    const { data } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
-    setApiKeys(data || []);
+    try {
+      const { data } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
+      setApiKeys(data || []);
+    } catch (e) {
+      console.warn('fetchApiKeys non-blocking:', e);
+    }
   };
 
   const uploadAdImage = async (file: File): Promise<string | null> => {
@@ -1044,6 +1018,25 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'inbox':
         return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
+      case 'vixora':
+      case 'vixora-creator':
+      case 'creator':
+      case 'vixora-studio':
+        return (
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center p-12 space-y-3">
+              <div className="animate-spin h-9 w-9 border-4 border-orange-500 border-t-transparent rounded-full" />
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Loading Vixora AI Creator Studio...</p>
+            </div>
+          }>
+            <VixoraCreatorApp
+              embedded={true}
+              onBackToDashboard={() => setActiveTab('ads')}
+              userEmail={userEmail}
+            />
+          </Suspense>
+        );
 
       case 'favorites':
       case 'saved':

@@ -93,16 +93,21 @@ export async function resolveReferrerByCode(code: string): Promise<ReferrerProfi
   if (!code || !code.trim()) return null;
   const cleanCode = code.trim();
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at"
-    )
-    .ilike("referral_code", cleanCode)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at"
+      )
+      .ilike("referral_code", cleanCode)
+      .maybeSingle();
 
-  if (error || !data) return null;
-  return data as ReferrerProfile;
+    if (error || !data) return null;
+    return data as ReferrerProfile;
+  } catch (err) {
+    console.warn("resolveReferrerByCode query skipped:", err);
+    return null;
+  }
 }
 
 /**
@@ -117,56 +122,60 @@ export async function linkReferralToUser(
     return { success: false, error: "Invalid user or referral code" };
   }
 
-  // 1. Check current profile status
-  const { data: currentProf, error: curErr } = await supabase
-    .from("profiles")
-    .select("user_id, referral_code, referred_by_user_id, referred_by")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (curErr) {
-    return { success: false, error: "Failed to read user profile" };
-  }
-
-  if (currentProf?.referred_by_user_id) {
-    // Already linked
-    const { data: existingSponsor } = await supabase
+  try {
+    // 1. Check current profile status
+    const { data: currentProf, error: curErr } = await supabase
       .from("profiles")
-      .select("user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at")
-      .eq("user_id", currentProf.referred_by_user_id)
+      .select("user_id, referral_code, referred_by_user_id, referred_by")
+      .eq("user_id", userId)
       .maybeSingle();
 
-    return {
-      success: true,
-      referrer: (existingSponsor as ReferrerProfile) || undefined,
-    };
+    if (curErr) {
+      return { success: false, error: "Failed to read user profile" };
+    }
+
+    if (currentProf?.referred_by_user_id) {
+      // Already linked
+      const { data: existingSponsor } = await supabase
+        .from("profiles")
+        .select("user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at")
+        .eq("user_id", currentProf.referred_by_user_id)
+        .maybeSingle();
+
+      return {
+        success: true,
+        referrer: (existingSponsor as ReferrerProfile) || undefined,
+      };
+    }
+
+    // 2. Resolve sponsor
+    const sponsor = await resolveReferrerByCode(refCode);
+    if (!sponsor) {
+      return { success: false, error: "Referral code not found. Please double-check the code." };
+    }
+
+    if (sponsor.user_id === userId) {
+      return { success: false, error: "You cannot refer yourself." };
+    }
+
+    // 3. Atomically persist single relationship in public.profiles
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        referred_by_user_id: sponsor.user_id,
+        referred_by: sponsor.referral_code,
+      })
+      .eq("user_id", userId);
+
+    if (updateError) {
+      return { success: false, error: updateError.message || "Failed to link sponsor" };
+    }
+
+    clearStoredReferralCode();
+    return { success: true, referrer: sponsor };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Connection error" };
   }
-
-  // 2. Resolve sponsor
-  const sponsor = await resolveReferrerByCode(refCode);
-  if (!sponsor) {
-    return { success: false, error: "Referral code not found. Please double-check the code." };
-  }
-
-  if (sponsor.user_id === userId) {
-    return { success: false, error: "You cannot refer yourself." };
-  }
-
-  // 3. Atomically persist single relationship in public.profiles
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      referred_by_user_id: sponsor.user_id,
-      referred_by: sponsor.referral_code,
-    })
-    .eq("user_id", userId);
-
-  if (updateError) {
-    return { success: false, error: updateError.message || "Failed to link sponsor" };
-  }
-
-  clearStoredReferralCode();
-  return { success: true, referrer: sponsor };
 }
 
 /**
@@ -180,97 +189,121 @@ export async function ensureUserProfileAndReferral(
 ): Promise<{ profile: any; referrer: ReferrerProfile | null }> {
   const activeRefCode = preferredRefCode?.trim() || captureAndGetReferralCode();
 
-  // 1. Check existing profile
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  let referrer: ReferrerProfile | null = null;
-
-  if (existingProfile) {
-    let needsUpdate = false;
-    const updates: Record<string, any> = {};
-
-    // Ensure referral_code exists
-    if (!existingProfile.referral_code) {
-      updates.referral_code = generateReferralCode();
-      needsUpdate = true;
-    }
-
-    // Resolve sponsor if referred_by_user_id is missing
-    if (!existingProfile.referred_by_user_id) {
-      const codeToTry = activeRefCode || existingProfile.referred_by;
-      if (codeToTry) {
-        referrer = await resolveReferrerByCode(codeToTry);
-        if (referrer && referrer.user_id !== user.id) {
-          updates.referred_by_user_id = referrer.user_id;
-          updates.referred_by = referrer.referral_code;
-          needsUpdate = true;
-          clearStoredReferralCode();
-        }
-      }
-    } else {
-      // Fetch existing sponsor profile
-      const { data: sp } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at")
-        .eq("user_id", existingProfile.referred_by_user_id)
-        .maybeSingle();
-      referrer = sp as ReferrerProfile;
-    }
-
-    if (needsUpdate) {
-      const { data: updated } = await supabase
-        .from("profiles")
-        .update(updates as any)
-        .eq("user_id", user.id)
-        .select()
-        .single();
-      return { profile: updated || { ...existingProfile, ...updates }, referrer };
-    }
-
-    return { profile: existingProfile, referrer };
-  }
-
-  // 2. Profile does not exist: create it with referral attribution
-  if (activeRefCode) {
-    referrer = await resolveReferrerByCode(activeRefCode);
-    if (referrer?.user_id === user.id) {
-      referrer = null; // Do not self-refer
-    }
-  }
-
-  const newReferralCode = generateReferralCode();
-  const nameToUse = displayName || user.email?.split("@")[0] || "GGD Member";
-
-  const { data: createdProfile, error: insertError } = await supabase
-    .from("profiles")
-    .insert({
-      user_id: user.id,
-      email: user.email || "",
-      display_name: nameToUse,
-      referral_code: newReferralCode,
-      referred_by_user_id: referrer ? referrer.user_id : null,
-      referred_by: referrer ? referrer.referral_code : null,
-      credits: 10,
-    })
-    .select()
-    .single();
-
-  if (referrer) {
-    clearStoredReferralCode();
-  }
-
-  // Ensure default roles exist
   try {
-    await supabase.from("user_roles").insert({ user_id: user.id, role: "business" });
-  } catch {
-    // Ignore conflict
-  }
+    // 1. Check existing profile
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  return { profile: createdProfile, referrer };
+    let referrer: ReferrerProfile | null = null;
+
+    if (existingProfile) {
+      let needsUpdate = false;
+      const updates: Record<string, any> = {};
+
+      // Ensure referral_code exists
+      if (!existingProfile.referral_code) {
+        updates.referral_code = generateReferralCode();
+        needsUpdate = true;
+      }
+
+      // Resolve sponsor if referred_by_user_id is missing
+      if (!existingProfile.referred_by_user_id) {
+        const codeToTry = activeRefCode || existingProfile.referred_by;
+        if (codeToTry) {
+          referrer = await resolveReferrerByCode(codeToTry);
+          if (referrer && referrer.user_id !== user.id) {
+            updates.referred_by_user_id = referrer.user_id;
+            updates.referred_by = referrer.referral_code;
+            needsUpdate = true;
+            clearStoredReferralCode();
+          }
+        }
+      } else {
+        // Fetch existing sponsor profile
+        const { data: sp } = await supabase
+          .from("profiles")
+          .select("user_id, display_name, email, referral_code, avatar_url, business_name, business_phone, business_website, business_logo_url, business_location, business_slug, created_at")
+          .eq("user_id", existingProfile.referred_by_user_id)
+          .maybeSingle();
+        referrer = sp as ReferrerProfile;
+      }
+
+      if (needsUpdate) {
+        const { data: updated } = await supabase
+          .from("profiles")
+          .update(updates as any)
+          .eq("user_id", user.id)
+          .select()
+          .single();
+        return { profile: updated || { ...existingProfile, ...updates }, referrer };
+      }
+
+      return { profile: existingProfile, referrer };
+    }
+
+    // 2. Profile does not exist: create it with referral attribution
+    if (activeRefCode) {
+      referrer = await resolveReferrerByCode(activeRefCode);
+      if (referrer?.user_id === user.id) {
+        referrer = null; // Do not self-refer
+      }
+    }
+
+    const newReferralCode = generateReferralCode();
+    const nameToUse = displayName || user.email?.split("@")[0] || "GGD Member";
+
+    const { data: createdProfile } = await supabase
+      .from("profiles")
+      .insert({
+        user_id: user.id,
+        email: user.email || "",
+        display_name: nameToUse,
+        referral_code: newReferralCode,
+        referred_by_user_id: referrer ? referrer.user_id : null,
+        referred_by: referrer ? referrer.referral_code : null,
+        credits: 10,
+      })
+      .select()
+      .single();
+
+    if (referrer) {
+      clearStoredReferralCode();
+    }
+
+    // Ensure default roles exist
+    try {
+      await supabase.from("user_roles").insert({ user_id: user.id, role: "business" });
+    } catch {
+      // Ignore conflict
+    }
+
+    return { 
+      profile: createdProfile || {
+        user_id: user.id,
+        email: user.email || "",
+        display_name: nameToUse,
+        referral_code: newReferralCode,
+        credits: 10
+      }, 
+      referrer 
+    };
+  } catch (e) {
+    console.warn("ensureUserProfileAndReferral offline fallback:", e);
+    const fallbackCode = generateReferralCode();
+    return {
+      profile: {
+        user_id: user.id,
+        email: user.email || "",
+        display_name: displayName || user.email?.split("@")[0] || "GGD Member",
+        referral_code: fallbackCode,
+        credits: 10
+      },
+      referrer: null
+    };
+  }
 }
 
 /**
