@@ -116,8 +116,9 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
     loadChatHistory();
 
     // Subscribe to realtime changes in p2p_messages (INSERT and UPDATE for seen status)
+    const channelName = `public-biz-chat-${currentUserId}-${businessUserId}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(`public-biz-chat-${currentUserId}-${businessUserId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {

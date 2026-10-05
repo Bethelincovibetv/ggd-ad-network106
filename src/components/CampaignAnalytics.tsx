@@ -66,8 +66,9 @@ const CampaignAnalytics: React.FC<Props> = ({ adId, onBack }) => {
     fetchAdAndEvents();
 
     // Setup Realtime subscription on this ad and its events
+    const channelName = `ad-analytics-${adId}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(`ad-analytics-${adId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
