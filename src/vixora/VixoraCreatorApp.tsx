@@ -16,6 +16,7 @@ import { VixoraNavbar } from './components/VixoraNavbar';
 import { VoiceSelectorDropdown } from './components/VoiceSelectorDropdown';
 import { supabase } from '@/integrations/supabase/client';
 import { VixoraAppContext } from './services/vixoraAgentTools';
+import { resolveAdminAiApiKey, getCachedAdminGeminiKey } from './services/adminKeySync';
 import { PRESET_MUSIC_TRACKS, VOICE_AVATAR_OPTIONS, VIRAL_PROMPT_NICHES } from './constants';
 import { synthesizeFishAudio, FISH_AUDIO_VOICES } from './services/fishAudioService';
 import { playProceduralSFX } from './sfxLibrary';
@@ -896,12 +897,16 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   };
 
   const getEffectiveApiKey = (userApiKey?: string): string => {
-    const envKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
     if (!isInvalidOrLeakedKey(userApiKey)) {
       return userApiKey!.trim();
     }
     if (!isInvalidOrLeakedKey(envKey)) {
       return envKey.trim();
+    }
+    const adminCached = getCachedAdminGeminiKey();
+    if (!isInvalidOrLeakedKey(adminCached)) {
+      return adminCached.trim();
     }
     return '';
   };
@@ -914,9 +919,12 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
       config?: any;
     }
   ) => {
-    const envKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-    const primaryKey = getEffectiveApiKey(userApiKey);
-    const targetModel = requestParams.model || "gemini-3.7-flash";
+    let primaryKey = getEffectiveApiKey(userApiKey);
+    if (!primaryKey) {
+      primaryKey = await resolveAdminAiApiKey();
+    }
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
+    const targetModel = requestParams.model || "gemini-2.5-flash";
 
     // Attempt 1: Server proxy with environment credentials (most secure & reliable)
     try {
@@ -2204,6 +2212,10 @@ Formatting Rules:
   const startLiveAssistant = async () => {
     let activeApiKey = getEffectiveApiKey(user?.apiKey);
     if (!activeApiKey) {
+      activeApiKey = await resolveAdminAiApiKey();
+    }
+
+    if (!activeApiKey) {
       try {
         const res = await fetch('/api/vixora/ai/live-key');
         if (res.ok) {
@@ -2219,7 +2231,7 @@ Formatting Rules:
 
     if (!activeApiKey) {
       setIsTextChatOpen(true);
-      toast.info("Connecting to Vixora AI Assistant text co-pilot! How can I help you today?");
+      toast.info("Connecting to Vixora AI Assistant co-pilot! How can I help you today?");
       return;
     }
 
@@ -2356,7 +2368,7 @@ Formatting Rules:
       await outputCtx.resume();
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        model: 'gemini-3.8-live',
         callbacks: {
           onopen: () => {
             setIsLiveActive(true);
@@ -5494,6 +5506,16 @@ Formatting Rules:
             setUser(prev => prev ? { ...prev, niche: newPrefs.niche } : prev);
           }
         }}
+      />
+
+      {/* VIXORA AI ASSISTANT CONVERSATIONAL DRAWER / PANEL */}
+      <VixoraTextChatPanel
+        isOpen={isTextChatOpen}
+        onClose={() => setIsTextChatOpen(false)}
+        appContext={appContext}
+        apiKey={getEffectiveApiKey(user?.apiKey)}
+        themeMode={themeMode}
+        onStartLiveAssistant={startLiveAssistant}
       />
 
       <canvas ref={canvasRef} className="hidden" />

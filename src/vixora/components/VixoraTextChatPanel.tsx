@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { VIXORA_AGENT_TOOLS, VixoraAppContext } from '../services/vixoraAgentTools';
+import { resolveAdminAiApiKey } from '../services/adminKeySync';
 import vixoraAgentAvatar from '@/assets/images/vixora_agent_avatar_1786108775324.jpg';
 
 export interface ChatMessage {
@@ -169,8 +170,11 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
         );
       };
 
-      const envApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+      const envApiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
       let activeKey = !isInvalidKey(apiKey) ? apiKey : !isInvalidKey(envApiKey) ? envApiKey : '';
+      if (!activeKey || isInvalidKey(activeKey)) {
+        activeKey = await resolveAdminAiApiKey();
+      }
 
       const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${appContext.userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
 

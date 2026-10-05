@@ -10,8 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 // CONFIGURATION & CLIENT INITIALIZATION
 // ============================================================================
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://yyejcbbcqirsigphzxxo.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://sdgxpquruczhkpyhjaxn.supabase.co';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20';
 const LOVABLE_API_BASE_URL = process.env.VITE_LOVABLE_API_BASE_URL || 'https://project--0ac951e1-eb85-437f-bffe-bc341e2037d2.lovable.app/api/public/v1';
 
 let supabaseClient: any = null;
@@ -23,9 +23,9 @@ export function getSupabase() {
 }
 
 let geminiClient: GoogleGenAI | null = null;
-export function getGemini(): GoogleGenAI {
-  if (!geminiClient) {
-    const key = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+export function getGemini(explicitKey?: string): GoogleGenAI {
+  const key = explicitKey || process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+  if (!geminiClient || explicitKey) {
     geminiClient = new GoogleGenAI({ 
       apiKey: key,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
