@@ -862,6 +862,8 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
 
   // Refs
   const liveSessionRef = useRef<any>(null);
+  const speechRecognitionRef = useRef<any>(null);
+  const isLiveActiveRef = useRef<boolean>(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
@@ -2210,6 +2212,11 @@ Formatting Rules:
   // --- LIVE SESSION CORE (KORE AI PERSONA + FUNCTION CALLING) ---
 
   const startLiveAssistant = async () => {
+    if (isLiveActive) {
+      stopLiveAssistant();
+      return;
+    }
+
     let activeApiKey = getEffectiveApiKey(user?.apiKey);
     if (!activeApiKey) {
       activeApiKey = await resolveAdminAiApiKey();
@@ -2229,12 +2236,6 @@ Formatting Rules:
       }
     }
 
-    if (!activeApiKey) {
-      setIsTextChatOpen(true);
-      toast.info("Connecting to Vixora AI Assistant co-pilot! How can I help you today?");
-      return;
-    }
-
     try {
       setIsConnecting(true);
       setAppError(null);
@@ -2249,117 +2250,158 @@ Formatting Rules:
         }
       });
 
-      const navigateToTabDeclaration: FunctionDeclaration = {
-        name: 'navigateToTab',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Switch between different modules of the app.',
-          properties: {
-            tab: {
-              type: Type.STRING,
-              description: 'The name of the tab to open: studio, scripts, videos, voiceover, more, contact.',
-              enum: ['studio', 'scripts', 'videos', 'voiceover', 'more', 'contact']
-            }
-          },
-          required: ['tab']
+      const speakVoiceResponse = (textToSpeak: string) => {
+        if (!('speechSynthesis' in window)) return;
+        try {
+          window.speechSynthesis.cancel();
+          const clean = textToSpeak.replace(/[*_#`]/g, '').trim();
+          const utter = new SpeechSynthesisUtterance(clean);
+          utter.rate = 1.05;
+          utter.pitch = 1.0;
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('George')));
+          if (preferredVoice) utter.voice = preferredVoice;
+          window.speechSynthesis.speak(utter);
+        } catch (synthErr) {
+          console.warn('Voice synthesis fallback:', synthErr);
         }
       };
 
-      const generateScriptDeclaration: FunctionDeclaration = {
-        name: 'generateScript',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Generates a professional YouTube script based on a topic.',
-          properties: {
-            topic: { type: Type.STRING, description: 'The topic for the video script.' }
-          },
-          required: ['topic']
-        }
-      };
+      const handleUserSpokenWord = async (spokenText: string) => {
+        const text = spokenText.trim();
+        if (!text) return;
+        setLiveTranscription(`🗣️ You: ${text}`);
 
-      const sourceVideoDeclaration: FunctionDeclaration = {
-        name: 'sourceVideo',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Finds stock video clips based on a provided script text.',
-          properties: {
-            script: { type: Type.STRING, description: 'The text script to find matching videos for.' }
-          },
-          required: ['script']
-        }
-      };
+        const lower = text.toLowerCase();
 
-      const createFullAutopilotVideoDeclaration: FunctionDeclaration = {
-        name: 'createFullAutopilotVideo',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Cooks the video automatically for a topic.',
-          properties: {
-            topic: { type: Type.STRING, description: 'The topic/theme for the video.' }
-          },
-          required: ['topic']
+        // 1. Voice Command Execution
+        if (lower.includes('autopilot') || (lower.includes('make') && lower.includes('video')) || (lower.includes('cook') && lower.includes('video'))) {
+          const topicMatch = text.replace(/^(can you |please |vixora |visora )?(make a video about|cook a video on|create a video about|generate video for|make video on|autopilot for)\s*/i, '');
+          const finalTopic = topicMatch.trim() || '5 Daily Habits of Successful Creators';
+          setLiveTranscription(`⚡ Vixora: Cooking autopilot video for "${finalTopic}"!`);
+          speakVoiceResponse(`No wahala at all! Oya let's cook this viral masterpiece on ${finalTopic}! Watch the screen now!`);
+          handleAutopilotVideoGeneration(finalTopic);
+          return;
         }
-      };
 
-      const configureAndCreateAutopilotVideoDeclaration: FunctionDeclaration = {
-        name: 'configureAndCreateAutopilotVideo',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Cooks the video automatically with explicit user preferences for aspect ratio, duration, and search web trends.',
-          properties: {
-            topic: { type: Type.STRING, description: 'The topic or theme for the video.' },
-            aspectRatio: { type: Type.STRING, description: 'The video frame shape: "vertical" (9:16 Shorts/Reels), "horizontal" (16:9 YouTube), or "square" (1:1).', enum: ['vertical', 'horizontal', 'square'] },
-            duration: { type: Type.STRING, description: 'The target video duration e.g. "15s", "30s", "60s", or "2min".' },
-            useWebSearchTrends: { type: Type.BOOLEAN, description: 'Whether to search live Google web trends for fresh facts before scripting.' }
-          },
-          required: ['topic']
+        if (lower.includes('script') || lower.includes('write a script') || lower.includes('generate script')) {
+          const topic = text.replace(/.*(for|about|on)\s+/i, '').trim() || 'The Future of AI Technology';
+          setLiveTranscription(`⚡ Vixora: Writing viral script for "${topic}"!`);
+          speakVoiceResponse(`Writing a high-retention viral script about ${topic} right away!`);
+          setScriptTopic(topic);
+          setActiveTab('scripts');
+          handleGenerateScript(topic);
+          return;
         }
-      };
 
-      const setVideoPreferencesDeclaration: FunctionDeclaration = {
-        name: 'setVideoPreferences',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Updates default video layout settings like aspect ratio and target duration.',
-          properties: {
-            aspectRatio: { type: Type.STRING, enum: ['vertical', 'horizontal', 'square'], description: 'Desired aspect ratio' },
-            duration: { type: Type.STRING, description: 'Desired video length e.g. "15s", "30s", "60s"' }
+        if (lower.includes('voiceover') || lower.includes('read script') || lower.includes('voice studio')) {
+          setActiveTab('voiceover');
+          speakVoiceResponse("Opening Voiceover and TTS studio for you!");
+          return;
+        }
+
+        if (lower.includes('music') || lower.includes('soundtrack') || lower.includes('sound effect')) {
+          setActiveTab('bgmusic');
+          speakVoiceResponse("Opening Background Music and Sound Effects library!");
+          return;
+        }
+
+        if (lower.includes('b-roll') || lower.includes('footage') || lower.includes('video creator') || lower.includes('stock video')) {
+          setActiveTab('videos');
+          speakVoiceResponse("Opening Stock Video Creator timeline!");
+          return;
+        }
+
+        if (lower.includes('growth') || lower.includes('seo') || lower.includes('tags') || lower.includes('hook')) {
+          setActiveTab('more');
+          speakVoiceResponse("Opening Growth and SEO tag tools!");
+          return;
+        }
+
+        // 2. Conversational fallback via server AI assistant
+        try {
+          const res = await fetch('/api/vixora/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: text,
+              history: [],
+              userFullName: user?.fullName || 'Creator'
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const reply = data.text || `I hear you crystal clear ${user?.fullName || 'my creator'}! What viral masterpiece are we cooking today?`;
+            setLiveTranscription(`🎙️ Vixora: ${reply.slice(0, 150)}`);
+            speakVoiceResponse(reply);
           }
+        } catch (chatErr) {
+          console.warn('Voice chat response fallback:', chatErr);
         }
       };
 
-      const learnUserCustomSkillDeclaration: FunctionDeclaration = {
-        name: 'learnUserCustomSkill',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Saves a new custom skill, workflow preference, or brand rule learned from the user into Vixora AI skill memory.',
-          properties: {
-            skillName: { type: Type.STRING, description: 'Name of the skill or rule learned, e.g. "Forex 9:16 30s Fast Pace"' },
-            skillDescription: { type: Type.STRING, description: 'Detailed explanation of what the user wants for this skill.' },
-            preferenceData: { type: Type.STRING, description: 'Additional JSON or key-value preferences.' },
-            category: { type: Type.STRING, enum: ['format', 'voice', 'style', 'custom'] }
-          },
-          required: ['skillName', 'skillDescription']
-        }
-      };
+      // Continuous Speech Recognition listener
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRec) {
+        try {
+          const recognition = new SpeechRec();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          
+          recognition.onresult = (event: any) => {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              } else {
+                interimTranscript += event.results[i][0].transcript;
+              }
+            }
 
-      const searchWebTrendsDeclaration: FunctionDeclaration = {
-        name: 'searchWebTrends',
-        parameters: {
-          type: Type.OBJECT,
-          description: 'Searches live Google web trends for fresh breaking news or facts about a topic.',
-          properties: {
-            query: { type: Type.STRING, description: 'The search query or topic.' }
-          },
-          required: ['query']
-        }
-      };
+            if (interimTranscript) {
+              setLiveTranscription(`🗣️ You: ${interimTranscript}`);
+              setMicVolumeLevel(Math.min(100, Math.max(35, interimTranscript.length * 4)));
+            }
 
-      const ai = new GoogleGenAI({ apiKey: activeApiKey });
+            if (finalTranscript.trim()) {
+              handleUserSpokenWord(finalTranscript);
+            }
+          };
+
+          recognition.onerror = (e: any) => {
+            console.warn('Speech recognition warning:', e?.error);
+          };
+
+          recognition.onend = () => {
+            if (isLiveActiveRef.current && speechRecognitionRef.current) {
+              try { recognition.start(); } catch(e) {}
+            }
+          };
+
+          recognition.start();
+          speechRecognitionRef.current = recognition;
+        } catch (recErr) {
+          console.warn('Could not start browser speech recognition:', recErr);
+        }
+      }
+
+      isLiveActiveRef.current = true;
+      setIsLiveActive(true);
+      setIsConnecting(false);
+      setCallTimer(0);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = window.setInterval(() => setCallTimer(t => t + 1), 1000);
+
+      // Initial spoken greeting to immediately start the call!
+      speakVoiceResponse(`How far ${user?.fullName || 'my creator'}! Vixora is live on the call with you! What video idea or topic are we cooking today?`);
+
+      // Setup audio graph & RMS visualizer
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      // Store in refs for complete lifecycle cleanup
       mediaStreamRef.current = stream;
       inputAudioCtxRef.current = inputCtx;
       outputAudioCtxRef.current = outputCtx;
@@ -2367,184 +2409,112 @@ Formatting Rules:
       await inputCtx.resume();
       await outputCtx.resume();
 
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-3.8-live',
-        callbacks: {
-          onopen: () => {
-            setIsLiveActive(true);
-            setIsConnecting(false);
-            setCallTimer(0);
-            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            timerIntervalRef.current = window.setInterval(() => setCallTimer(t => t + 1), 1000);
-            
-            // Automatically prompt Vixora AI to initiate the call and speak first!
-            sessionPromise.then(session => {
-              session.sendClientContent({
-                turns: [
-                  {
-                    role: 'user',
-                    parts: [
-                      { text: `[System Event: The live voice call has connected! YOU MUST SPEAK FIRST RIGHT NOW TO INITIATE THE CALL! Greet ${user?.fullName || 'Creator'} with maximum enthusiasm in your signature energetic Nigerian Vixora persona, e.g. "How far my creator! Vixora live on line with you! Wetin we dey cook today?", and ask them what video topic or idea they want to create today!]` }
-                    ]
-                  }
-                ],
-                turnComplete: true
-              });
-            }).catch(console.error);
+      const mediaSource = inputCtx.createMediaStreamSource(stream);
+      const scriptProcessor = inputCtx.createScriptProcessor(2048, 1, 1);
+      scriptProcessorRef.current = scriptProcessor;
 
-            const mediaSource = inputCtx.createMediaStreamSource(stream);
-            const scriptProcessor = inputCtx.createScriptProcessor(2048, 1, 1);
-            scriptProcessorRef.current = scriptProcessor;
+      scriptProcessor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          sum += inputData[i] * inputData[i];
+        }
+        const rms = Math.sqrt(sum / inputData.length);
+        const normalizedLevel = Math.min(100, Math.round(rms * 400));
+        setMicVolumeLevel(normalizedLevel);
 
-            scriptProcessor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
+        if (liveSessionRef.current) {
+          try {
+            const pcmBlob = createGenAIBlob(inputData);
+            liveSessionRef.current.sendRealtimeInput({ mediaChunks: [pcmBlob] });
+          } catch(err) {}
+        }
+      };
+      mediaSource.connect(scriptProcessor);
+      scriptProcessor.connect(inputCtx.destination);
 
-              // Calculate real-time RMS volume for AI hearing visualizer
-              let sum = 0;
-              for (let i = 0; i < inputData.length; i++) {
-                sum += inputData[i] * inputData[i];
-              }
-              const rms = Math.sqrt(sum / inputData.length);
-              const normalizedLevel = Math.min(100, Math.round(rms * 350));
-              setMicVolumeLevel(normalizedLevel);
-
-              const pcmBlob = createGenAIBlob(inputData);
-              sessionPromise.then(session => session.sendRealtimeInput({ media: pcmBlob })).catch(() => {});
-            };
-            mediaSource.connect(scriptProcessor);
-            scriptProcessor.connect(inputCtx.destination);
-          },
-          onmessage: async (message: LiveServerMessage) => {
-            if (message.serverContent?.outputTranscription) {
-              setLiveTranscription(prev => (prev + ' ' + message.serverContent!.outputTranscription!.text).slice(-150));
-            }
-
-            if (message.toolCall) {
-              for (const fc of message.toolCall.functionCalls) {
-                let result = "ok";
-                if (fc.name === 'navigateToTab') {
-                  const tab = (fc.args as any).tab;
-                  setActiveTab(tab);
-                  result = `Navigated to ${tab} tab successfully.`;
-                } else if (fc.name === 'generateScript') {
-                  const topic = (fc.args as any).topic;
-                  setScriptTopic(topic);
-                  setActiveTab('scripts');
-                  handleGenerateScript(topic);
-                  result = `Started script generation for ${topic}.`;
-                } else if (fc.name === 'sourceVideo') {
-                  const scriptText = (fc.args as any).script;
-                  setVideoScriptInput(scriptText);
-                  setVideoMode('ai_packaged');
-                  setActiveTab('videos');
-                  handleSourceVideos(scriptText);
-                  result = `Started sourcing videos for your script. Check the Creator tab.`;
-                } else if (fc.name === 'createFullAutopilotVideo') {
-                  const topic = (fc.args as any).topic;
-                  handleAutopilotVideoGeneration(topic);
-                  result = `I am now running the autopilot engine for "${topic}". Watch the live 3D creation percentage progress on screen!`;
-                } else if (fc.name === 'configureAndCreateAutopilotVideo') {
-                  const { topic, aspectRatio, duration, useWebSearchTrends } = fc.args as any;
-                  handleAutopilotVideoGeneration(
-                    topic,
-                    aspectRatio || 'vertical',
-                    duration || '30s',
-                    useWebSearchTrends !== undefined ? useWebSearchTrends : true
-                  );
-                  result = `Configured video creation: Aspect ratio ${aspectRatio || 'vertical'}, Duration ${duration || '30s'}, Web search trends: ${useWebSearchTrends ? 'Enabled' : 'Disabled'}. I am now generating your video with live percentage progress tracking!`;
-                } else if (fc.name === 'setVideoPreferences') {
-                  const { aspectRatio, duration } = fc.args as any;
-                  if (aspectRatio) setVideoRatio(aspectRatio);
-                  if (duration) setTargetVideoDuration(duration);
-                  result = `Updated video preferences: Ratio = ${aspectRatio || videoRatio}, Duration = ${duration || targetVideoDuration}.`;
-                } else if (fc.name === 'learnUserCustomSkill') {
-                  const { skillName, skillDescription, preferenceData, category } = fc.args as any;
-                  saveCustomLearnedSkill(skillName, skillDescription, preferenceData, category);
-                  result = `Successfully learned and stored new custom skill "${skillName}" into my permanent skill memory! I will apply this rule for future video creations.`;
-                } else if (fc.name === 'searchWebTrends') {
-                  const query = (fc.args as any).query;
-                  try {
-                    const resText = await handleGenerateScript(query, true);
-                    result = `Search trends for "${query}": ${resText?.slice(0, 300) || 'Found latest trends.'}`;
-                  } catch {
-                    result = `Searched trends for ${query}.`;
-                  }
+      // Connect Gemini Live WebSocket if API key is active
+      if (activeApiKey && !isInvalidOrLeakedKey(activeApiKey)) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: activeApiKey });
+          const sessionPromise = ai.live.connect({
+            model: 'gemini-3.8-live',
+            callbacks: {
+              onopen: () => {
+                sessionPromise.then(session => {
+                  session.sendClientContent({
+                    turns: [
+                      {
+                        role: 'user',
+                        parts: [
+                          { text: `[System Event: The live voice call has connected! Greet ${user?.fullName || 'Creator'} with maximum enthusiasm in your signature energetic Nigerian Vixora persona, and ask what video topic or idea they want to create today!]` }
+                        ]
+                      }
+                    ],
+                    turnComplete: true
+                  });
+                }).catch(console.error);
+              },
+              onmessage: async (message: LiveServerMessage) => {
+                if (message.serverContent?.outputTranscription) {
+                  setLiveTranscription(prev => (prev + ' ' + message.serverContent!.outputTranscription!.text).slice(-150));
                 }
 
-                sessionPromise.then(s => s.sendToolResponse({
-                  functionResponses: [{ id: fc.id, name: fc.name, response: { output: result } }]
-                })).catch(console.error);
+                const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                if (base64Audio && outputCtx) {
+                  nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
+                  const buffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
+                  const source = outputCtx.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(outputCtx.destination);
+                  source.start(nextStartTimeRef.current);
+                  nextStartTimeRef.current += buffer.duration;
+                  audioSourcesRef.current.add(source);
+                  source.onended = () => audioSourcesRef.current.delete(source);
+                }
+              },
+              onclose: () => {},
+              onerror: (e) => {
+                console.warn("Live websocket notice:", e);
               }
+            },
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+              systemInstruction: `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${user?.fullName || 'Creator'}). Speak with 100% authentic, high-energy Nigerian enthusiasm. No asterisks (*). Listen intently and help them cook viral videos.`,
+              outputAudioTranscription: {},
             }
+          });
 
-            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (base64Audio) {
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
-              const buffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
-              const source = outputCtx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(outputCtx.destination);
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              audioSourcesRef.current.add(source);
-              source.onended = () => audioSourcesRef.current.delete(source);
-            }
-          },
-          onclose: () => stopLiveAssistant(),
-          onerror: (e) => {
-            console.error("Live assistant error:", e);
-            const errStr = String((e as any)?.message || (e as any)?.error?.message || e || '');
-            if (errStr.toLowerCase().includes('leaked') || errStr.toLowerCase().includes('api key')) {
-              setAppError("AI voice service is temporarily reconnecting. Please tap again or ask Vixora in the AI Assistant chat.");
-            } else {
-              setAppError("Live voice connection dropped. Please tap again to start call.");
-            }
-            stopLiveAssistant();
-          },
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-          tools: [{ functionDeclarations: [
-            navigateToTabDeclaration,
-            generateScriptDeclaration,
-            sourceVideoDeclaration,
-            createFullAutopilotVideoDeclaration,
-            configureAndCreateAutopilotVideoDeclaration,
-            setVideoPreferencesDeclaration,
-            learnUserCustomSkillDeclaration,
-            searchWebTrendsDeclaration
-          ] }],
-          systemInstruction: `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${user?.fullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
-
-          CRITICAL CALL INITIATION RULE:
-          When the user connects or calls you on this live session, YOU MUST START THE CONVERSATION FIRST! Do NOT wait silently for the user to talk. Speak immediately upon connection, greeting ${user?.fullName || 'Creator'} with your signature energetic Nigerian Vixora persona, welcoming them to the call, and asking what video topic or content idea you two are making today!
-
-          CRITICAL INTERACTIVE VIDEO CREATION FLOW:
-          1. When the user asks you to make, create, generate, or cook a video:
-             - Ask them how they want the video configured:
-               a) Topic / Theme
-               b) Aspect Ratio (9:16 Vertical for Shorts/Reels or 16:9 Horizontal for YouTube)
-               c) Duration (15s, 30s, 60s, or 2min)
-             - Once they specify (or ask you to choose), call 'configureAndCreateAutopilotVideo'.
-          2. When the user teaches you a preference, rule, or custom workflow (e.g. "always use vertical 9:16 and 30s duration for my finance videos" or "my channel style is fast-paced"), call 'learnUserCustomSkill' to save it to your skill memory base!
-          3. Listen intently to every word the user says. Respond like a passionate, highly energetic Nigerian creative producer on a live call!`,
-          outputAudioTranscription: {},
+          liveSessionRef.current = await sessionPromise;
+        } catch (liveErr) {
+          console.warn('Gemini Live websocket optional fallback active:', liveErr);
         }
-      });
+      }
 
-      liveSessionRef.current = await sessionPromise;
     } catch (err: any) {
       console.error("Failed to start live assistant:", err);
       setAppError(err?.message || "Microphone access denied or connection failed.");
       setIsConnecting(false);
+      setIsLiveActive(false);
+      isLiveActiveRef.current = false;
     }
   };
 
   const stopLiveAssistant = () => {
+    isLiveActiveRef.current = false;
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     
+    // Stop speech synthesis & speech recognition
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch(e) {}
+    }
+    if (speechRecognitionRef.current) {
+      try { speechRecognitionRef.current.stop(); } catch(e) {}
+      speechRecognitionRef.current = null;
+    }
+
     // Stop all audio playback sources
     audioSourcesRef.current.forEach(source => {
       try { source.stop(); } catch(e) {}
@@ -2920,23 +2890,6 @@ Formatting Rules:
         </div>
       )}
 
-      {/* RETURN TO GGD DASHBOARD BANNER IF EMBEDDED */}
-      {onBackToDashboard && (
-        <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white px-4 py-2.5 flex items-center justify-between text-xs font-bold shadow-lg z-[120] sticky top-0 backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] tracking-wider uppercase font-black">GGD Studio Suite</span>
-            <span className="hidden sm:inline">Vixora AI Creator & Video Studio</span>
-          </div>
-          <button
-            onClick={onBackToDashboard}
-            className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-all flex items-center gap-1.5 cursor-pointer font-black uppercase text-[11px]"
-          >
-            <i className="fa-solid fa-arrow-left text-[10px]"></i>
-            <span>Return to Dashboard</span>
-          </button>
-        </div>
-      )}
-
       {/* GLOBAL URL-BASED NAVIGATION HEADER & DOCK (HIDDEN ON VIDEO CREATOR VIEW AS REQUESTED) */}
       {!isVideoCreationView && (
         <VixoraNavbar
@@ -2947,6 +2900,7 @@ Formatting Rules:
           onOpenChannelPreferences={() => setShowChannelPreferencesModal(true)}
           onOpenGlobalApi={() => setShowGlobalApiModal(true)}
           onOpenExportModal={() => setShowNativeExportModal(true)}
+          onBackToDashboard={onBackToDashboard}
           projectCount={projects.length}
           activeProjectTitle={projects.find(p => p.id === activeProjectId)?.title}
           isLiveActive={isLiveActive}

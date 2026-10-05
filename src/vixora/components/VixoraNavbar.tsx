@@ -9,6 +9,7 @@ export interface VixoraNavbarProps {
   onOpenChannelPreferences?: () => void;
   onOpenGlobalApi: () => void;
   onOpenExportModal: () => void;
+  onBackToDashboard?: () => void;
   projectCount: number;
   activeProjectTitle?: string;
   isLiveActive?: boolean;
@@ -35,6 +36,7 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
   onOpenChannelPreferences,
   onOpenGlobalApi,
   onOpenExportModal,
+  onBackToDashboard,
   projectCount,
   activeProjectTitle,
   isLiveActive = false,
@@ -65,16 +67,27 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
   const activeItem = MAIN_NAV_ITEMS.find(item => isCurrentActive(item.path)) || MAIN_NAV_ITEMS[0];
 
   return (
-    <header className="w-full mb-6 z-40 sticky top-2">
+    <header className="w-full mb-4 z-30 relative">
       {/* TOP HEADER GLASS CONTAINER */}
-      <div className={`w-full rounded-2xl border backdrop-blur-xl transition-all shadow-xl p-2.5 sm:p-3 ${
+      <div className={`w-full rounded-2xl border backdrop-blur-xl transition-all shadow-lg p-2.5 sm:p-3 ${
         themeMode === 'light' 
-          ? 'bg-white/90 border-slate-200/90 shadow-slate-200/50 text-slate-900' 
-          : 'bg-slate-900/85 border-white/10 shadow-black/40 text-white'
+          ? 'bg-white/95 border-slate-200/90 shadow-slate-200/50 text-slate-900' 
+          : 'bg-slate-900/90 border-white/10 shadow-black/40 text-white'
       }`}>
         <div className="flex items-center justify-between gap-2">
           {/* BRAND LOGO & ACTIVE SECTION BADGE */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            {onBackToDashboard && (
+              <button
+                onClick={onBackToDashboard}
+                title="Return to GGD Dashboard"
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black uppercase text-[9.5px] tracking-wider flex items-center gap-1.5 transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer"
+              >
+                <i className="fa-solid fa-arrow-left text-[9px]"></i>
+                <span className="hidden xs:inline">Dashboard</span>
+              </button>
+            )}
+
             <NavLink
               to="/studio"
               className="flex items-center gap-2 group shrink-0 outline-none"
