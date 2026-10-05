@@ -11,8 +11,10 @@ import { DeveloperApiView } from './components/DeveloperApiView';
 import { CompleteApiModal } from './components/CompleteApiModal';
 import { NativeExportDownloadModal } from './components/NativeExportDownloadModal';
 import { ProjectsNavigationDrawer } from './components/ProjectsNavigationDrawer';
+import { ChannelPreferencesModal, DEFAULT_CHANNEL_PREFERENCES } from './components/ChannelPreferencesModal';
 import { VixoraNavbar } from './components/VixoraNavbar';
 import { VoiceSelectorDropdown } from './components/VoiceSelectorDropdown';
+import { supabase } from '@/integrations/supabase/client';
 import { VixoraAppContext } from './services/vixoraAgentTools';
 import { PRESET_MUSIC_TRACKS, VOICE_AVATAR_OPTIONS, VIRAL_PROMPT_NICHES } from './constants';
 import { synthesizeFishAudio, FISH_AUDIO_VOICES } from './services/fishAudioService';
@@ -294,12 +296,13 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   const [user, setUser] = useState<(UserProfile & { apiKey?: string }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [appError, setAppError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'studio' | 'autopilot' | 'voiceover' | 'scripts' | 'profile' | 'more' | 'videos' | 'contact' | 'coach' | 'tools' | 'chat' | 'developer' | 'bgmusic'>('studio');
+  const [activeTab, setActiveTab] = useState<'studio' | 'autopilot' | 'voiceover' | 'scripts' | 'more' | 'videos' | 'contact' | 'coach' | 'tools' | 'chat' | 'developer' | 'bgmusic'>('studio');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showAccessibilityModal, setShowAccessibilityModal] = useState(false);
   const [showGlobalApiModal, setShowGlobalApiModal] = useState(false);
   const [showNativeExportModal, setShowNativeExportModal] = useState(false);
+  const [showChannelPreferencesModal, setShowChannelPreferencesModal] = useState(false);
 
   // Helper to map tab identifier to canonical URL path
   const getTabPath = (tab: string) => {
@@ -312,7 +315,6 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
       case 'more': return '/growth';
       case 'tools': return '/tools';
       case 'developer': return '/developer';
-      case 'profile': return '/profile';
       case 'contact': return '/contact';
       case 'coach': return '/coach';
       case 'chat': return '/studio';
@@ -353,8 +355,6 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
       setActiveTab('tools');
     } else if (rawPath === '/developer' || rawPath === '/api' || rawPath === '/docs') {
       setActiveTab('developer');
-    } else if (rawPath === '/profile' || rawPath === '/settings') {
-      setActiveTab('profile');
     } else if (rawPath === '/contact' || rawPath === '/support') {
       setActiveTab('contact');
     } else if (rawPath === '/coach' || rawPath === '/mentorship') {
@@ -1077,75 +1077,129 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   // --- INITIALIZATION ---
 
   useEffect(() => {
-    try {
-      // Check for remote display & embed parameters (?embed=creator | chat | scripts | voiceover)
-      const urlParams = new URLSearchParams(window.location.search);
-      const embedParam = urlParams.get('embed');
-      const apiKeyParam = urlParams.get('apiKey') || urlParams.get('api_key') || urlParams.get('apikey');
-      const themeParam = urlParams.get('theme');
+    const initializeCreatorSession = async () => {
+      try {
+        // Check for remote display & embed parameters (?embed=creator | chat | scripts | voiceover)
+        const urlParams = new URLSearchParams(window.location.search);
+        const embedParam = urlParams.get('embed');
+        const apiKeyParam = urlParams.get('apiKey') || urlParams.get('api_key') || urlParams.get('apikey');
+        const themeParam = urlParams.get('theme');
 
-      if (themeParam === 'light' || themeParam === 'dark') {
-        setThemeMode(themeParam);
-      }
-
-      if (embedParam) {
-        // Zero-friction instant access for remote embedded websites
-        const remoteGuestUser: UserProfile = {
-          fullName: 'Remote Creator',
-          email: 'guest@remote-embed.vixora',
-          phone: '',
-          apiKey: apiKeyParam || process.env.GEMINI_API_KEY || process.env.API_KEY || '',
-          niche: 'general'
-        };
-        setUser(remoteGuestUser);
-        setNewApiKey(remoteGuestUser.apiKey || '');
-        setWizardStep(3);
-
-        if (embedParam === 'chat' || embedParam === 'assistant' || embedParam === 'surah' || embedParam === 'ai') {
-          setActiveTab('chat');
-        } else if (embedParam === 'voice' || embedParam === 'voiceover') {
-          setActiveTab('voiceover');
-        } else if (embedParam === 'scripts') {
-          setActiveTab('scripts');
-        } else if (embedParam === 'developer' || embedParam === 'api') {
-          setActiveTab('developer');
-        } else {
-          setActiveTab('studio');
+        if (themeParam === 'light' || themeParam === 'dark') {
+          setThemeMode(themeParam);
         }
 
-        setLoading(false);
-        return;
-      }
+        if (embedParam) {
+          // Zero-friction instant access for remote embedded websites
+          const remoteGuestUser: UserProfile = {
+            fullName: 'Remote Creator',
+            email: 'guest@remote-embed.vixora',
+            phone: '',
+            apiKey: apiKeyParam || process.env.GEMINI_API_KEY || process.env.API_KEY || '',
+            niche: 'general'
+          };
+          setUser(remoteGuestUser);
+          setNewApiKey(remoteGuestUser.apiKey || '');
+          setWizardStep(3);
 
-      const savedUser = localStorage.getItem('ggd_creator_user');
-      const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-      const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        if (parsed) {
-          if (!parsed.niche) parsed.niche = 'finance';
-          if (isInvalidOrLeakedKey(parsed.apiKey)) {
-            parsed.apiKey = defaultEnvKey;
-          }
-          if (parsed.fullName && parsed.email) {
-            setUser(parsed);
-            setNewApiKey(parsed.apiKey);
-            localStorage.setItem('ggd_creator_user', JSON.stringify(parsed));
-            setWizardStep(3);
+          if (embedParam === 'chat' || embedParam === 'assistant' || embedParam === 'surah' || embedParam === 'ai') {
+            setActiveTab('chat');
+          } else if (embedParam === 'voice' || embedParam === 'voiceover') {
+            setActiveTab('voiceover');
+          } else if (embedParam === 'scripts') {
+            setActiveTab('scripts');
+          } else if (embedParam === 'developer' || embedParam === 'api') {
+            setActiveTab('developer');
           } else {
-            const fallbackUser: UserProfile = {
-              fullName: parsed.fullName || 'Creator',
-              email: parsed.email || 'creator@vixora.studio',
-              phone: '',
-              apiKey: parsed.apiKey || defaultEnvKey,
-              niche: parsed.niche || 'finance'
+            setActiveTab('studio');
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+        const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
+
+        try {
+          // Automatically check logged-in Supabase user from GGD Ad Network
+          const { data: { user: sbUser } } = await supabase.auth.getUser();
+          if (sbUser) {
+            const { data: p } = await supabase
+              .from('profiles')
+              .select('display_name, business_name, business_category, business_phone')
+              .eq('user_id', sbUser.id)
+              .maybeSingle();
+
+            let channelNiche = p?.business_category || 'finance';
+            const savedPrefs = localStorage.getItem('vixora_user_preferences');
+            if (savedPrefs) {
+              try {
+                const parsedPrefs = JSON.parse(savedPrefs);
+                if (parsedPrefs.niche) channelNiche = parsedPrefs.niche;
+              } catch {}
+            }
+
+            const loggedInUser: UserProfile = {
+              fullName: p?.display_name || p?.business_name || sbUser.email?.split('@')[0] || 'GGD Creator',
+              email: sbUser.email || 'creator@ggdadnetwork.com',
+              phone: p?.business_phone || '',
+              apiKey: defaultEnvKey,
+              niche: channelNiche
             };
-            setUser(fallbackUser);
-            setNewApiKey(fallbackUser.apiKey);
-            localStorage.setItem('ggd_creator_user', JSON.stringify(fallbackUser));
+
+            setUser(loggedInUser);
+            setNewApiKey(defaultEnvKey);
+            localStorage.setItem('ggd_creator_user', JSON.stringify(loggedInUser));
+            setWizardStep(3);
+            setLoading(false);
+            return;
+          }
+        } catch (authErr) {
+          console.warn("Supabase user auto-load error:", authErr);
+        }
+
+        const savedUser = localStorage.getItem('ggd_creator_user');
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          if (parsed) {
+            if (!parsed.niche) parsed.niche = 'finance';
+            if (isInvalidOrLeakedKey(parsed.apiKey)) {
+              parsed.apiKey = defaultEnvKey;
+            }
+            if (parsed.fullName && parsed.email) {
+              setUser(parsed);
+              setNewApiKey(parsed.apiKey);
+              localStorage.setItem('ggd_creator_user', JSON.stringify(parsed));
+              setWizardStep(3);
+            } else {
+              const fallbackUser: UserProfile = {
+                fullName: parsed.fullName || 'Creator',
+                email: parsed.email || 'creator@vixora.studio',
+                phone: '',
+                apiKey: parsed.apiKey || defaultEnvKey,
+                niche: parsed.niche || 'finance'
+              };
+              setUser(fallbackUser);
+              setNewApiKey(fallbackUser.apiKey);
+              localStorage.setItem('ggd_creator_user', JSON.stringify(fallbackUser));
+              setWizardStep(3);
+            }
+          } else {
+            const autoUser: UserProfile = {
+              fullName: 'Creator',
+              email: 'creator@vixora.studio',
+              phone: '',
+              apiKey: defaultEnvKey,
+              niche: 'finance'
+            };
+            setUser(autoUser);
+            setNewApiKey(defaultEnvKey);
+            localStorage.setItem('ggd_creator_user', JSON.stringify(autoUser));
             setWizardStep(3);
           }
         } else {
+          // Automatic zero-friction instant access using environment API key
           const autoUser: UserProfile = {
             fullName: 'Creator',
             email: 'creator@vixora.studio',
@@ -1158,8 +1212,10 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
           localStorage.setItem('ggd_creator_user', JSON.stringify(autoUser));
           setWizardStep(3);
         }
-      } else {
-        // Automatic zero-friction instant access using environment API key
+      } catch (e) {
+        console.warn("User state restoration fallback:", e);
+        const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+        const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
         const autoUser: UserProfile = {
           fullName: 'Creator',
           email: 'creator@vixora.studio',
@@ -1169,26 +1225,13 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
         };
         setUser(autoUser);
         setNewApiKey(defaultEnvKey);
-        localStorage.setItem('ggd_creator_user', JSON.stringify(autoUser));
         setWizardStep(3);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.warn("User state restoration fallback:", e);
-      const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-      const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
-      const autoUser: UserProfile = {
-        fullName: 'Creator',
-        email: 'creator@vixora.studio',
-        phone: '',
-        apiKey: defaultEnvKey,
-        niche: 'finance'
-      };
-      setUser(autoUser);
-      setNewApiKey(defaultEnvKey);
-      setWizardStep(3);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    initializeCreatorSession();
 
     // Sync remote data from Lovable Cloud / Supabase / Firestore or fallback
     syncFetchProjects().then(projs => {
@@ -2187,8 +2230,8 @@ Formatting Rules:
           properties: {
             tab: {
               type: Type.STRING,
-              description: 'The name of the tab to open: studio, scripts, videos, voiceover, more, contact, profile.',
-              enum: ['studio', 'scripts', 'videos', 'voiceover', 'more', 'contact', 'profile']
+              description: 'The name of the tab to open: studio, scripts, videos, voiceover, more, contact.',
+              enum: ['studio', 'scripts', 'videos', 'voiceover', 'more', 'contact']
             }
           },
           required: ['tab']
@@ -2874,6 +2917,7 @@ Formatting Rules:
           onToggleTheme={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')}
           onOpenAccessibility={() => setShowAccessibilityModal(true)}
           onOpenProjects={() => setIsSidebarOpen(true)}
+          onOpenChannelPreferences={() => setShowChannelPreferencesModal(true)}
           onOpenGlobalApi={() => setShowGlobalApiModal(true)}
           onOpenExportModal={() => setShowNativeExportModal(true)}
           projectCount={projects.length}
@@ -5079,305 +5123,6 @@ Formatting Rules:
           </div>
         )}
 
-        {activeTab === 'profile' && (
-          <div className="animate-rise space-y-4">
-            <div className={`rounded-2xl p-5 border text-center shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-white/5 border-white/10'}`}>
-               <div className="w-14 h-14 bg-slate-800 rounded-2xl mx-auto flex items-center justify-center text-white text-xl mb-3 border border-white/10 shadow-lg"><i className="fa-solid fa-user-ninja"></i></div>
-               <h2 className="text-base font-black uppercase tracking-tight">{user?.fullName}</h2>
-               <p className="text-[8px] text-ggd-orange font-bold uppercase tracking-widest mt-0.5">Status: Gold Creator Tier</p>
-            </div>
-
-            <div className={`rounded-2xl p-4 sm:p-5 border space-y-3 shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10'}`}>
-               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">App Environment</h3>
-               <div className="space-y-2">
-                  <div className={`flex items-center justify-between p-3 rounded-xl border ${themeMode === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
-                     <span className="text-[10px] font-bold uppercase">Network Mode</span>
-                     <div className="flex items-center gap-1.5">
-                       <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`}></span>
-                       <span className="text-[9px] font-black uppercase">{isOnline ? 'Online Integration' : 'Offline Mode Active'}</span>
-                     </div>
-                  </div>
-                  <div className={`flex items-center justify-between p-3 rounded-xl border ${themeMode === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
-                     <span className="text-[10px] font-bold uppercase">App Client Type</span>
-                     <span className="text-[9px] font-black uppercase text-ggd-orange">{isStandalone ? 'Installed Native App' : 'Web Browser Mode'}</span>
-                  </div>
-                  <button onClick={triggerPwaInstall} className="w-full mt-1 py-3 bg-ggd-orange/15 hover:bg-ggd-orange/25 text-ggd-orange border border-ggd-orange/20 rounded-xl font-black uppercase text-[9px] tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
-                     <i className="fa-solid fa-download"></i>
-                     <span>{isStandalone ? 'PWA App Installed ✓' : 'Install Vixora PWA App'}</span>
-                  </button>
-               </div>
-            </div>
-
-            {/* GEMINI AI API KEY & ENGINE SETTINGS */}
-            <div className={`rounded-2xl p-4 sm:p-5 border space-y-3 shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10'}`}>
-               <div className="flex items-center justify-between">
-                 <div className="text-left">
-                   <h3 className="text-xs font-black uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
-                     <i className="fa-solid fa-key"></i> Gemini AI Engine Key
-                   </h3>
-                   <p className={`text-[9px] leading-normal mt-0.5 ${themeMode === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                     Powers Live Voice Calls, AI script writing, and Video Autopilot.
-                   </p>
-                 </div>
-                 <div className="flex items-center gap-1">
-                   <span className={`w-2 h-2 rounded-full ${getEffectiveApiKey(user?.apiKey) ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                   <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                     {getEffectiveApiKey(user?.apiKey) ? 'Connected' : 'No Key'}
-                   </span>
-                 </div>
-               </div>
-
-               <div className="space-y-2 pt-1">
-                 <div className="relative">
-                   <input
-                     type={showGeminiKeyInProfile ? "text" : "password"}
-                     value={newApiKey}
-                     onChange={(e) => setNewApiKey(e.target.value)}
-                     placeholder={user?.apiKey ? "•••••••••••••••• (Saved)" : "Enter Gemini API Key (e.g. AIzaSy...)"}
-                     className={`w-full p-3 pr-10 rounded-xl border font-mono text-xs outline-none transition-all ${
-                       themeMode === 'light' 
-                         ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-purple-500' 
-                         : 'bg-white/5 border-white/10 text-white focus:border-purple-500'
-                     }`}
-                   />
-                   <button
-                     type="button"
-                     onClick={() => setShowGeminiKeyInProfile(!showGeminiKeyInProfile)}
-                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs cursor-pointer"
-                   >
-                     <i className={`fa-solid ${showGeminiKeyInProfile ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                   </button>
-                 </div>
-
-                 {apiKeyStatusMsg && (
-                   <div className={`p-2.5 rounded-xl text-[9px] font-bold flex items-center gap-1.5 ${
-                     apiKeyStatusMsg.type === 'success' 
-                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                       : apiKeyStatusMsg.type === 'error'
-                         ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                         : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                   }`}>
-                     <i className={`fa-solid ${apiKeyStatusMsg.type === 'success' ? 'fa-check' : 'fa-circle-exclamation'}`}></i>
-                     <span>{apiKeyStatusMsg.text}</span>
-                   </div>
-                 )}
-
-                 <div className="flex gap-2">
-                   <button
-                     onClick={updateApiKey}
-                     className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                   >
-                     <i className="fa-solid fa-floppy-disk"></i>
-                     <span>Save Gemini Key</span>
-                   </button>
-                   {user?.apiKey && (
-                     <button
-                       onClick={() => {
-                         setNewApiKey('');
-                         if (user) {
-                           const updated = { ...user, apiKey: '' };
-                           setUser(updated);
-                           localStorage.setItem('ggd_creator_user', JSON.stringify(updated));
-                           setApiKeyStatusMsg({ text: "Reverted to default environment key.", type: 'info' });
-                           setTimeout(() => setApiKeyStatusMsg(null), 3000);
-                         }
-                       }}
-                       className={`px-3 py-3 rounded-xl font-black uppercase text-[9px] border transition-all active:scale-95 cursor-pointer ${
-                         themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-600' : 'bg-white/5 border-white/10 text-slate-400'
-                       }`}
-                     >
-                       Reset
-                     </button>
-                   )}
-                 </div>
-               </div>
-            </div>
-
-            {/* FISH.AUDIO API KEY & VOICE ENGINE SETTINGS */}
-            <div className={`rounded-2xl p-4 sm:p-5 border space-y-3 shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10'}`}>
-               <div className="flex items-center justify-between">
-                 <div className="text-left">
-                   <h3 className="text-xs font-black uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
-                     <i className="fa-solid fa-microphone-lines"></i> Fish.Audio Voice Engine Key
-                   </h3>
-                   <p className={`text-[9px] leading-normal mt-0.5 ${themeMode === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                     High-fidelity African TTS voices including Kore, Chimamanda, Uncle Bayo & Funke.
-                   </p>
-                 </div>
-                 <div className="flex items-center gap-1">
-                   <span className={`w-2 h-2 rounded-full ${user?.fishAudioApiKey || localStorage.getItem('vixora_fish_audio_key') ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`}></span>
-                   <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                     {user?.fishAudioApiKey ? 'Custom Key' : 'Default Key'}
-                   </span>
-                 </div>
-               </div>
-
-               <div className="space-y-2 pt-1">
-                 <div className="relative">
-                   <input
-                     type={showFishAudioKeyInProfile ? "text" : "password"}
-                     value={newFishAudioKey}
-                     onChange={(e) => setNewFishAudioKey(e.target.value)}
-                     placeholder={user?.fishAudioApiKey ? "•••••••••••••••• (Saved)" : "Enter Fish.Audio API Key (e.g. sk-fish-...)"}
-                     className={`w-full p-3 pr-10 rounded-xl border font-mono text-xs outline-none transition-all ${
-                       themeMode === 'light' 
-                         ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-cyan-500' 
-                         : 'bg-white/5 border-white/10 text-white focus:border-cyan-500'
-                     }`}
-                   />
-                   <button
-                     type="button"
-                     onClick={() => setShowFishAudioKeyInProfile(!showFishAudioKeyInProfile)}
-                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs cursor-pointer"
-                   >
-                     <i className={`fa-solid ${showFishAudioKeyInProfile ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                   </button>
-                 </div>
-
-                 {fishAudioStatusMsg && (
-                   <div className={`p-2.5 rounded-xl text-[9px] font-bold flex items-center gap-1.5 ${
-                     fishAudioStatusMsg.type === 'success' 
-                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                       : fishAudioStatusMsg.type === 'error'
-                         ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                         : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                   }`}>
-                     <i className={`fa-solid ${fishAudioStatusMsg.type === 'success' ? 'fa-check' : 'fa-circle-exclamation'}`}></i>
-                     <span>{fishAudioStatusMsg.text}</span>
-                   </div>
-                 )}
-
-                 <div className="flex gap-2">
-                   <button
-                     onClick={updateFishAudioKey}
-                     className="flex-1 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl font-black uppercase text-[9px] tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                   >
-                     <i className="fa-solid fa-floppy-disk"></i>
-                     <span>Save Fish Key</span>
-                   </button>
-
-                   <button
-                     onClick={testFishAudioConnection}
-                     disabled={isTestingFishAudio}
-                     className="px-3.5 py-3 bg-white/10 hover:bg-white/20 border border-white/15 text-cyan-300 rounded-xl font-black uppercase text-[9px] tracking-wider active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                   >
-                     {isTestingFishAudio ? (
-                       <i className="fa-solid fa-spinner animate-spin"></i>
-                     ) : (
-                       <i className="fa-solid fa-volume-high"></i>
-                     )}
-                     <span>Test Voice</span>
-                   </button>
-
-                   {user?.fishAudioApiKey && (
-                     <button
-                       onClick={() => {
-                         setNewFishAudioKey('');
-                         if (user) {
-                           const updated = { ...user, fishAudioApiKey: '' };
-                           setUser(updated);
-                           localStorage.setItem('ggd_creator_user', JSON.stringify(updated));
-                           localStorage.removeItem('vixora_fish_audio_key');
-                           setFishAudioStatusMsg({ text: "Reverted to default Fish.Audio configuration.", type: 'info' });
-                           setTimeout(() => setFishAudioStatusMsg(null), 3000);
-                         }
-                       }}
-                       className={`px-3 py-3 rounded-xl font-black uppercase text-[9px] border transition-all active:scale-95 cursor-pointer ${
-                         themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-600' : 'bg-white/5 border-white/10 text-slate-400'
-                       }`}
-                     >
-                       Reset
-                     </button>
-                   )}
-                 </div>
-               </div>
-            </div>
-
-            <div className={`rounded-2xl p-4 sm:p-5 border space-y-3.5 shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10'}`}>
-               <div className="text-left">
-                 <h3 className="text-xs font-black uppercase tracking-widest text-ggd-orange flex items-center gap-1.5">
-                   <i className="fa-solid fa-cubes-stacked"></i> Creator Persona & Target Niche
-                 </h3>
-                 <p className={`text-[9px] leading-normal mt-0.5 ${themeMode === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                   Configure your primary target demographic and channel focus. Vixora automatically tailors script voice tones and footage search terms to dominate this audience.
-                 </p>
-               </div>
-
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                 {NICHE_OPTIONS.map(n => {
-                    const isSelected = (user as any)?.niche === n.id;
-                    return (
-                       <button 
-                         key={n.id} 
-                         type="button"
-                         onClick={() => {
-                           if (!user) return;
-                           const updated = { ...user, niche: n.id };
-                           setUser(updated);
-                           localStorage.setItem('ggd_creator_user', JSON.stringify(updated));
-                         }}
-                         className={`group relative p-3 rounded-2xl text-left transition-all duration-150 transform overflow-hidden cursor-pointer flex items-center gap-2.5 border-b-4 ${
-                           isSelected
-                             ? `bg-gradient-to-r ${n.colorGradient} text-white border-black/40 shadow-xl ring-2 ring-ggd-orange/60 scale-[1.02] translate-y-[-2px]`
-                             : themeMode === 'light'
-                               ? `bg-gradient-to-r ${n.colorGradient} text-white opacity-90 border-black/20 hover:opacity-100 hover:-translate-y-0.5 shadow-md`
-                               : `bg-gradient-to-r ${n.colorGradient} text-white opacity-85 border-black/40 hover:opacity-100 hover:-translate-y-0.5 shadow-md`
-                         } active:translate-y-1 active:border-b-2 active:shadow-inner`}
-                       >
-                         {/* Background Glossy Shine Effect */}
-                         <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/20 rounded-full blur-xl pointer-events-none group-hover:bg-white/35 transition-all"></div>
-
-                         {/* 3D Icon Badge */}
-                         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-md border bg-white/20 text-white border-white/40">
-                           <i className={`fa-solid ${n.icon} text-sm drop-shadow`}></i>
-                         </div>
-
-                         <div className="min-w-0 flex-1 z-10">
-                           <span className="block text-[9.5px] font-black uppercase tracking-tight leading-tight truncate text-white drop-shadow-sm">
-                             {n.name}
-                           </span>
-                           <span className="block text-[7.5px] font-extrabold uppercase tracking-wider truncate opacity-90 text-white/90">
-                             {n.suggestions[0]}
-                           </span>
-                         </div>
-
-                         {/* 3D Selected Checkmark Pin */}
-                         {isSelected && (
-                           <span className="w-5 h-5 bg-white text-ggd-orange rounded-full flex items-center justify-center text-[10px] font-black shadow-lg border border-white shrink-0 z-10 animate-pulse">
-                             ✓
-                           </span>
-                         )}
-                       </button>
-                    );
-                 })}
-               </div>
-            </div>
-
-            <div className="space-y-2">
-              <button 
-                type="button"
-                className="w-full py-3.5 text-[9px] font-black text-amber-400 uppercase bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2"
-                onClick={async () => {
-                  await signOutSupabase();
-                  localStorage.removeItem('ggd_creator_user');
-                  setUser(null);
-                  setWizardStep(0);
-                }}
-              >
-                <i className="fa-solid fa-right-from-bracket"></i>
-                <span>Sign Out from Workspace</span>
-              </button>
-              
-              <button 
-                className="w-full py-3.5 text-[9px] font-black text-red-500 uppercase bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl active:scale-95 transition-all" 
-                onClick={() => { localStorage.clear(); window.location.reload(); }}
-              >
-                Full App Data Reset
-              </button>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'contact' && (
           <div className="animate-rise space-y-4">
              <div className={`rounded-2xl p-6 border space-y-5 text-center shadow-xl ${themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-white/10'}`}>
@@ -5697,6 +5442,19 @@ Formatting Rules:
         isOpen={showNativeExportModal}
         onClose={() => setShowNativeExportModal(false)}
         themeMode={themeMode}
+      />
+
+      {/* CHANNEL & DISTRIBUTION PREFERENCES MODAL */}
+      <ChannelPreferencesModal
+        isOpen={showChannelPreferencesModal}
+        onClose={() => setShowChannelPreferencesModal(false)}
+        themeMode={themeMode}
+        onPreferencesUpdated={(newPrefs) => {
+          if (newPrefs.preferredVoice) setSelectedVoice(newPrefs.preferredVoice);
+          if (newPrefs.niche) {
+            setUser(prev => prev ? { ...prev, niche: newPrefs.niche } : prev);
+          }
+        }}
       />
 
       <canvas ref={canvasRef} className="hidden" />

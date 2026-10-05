@@ -207,13 +207,13 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
   },
   {
     name: 'navigateToTab',
-    description: 'Switches or navigates to a specific screen/tab inside Vixora AI Studio app (e.g. profile, settings, api keys, studio, autopilot, videos, scripts, voiceover, coach, tools, developer, contact).',
+    description: 'Switches or navigates to a specific screen/tab inside Vixora AI Studio app (e.g. studio, autopilot, videos, scripts, voiceover, coach, tools, developer, contact, bgmusic).',
     parameters: {
       type: Type.OBJECT,
       properties: {
         tab: { 
           type: Type.STRING, 
-          description: 'The target tab name to open e.g. "profile", "studio", "autopilot", "videos", "scripts", "voiceover", "coach", "tools", "developer", "contact", "settings".' 
+          description: 'The target tab name to open e.g. "studio", "autopilot", "videos", "scripts", "voiceover", "coach", "tools", "developer", "contact", "bgmusic".' 
         }
       },
       required: ['tab']
@@ -221,12 +221,14 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
     execute: async (args, ctx) => {
       const raw = (args.tab || '').toLowerCase().trim();
       const tabMap: Record<string, string> = {
-        'profile': 'profile',
-        'account': 'profile',
-        'settings': 'profile',
-        'api keys': 'profile',
-        'keys': 'profile',
-        'api': 'profile',
+        'profile': 'developer',
+        'account': 'developer',
+        'settings': 'developer',
+        'api keys': 'developer',
+        'keys': 'developer',
+        'api': 'developer',
+        'channels': 'studio',
+        'channel': 'studio',
         'autopilot': 'autopilot',
         'videos': 'videos',
         'video': 'videos',
@@ -250,7 +252,7 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
         'developer': 'developer',
         'contact': 'contact'
       };
-      const mapped = tabMap[raw] || (raw in tabMap ? raw : 'profile');
+      const mapped = tabMap[raw] || (raw in tabMap ? raw : 'studio');
       ctx.setActiveTab(mapped);
 
       return {

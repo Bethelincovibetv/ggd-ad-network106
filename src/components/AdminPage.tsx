@@ -27,6 +27,7 @@ import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import AdminContactGainManager from "@/components/AdminContactGainManager";
 import { AdminVerificationManager } from "@/components/admin/AdminVerificationManager";
+import AdminVixoraManager from "@/components/AdminVixoraManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface NavGroup {
@@ -60,6 +61,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'ADVERTISING & CAMPAIGNS',
     items: [
+      { id: 'vixora-admin', icon: Video, label: 'Vixora AI Studio & API', sublabel: 'AI video engine, keys & render jobs', color: 'text-white', gradient: 'from-orange-500 via-purple-600 to-indigo-700' },
       { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
       { id: 'email-studio', icon: Mail, label: 'Email & Ad Studio', sublabel: 'Modern templates & sponsor ads', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
@@ -195,6 +197,9 @@ const AdminPage = () => {
           onNavigateSyndicate={(ad) => navigateToSection('syndicate', { initialCampaignId: ad.id, initialTab: 'campaigns' })} 
         />
       );
+      case 'vixora-admin':
+      case 'vixora':
+        return <AdminVixoraManager />;
       case 'email-studio': return <AdminEmailStudio />;
       case 'contact-gain': return <AdminContactGainManager />;
       case 'notifications': return <AdminNotificationSender />;

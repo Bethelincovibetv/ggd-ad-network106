@@ -6,6 +6,7 @@ export interface VixoraNavbarProps {
   onToggleTheme: () => void;
   onOpenAccessibility: () => void;
   onOpenProjects: () => void;
+  onOpenChannelPreferences?: () => void;
   onOpenGlobalApi: () => void;
   onOpenExportModal: () => void;
   projectCount: number;
@@ -23,7 +24,6 @@ export const MAIN_NAV_ITEMS = [
   { path: '/growth', label: 'Growth SEO', icon: 'fa-bolt-lightning', badge: 'Tags & Hooks', color: 'from-emerald-500 to-teal-600' },
   { path: '/tools', label: 'All Tools', icon: 'fa-shapes', badge: '12+ Tools', color: 'from-blue-500 to-indigo-600' },
   { path: '/developer', label: 'Dev API', icon: 'fa-code', badge: 'v1 REST', color: 'from-violet-500 to-purple-600' },
-  { path: '/profile', label: 'Profile', icon: 'fa-user-gear', badge: 'Settings', color: 'from-slate-500 to-slate-700' },
   { path: '/contact', label: 'Contact', icon: 'fa-headset', badge: 'Support', color: 'from-green-500 to-emerald-600' },
   { path: '/coach', label: 'Coach', icon: 'fa-cross', badge: 'Mentorship', color: 'from-amber-600 to-orange-700' },
 ];
@@ -33,6 +33,7 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
   onToggleTheme,
   onOpenAccessibility,
   onOpenProjects,
+  onOpenChannelPreferences,
   onOpenGlobalApi,
   onOpenExportModal,
   projectCount,
@@ -131,6 +132,22 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
                 </span>
               )}
             </button>
+
+            {/* CHANNEL PREFERENCES QUICK ACCESS */}
+            {onOpenChannelPreferences && (
+              <button
+                onClick={onOpenChannelPreferences}
+                title="Channel & Distribution Preferences (YouTube, TikTok, Instagram, WhatsApp)"
+                className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+                  themeMode === 'light'
+                    ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100'
+                    : 'bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20'
+                }`}
+              >
+                <i className="fa-solid fa-tower-broadcast text-xs"></i>
+                <span className="hidden lg:inline">Channel</span>
+              </button>
+            )}
 
             {/* DEV API MODAL QUICK ACCESS */}
             <button

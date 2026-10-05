@@ -300,11 +300,16 @@ If user asks to open profile, settings, studio, autopilot, scripts, voiceover, t
       // Check local intent fallback if API response was empty or error occurred
       if (!responseText) {
         const lower = fullPromptText.toLowerCase();
-        if (lower.includes('profile') || lower.includes('key') || lower.includes('setting') || lower.includes('account') || lower.includes('fish.audio') || lower.includes('fish audio')) {
-          appContext.setActiveTab('profile');
-          targetNavTab = 'profile';
-          actionBadgeText = '⚡ Navigated to Profile & API Key Settings';
-          responseText = "I've opened your Profile page! You can configure your Gemini AI and Fish.Audio API keys right there.";
+        if (lower.includes('key') || lower.includes('setting') || lower.includes('developer') || lower.includes('fish.audio') || lower.includes('fish audio')) {
+          appContext.setActiveTab('developer');
+          targetNavTab = 'developer';
+          actionBadgeText = '⚡ Navigated to Developer API & Keys';
+          responseText = "I've opened the Developer API & Keys page! You can test endpoints and review API credentials.";
+        } else if (lower.includes('channel') || lower.includes('niche') || lower.includes('preference')) {
+          appContext.setActiveTab('studio');
+          targetNavTab = 'studio';
+          actionBadgeText = '⚡ Channel & Video Distribution Preferences';
+          responseText = "Your channel preferences are synchronized with your GGD profile! You can tap Channel in the top bar to adjust targets.";
         } else if (lower.includes('video') || lower.includes('autopilot') || lower.includes('generate')) {
           appContext.setActiveTab('autopilot');
           targetNavTab = 'autopilot';
@@ -503,7 +508,7 @@ If user asks to open profile, settings, studio, autopilot, scripts, voiceover, t
           themeMode === 'light' ? 'bg-slate-100/80 border-slate-200' : 'bg-slate-950/40 border-white/5'
         }`}>
           {[
-            { label: '🔑 Profile & API Keys', cmd: 'Open my profile page so I can configure API keys' },
+            { label: '📡 Channel Preferences', cmd: 'Help me configure my YouTube and TikTok channel preferences' },
             { label: '⚡ Cook Finance Video', cmd: 'Generate a 30s vertical video on 5 rules of wealth' },
             { label: '🎨 Generate Flyer', cmd: 'Generate a promotional flyer banner for my finance channel' },
             { label: '🎙️ Voice to Kore', cmd: 'Change the voice narrator to Kore' },
