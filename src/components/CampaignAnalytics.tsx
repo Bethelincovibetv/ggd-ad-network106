@@ -36,6 +36,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { buildWhatsAppLink, normalizePhone } from '@/lib/whatsapp';
 
 interface Props {
   adId: string;
@@ -271,11 +272,11 @@ export const CampaignAnalytics: React.FC<Props> = ({ adId, onBack }) => {
 
   // WhatsApp group link for direct customer acquisition
   const waGroupLink = businessProfile?.whatsapp_group_link || (ad.target_url?.includes('chat.whatsapp.com') ? ad.target_url : null);
-  const waPhone = (businessProfile?.phone_number || '').replace(/[^\d]/g, '');
+  const waPhone = normalizePhone(businessProfile?.phone_number || '');
   const directWaChat = waPhone
-    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(
-        `Hello ${businessProfile?.business_name || ''}! I saw your Banner Ad '${ad.title}' on GGD Ad Network and would like to learn more.`
-      )}`
+    ? buildWhatsAppLink(waPhone, {
+        message: `Hello ${businessProfile?.business_name || ''}! I saw your Banner Ad '${ad.title}' on GGD Ad Network and would like to learn more.`,
+      })
     : null;
 
   return (

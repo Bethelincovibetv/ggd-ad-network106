@@ -12,6 +12,7 @@ import {
   MapPin, Briefcase, Check, Database
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { 
   fetchCompiledContacts, 
   downloadDailyVCFFile, 
@@ -344,7 +345,7 @@ export const AdminContactGainManager: React.FC = () => {
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <a
-                        href={`https://wa.me/${c.whatsapp?.replace(/[^\d]/g, '') || c.phone.replace(/[^\d]/g, '')}`}
+                        href={buildWhatsAppLink(c.whatsapp || c.phone, { message: `Hello ${c.name}, reaching out from GGD Ad Network Admin.` })}
                         target="_blank"
                         rel="noreferrer"
                         className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 flex items-center justify-center transition-colors"

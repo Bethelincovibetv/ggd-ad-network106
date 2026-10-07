@@ -30,6 +30,7 @@ import {
   extractStateFromLocation 
 } from '@/utils/nigerianStates';
 import { toast } from 'sonner';
+import { buildWhatsAppLink } from '@/lib/whatsapp';
 
 const IndustryPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -826,7 +827,8 @@ const IndustryPage: React.FC = () => {
                               className="h-8 px-2.5 text-xs text-muted-foreground rounded-xl gap-1"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`https://wa.me/${biz.phone_number.replace(/[^\d]/g, '')}`, '_blank');
+                                const url = buildWhatsAppLink(biz.phone_number, { message: `Hello ${biz.business_name}, I found your business on GGD Ad Network!` });
+                                window.open(url, '_blank');
                               }}
                             >
                               <MessageCircle className="h-3.5 w-3.5 text-green-600" />

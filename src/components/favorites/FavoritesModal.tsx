@@ -36,6 +36,7 @@ import {
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoriteItem, FavoriteType } from '@/types/favorites';
 import { toast } from 'sonner';
+import { buildWhatsAppLink } from '@/lib/whatsapp';
 
 interface FavoritesModalProps {
   open: boolean;
@@ -506,7 +507,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
                         {item.businessPhone && (
                           <a
-                            href={`https://wa.me/${item.businessPhone.replace(/\D/g, '')}`}
+                            href={buildWhatsAppLink(item.businessPhone, { message: `Hello ${item.businessName || ''}! I found your ${item.type || 'listing'} "${item.title}" in my Saved Favorites on GGD Ad Network.` })}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

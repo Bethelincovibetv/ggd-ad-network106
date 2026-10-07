@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { buildWhatsAppLink, normalizePhone } from '@/lib/whatsapp';
 
 export interface ProductPhotoViewerProps {
   isOpen: boolean;
@@ -331,15 +332,15 @@ export const ProductPhotoViewerModal: React.FC<ProductPhotoViewerProps> = ({
         <div className="flex items-center justify-center gap-2 max-w-md mx-auto">
           {whatsappPhone && (
             <a
-              href={`https://wa.me/${whatsappPhone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(
-                `Hello! I am viewing your product "${productTitle || 'item'}" photo on GGD and I would like to make an inquiry.`
-              )}`}
+              href={buildWhatsAppLink(whatsappPhone, {
+                message: `Hello! I am viewing your product "${productTitle || 'item'}" on GGD Ad Network and would like to order/inquire.`,
+              })}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
             >
               <MessageCircle className="h-4 w-4" />
-              <span>Inquire on WhatsApp</span>
+              <span>WhatsApp Order / Inquiry</span>
             </a>
           )}
 

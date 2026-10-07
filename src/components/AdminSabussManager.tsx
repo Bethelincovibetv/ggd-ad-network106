@@ -382,7 +382,7 @@ export const AdminSabussManager: React.FC = () => {
                   <AlertCircle className="h-4 w-4 text-rose-600" />
                   <span>800 » Failed</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Insufficient VTU wallet or invalid number -> Credits auto-refunded.</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Insufficient VTU wallet or invalid number → Credits auto-refunded.</p>
               </div>
 
               <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30">
@@ -390,7 +390,7 @@ export const AdminSabussManager: React.FC = () => {
                   <RefreshCw className="h-4 w-4 text-purple-600" />
                   <span>900 » Reversed</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Provider reversed transaction -> Credits auto-refunded to user.</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Provider reversed transaction → Credits auto-refunded to user.</p>
               </div>
             </CardContent>
           </Card>

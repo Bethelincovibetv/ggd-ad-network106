@@ -10,6 +10,7 @@ import {
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import MetaTags from "@/components/MetaTags";
 import { supabase } from "@/integrations/supabase/client";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
 
 interface CeoConfig {
@@ -345,7 +346,7 @@ const AboutPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               {ceo.whatsapp && (
                 <a
-                  href={`https://wa.me/${ceo.whatsapp.replace(/\D/g, '')}`}
+                  href={buildWhatsAppLink(ceo.whatsapp, { message: `Hello Bethel! Reaching out to you from GGD Ad Network platform.` })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-xs font-bold transition border border-emerald-500/20"

@@ -28,6 +28,7 @@ import {
 } from "@/utils/nigerianStates";
 import { subscribeToAllVerifications } from "@/services/businessVerificationEngine";
 import { VerificationSubmissionRecord } from "@/types/verification";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -1311,7 +1312,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       <div className="flex flex-wrap gap-1.5">
                         {biz.whatsapp_link && (
                           <a
-                            href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : `https://wa.me/${biz.whatsapp_link.replace(/\D/g, '')}`}
+                            href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : buildWhatsAppLink(biz.whatsapp_link, { message: `Hello ${biz.business_name}, I found your business on GGD Ad Network!` })}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

@@ -17,6 +17,8 @@ import BlazingBadge from '@/components/BlazingBadge';
 import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
 import { ProductPhotoViewerModal } from '@/components/ProductPhotoViewerModal';
+import { WhatsAppCheckoutModal } from '@/components/orders/WhatsAppCheckoutModal';
+import { normalizePhone, buildWhatsAppOrderLink, buildWhatsAppLink } from '@/lib/whatsapp';
 import { Maximize2, Image as ImageIcon } from 'lucide-react';
 
 const ProductDetailPage: React.FC = () => {
@@ -33,6 +35,7 @@ const ProductDetailPage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
@@ -179,7 +182,8 @@ const ProductDetailPage: React.FC = () => {
 
   const bizName = business?.business_name || profile?.business_name || profile?.display_name || 'Accredited Business';
   const bizUrl = profile?.business_slug ? `/b/${profile.business_slug}` : (business?.id ? `/business/${business.id}` : null);
-  const waPhone = (business?.phone_number || profile?.business_phone || '').replace(/[^\d]/g, '');
+  const rawPhone = business?.phone_number || profile?.business_phone || '';
+  const waPhone = normalizePhone(rawPhone);
   const gallery = [listing.image_url, ...(Array.isArray(listing.extra_images) ? listing.extra_images : [])].filter(Boolean);
   const isService = listing.listing_type === 'service';
   const industryMeta = getIndustryMeta(category?.slug || category?.name || '');
@@ -451,63 +455,67 @@ const ProductDetailPage: React.FC = () => {
 
         {/* Order & Contact Action Hub */}
         <div className="space-y-3">
-          {/* Direct GGD Chat */}
+          {/* Primary WhatsApp Instant Checkout Button */}
           <Button
-            className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white h-13 rounded-2xl gap-2 text-sm sm:text-base font-black shadow-lg cursor-pointer"
-            onClick={() => {
-              if (!currentUser) {
-                toast({
-                  title: "Sign in required",
-                  description: "Please sign in or register to chat with this seller directly on GGD.",
-                });
-                navigate('/?auth=signin');
-                return;
-              }
-              const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
-              if (!sellerId) {
-                toast({ title: "Unable to reach seller", description: "Seller contact details unavailable." });
-                return;
-              }
-              if (currentUser.id === sellerId) {
-                toast({ title: "This is your listing", description: "You are the owner of this item." });
-                return;
-              }
-              const type = listing.listing_type || 'product';
-              const title = encodeURIComponent(listing.title || '');
-              const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
-              const itemId = listing.id ? encodeURIComponent(listing.id) : '';
-              const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
-              navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
-            }}
+            className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white h-14 rounded-2xl gap-2.5 text-base font-black shadow-xl hover:shadow-emerald-600/30 cursor-pointer transition-all animate-in zoom-in-95 duration-200"
+            onClick={() => setIsCheckoutModalOpen(true)}
           >
-            <MessageCircle className="h-5 w-5" />
-            {isService ? 'Inquire on GGD Platform Chat' : 'Chat & Order on GGD Platform'}
+            <MessageCircle className="h-6 w-6 fill-white" />
+            <span>{isService ? 'WhatsApp Service Booking & Inquiry' : 'WhatsApp Instant Checkout 🚀'}</span>
           </Button>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {waPhone && (
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                onClick={() => {
-                  const text = isService
-                    ? `Hello! I saw your service "${listing.title}" on GGD Ad Network and would like to make an inquiry.`
-                    : `Hello! I saw your product "${listing.title}" on GGD Ad Network and would like to place an order.`;
-                  window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
-                }}
-              >
-                <MessageCircle className="h-4 w-4" />
-                {isService ? 'WhatsApp Inquiry' : 'WhatsApp Order Now'}
-              </Button>
-            )}
+            {/* Direct GGD Chat */}
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 shadow-xs cursor-pointer"
+              onClick={() => {
+                if (!currentUser) {
+                  toast({
+                    title: "Sign in required",
+                    description: "Please sign in or register to chat with this seller directly on GGD.",
+                  });
+                  navigate('/?auth=signin');
+                  return;
+                }
+                const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
+                if (!sellerId) {
+                  toast({ title: "Unable to reach seller", description: "Seller contact details unavailable." });
+                  return;
+                }
+                if (currentUser.id === sellerId) {
+                  toast({ title: "This is your listing", description: "You are the owner of this item." });
+                  return;
+                }
+                const type = listing.listing_type || 'product';
+                const title = encodeURIComponent(listing.title || '');
+                const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
+                const itemId = listing.id ? encodeURIComponent(listing.id) : '';
+                const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
+                navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {isService ? 'Inquire on GGD Chat' : 'Chat on GGD Platform'}
+            </Button>
 
-            {(business?.phone_number || profile?.business_phone) && (
+            {(business?.phone_number || profile?.business_phone) ? (
               <Button
                 variant="outline"
-                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer"
+                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer hover:bg-muted"
                 onClick={() => window.open(`tel:${business?.phone_number || profile?.business_phone}`)}
               >
                 <Phone className="h-4 w-4 text-orange-500" />
-                Call Seller
+                Call Seller ({business?.phone_number || profile?.business_phone})
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer"
+                onClick={share}
+              >
+                <Share2 className="h-4 w-4 text-orange-500" />
+                Share Product Link
               </Button>
             )}
           </div>
@@ -663,6 +671,43 @@ const ProductDetailPage: React.FC = () => {
           <AdDisplayPreview />
         </div>
       </article>
+
+      {/* WhatsApp Checkout Modal */}
+      {listing && (
+        <WhatsAppCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          product={{
+            id: listing.id,
+            title: listing.title,
+            price: listing.price,
+            image_url: activeImg || listing.image_url,
+            listing_type: listing.listing_type,
+            description: listing.description || listing.long_description,
+            user_id: listing.user_id || business?.user_id,
+            business_name: bizName,
+            business_phone: waPhone || business?.phone_number || profile?.business_phone,
+            seller_phone: waPhone || business?.phone_number || profile?.business_phone,
+          }}
+          sellerInfo={{
+            name: bizName,
+            phone: waPhone || business?.phone_number || profile?.business_phone,
+            business_name: bizName,
+            address: business?.address || profile?.business_location,
+          }}
+          onChatGgd={() => {
+            const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
+            if (sellerId && currentUser?.id !== sellerId) {
+              const type = listing.listing_type || 'product';
+              const title = encodeURIComponent(listing.title || '');
+              const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
+              const itemId = listing.id ? encodeURIComponent(listing.id) : '';
+              const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
+              navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
+            }
+          }}
+        />
+      )}
 
       {/* Full Resolution Photo Slider Modal */}
       {listing && (
