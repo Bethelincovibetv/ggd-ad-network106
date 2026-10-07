@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
+import { registerAirtimeRoutes } from './src/server/airtimeRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1823,6 +1824,14 @@ async function startServer() {
     console.log('[Vixora Engine] AI Video Creator and Studio routes registered successfully');
   } catch (vixoraErr) {
     console.warn('[Vixora Engine] Route registration notice:', vixoraErr);
+  }
+
+  // Register Airtime & Credit Redemption Sabuss API Routes
+  try {
+    registerAirtimeRoutes(app);
+    console.log('[Sabuss Airtime Engine] Airtime & Credit Redemption routes registered successfully');
+  } catch (airtimeErr) {
+    console.warn('[Sabuss Airtime Engine] Route registration notice:', airtimeErr);
   }
 
   const { distPath, indexHtmlPath, exists } = getDistPaths();

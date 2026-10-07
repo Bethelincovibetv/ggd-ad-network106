@@ -164,17 +164,30 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
                     {isAdmin ? 'Unlimited' : `${credits.toLocaleString()} cr`}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & create tasks.</p>
-                <Button
-                  size="sm"
-                  className="w-full mt-2 h-7 text-[11px] font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-lg gap-1 shadow-xs"
-                  onClick={() => {
-                    setPopoverOpen(false);
-                    onNavigate('fund-credits');
-                  }}
-                >
-                  <Plus className="h-3 w-3" /> Top Up Credits
-                </Button>
+                <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & redeem instant airtime.</p>
+                <div className="grid grid-cols-2 gap-1.5 mt-2">
+                  <Button
+                    size="sm"
+                    className="w-full h-7 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg gap-1 shadow-xs"
+                    onClick={() => {
+                      setPopoverOpen(false);
+                      onNavigate('redeem-airtime');
+                    }}
+                  >
+                    Redeem Airtime
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-7 text-[10px] font-bold border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-500/10 rounded-lg gap-1"
+                    onClick={() => {
+                      setPopoverOpen(false);
+                      onNavigate('fund-credits');
+                    }}
+                  >
+                    <Plus className="h-3 w-3" /> Top Up
+                  </Button>
+                </div>
               </div>
             </div>
           </PopoverContent>

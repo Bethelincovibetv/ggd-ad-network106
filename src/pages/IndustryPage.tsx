@@ -524,10 +524,13 @@ const IndustryPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
                 {products.map(item => (
-                  <button
+                  <div
                     key={item.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/product/${item.id}`)}
-                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-emerald-500 hover:shadow-md active:scale-[0.98] transition-all flex flex-col justify-between group"
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${item.id}`)}
+                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-emerald-500 hover:shadow-md active:scale-[0.98] transition-all flex flex-col justify-between group cursor-pointer focus:outline-hidden"
                   >
                     <div>
                       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
@@ -608,7 +611,7 @@ const IndustryPage: React.FC = () => {
                         Details →
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -641,10 +644,13 @@ const IndustryPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 {services.map(srv => (
-                  <button
+                  <div
                     key={srv.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/product/${srv.id}`)}
-                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-blue-500 hover:shadow-md active:scale-[0.98] transition-all p-4 flex flex-col justify-between group"
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${srv.id}`)}
+                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-blue-500 hover:shadow-md active:scale-[0.98] transition-all p-4 flex flex-col justify-between group cursor-pointer focus:outline-hidden"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -714,7 +720,7 @@ const IndustryPage: React.FC = () => {
                         Inquire <ArrowRight className="h-3 w-3" />
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

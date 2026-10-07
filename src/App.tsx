@@ -24,6 +24,7 @@ const IndustryPage = lazy(() => import("./pages/IndustryPage"));
 const NotificationsDedicatedPage = lazy(() => import("./pages/NotificationsDedicatedPage"));
 const GuideDedicatedPage = lazy(() => import("./pages/GuideDedicatedPage"));
 const VixoraCreatorPage = lazy(() => import("./pages/VixoraCreatorPage"));
+const RedeemAirtimePage = lazy(() => import("./pages/RedeemAirtimePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 
@@ -71,6 +72,8 @@ const App = () => (
               <Route path="/contact" element={<VixoraCreatorPage />} />
               <Route path="/coach" element={<VixoraCreatorPage />} />
               <Route path="/developer" element={<VixoraCreatorPage />} />
+              <Route path="/redeem" element={<RedeemAirtimePage />} />
+              <Route path="/airtime" element={<RedeemAirtimePage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 
               <Route path="*" element={<NotFound />} />

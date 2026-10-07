@@ -568,10 +568,18 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
 
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar">
             {featuredListings.slice(0, 12).map(l => (
-              <button
+              <div
                 key={l.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => navigate(`/product/${l.id}`)}
-                className="flex-shrink-0 w-48 text-left rounded-2xl overflow-hidden shadow-sm bg-card border-2 border-amber-400/80 hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between cursor-pointer"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(`/product/${l.id}`);
+                  }
+                }}
+                className="flex-shrink-0 w-48 text-left rounded-2xl overflow-hidden shadow-sm bg-card border-2 border-amber-400/80 hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between cursor-pointer focus:outline-hidden"
               >
                 <div>
                   <div className="relative h-32 bg-gradient-to-br from-orange-500 to-red-500 overflow-hidden">
@@ -611,7 +619,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                   )}
                   <span className="text-[10px] font-bold text-orange-500">View Offer →</span>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -1077,9 +1085,12 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       key={l.id}
                       className="rounded-3xl overflow-hidden shadow-xs bg-card border border-border/80 hover:border-orange-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between group"
                     >
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => navigate(`/product/${l.id}`)}
-                        className="text-left w-full cursor-pointer"
+                        onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${l.id}`)}
+                        className="text-left w-full cursor-pointer focus:outline-hidden"
                       >
                         <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                           {l.image_url ? (
@@ -1150,7 +1161,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             )}
                           </div>
                         </div>
-                      </button>
+                      </div>
 
                       {/* Card Footer with Category Tag and Details Button */}
                       <div className="p-3 pt-0 space-y-2">

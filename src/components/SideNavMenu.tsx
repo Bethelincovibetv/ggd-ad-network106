@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video, Smartphone
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -47,6 +47,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
     ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
+    { id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime' },
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
@@ -82,6 +83,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const iconGrad: Record<string, string> = {
     ads: 'from-orange-400 to-red-500',
     campaigns: 'from-amber-500 to-orange-600',
+    'redeem-airtime': 'from-orange-500 to-amber-500',
     growth: 'from-emerald-500 to-green-600',
     feed: 'from-pink-400 to-fuchsia-500',
     tasks: 'from-emerald-400 to-teal-500',

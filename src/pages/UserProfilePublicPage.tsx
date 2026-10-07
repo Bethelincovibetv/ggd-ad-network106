@@ -813,7 +813,17 @@ const UserProfilePublicPage: React.FC = () => {
                         className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-xs"
                       >
                         <MessageCircle className="h-4 w-4" />
-                        <span>WhatsApp</span>
+                        <span>WhatsApp Chat</span>
+                      </Button>
+                    )}
+
+                    {business?.whatsapp_group_link && (
+                      <Button
+                        onClick={() => window.open(business.whatsapp_group_link, '_blank')}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-sm animate-pulse"
+                      >
+                        <Users className="h-4 w-4" />
+                        <span>Join WA Group</span>
                       </Button>
                     )}
 

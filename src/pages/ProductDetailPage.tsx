@@ -16,6 +16,8 @@ import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
 import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
+import { ProductPhotoViewerModal } from '@/components/ProductPhotoViewerModal';
+import { Maximize2, Image as ImageIcon } from 'lucide-react';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +31,8 @@ const ProductDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
@@ -326,13 +330,25 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
           ) : activeImg ? (
-            <div className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3">
+            <div 
+              onClick={() => {
+                const idx = gallery.indexOf(activeImg);
+                setPhotoViewerIndex(idx >= 0 ? idx : 0);
+                setIsPhotoViewerOpen(true);
+              }}
+              className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3 relative group cursor-zoom-in"
+              title="Click to view full screen photo slider"
+            >
               <img
                 loading="lazy"
                 src={activeImg}
                 alt={listing.title}
-                className="w-full max-h-[500px] h-auto object-contain rounded-2xl shadow-xs"
+                className="w-full max-h-[500px] h-auto object-contain rounded-2xl shadow-xs group-hover:scale-[1.01] transition-transform duration-300"
               />
+              <div className="absolute bottom-4 right-4 bg-black/75 hover:bg-orange-600 text-white backdrop-blur-md px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-lg opacity-90 group-hover:opacity-100 transition-all">
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Full View Slider ({gallery.length} photos)</span>
+              </div>
             </div>
           ) : (
             <div className="w-full aspect-video bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white">
@@ -341,18 +357,40 @@ const ProductDetailPage: React.FC = () => {
           )}
 
           {gallery.length > 1 && (
-            <div className="flex gap-2 p-3 overflow-x-auto bg-card border-t border-border/60 no-scrollbar">
-              {gallery.map((img: string, i: number) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImg(img)}
-                  className={`flex-shrink-0 h-16 w-16 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                    activeImg === img ? 'border-orange-500 scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2 p-3 bg-card border-t border-border/60">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+                {gallery.map((img: string, i: number) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImg(img)}
+                    onDoubleClick={() => {
+                      setPhotoViewerIndex(i);
+                      setIsPhotoViewerOpen(true);
+                    }}
+                    className={`flex-shrink-0 h-16 w-16 rounded-xl overflow-hidden border-2 transition-all cursor-pointer relative ${
+                      activeImg === img ? 'border-orange-500 scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] font-mono px-1 rounded-sm">
+                      {i + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const idx = gallery.indexOf(activeImg);
+                  setPhotoViewerIndex(idx >= 0 ? idx : 0);
+                  setIsPhotoViewerOpen(true);
+                }}
+                className="shrink-0 h-9 rounded-xl text-xs font-bold gap-1 border-orange-500/30 text-orange-600 hover:bg-orange-500/10"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Full Slider</span>
+              </Button>
             </div>
           )}
         </Card>
@@ -625,6 +663,23 @@ const ProductDetailPage: React.FC = () => {
           <AdDisplayPreview />
         </div>
       </article>
+
+      {/* Full Resolution Photo Slider Modal */}
+      {listing && (
+        <ProductPhotoViewerModal
+          isOpen={isPhotoViewerOpen}
+          onClose={() => setIsPhotoViewerOpen(false)}
+          images={gallery}
+          initialIndex={photoViewerIndex}
+          productTitle={listing.title}
+          price={listing.price}
+          businessName={bizName}
+          isVerified={true}
+          isService={isService}
+          productUrl={window.location.href}
+          whatsappPhone={waPhone || business?.phone_number || profile?.business_phone}
+        />
+      )}
     </div>
   );
 };

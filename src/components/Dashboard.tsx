@@ -32,6 +32,7 @@ import PremiumUpgrade from "@/components/PremiumUpgrade";
 import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
 import WalletHub from "@/components/WalletHub";
+import CreditRedeemAirtime from "@/components/CreditRedeemAirtime";
 import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
@@ -932,6 +933,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'tasks':
         return <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} />;
+
+      case 'redeem':
+      case 'redeem-airtime':
+      case 'airtime':
+        return (
+          <CreditRedeemAirtime
+            currentCredits={credits}
+            onCreditsUpdated={(c) => setCredits(c)}
+          />
+        );
 
       case 'fund-credits':
       case 'transfer':
