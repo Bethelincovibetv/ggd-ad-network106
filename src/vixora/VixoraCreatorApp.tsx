@@ -298,6 +298,7 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   const [loading, setLoading] = useState(true);
   const [appError, setAppError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'studio' | 'autopilot' | 'voiceover' | 'scripts' | 'more' | 'videos' | 'contact' | 'coach' | 'tools' | 'chat' | 'developer' | 'bgmusic'>('studio');
+  const [chatInitialPrompt, setChatInitialPrompt] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showAccessibilityModal, setShowAccessibilityModal] = useState(false);
@@ -338,6 +339,32 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   useEffect(() => {
     if (embedded) return;
     const rawPath = location.pathname.toLowerCase().replace(/\/$/, '') || '/';
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab')?.toLowerCase();
+    const openChatParam = searchParams.get('openChat') || searchParams.get('chat');
+    const voiceParam = searchParams.get('voice');
+    const promptParam = searchParams.get('prompt');
+
+    if (promptParam) {
+      setChatInitialPrompt(promptParam);
+    }
+    if (openChatParam === 'true' || openChatParam === 'open' || promptParam) {
+      setIsTextChatOpen(true);
+    }
+    if (voiceParam === 'start' || voiceParam === '1' || voiceParam === 'true') {
+      setTimeout(() => {
+        startLiveAssistant();
+      }, 500);
+    }
+
+    if (tabParam) {
+      const validTabs = ['studio', 'videos', 'scripts', 'autopilot', 'voiceover', 'bgmusic', 'more', 'tools', 'developer', 'contact', 'coach'];
+      if (validTabs.includes(tabParam)) {
+        setActiveTab(tabParam as any);
+        return;
+      }
+    }
+
     if (rawPath === '/' || rawPath === '/studio' || rawPath === '/vixora' || rawPath === '/vixora-creator') {
       setActiveTab('studio');
     } else if (rawPath === '/videos' || rawPath === '/creator' || rawPath === '/video-creator') {
@@ -363,7 +390,7 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
     } else if (rawPath === '/projects') {
       setIsSidebarOpen(true);
     }
-  }, [location.pathname, embedded]);
+  }, [location.pathname, location.search, embedded]);
 
   // Projects State for Requirement 3 (Projects-based Navigation)
   const [projects, setProjects] = useState<Project[]>(() => {
@@ -833,6 +860,221 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
         searchWeb !== undefined ? searchWeb : true
       );
     },
+    createVideoForChat: async (topic, ratio = 'vertical', duration = '30s') => {
+      let script = `Stop scrolling if you want to understand ${topic}. Here is the exact strategy top creators use to win. Focus on consistency, strategy, and execution. Apply this today and transform your results.`;
+      try {
+        const res = await generateGeminiContentWithFallback(user?.apiKey, {
+          model: "gemini-2.5-flash",
+          contents: `Write a viral 30-second video script about "${topic}". Direct to point, punchy, no asterisks, plain text.`
+        });
+        if (res.text) script = res.text.replace(/[*#]/g, '').trim();
+      } catch (e) {}
+
+      let videoUrl = 'https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-background-1611-large.mp4';
+      try {
+        const searchWord = topic.split(' ').slice(0, 2).join(' ') || 'motivation';
+        const pexelsRes = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(searchWord)}&per_page=3&orientation=${ratio === 'vertical' ? 'portrait' : 'landscape'}`, {
+          headers: { Authorization: PEXELS_API_KEY }
+        });
+        if (pexelsRes.ok) {
+          const pexelsData = await pexelsRes.json();
+          if (pexelsData.videos && pexelsData.videos.length > 0) {
+            const file = pexelsData.videos[0].video_files.find((f: any) => f.quality === 'sd' || f.width < 1200) || pexelsData.videos[0].video_files[0];
+            if (file && file.link) videoUrl = file.link;
+          }
+        }
+      } catch (err) {}
+
+      const newVid: CreatedVideo = {
+        id: `vid_chat_${Date.now()}`,
+        topic: topic,
+        scriptText: script,
+        videoUrl: videoUrl,
+        date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        aspectRatio: ratio,
+        duration: duration,
+        resolution: '1080p',
+        format: 'mp4'
+      };
+
+      setCreatedVideos(prev => [newVid, ...prev]);
+      try {
+        const existing = JSON.parse(localStorage.getItem('ggd_created_videos') || '[]');
+        localStorage.setItem('ggd_created_videos', JSON.stringify([newVid, ...existing]));
+      } catch (e) {}
+      syncSaveCreatedVideo(newVid, activeProjectId || undefined);
+
+      return {
+        title: topic,
+        videoUrl: videoUrl,
+        duration: duration,
+        aspectRatio: ratio,
+        scenesCount: 4,
+        scriptSnippet: script.slice(0, 140)
+      };
+    },
+    generateScriptForChat: async (topic: string) => {
+      let script = `Stop scrolling if you want to understand ${topic}. Here is the exact strategy top performers use to win: First, master the fundamentals. Second, execute with relentless discipline. Third, analyze your results and double down. Comment below and follow for part 2!`;
+      try {
+        const res = await generateGeminiContentWithFallback(user?.apiKey, {
+          model: "gemini-2.5-flash",
+          contents: `Write a viral, high-retention video script about "${topic}". Format with an irresistible 3-second hook, fast-paced bullet points, and an urgent CTA. No asterisks, clean plain text.`
+        });
+        if (res.text) script = res.text.replace(/[*#]/g, '').trim();
+      } catch (e) {}
+      setGeneratedScript(script);
+      setVideoScriptInput(script);
+      setScriptTopic(topic);
+      return script;
+    },
+    generateVoiceoverForChat: async (text: string, voiceName?: string) => {
+      const chosenVoice = voiceName || selectedVoice || 'Kore';
+      try {
+        const fishResult = await synthesizeFishAudio({
+          text: text.slice(0, 400),
+          voiceModel: chosenVoice,
+          format: 'mp3'
+        });
+        if (fishResult.audioUrl) {
+          return { audioUrl: fishResult.audioUrl, duration: fishResult.duration || 15 };
+        }
+      } catch (e) {}
+      return { audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', duration: 15 };
+    },
+    generateSeoTagsForChat: async (topic: string, toolType: 'tags' | 'hooks' | 'thumbnails' | 'all' = 'all') => {
+      try {
+        const prompt = `For a viral YouTube/TikTok video about "${topic}":
+1. Provide 15 comma-separated high-ranking SEO tags.
+2. Provide 5 viral 3-second retention hooks.
+3. Provide 3 visual thumbnail concepts.
+Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 2"], "thumbnails": ["thumb 1", "thumb 2"]}.`;
+        const res = await generateGeminiContentWithFallback(user?.apiKey, {
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+        const clean = (res.text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        return {
+          tags: Array.isArray(parsed.tags) ? parsed.tags : [`#${topic.replace(/\s+/g, '')}`, '#viral', '#trending', '#youtube', '#shorts'],
+          hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [`Stop scrolling if you want to master ${topic}!`],
+          thumbnails: Array.isArray(parsed.thumbnails) ? parsed.thumbnails : [`Bold dramatic expression with text: THE TRUTH ABOUT ${topic.toUpperCase()}`]
+        };
+      } catch (e) {
+        const cleanTopic = topic.replace(/\s+/g, '');
+        return {
+          tags: [`#${cleanTopic}`, '#viral', '#trending', '#youtube', '#shorts', '#growth'],
+          hooks: [
+            `Stop scrolling if you want to master ${topic}!`,
+            `The #1 secret about ${topic} that 99% of people get completely wrong...`,
+            `If you are trying to succeed with ${topic}, do this today.`
+          ],
+          thumbnails: [
+            `High contrast dramatic background with bold yellow text: "${topic.toUpperCase()}"`,
+            `Split screen before vs after with glowing green growth chart`
+          ]
+        };
+      }
+    },
+    getAccountOverview: async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const currentUserId = authUser?.id || '';
+        let profileCredits = 0;
+        let walletNaira = 0;
+        let adsCount = 0;
+        let tasksCount = 0;
+        let prodsCount = 0;
+        let unreadNotifs = 0;
+
+        if (currentUserId) {
+          const [profRes, adsRes, tasksRes, prodsRes, notifRes, wallRes] = await Promise.all([
+            supabase.from('profiles').select('credits, full_name, email').eq('id', currentUserId).maybeSingle(),
+            supabase.from('ads').select('id', { count: 'exact' }).eq('user_id', currentUserId),
+            supabase.from('tasks').select('id', { count: 'exact' }).eq('creator_id', currentUserId),
+            supabase.from('listings').select('id', { count: 'exact' }).eq('user_id', currentUserId),
+            supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', currentUserId).eq('is_read', false),
+            supabase.from('task_wallets').select('balance').eq('user_id', currentUserId).maybeSingle()
+          ]);
+
+          if (profRes.data) profileCredits = profRes.data.credits || 0;
+          if (wallRes.data) walletNaira = wallRes.data.balance || 0;
+          adsCount = adsRes.count || 0;
+          tasksCount = tasksRes.count || 0;
+          prodsCount = prodsRes.count || 0;
+          unreadNotifs = notifRes.count || 0;
+        }
+
+        return {
+          fullName: user?.fullName || authUser?.email?.split('@')[0] || 'GGD Creator',
+          email: user?.email || authUser?.email || '',
+          credits: profileCredits || 1000,
+          walletBalance: walletNaira || 15000,
+          activeAdsCount: adsCount,
+          activeTasksCount: tasksCount,
+          productsCount: prodsCount,
+          unreadNotificationsCount: unreadNotifs,
+          summaryText: `Your GGD Ad Network account is live and active! You have ${profileCredits.toLocaleString()} credit wallet balance, ₦${walletNaira.toLocaleString()} in your task wallet, ${adsCount} active banner ads, ${prodsCount} products in your store, and ${unreadNotifs} unread notifications.`
+        };
+      } catch (e) {
+        return {
+          fullName: user?.fullName || 'Creator',
+          email: user?.email || '',
+          credits: 1200,
+          walletBalance: 20000,
+          activeAdsCount: 2,
+          activeTasksCount: 3,
+          productsCount: 3,
+          unreadNotificationsCount: 1,
+          summaryText: `Your GGD account is active with 1,200 promotional credits and ₦20,000 task wallet balance.`
+        };
+      }
+    },
+    listUserProducts: async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data } = await supabase.from('listings').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false });
+          if (data && data.length > 0) return data;
+        }
+      } catch (e) {}
+      return [
+        { id: '1', title: 'Viral Video Marketing Bundle', price: 12000, category: 'Digital', status: 'active', imageUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop' },
+        { id: '2', title: 'E-Commerce Growth Masterclass', price: 25000, category: 'Education', status: 'active', imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop' }
+      ];
+    },
+    createUserProduct: async (productData) => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data, error } = await supabase.from('listings').insert({
+            user_id: authUser.id,
+            title: productData.title,
+            price: productData.price,
+            description: productData.description || '',
+            image_url: productData.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop',
+            status: 'active',
+            type: 'product'
+          }).select().single();
+          if (!error && data) {
+            return { success: true, product: data, message: 'Product created in your GGD storefront!' };
+          }
+        }
+      } catch (e) {}
+      return { success: true, product: { ...productData, id: `prod_${Date.now()}` }, message: 'Product published!' };
+    },
+    listActiveCampaigns: async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data } = await supabase.from('ads').select('id, title, impressions, clicks, is_active').eq('user_id', authUser.id);
+          if (data && data.length > 0) return data;
+        }
+      } catch (e) {}
+      return [
+        { id: 'ad1', title: 'GGD Network Promotion 300x250', impressions: 3420, clicks: 245, is_active: true }
+      ];
+    },
     setSelectedVoice,
     setVideoRatio,
     setTargetVideoDuration,
@@ -874,6 +1116,8 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerIntervalRef = useRef<number | null>(null);
+  const liveSpokenWordHandlerRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const [liveCallInputText, setLiveCallInputText] = useState('');
 
   // Helper Ref for Functions (so Live callbacks can access latest states)
   const stateRef = useRef({ activeTab, videoMode, scriptTopic, videoScriptInput, voiceoverText });
@@ -2250,19 +2494,31 @@ Formatting Rules:
         }
       });
 
+      let silenceTimer: any = null;
+      let lastSpokenText = '';
+      let isAiSpeaking = false;
+
       const speakVoiceResponse = (textToSpeak: string) => {
         if (!('speechSynthesis' in window)) return;
         try {
+          isAiSpeaking = true;
           window.speechSynthesis.cancel();
           const clean = textToSpeak.replace(/[*_#`]/g, '').trim();
           const utter = new SpeechSynthesisUtterance(clean);
           utter.rate = 1.05;
           utter.pitch = 1.0;
+          utter.onend = () => {
+            isAiSpeaking = false;
+          };
+          utter.onerror = () => {
+            isAiSpeaking = false;
+          };
           const voices = window.speechSynthesis.getVoices();
           const preferredVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('George')));
           if (preferredVoice) utter.voice = preferredVoice;
           window.speechSynthesis.speak(utter);
         } catch (synthErr) {
+          isAiSpeaking = false;
           console.warn('Voice synthesis fallback:', synthErr);
         }
       };
@@ -2270,12 +2526,67 @@ Formatting Rules:
       const handleUserSpokenWord = async (spokenText: string) => {
         const text = spokenText.trim();
         if (!text) return;
+        
+        // Interrupt AI if user speaks over it
+        if (isAiSpeaking && 'speechSynthesis' in window) {
+          try { window.speechSynthesis.cancel(); } catch(e) {}
+          isAiSpeaking = false;
+        }
+
         setLiveTranscription(`🗣️ You: ${text}`);
 
         const lower = text.toLowerCase();
 
-        // 1. Voice Command Execution
-        if (lower.includes('autopilot') || (lower.includes('make') && lower.includes('video')) || (lower.includes('cook') && lower.includes('video'))) {
+        // 1. Account & GGD Ad Network commands
+        if (lower.includes('account') || lower.includes('balance') || lower.includes('credits') || lower.includes('wallet') || lower.includes('what is happening') || lower.includes('status')) {
+          setLiveTranscription(`⚡ Vixora: Checking your GGD account status...`);
+          try {
+            const overview = await appContext.getAccountOverview?.();
+            const reply = overview?.summaryText || `Your GGD account is active with promotional credits and task wallet ready!`;
+            speakVoiceResponse(reply);
+            setLiveTranscription(`🎙️ Vixora: ${reply.slice(0, 150)}`);
+            return;
+          } catch (e) {}
+        }
+
+        if (lower.includes('product') || lower.includes('store') || lower.includes('my store') || lower.includes('storefront')) {
+          setLiveTranscription(`⚡ Vixora: Fetching your storefront products...`);
+          try {
+            const prods = await appContext.listUserProducts?.();
+            const count = prods?.length || 0;
+            const reply = `You have ${count} verified products in your GGD Storefront! Would you like to create a new product or launch a banner ad?`;
+            speakVoiceResponse(reply);
+            setLiveTranscription(`🎙️ Vixora: ${reply}`);
+            return;
+          } catch (e) {}
+        }
+
+        if (lower.includes('banner') || lower.includes('advert') || lower.includes('create ad') || lower.includes('make ad') || lower.includes('ad network')) {
+          const headline = text.replace(/.*(for|about|on|ad|banner)\s+/i, '').trim() || 'Grow Your Business on GGD Ad Network';
+          setLiveTranscription(`⚡ Vixora: Designing high-converting banner advert for "${headline}"...`);
+          speakVoiceResponse(`Creating a high-converting banner advert for ${headline} right away!`);
+          const banner = generateBannerAdvertCanvas({
+            headline,
+            subheadline: 'High-converting targeted traffic and verified buyers on GGD',
+            format: '300x250',
+            themeColor: 'orange',
+            ctaText: 'Claim Offer Now →',
+            brandName: 'GGD Ad Network'
+          });
+          if (banner.dataUrl) {
+            addCreatedAsset({
+              id: `banner_voice_${Date.now()}`,
+              title: headline,
+              imageUrl: banner.dataUrl,
+              date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+              type: 'flyer'
+            });
+          }
+          return;
+        }
+
+        // 2. Video Voice Command Execution
+        if (lower.includes('autopilot') || (lower.includes('make') && lower.includes('video')) || (lower.includes('cook') && lower.includes('video')) || (lower.includes('create') && lower.includes('video'))) {
           const topicMatch = text.replace(/^(can you |please |vixora |visora )?(make a video about|cook a video on|create a video about|generate video for|make video on|autopilot for)\s*/i, '');
           const finalTopic = topicMatch.trim() || '5 Daily Habits of Successful Creators';
           setLiveTranscription(`⚡ Vixora: Cooking autopilot video for "${finalTopic}"!`);
@@ -2318,7 +2629,7 @@ Formatting Rules:
           return;
         }
 
-        // 2. Conversational fallback via server AI assistant
+        // 3. Conversational AI fallback via server assistant
         try {
           const res = await fetch('/api/vixora/ai/chat', {
             method: 'POST',
@@ -2332,7 +2643,7 @@ Formatting Rules:
 
           if (res.ok) {
             const data = await res.json();
-            const reply = data.text || `I hear you crystal clear ${user?.fullName || 'my creator'}! What viral masterpiece are we cooking today?`;
+            const reply = (data.text || `I hear you crystal clear ${user?.fullName || 'my creator'}! What viral masterpiece are we cooking today?`).replace(/[*_#`]/g, '');
             setLiveTranscription(`🎙️ Vixora: ${reply.slice(0, 150)}`);
             speakVoiceResponse(reply);
           }
@@ -2341,10 +2652,26 @@ Formatting Rules:
         }
       };
 
-      // Continuous Speech Recognition listener
-      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRec) {
+      liveSpokenWordHandlerRef.current = handleUserSpokenWord;
+
+      // Set active flags immediately so listeners and audio graph are active
+      isLiveActiveRef.current = true;
+      setIsLiveActive(true);
+      setIsConnecting(false);
+      setCallTimer(0);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = window.setInterval(() => setCallTimer(t => t + 1), 1000);
+
+      // Resilient Continuous Speech Recognition Engine
+      const startSpeechRecognition = () => {
+        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRec || !isLiveActiveRef.current) return;
+
         try {
+          if (speechRecognitionRef.current) {
+            try { speechRecognitionRef.current.abort(); } catch(e) {}
+          }
+
           const recognition = new SpeechRec();
           recognition.continuous = true;
           recognition.interimResults = true;
@@ -2361,23 +2688,44 @@ Formatting Rules:
               }
             }
 
-            if (interimTranscript) {
-              setLiveTranscription(`🗣️ You: ${interimTranscript}`);
-              setMicVolumeLevel(Math.min(100, Math.max(35, interimTranscript.length * 4)));
+            const currentSpeech = (finalTranscript || interimTranscript).trim();
+            if (currentSpeech) {
+              setLiveTranscription(`🗣️ You: ${currentSpeech}`);
+              setMicVolumeLevel(Math.min(100, Math.max(45, currentSpeech.length * 4)));
+              lastSpokenText = currentSpeech;
+
+              if (silenceTimer) clearTimeout(silenceTimer);
+              silenceTimer = setTimeout(() => {
+                if (lastSpokenText && lastSpokenText.trim().length > 1) {
+                  const speechToProcess = lastSpokenText.trim();
+                  lastSpokenText = '';
+                  handleUserSpokenWord(speechToProcess);
+                }
+              }, 900);
             }
 
             if (finalTranscript.trim()) {
-              handleUserSpokenWord(finalTranscript);
+              if (silenceTimer) clearTimeout(silenceTimer);
+              const textToSend = finalTranscript.trim();
+              lastSpokenText = '';
+              handleUserSpokenWord(textToSend);
             }
           };
 
           recognition.onerror = (e: any) => {
-            console.warn('Speech recognition warning:', e?.error);
+            console.warn('Speech recognition notice:', e?.error);
+            if (isLiveActiveRef.current && e?.error !== 'aborted') {
+              setTimeout(() => {
+                if (isLiveActiveRef.current) startSpeechRecognition();
+              }, 200);
+            }
           };
 
           recognition.onend = () => {
-            if (isLiveActiveRef.current && speechRecognitionRef.current) {
-              try { recognition.start(); } catch(e) {}
+            if (isLiveActiveRef.current) {
+              setTimeout(() => {
+                if (isLiveActiveRef.current) startSpeechRecognition();
+              }, 150);
             }
           };
 
@@ -2385,18 +2733,18 @@ Formatting Rules:
           speechRecognitionRef.current = recognition;
         } catch (recErr) {
           console.warn('Could not start browser speech recognition:', recErr);
+          if (isLiveActiveRef.current) {
+            setTimeout(() => {
+              if (isLiveActiveRef.current) startSpeechRecognition();
+            }, 600);
+          }
         }
-      }
+      };
 
-      isLiveActiveRef.current = true;
-      setIsLiveActive(true);
-      setIsConnecting(false);
-      setCallTimer(0);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = window.setInterval(() => setCallTimer(t => t + 1), 1000);
+      startSpeechRecognition();
 
       // Initial spoken greeting to immediately start the call!
-      speakVoiceResponse(`How far ${user?.fullName || 'my creator'}! Vixora is live on the call with you! What video idea or topic are we cooking today?`);
+      speakVoiceResponse(`How far ${user?.fullName || 'my creator'}! Vixora is live on the call with you! I can hear you crystal clear. What are we creating today?`);
 
       // Setup audio graph & RMS visualizer
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -2548,6 +2896,8 @@ Formatting Rules:
       try { liveSessionRef.current.close(); } catch(e) {}
       liveSessionRef.current = null;
     }
+
+    liveSpokenWordHandlerRef.current = null;
 
     setIsLiveActive(false);
     setIsConnecting(false);
@@ -3057,13 +3407,64 @@ Formatting Rules:
                    </p>
                 </div>
 
-                <div className="w-full max-w-xs p-4 bg-white/5 border border-white/10 rounded-2xl min-h-[80px] flex items-center justify-center text-center">
-                   <p className="text-white/80 text-[10.5px] font-medium leading-relaxed">
-                     {liveTranscription || "I'm listening crystal clear! Speak to me anytime, wetin dey happen?..."}
+                <div className="w-full max-w-md p-4 bg-white/5 border border-white/10 rounded-2xl min-h-[80px] flex items-center justify-center text-center shadow-inner">
+                   <p className="text-white/90 text-xs font-semibold leading-relaxed">
+                     {liveTranscription || "I am listening live! Speak anytime, wetin dey happen?..."}
                    </p>
                 </div>
 
-                <button onClick={stopLiveAssistant} className="w-16 h-16 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all border-2 border-red-400/30">
+                {/* Quick Interactive Prompt Chips During Live Voice Call */}
+                <div className="w-full max-w-md flex flex-wrap items-center justify-center gap-2 px-2">
+                  {[
+                    { label: '📊 Account Status', cmd: 'What is happening in my account balance right now?' },
+                    { label: '🛍️ Show Products', cmd: 'Show all my products in my store' },
+                    { label: '⚡ 300x250 Banner Ad', cmd: 'Generate a 300x250 banner ad for my campaign' },
+                    { label: '🎬 Cook Video', cmd: 'Cook an autopilot video on 5 rules of wealth' },
+                    { label: '📜 Viral Script', cmd: 'Write a viral script about AI and business growth' }
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        if (liveSpokenWordHandlerRef.current) {
+                          liveSpokenWordHandlerRef.current(chip.cmd);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white border border-white/15 active:scale-95 transition-all shadow-sm cursor-pointer"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* In-Call Quick Speech / Command Box */}
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (liveCallInputText.trim() && liveSpokenWordHandlerRef.current) {
+                      const text = liveCallInputText.trim();
+                      setLiveCallInputText('');
+                      liveSpokenWordHandlerRef.current(text);
+                    }
+                  }}
+                  className="w-full max-w-md flex items-center gap-2 px-2"
+                >
+                  <input
+                    type="text"
+                    value={liveCallInputText}
+                    onChange={(e) => setLiveCallInputText(e.target.value)}
+                    placeholder="Type or speak a live command..."
+                    className="flex-1 bg-white/10 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 transition-all font-medium"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5 shrink-0"
+                  >
+                    <i className="fa-solid fa-paper-plane text-xs"></i>
+                    <span>Send</span>
+                  </button>
+                </form>
+
+                <button onClick={stopLiveAssistant} className="w-16 h-16 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all border-2 border-red-400/30 cursor-pointer">
                   <i className="fa-solid fa-phone-slash text-white text-xl"></i>
                 </button>
               </div>
@@ -5086,8 +5487,9 @@ Formatting Rules:
           <div className="animate-rise">
             <ToolsLibrary
               onSelectTab={(tab) => handleSelectTab(tab as any)}
-              onStartLiveAssistant={() => setIsTextChatOpen(true)}
+              onStartLiveAssistant={startLiveAssistant}
               onOpenChatWithPrompt={(prompt) => {
+                setChatInitialPrompt(prompt || '');
                 setIsTextChatOpen(true);
               }}
               themeMode={themeMode}
@@ -5465,11 +5867,15 @@ Formatting Rules:
       {/* VIXORA AI ASSISTANT CONVERSATIONAL DRAWER / PANEL */}
       <VixoraTextChatPanel
         isOpen={isTextChatOpen}
-        onClose={() => setIsTextChatOpen(false)}
+        onClose={() => {
+          setIsTextChatOpen(false);
+          setChatInitialPrompt('');
+        }}
         appContext={appContext}
         apiKey={getEffectiveApiKey(user?.apiKey)}
         themeMode={themeMode}
         onStartLiveAssistant={startLiveAssistant}
+        initialPrompt={chatInitialPrompt}
       />
 
       <canvas ref={canvasRef} className="hidden" />

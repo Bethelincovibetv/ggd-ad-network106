@@ -123,6 +123,19 @@ export const VIXORA_TOOLS_REGISTRY: VixoraToolEntry[] = [
     keywords: ['seo', 'tags', 'hooks', 'thumbnails', 'growth', 'ctr', 'keywords', 'rank']
   },
   {
+    id: 'tool_banner_ad',
+    name: 'GGD Banner Advert Creator',
+    shortDescription: 'Create high-converting 300x250, 728x90 & 1080x1080 banner ads for GGD Ad Network.',
+    fullDescription: 'Professional graphic advertising engine. Generate crisp, high-converting banner ads tailored for GGD Ad Network campaigns, websites, and social syndicate promotions with custom CTA buttons.',
+    category: 'growth',
+    icon: 'fa-rectangle-ad',
+    gradient: 'from-orange-500 to-amber-600',
+    badge: 'GGD ADS',
+    actionType: 'chat_command',
+    suggestedPrompt: 'Generate a high-converting 300x250 banner advert for GGD Ad Network',
+    keywords: ['banner', 'advert', 'ad', 'ggd ad', 'leaderboard', 'rectangle', 'commercial', 'sponsor']
+  },
+  {
     id: 'tool_flyer_generator',
     name: 'Promotional Flyer & Graphic Canvas',
     shortDescription: 'Design eye-catching social media promotional flyers and banner graphics.',

@@ -39,10 +39,10 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CallProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <BrowserRouter>
+          <CallProvider>
+            <Toaster />
+            <Sonner />
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -66,6 +66,11 @@ const App = () => (
               <Route path="/scripts" element={<VixoraCreatorPage />} />
               <Route path="/videos" element={<VixoraCreatorPage />} />
               <Route path="/bgmusic" element={<VixoraCreatorPage />} />
+              <Route path="/tools" element={<VixoraCreatorPage />} />
+              <Route path="/growth" element={<VixoraCreatorPage />} />
+              <Route path="/contact" element={<VixoraCreatorPage />} />
+              <Route path="/coach" element={<VixoraCreatorPage />} />
+              <Route path="/developer" element={<VixoraCreatorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 
               <Route path="*" element={<NotFound />} />
@@ -76,8 +81,8 @@ const App = () => (
             <PushNotificationPrompt />
             <IncomingCallBanner />
             <CallModal />
-          </BrowserRouter>
-        </CallProvider>
+          </CallProvider>
+        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>

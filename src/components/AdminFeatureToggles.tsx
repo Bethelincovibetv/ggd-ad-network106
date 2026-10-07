@@ -34,6 +34,8 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'blog_ai_drafter', feature_name: 'Blog AI Generator & Drafter', description: 'Show or hide the AI Blog Generator & Article Drafting tools from the blog creator interface', is_enabled: true },
   { feature_key: 'contact_gain', feature_name: 'Contact Gain System', description: 'Contact Gain Hub, daily contact drops, and VCF export. If switched off, all Contact Gain UI elements and menu buttons are hidden.', is_enabled: true },
   { feature_key: 'quick_guide', feature_name: 'User Guide', description: 'Interactive platform instructions', is_enabled: true },
+  { feature_key: 'vixora_ai', feature_name: 'Vixora AI Creator Studio', description: 'Master toggle to enable or disable Vixora AI across the platform for users (Studio, Tools, Hero cards, and AI features).', is_enabled: true },
+  { feature_key: 'vixora_tools', feature_name: 'Marketplace: Vixora AI Tools Tab', description: 'Show or hide the Vixora AI Tools & Capabilities tab in the Marketing Apps Marketplace.', is_enabled: true },
 
   // Create Menu
   { feature_key: 'create_credit_task', feature_name: 'Create: Credit Task', description: 'Quick action to create a credit task', is_enabled: true },
@@ -42,6 +44,7 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'create_post', feature_name: 'Create: Community Post', description: 'Quick action to write a community post', is_enabled: true },
 
   // Navigation Menu
+  { feature_key: 'nav_vixora_ai', feature_name: 'Menu: Vixora AI Creator Button', description: 'Show or hide the Vixora AI Creator button on side navigation and menus.', is_enabled: true },
   { feature_key: 'nav_social_tasks', feature_name: 'Menu: Social Tasks Button', description: 'Hide or show Social / Credit Tasks buttons from menus (Side Nav, Top Nav, Mobile Menu) without permanently disabling the task system backend', is_enabled: true },
   { feature_key: 'nav_credit_tasks', feature_name: 'Menu: Credit Tasks Button', description: 'Hide or show the Credit Tasks button on side nav, top nav, and mobile footer menu without disabling the underlying task system', is_enabled: true },
   { feature_key: 'nav_contact_gain', feature_name: 'Menu: Contact Gain Hub Button', description: 'Show or hide the Contact Gain Hub button on side navigation menus', is_enabled: true },

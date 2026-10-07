@@ -7,6 +7,7 @@ import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Wan
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import LinkShortener from "@/components/LinkShortener";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { VIXORA_TOOLS_REGISTRY, VixoraToolEntry } from "@/vixora/services/vixoraToolsRegistry";
 
 interface MarketingAppsMarketplaceProps {
@@ -25,6 +26,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
   maxDisplay,
 }) => {
   const navigate = useNavigate();
+  const { isEnabled } = useFeatureToggles();
   const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'vixora_tools' | 'link_shortener'>('apps');
   const [vixoraSearch, setVixoraSearch] = useState('');
   const [vixoraCategory, setVixoraCategory] = useState('all');
@@ -173,18 +175,20 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <Grid className="h-3.5 w-3.5" />
             <span>Marketing Apps ({apps.length})</span>
           </button>
-          <button
-            onClick={() => setActiveMarketTab('vixora_tools')}
-            className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeMarketTab === 'vixora_tools'
-                ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Vixora AI Studio & Tools</span>
-            <Badge className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0 animate-pulse">HOT</Badge>
-          </button>
+          {isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
+            <button
+              onClick={() => setActiveMarketTab('vixora_tools')}
+              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeMarketTab === 'vixora_tools'
+                  ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Vixora AI Studio & Tools</span>
+              <Badge className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0 animate-pulse">HOT</Badge>
+            </button>
+          )}
           <button
             onClick={() => setActiveMarketTab('link_shortener')}
             className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -208,7 +212,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
       )}
 
       {/* When Vixora Tools tab is active on Marketing page */}
-      {pagePlacement === 'marketplace' && activeMarketTab === 'vixora_tools' && (
+      {pagePlacement === 'marketplace' && activeMarketTab === 'vixora_tools' && isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
         <div className="space-y-4 pt-1">
           {/* Vixora Hero Launch Banner */}
           <div className="rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-purple-800 p-6 text-white shadow-xl relative overflow-hidden border border-orange-400/30">
@@ -331,7 +335,11 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (tool.targetTab) {
+                      if (tool.actionType === 'chat_command') {
+                        navigate(`/vixora?tab=studio&chat=open&prompt=${encodeURIComponent(tool.suggestedPrompt || `Help me with ${tool.name}`)}`);
+                      } else if (tool.actionType === 'live_voice') {
+                        navigate('/vixora?tab=studio&voice=start');
+                      } else if (tool.targetTab) {
                         navigate(`/${tool.targetTab === 'more' ? 'growth' : tool.targetTab}`);
                       } else {
                         navigate('/vixora');
@@ -339,7 +347,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
                     }}
                     className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1.5 cursor-pointer"
                   >
-                    <span>Launch Tool</span>
+                    <span>{tool.actionType === 'chat_command' ? 'Invoke in AI Chat' : tool.actionType === 'live_voice' ? 'Start Voice Call' : 'Launch Studio'}</span>
                     <ArrowRight className="h-3.5 w-3.5 ml-auto" />
                   </Button>
                 </div>

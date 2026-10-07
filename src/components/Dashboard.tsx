@@ -1023,6 +1023,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'vixora-creator':
       case 'creator':
       case 'vixora-studio':
+        if (!isEnabled('vixora_ai') && !isAdmin) {
+          return disabled;
+        }
         return (
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center p-12 space-y-3">
