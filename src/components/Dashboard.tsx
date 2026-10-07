@@ -1233,7 +1233,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             </div>
           </header>
 
-          <main className="flex-1 px-3 sm:px-4 py-4 pb-40 md:pb-24 max-w-5xl w-full mx-auto">
+          <main className={`flex-1 px-3 sm:px-4 py-4 ${activeTab === 'feed' || activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto`}>
             {isPremium && (
               <PremiumRenewalBanner
                 expiresAt={premiumExpiresAt}
@@ -1250,7 +1250,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             {renderContent()}
           </main>
 
-          <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          {activeTab !== 'feed' && activeTab !== 'directory' && (
+            <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          )}
           <CreateFab onNavigate={handleTabChange} />
 
           <ExtendAdvertModal

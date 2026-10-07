@@ -26,6 +26,7 @@ import { CallHistoryList } from "@/components/call/CallHistoryList";
 import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
 import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
+import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
 import { Phone, PhoneCall } from "lucide-react";
@@ -958,7 +959,7 @@ const GGDInbox: React.FC = () => {
                           )}
 
                           {m.message && m.kind !== "voice" && (
-                            <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                            <StructuredChatMessage text={m.message} isMine={mine} />
                           )}
 
                           {/* Approve & Pay action button — only for the receiver (business owner) */}

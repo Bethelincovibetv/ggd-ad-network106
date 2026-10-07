@@ -18,6 +18,7 @@ import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
 import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
 import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
 import MessageStatusIndicator from '@/components/chat/MessageStatusIndicator';
+import { StructuredChatMessage } from '@/components/chat/StructuredChatMessage';
 
 interface BusinessPublicChatModalProps {
 
@@ -411,7 +412,7 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                             />
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                          <StructuredChatMessage text={m.message} isMine={isMe} />
                         )}
                       </div>
                     </WhatsAppSlideMessage>

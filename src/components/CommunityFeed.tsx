@@ -32,6 +32,7 @@ import { parseBlogPost, CommunityBlogPostData } from '@/types/blog';
 import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
+import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
 import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
 import SendGiftModal from '@/components/feed/SendGiftModal';
@@ -699,17 +700,22 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 )}
 
                 {showLink && (
-                  <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
-                    <Link2 className="h-4 w-4 text-blue-600 shrink-0" />
-                    <Input
-                      placeholder="https://your-website.com or article link"
-                      value={linkUrl}
-                      onChange={e => setLinkUrl(e.target.value)}
-                      className="h-8 text-xs bg-background"
-                    />
-                    <button type="button" onClick={() => { setShowLink(false); setLinkUrl(''); }} className="text-muted-foreground p-1">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
+                      <Link2 className="h-4 w-4 text-blue-600 shrink-0" />
+                      <Input
+                        placeholder="https://your-website.com or article link"
+                        value={linkUrl}
+                        onChange={e => setLinkUrl(e.target.value)}
+                        className="h-8 text-xs bg-background"
+                      />
+                      <button type="button" onClick={() => { setShowLink(false); setLinkUrl(''); }} className="text-muted-foreground p-1">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {linkUrl.trim().length > 3 && (
+                      <FeedLinkPreview url={linkUrl.trim()} isInteractive={false} className="border border-blue-500/40 shadow-xs" />
+                    )}
                   </div>
                 )}
 
@@ -1468,10 +1474,12 @@ const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {post.link_url && (
-          <a href={post.link_url} target="_blank" rel="noopener noreferrer"
-             className="block mx-3 mb-2 px-3 py-2 bg-muted rounded-lg text-xs text-blue-600 hover:underline truncate">
-            <Link2 className="h-3 w-3 inline mr-1" />{post.link_url}
-          </a>
+          <div className="mx-3 mb-3">
+            <FeedLinkPreview
+              url={post.link_url}
+              title={post.content ? (post.content.length > 80 ? post.content.slice(0, 80) + '...' : post.content) : null}
+            />
+          </div>
         )}
 
         {/* Tag chips */}

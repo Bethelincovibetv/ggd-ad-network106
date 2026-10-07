@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
 import MessageStatusIndicator from "@/components/chat/MessageStatusIndicator";
+import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 
 const AdminChatSystem = () => {
 
@@ -292,7 +293,7 @@ const AdminChatSystem = () => {
                     ? 'bg-orange-500 text-white rounded-br-sm' 
                     : 'bg-secondary text-foreground rounded-bl-sm'
                 }`}>
-                  <p className="whitespace-pre-wrap">{msg.message}</p>
+                  <StructuredChatMessage text={msg.message} isMine={msg.sender_id === adminId} />
                   <div className={`mt-1 flex items-center justify-end ${msg.sender_id === adminId ? 'text-orange-100' : 'text-muted-foreground'}`}>
                     {msg.sender_id === adminId ? (
                       <MessageStatusIndicator

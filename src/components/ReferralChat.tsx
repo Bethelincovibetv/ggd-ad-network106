@@ -15,6 +15,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import MessageStatusIndicator, { MessageDeliveryStatus } from '@/components/chat/MessageStatusIndicator';
+import { StructuredChatMessage } from '@/components/chat/StructuredChatMessage';
 
 interface Props {
   peerId: string;
@@ -307,7 +308,7 @@ const ReferralChat = ({ peerId, peerName, onBack }: Props) => {
                         : 'bg-card border border-border/70 text-foreground rounded-bl-xs'
                     }`}
                   >
-                    <p className="leading-relaxed whitespace-pre-wrap">{m.message}</p>
+                    <StructuredChatMessage text={m.message} isMine={isMine} />
 
                     <div
                       className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${
