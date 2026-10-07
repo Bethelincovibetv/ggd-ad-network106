@@ -15,6 +15,20 @@ export interface VixoraToolEntry {
 
 export const VIXORA_TOOLS_REGISTRY: VixoraToolEntry[] = [
   {
+    id: 'tool_naija_script',
+    name: 'High-Converting Nigerian Sales Script Writer',
+    shortDescription: 'Generate authentic Nigerian sales copy, WhatsApp broadcast pitches, TikTok & FB ad scripts.',
+    fullDescription: 'Specialized direct-response copywriter for Nigerian products and offers. Generates authentic Pidgin/English hooks, WhatsApp broadcast closers, and TikTok/Reels retention scripts with payment urgency.',
+    category: 'growth',
+    icon: 'fa-feather-pointed',
+    gradient: 'from-emerald-500 to-teal-600',
+    badge: 'NAIJA AI',
+    actionType: 'tab',
+    targetTab: 'scripts',
+    suggestedPrompt: 'Write a high-converting Nigerian WhatsApp sales pitch for my product with promo price',
+    keywords: ['naija', 'nigerian', 'script writer', 'sales copy', 'whatsapp', 'facebook ad', 'reels', 'pidgin', 'high converting']
+  },
+  {
     id: 'tool_autopilot',
     name: 'AI Autopilot Video Producer',
     shortDescription: 'Cook complete faceless videos automatically with script, voice, B-roll & captions.',

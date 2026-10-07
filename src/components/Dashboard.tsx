@@ -34,7 +34,6 @@ import CreditTransfer from "@/components/CreditTransfer";
 import WalletHub from "@/components/WalletHub";
 import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
-import GitHubImporterHub from "@/components/GitHubImporterHub";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
 import PremiumRenewalBanner from "@/components/PremiumRenewalBanner";

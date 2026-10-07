@@ -7,6 +7,7 @@ import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Wan
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import LinkShortener from "@/components/LinkShortener";
+import NaijaScriptWriter from "@/components/NaijaScriptWriter";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { VIXORA_TOOLS_REGISTRY, VixoraToolEntry } from "@/vixora/services/vixoraToolsRegistry";
 
@@ -27,7 +28,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isEnabled } = useFeatureToggles();
-  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'vixora_tools' | 'link_shortener'>('apps');
+  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'naija_script' | 'vixora_tools' | 'link_shortener'>('apps');
   const [vixoraSearch, setVixoraSearch] = useState('');
   const [vixoraCategory, setVixoraCategory] = useState('all');
   const [apps, setApps] = useState<any[]>([]);
@@ -175,6 +176,18 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <Grid className="h-3.5 w-3.5" />
             <span>Marketing Apps ({apps.length})</span>
           </button>
+          <button
+            onClick={() => setActiveMarketTab('naija_script')}
+            className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeMarketTab === 'naija_script'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <span>Naija Script & Copy Genius</span>
+            <Badge className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0">🇳🇬 AI</Badge>
+          </button>
           {isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
             <button
               onClick={() => setActiveMarketTab('vixora_tools')}
@@ -201,6 +214,19 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <span>Short Link & WhatsApp Generator</span>
             <Badge className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0">FREE</Badge>
           </button>
+        </div>
+      )}
+
+      {/* When Naija Script Writer tab is active */}
+      {pagePlacement === 'marketplace' && activeMarketTab === 'naija_script' && (
+        <div className="pt-1">
+          <NaijaScriptWriter 
+            onNavigateToStudio={(script) => {
+              localStorage.setItem('vixora_preloaded_script', script);
+              navigate('/vixora');
+              toast.success('🚀 Script transferred to Vixora AI Video Studio!');
+            }}
+          />
         </div>
       )}
 
