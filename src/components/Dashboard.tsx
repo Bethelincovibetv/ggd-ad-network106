@@ -74,6 +74,7 @@ import { FavoritesQuickButton } from "@/components/favorites/FavoritesQuickButto
 import { FavoritesPage } from "@/components/favorites/FavoritesPage";
 import { HeaderWallets } from "@/components/wallet/HeaderWallets";
 import { GuidedTourModal, hasSeenWalkthrough } from "@/components/GuidedTourModal";
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface Ad {
   id: string;
@@ -157,6 +158,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
   const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
   const [extendingAd, setExtendingAd] = useState<Ad | null>(null);
+  
+  // YouTube-like scroll behavior: header and mobile footer hide on scroll down, reveal on scroll up
+  const { isVisible: isNavVisible, showNav } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
   const scrollToBannerForm = () => {
     setTimeout(() => {
       document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1229,7 +1233,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40">
+          <header
+            onFocusCapture={showNav}
+            className={`bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+              isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+            }`}
+          >
             <div className="px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 max-w-7xl mx-auto w-full">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 {/* Left Brand & Sidebar Trigger Zone */}
@@ -1286,7 +1295,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           </main>
 
           {activeTab !== 'feed' && activeTab !== 'directory' && (
-            <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+            <MobileFooterMenu
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              isAdmin={isAdmin}
+              isBusiness={isBusiness}
+              isSyndicate={isSyndicate}
+              isVisible={isNavVisible}
+            />
           )}
           <CreateFab onNavigate={handleTabChange} />
 

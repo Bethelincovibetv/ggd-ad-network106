@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface TopNavMenuProps {
   activeTab: string;
@@ -14,6 +15,7 @@ interface TopNavMenuProps {
 
 const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
   const { isEnabled } = useFeatureToggles();
+  const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
 
   const items = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] },
@@ -57,7 +59,11 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
   };
 
   return (
-    <div className="bg-card/90 backdrop-blur border-b border-border/80 sticky top-0 z-30">
+    <div
+      className={`bg-card/90 backdrop-blur border-b border-border/80 sticky top-0 z-30 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+      }`}
+    >
       <ScrollArea className="w-full">
         <div className="flex gap-2 px-3 py-2.5">
           {items.map(item => {

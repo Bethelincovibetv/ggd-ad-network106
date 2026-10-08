@@ -30,6 +30,7 @@ import { AdminVerificationManager } from "@/components/admin/AdminVerificationMa
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
 import ggdLogo from '@/assets/ggd-logo.png';
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface NavGroup {
   title: string;
@@ -103,6 +104,7 @@ const AdminPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeSection] });
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -293,7 +295,9 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
+      <header className={`md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+      }`}>
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button
