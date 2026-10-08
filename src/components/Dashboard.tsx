@@ -941,6 +941,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           <CreditRedeemAirtime
             currentCredits={credits}
             onCreditsUpdated={(c) => setCredits(c)}
+            onNavigate={handleTabChange}
           />
         );
 

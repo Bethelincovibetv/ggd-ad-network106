@@ -52,8 +52,8 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
           <p className="px-3 pb-2 text-[14px] leading-snug whitespace-pre-wrap break-words">{ad.description}</p>
         )}
         {ad.image_url && (
-          <button onClick={open} className="block w-full">
-            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full max-h-[420px] object-cover" />
+          <button onClick={open} className="block w-full bg-slate-950/[0.03] dark:bg-black/20 p-1 sm:p-2 overflow-hidden focus:outline-none">
+            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full h-auto max-h-[460px] object-contain block mx-auto rounded-lg hover:scale-[1.01] transition-transform duration-300" />
           </button>
         )}
         <div className="p-3 grid grid-cols-2 gap-2">

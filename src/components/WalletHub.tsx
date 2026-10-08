@@ -234,7 +234,7 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold h-10"
           >
             <Smartphone className="h-3.5 w-3.5" />
-            Redeem Airtime
+            Redeem Airtime & Data
           </TabsTrigger>
           <TabsTrigger
             value="buy"

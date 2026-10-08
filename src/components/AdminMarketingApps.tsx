@@ -51,16 +51,24 @@ const AdminMarketingApps = () => {
       supabase.from('app_settings').select('value').eq('key', 'marketing_apps_placements').maybeSingle(),
     ]);
 
-    setApps(appsRes.data || []);
-
+    let parsedPlacements: Record<string, string[]> = {};
     if (placementsRes.data?.value) {
       try {
-        const parsed = JSON.parse(placementsRes.data.value);
-        setPlacementsMap(parsed);
+        parsedPlacements = JSON.parse(placementsRes.data.value);
+        setPlacementsMap(parsedPlacements);
       } catch {
         setPlacementsMap({});
       }
     }
+
+    const allApps = appsRes.data || [];
+    // Ensure Airtime & Data redeem marketplace offers never show in standard marketing apps management
+    const marketingOnly = allApps.filter(app => {
+      const p = parsedPlacements[app.id] || [];
+      return !p.includes('airtime_data_redeem') && !p.includes('redeem_marketplace') && !p.includes('airtime_redeem') && !p.includes('data_redeem');
+    });
+
+    setApps(marketingOnly);
     setLoading(false);
   };
 

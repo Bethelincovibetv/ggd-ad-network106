@@ -36,8 +36,8 @@ const RedeemAirtimePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <MetaTags
-        title="Redeem Credits for Instant Airtime — GGD VTU Portal"
-        description="Convert your credit wallet balance into instant mobile recharge on MTN, Airtel, Glo, and 9mobile via Sabuss VTU gateway."
+        title="Airtime & Data Redeem Marketplace — GGD Network"
+        description="Redeem your earned wallet credits for high-speed mobile data bundles and instant airtime recharge tools on MTN, Airtel, Glo, and 9mobile."
         canonicalUrl="/redeem"
       />
 
@@ -61,7 +61,7 @@ const RedeemAirtimePage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Smartphone className="h-4 w-4 text-orange-500" />
               <span className="text-xs sm:text-sm font-black text-foreground">
-                Airtime & Credit Redemption
+                Airtime & Data Redeem Marketplace
               </span>
             </div>
           </div>
@@ -82,6 +82,7 @@ const RedeemAirtimePage: React.FC = () => {
         <CreditRedeemAirtime
           currentCredits={credits}
           onCreditsUpdated={(newCredits) => setCredits(newCredits)}
+          onNavigate={(tab) => navigate(`/?tab=${tab}`)}
         />
       </main>
     </div>

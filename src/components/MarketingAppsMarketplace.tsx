@@ -59,9 +59,17 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 
     const allApps = appsRes.data || [];
 
-    // Filter apps based on pagePlacement
+    // Filter apps based on pagePlacement and guarantee airtime/data redeem offers NEVER appear in marketing tools
     const filteredApps = allApps.filter(app => {
       const appPlacements = placementsMap[app.id] || ['marketplace', 'landing'];
+      if (
+        appPlacements.includes('airtime_data_redeem') ||
+        appPlacements.includes('redeem_marketplace') ||
+        appPlacements.includes('airtime_redeem') ||
+        appPlacements.includes('data_redeem')
+      ) {
+        return false;
+      }
       if (pagePlacement === 'marketplace') {
         return appPlacements.includes('marketplace') || appPlacements.includes('all');
       }

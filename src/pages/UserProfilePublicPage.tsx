@@ -8,7 +8,7 @@ import {
   ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe,
   MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown,
   ShoppingBag, Share2, Mail, Play, Menu, X, Home, Info, ShieldCheck, ChevronRight,
-  Clock, PackageCheck, Palette
+  Clock, PackageCheck, Palette, Megaphone
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -720,23 +720,33 @@ const UserProfilePublicPage: React.FC = () => {
           <section id="overview" className="scroll-mt-6">
             <Card className={`${activeTemplate.cardBg} ${activeTemplate.cardBorder} overflow-hidden rounded-3xl shadow-sm relative border`}>
               {/* Hero Banner Image with dynamic gradient overlay */}
-              <div className={`relative h-60 sm:h-76 md:h-88 w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden`}>
+              <div className={`relative min-h-[220px] sm:min-h-[280px] md:min-h-[340px] max-h-[460px] w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden flex items-center justify-center`}>
                 {heroBanner ? (
-                  <img 
-                    src={heroBanner} 
-                    alt={name} 
-                    className="w-full h-full object-cover opacity-85 scale-105 hover:scale-110 transition-transform duration-1000 ease-out" 
-                  />
+                  <>
+                    {/* Ambient backdrop blur so wide container looks filled */}
+                    <img 
+                      src={heroBanner} 
+                      alt="" 
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none" 
+                    />
+                    {/* Full Banner Advert / Storefront Cover - completely uncropped */}
+                    <img 
+                      src={heroBanner} 
+                      alt={name} 
+                      className="relative z-10 w-full h-auto max-h-[440px] object-contain mx-auto transition-transform duration-700 ease-out" 
+                    />
+                  </>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 via-amber-500 to-orange-600">
+                  <div className="w-full h-56 sm:h-72 flex items-center justify-center bg-gradient-to-br from-orange-400 via-amber-500 to-orange-600">
                     <Store className="h-24 w-24 text-white/30" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/40 to-transparent z-10" />
                 
                 {/* Badges on Hero Banner - Only shown when merchant is verified */}
                 {isVerified && (
-                  <div className="absolute top-4 right-4 flex items-center gap-2 flex-wrap">
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
                     <Badge className="bg-emerald-600 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
                       <CheckCircle className="h-3.5 w-3.5 fill-white text-emerald-600" /> Verified Partner
                     </Badge>
@@ -1433,9 +1443,17 @@ const UserProfilePublicPage: React.FC = () => {
 
           {/* Sponsored Ad Banner & Network Footer */}
           <div className="pt-4 border-t border-slate-200 space-y-4">
-            <p className="text-[10px] text-slate-400 text-center uppercase tracking-widest font-bold">
-              Sponsored Advertisement
-            </p>
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5">
+                <Megaphone className="h-3.5 w-3.5 text-orange-500" />
+                <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/15 text-orange-600 px-2.5 py-0.5 rounded-full">
+                  Sponsored Network Advert
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                Full Display Banner
+              </span>
+            </div>
             <AdDisplayPreview />
             
             <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-100 space-y-1">

@@ -28,7 +28,7 @@ import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import AdminContactGainManager from "@/components/AdminContactGainManager";
 import { AdminVerificationManager } from "@/components/admin/AdminVerificationManager";
 import AdminVixoraManager from "@/components/AdminVixoraManager";
-import AdminSabussManager from "@/components/AdminSabussManager";
+import AdminRedeemManager from "@/components/AdminRedeemManager";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 interface NavGroup {
@@ -85,7 +85,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'PLATFORM & CONFIG',
     items: [
-      { id: 'sabuss', icon: Smartphone, label: 'Sabuss Airtime API', sublabel: 'VTU key, error codes & redemptions', color: 'text-white', gradient: 'from-orange-500 via-amber-500 to-red-600' },
+      { id: 'airtime', icon: Smartphone, label: 'Airtime & Data Marketplace', sublabel: 'Create & manage redeemable offers', color: 'text-white', gradient: 'from-orange-500 via-amber-500 to-red-600' },
       { id: 'settings', icon: Settings, label: 'Platform Settings', sublabel: 'Exchange rate & global config', color: 'text-white', gradient: 'from-pink-500 to-rose-600' },
       { id: 'features', icon: Settings2, label: 'Feature Toggles', sublabel: 'Enable or disable modules', color: 'text-white', gradient: 'from-cyan-500 to-blue-600' },
       { id: 'api', icon: Key, label: 'API Keys', sublabel: 'External integration secrets', color: 'text-white', gradient: 'from-yellow-500 to-amber-600' },
@@ -189,7 +189,8 @@ const AdminPage = () => {
       );
       case 'sabuss':
       case 'airtime':
-        return <AdminSabussManager />;
+      case 'redeem':
+        return <AdminRedeemManager />;
       case 'settings': return <AdminSettings />;
       case 'features': return <AdminFeatureToggles />;
       case 'slides': return <SlideManager />;
