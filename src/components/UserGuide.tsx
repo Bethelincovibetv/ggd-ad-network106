@@ -7,9 +7,8 @@ import {
   Search, ChevronDown, Megaphone, Building2, Store, Users,
   Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
   CheckCircle2, Circle, Image as ImageIcon, ArrowRight, Loader2,
-  Download, ExternalLink, Play, Eye, BellRing, Share2, Compass
+  Download, ExternalLink, Play, Eye, BellRing, Share2
 } from 'lucide-react';
-import { GuidedTourModal } from '@/components/GuidedTourModal';
 import guideHero from '@/assets/guide-hero.jpg';
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
 import flyerGuideGrowth from '@/assets/images/flyer_guide_growth_1789298441003.jpg';
@@ -377,7 +376,6 @@ const UserGuide = () => {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingStep, setTogglingStep] = useState<string | null>(null);
-  const [isTourOpen, setIsTourOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -452,30 +450,6 @@ const UserGuide = () => {
           </div>
         </div>
         <CardContent className="space-y-4 p-5 sm:p-6 bg-card">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-transparent border border-orange-500/30">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-500 shrink-0">
-                <Compass className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-foreground flex items-center gap-2">
-                  <span>Interactive Visual Platform Tour</span>
-                  <Badge className="bg-[#e67e22] text-white text-[10px] py-0 px-1.5 font-bold">60 SECONDS</Badge>
-                </p>
-                <p className="text-xs text-muted-foreground font-medium">
-                  Walk through dual wallets, ad campaigns, crowd syndicates, CAC verification & GGD AI.
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => setIsTourOpen(true)}
-              className="w-full sm:w-auto bg-[#e67e22] hover:bg-[#d35400] text-white font-bold gap-2 text-xs shadow-md shadow-[#e67e22]/20 rounded-xl shrink-0"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Start Interactive Tour
-            </Button>
-          </div>
-
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-6 w-6 text-orange-600 dark:text-orange-400 shrink-0" />
@@ -682,13 +656,6 @@ const UserGuide = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Interactive Visual Guided Walkthrough Tour Modal */}
-      <GuidedTourModal
-        isOpen={isTourOpen}
-        onClose={() => setIsTourOpen(false)}
-        onComplete={() => setIsTourOpen(false)}
-      />
     </div>
   );
 };

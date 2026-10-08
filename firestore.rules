@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default Deny Catch-all for unmatched documents
+    // Default Deny Catch-all
     match /{document=**} {
       allow read, write: if false;
     }
@@ -10,114 +10,61 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'accessa787@gmail.com' ||
-        request.auth.token.email == 'goodgiftdigital@gmail.com' ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
-    // Healthcheck and Test Connectivity
-    match /test/{testId} {
-      allow read, write: if true;
-    }
-
-    // Profiles & Users
-    match /profiles/{profileId} {
-      allow read, write: if true;
-    }
-
-    match /users/{userId} {
-      allow read, write: if true;
-    }
-
     // Notifications
     match /notifications/{notificationId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Push Device Tokens
     match /push_devices/{deviceId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Admin & System Settings
+    // Admin Settings (Public read for active app configurations, write only for admin)
     match /admin_settings/{settingId} {
-      allow read, write: if true;
-    }
-
-    match /system_settings/{settingId} {
-      allow read, write: if true;
-    }
-
-    // Email Gateways & SMTP Configurations
-    match /email_gateways/{gatewayId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Real-time Post Views
     match /post_views/{postId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
     }
 
     // Real-time Peer-to-Peer WebRTC Audio/Video Call Signaling
     match /calls/{callId} {
-      allow read, write: if true;
+      allow read, create, update, delete: if true;
 
       match /callerCandidates/{candidateId} {
-        allow read, write: if true;
+        allow read, create, update, delete: if true;
       }
 
       match /calleeCandidates/{candidateId} {
-        allow read, write: if true;
+        allow read, create, update, delete: if true;
       }
     }
 
     // Call Logs & History
     match /call_logs/{logId} {
-      allow read, write: if true;
-    }
-
-    // Contact Gain System
-    match /contact_gain_settings/{settingId} {
-      allow read, write: if true;
-    }
-
-    match /contact_gain_entries/{entryId} {
-      allow read, write: if true;
-    }
-
-    match /contact_gain_campaigns/{campaignId} {
-      allow read, write: if true;
-    }
-
-    match /contact_gain_proofs/{proofId} {
-      allow read, write: if true;
-    }
-
-    match /contact_gain_downloads/{downloadId} {
-      allow read, write: if true;
-    }
-
-    // Marketplace Automated Business & Identity Verifications
-    match /marketplace_verifications/{verificationId} {
-      allow read, write: if true;
-    }
-
-    // Real Customer Business Reviews & Ratings
-    match /business_reviews/{reviewId} {
-      allow read, write: if true;
-    }
-
-    // WhatsApp Baileys Sessions & Connection State
-    match /whatsapp_sessions/{sessionId} {
-      allow read, write: if true;
-    }
-
-    // WhatsApp Share-to-Earn Broadcast Logs
-    match /whatsapp_broadcasts/{broadcastId} {
-      allow read, write: if true;
+      allow read, create, update, delete: if true;
     }
   }
 }

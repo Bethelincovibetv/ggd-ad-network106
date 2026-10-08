@@ -42,8 +42,7 @@ export const StorefrontSection: React.FC<StorefrontSectionProps> = ({
   const [copied, setCopied] = useState(false);
   const [togglingDirectory, setTogglingDirectory] = useState(false);
 
-  const effectiveSlug = profile?.slug || profile?.business_slug;
-  const storefrontPath = effectiveSlug ? `/b/${effectiveSlug}` : `/user/${userId}`;
+  const storefrontPath = profile?.slug ? `/b/${profile.slug}` : `/user/${userId}`;
   const fullStorefrontUrl = `${window.location.origin}${storefrontPath}`;
 
   const handleCopyLink = () => {

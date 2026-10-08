@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import {
   ExternalLink, Crown, Loader2, Eye, Filter, MapPin, Star, 
   Sparkles, Play, Package, Briefcase, Layers, X, ArrowRight, 
   ChevronRight, Grid3X3, ShieldCheck, Tag, Compass, Navigation,
-  MapPinned, LocateFixed, Check, ShieldAlert, CheckCircle2
+  MapPinned, LocateFixed, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ import directoryHero from "@/assets/directory-hero.jpg";
 import SlideCarousel from "@/components/SlideCarousel";
 import BlazingBadge from "@/components/BlazingBadge";
 import { getIndustryMeta, getEffectiveBusinessDescription } from "@/utils/industryData";
-import { FavoriteButton } from "@/components/favorites/FavoriteButton";
+import { SHOWCASE_PRODUCTS_AND_SERVICES } from "@/utils/showcaseListings";
 import { 
   NIGERIAN_STATES, 
   extractStateFromLocation, 
@@ -26,9 +26,6 @@ import {
   calculateDistanceKm,
   NIGERIAN_STATE_DETAILS
 } from "@/utils/nigerianStates";
-import { subscribeToAllVerifications } from "@/services/businessVerificationEngine";
-import { VerificationSubmissionRecord } from "@/types/verification";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 interface BusinessDirectoryProps {
   isBusiness?: boolean;
@@ -56,8 +53,6 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
-  const [verificationsMap, setVerificationsMap] = useState<Map<string, VerificationSubmissionRecord>>(new Map());
-  const [onlyVerified, setOnlyVerified] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -80,50 +75,6 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
     if (savedState && NIGERIAN_STATES.includes(savedState)) {
       setSelectedState(savedState);
     }
-
-    // 1. Real-time Supabase subscriptions
-    const rtChannel = supabase
-      .channel('business_directory_realtime_ch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profiles' }, () => {
-        fetchData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'business_listings' }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    // 2. Real-time Firestore verifications subscription
-    const unsubVerifications = subscribeToAllVerifications((records) => {
-      const vMap = new Map<string, VerificationSubmissionRecord>();
-      records.forEach(r => {
-        if (r.user_id) vMap.set(r.user_id, r);
-      });
-      setVerificationsMap(vMap);
-    });
-
-    // 3. Global verification update events listener
-    const handleVerifUpdated = () => {
-      fetchData();
-    };
-    window.addEventListener('ggd_verification_updated', handleVerifUpdated);
-
-    // 4. Cross-tab storage synchronization
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'ggd_last_verif_change') {
-        fetchData();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-
-    return () => {
-      if (rtChannel) supabase.removeChannel(rtChannel);
-      if (unsubVerifications) unsubVerifications();
-      window.removeEventListener('ggd_verification_updated', handleVerifUpdated);
-      window.removeEventListener('storage', handleStorage);
-    };
   }, []);
 
   const fetchData = async () => {
@@ -146,22 +97,22 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
         if (b.user_id) bizMap.set(b.user_id, b);
       });
 
-      // Format real database listings
+      // Format database listings
       const rawDbListings = listRes.data || [];
       const dbListings = rawDbListings
         .map((l: any) => {
-          const attachedBiz = l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null);
+          const attachedBiz = l.business_profiles || bizMap.get(l.business_profile_id) || (l.user_id ? bizMap.get(l.user_id) : null) || {
+            id: l.business_profile_id || l.user_id || 'biz-default',
+            business_name: 'Accredited Business',
+            logo_url: null,
+            category_id: l.category_id || null,
+            is_directory_listed: true,
+            address: 'Nigeria',
+            state: null,
+          };
           return {
             ...l,
-            business_profiles: attachedBiz || {
-              id: l.business_profile_id || l.user_id,
-              business_name: l.title || 'Merchant',
-              logo_url: null,
-              category_id: l.category_id || null,
-              is_directory_listed: true,
-              address: 'Nigeria',
-              state: null,
-            },
+            business_profiles: attachedBiz,
           };
         })
         .filter((l: any) => {
@@ -171,14 +122,34 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           return l.is_active !== false;
         });
 
+      // Map showcase items with matching category IDs from loaded categories
+      const mappedShowcase = SHOWCASE_PRODUCTS_AND_SERVICES.map(item => {
+        const matchingCat = loadedCats.find((c: any) => 
+          (c.slug && item.category_slug && c.slug.toLowerCase().includes(item.category_slug.toLowerCase())) ||
+          (c.name && item.category_slug && c.name.toLowerCase().includes(item.category_slug.toLowerCase()))
+        );
+        return {
+          ...item,
+          category_id: matchingCat?.id || item.category_id,
+        };
+      });
+
+      // Combine DB listings and showcase items (avoiding duplicates if DB already has them)
+      const existingIds = new Set(dbListings.map((l: any) => l.id));
+      const combinedListings = [
+        ...dbListings,
+        ...mappedShowcase.filter(s => !existingIds.has(s.id))
+      ];
+
       setBusinesses(allBiz);
       setCategories(loadedCats);
-      setListings(dbListings);
+      setListings(combinedListings);
       if (costRes.data?.value) setDirectoryCost(parseInt(costRes.data.value));
       checkOwnListing();
     } catch (err) {
       console.error('Failed to load directory data:', err);
-      setListings([]);
+      // Fallback to showcase listings even on unexpected network failure
+      setListings(SHOWCASE_PRODUCTS_AND_SERVICES);
     } finally {
       setLoading(false);
     }
@@ -256,22 +227,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
     return null;
   };
 
-  const isBusinessVerified = (b: any): boolean => {
-    if (!b) return false;
-    if (b.is_verified === true || b.verification_status === 'VERIFIED') return true;
-    const uid = b.user_id || b.business_profiles?.user_id;
-    if (uid && verificationsMap.has(uid)) {
-      const v = verificationsMap.get(uid);
-      if (v?.status === 'VERIFIED' && v?.verified_badge_granted) return true;
-    }
-    return false;
-  };
-
   const activeCategoryObj = categories.find(c => c.id === selectedCategory);
-
-  const verifiedBusinessesCount = useMemo(() => {
-    return businesses.filter(b => isBusinessVerified(b)).length;
-  }, [businesses, verificationsMap]);
 
   // Business state counts
   const businessCountByState = businesses.reduce((acc: Record<string, number>, b) => {
@@ -283,7 +239,6 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   }, {});
 
   const filtered = businesses.filter(b => {
-    if (onlyVerified && !isBusinessVerified(b)) return false;
     const q = searchQuery.toLowerCase();
     const bState = getBusinessEffectiveState(b);
     const matchesSearch = !searchQuery || 
@@ -302,7 +257,6 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
   });
 
   const filteredListings = listings.filter(l => {
-    if (onlyVerified && !isBusinessVerified(l.business_profiles)) return false;
     const q = searchQuery.toLowerCase();
     const lState = getBusinessEffectiveState(l.business_profiles);
     const catId = l.category_id || l.business_profiles?.category_id;
@@ -569,18 +523,10 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
 
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar">
             {featuredListings.slice(0, 12).map(l => (
-              <div
+              <button
                 key={l.id}
-                role="button"
-                tabIndex={0}
                 onClick={() => navigate(`/product/${l.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/product/${l.id}`);
-                  }
-                }}
-                className="flex-shrink-0 w-48 text-left rounded-2xl overflow-hidden shadow-sm bg-card border-2 border-amber-400/80 hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between cursor-pointer focus:outline-hidden"
+                className="flex-shrink-0 w-48 text-left rounded-2xl overflow-hidden shadow-sm bg-card border-2 border-amber-400/80 hover:border-orange-500 hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   <div className="relative h-32 bg-gradient-to-br from-orange-500 to-red-500 overflow-hidden">
@@ -620,7 +566,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                   )}
                   <span className="text-[10px] font-bold text-orange-500">View Offer →</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -756,26 +702,8 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           )}
         </div>
 
-        {/* Quick State Filter Chips for Nigeria Commercial Hubs & Verified Filter */}
+        {/* Quick State Filter Chips for Nigeria Commercial Hubs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar text-xs">
-          {/* Verified Only Toggle Button */}
-          <button
-            onClick={() => setOnlyVerified(!onlyVerified)}
-            className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all whitespace-nowrap flex items-center gap-1.5 border shadow-2xs ${
-              onlyVerified
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-            }`}
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Verified Merchants Only</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${onlyVerified ? 'bg-white/25 text-white' : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-200'}`}>
-              {verifiedBusinessesCount}
-            </span>
-          </button>
-
-          <div className="h-4 w-px bg-border/80 mx-1 shrink-0" />
-
           <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap mr-1 flex items-center gap-1">
             <MapPinned className="h-3 w-3 text-rose-500" /> State Hubs:
           </span>
@@ -817,23 +745,10 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
         </div>
 
         {/* Active Filter Pills */}
-        {(selectedCategory !== 'all' || selectedState !== 'all' || searchQuery || onlyVerified) && (
+        {(selectedCategory !== 'all' || selectedState !== 'all' || searchQuery) && (
           <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
             <span className="text-xs text-muted-foreground font-semibold">Active Filter:</span>
             
-            {onlyVerified && (
-              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded-xl px-2.5 py-1 text-xs gap-1">
-                <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> Verified Only
-                <button
-                  onClick={() => setOnlyVerified(false)}
-                  className="hover:text-red-600 ml-1 cursor-pointer"
-                  title="Show All Businesses"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-
             {selectedState !== 'all' && (
               <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 rounded-xl px-2.5 py-1 text-xs gap-1">
                 <MapPin className="h-3 w-3" /> State: {selectedState}
@@ -947,9 +862,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       <h4 className="font-black text-xs text-foreground truncate group-hover:text-rose-600 transition-colors">
                         {biz.business_name}
                       </h4>
-                      {isBusinessVerified(biz) && (
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Verified Merchant" />
-                      )}
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     </div>
                     <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                       {bizCat?.name || 'Accredited Business'}
@@ -1086,12 +999,9 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       key={l.id}
                       className="rounded-3xl overflow-hidden shadow-xs bg-card border border-border/80 hover:border-orange-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between group"
                     >
-                      <div
-                        role="button"
-                        tabIndex={0}
+                      <button
                         onClick={() => navigate(`/product/${l.id}`)}
-                        onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${l.id}`)}
-                        className="text-left w-full cursor-pointer focus:outline-hidden"
+                        className="text-left w-full cursor-pointer"
                       >
                         <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                           {l.image_url ? (
@@ -1112,33 +1022,10 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             </div>
                           )}
                           {l.video_url && (
-                            <div className="absolute top-2 right-10 h-7 w-7 rounded-full bg-black/60 grid place-items-center z-10">
+                            <div className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 grid place-items-center z-10">
                               <Play className="h-3.5 w-3.5 text-white" fill="white" />
                             </div>
                           )}
-                          {/* Favorite button top right overlay */}
-                          <div className="absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
-                            <FavoriteButton
-                              item={{
-                                targetId: l.id,
-                                type: isSrv ? 'service' : 'product',
-                                title: l.title,
-                                subtitle: l.business_profiles?.business_name,
-                                description: l.description,
-                                imageUrl: l.image_url,
-                                price: l.price,
-                                location: getBusinessEffectiveState(l.business_profiles),
-                                category: catObj?.name,
-                                verified: isBusinessVerified(l.business_profiles || l),
-                                linkUrl: `/product/${l.id}`,
-                                businessName: l.business_profiles?.business_name,
-                                businessPhone: l.business_profiles?.phone_number,
-                                businessWebsite: l.business_profiles?.website_link,
-                              }}
-                              variant="overlay"
-                              size="sm"
-                            />
-                          </div>
                           <div className="absolute bottom-2 left-2 z-10">
                             <Badge className={`text-[8px] font-bold border-0 rounded-full px-2 py-0.5 shadow-sm ${
                               isSrv ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'
@@ -1162,7 +1049,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             )}
                           </div>
                         </div>
-                      </div>
+                      </button>
 
                       {/* Card Footer with Category Tag and Details Button */}
                       <div className="p-3 pt-0 space-y-2">
@@ -1223,7 +1110,6 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(biz => {
               const bizCategory = categories.find(c => c.id === biz.category_id);
-              const isBizVerifiedStatus = isBusinessVerified(biz);
               return (
                 <Card 
                   key={biz.id} 
@@ -1245,18 +1131,9 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5">
                           <h3 className="font-black text-sm truncate group-hover:underline">{biz.business_name}</h3>
-                          {isBizVerifiedStatus ? (
-                            <div className="inline-flex items-center gap-1 bg-emerald-500/25 text-emerald-100 border border-emerald-300/40 rounded-full px-1.5 py-0.5 text-[9px] font-black shrink-0 shadow-xs" title="Verified & Accredited Merchant">
-                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-200" />
-                              <span>VERIFIED</span>
-                            </div>
-                          ) : (
-                            <span className="text-[9px] font-bold text-white/80 bg-white/15 px-1.5 py-0.5 rounded-full border border-white/20 shrink-0">
-                              Standard
-                            </span>
-                          )}
+                          <ShieldCheck className="h-4 w-4 text-emerald-300 flex-shrink-0" />
                         </div>
                         <p className="text-[11px] text-white/85 line-clamp-2 leading-relaxed mt-0.5">
                           {getEffectiveBusinessDescription(biz.description, biz.business_name, bizCategory?.name || biz.category_id)}
@@ -1282,29 +1159,8 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <FavoriteButton
-                          item={{
-                            targetId: biz.id,
-                            type: 'business',
-                            title: biz.business_name,
-                            subtitle: bizCategory?.name || 'Accredited Business',
-                            description: biz.description,
-                            imageUrl: biz.logo_url,
-                            location: getBusinessEffectiveState(biz),
-                            category: bizCategory?.name,
-                            verified: isBizVerifiedStatus,
-                            linkUrl: `/business/${biz.id}`,
-                            businessName: biz.business_name,
-                            businessPhone: biz.phone_number,
-                            businessWebsite: biz.website_link,
-                          }}
-                          variant="overlay"
-                          size="sm"
-                        />
-                        <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                          <Eye className="h-4 w-4 text-white" />
-                        </div>
+                      <div className="h-8 w-8 rounded-full bg-white/20 backdrop-blur grid place-items-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        <Eye className="h-4 w-4 text-white" />
                       </div>
                     </div>
 
@@ -1312,7 +1168,7 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                       <div className="flex flex-wrap gap-1.5">
                         {biz.whatsapp_link && (
                           <a
-                            href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : buildWhatsAppLink(biz.whatsapp_link, { message: `Hello ${biz.business_name}, I found your business on GGD Ad Network!` })}
+                            href={biz.whatsapp_link.startsWith('http') ? biz.whatsapp_link : `https://wa.me/${biz.whatsapp_link.replace(/\D/g, '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

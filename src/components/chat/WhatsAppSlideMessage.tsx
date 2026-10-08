@@ -61,9 +61,8 @@ export const WhatsAppSlideMessage: React.FC<WhatsAppSlideMessageProps> = ({
     fetchReactions();
 
     // Sync in real-time across all chat participants
-    const channelName = `reactions-msg-${messageId}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(channelName)
+      .channel(`reactions-msg-${messageId}`)
       .on(
         'postgres_changes',
         {

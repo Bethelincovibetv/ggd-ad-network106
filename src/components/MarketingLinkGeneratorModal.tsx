@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePhone, buildWhatsAppLink } from "@/lib/whatsapp";
 
 interface MarketingLinkGeneratorModalProps {
   open: boolean;
@@ -106,12 +105,13 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
     let linkTitle = customTitle.trim();
 
     if (activeType === 'whatsapp') {
-      const cleanPhone = normalizePhone(waPhone);
+      const cleanPhone = waPhone.replace(/[^\d+]/g, '').replace('+', '');
       if (!cleanPhone || cleanPhone.length < 7) {
         toast.error("Please provide a valid WhatsApp phone number");
         return;
       }
-      destinationUrl = buildWhatsAppLink(cleanPhone, { message: waMessage.trim() || 'Hello, I saw your ad on GGD Ad Network!' });
+      const encodedMsg = encodeURIComponent(waMessage.trim());
+      destinationUrl = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
       if (!linkTitle) linkTitle = 'WhatsApp Direct Contact';
     } else if (activeType === 'storefront') {
       if (myBusinessSlug) {

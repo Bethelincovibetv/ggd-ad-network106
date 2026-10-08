@@ -8,33 +8,27 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   Users, Download, FileSpreadsheet, Settings, CheckCircle2, XCircle, 
   Eye, RefreshCw, Save, Sparkles, ShieldCheck, Search, Filter,
-  Phone, MessageSquare, AlertTriangle, ExternalLink, Trash2, Plus,
-  MapPin, Briefcase, Check, Database
+  Phone, MessageSquare, AlertTriangle, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { 
   fetchCompiledContacts, 
   downloadDailyVCFFile, 
   downloadDailyCSVFile, 
   getActiveContactCampaigns,
-  fetchContactProofs,
+  getLocalProofs,
   reviewContactProof,
   getContactGainSettings,
   updateContactGainSettings,
-  registerContactInGainPool,
-  deleteContactFromGainPool,
   ContactEntry,
   ContactCampaign,
   ContactProofSubmission,
-  ContactGainSettings,
-  sanitizePhoneNumber
+  ContactGainSettings
 } from "@/services/contactGainService";
-import { NIGERIAN_STATES } from "@/utils/nigerianStates";
-import { playMoneyTransferSound } from "@/utils/audio";
+import { playMoneyTransferSound, playNotificationChime } from "@/utils/audio";
 
 export const AdminContactGainManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'contacts' | 'proofs' | 'campaigns' | 'add' | 'settings'>('contacts');
+  const [activeTab, setActiveTab] = useState<'contacts' | 'proofs' | 'campaigns' | 'settings'>('contacts');
   const [contacts, setContacts] = useState<ContactEntry[]>([]);
   const [campaigns, setCampaigns] = useState<ContactCampaign[]>([]);
   const [proofs, setProofs] = useState<ContactProofSubmission[]>([]);
@@ -49,31 +43,20 @@ export const AdminContactGainManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedState, setSelectedState] = useState('all');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  // Add Contact Form State
-  const [addName, setAddName] = useState('');
-  const [addPhone, setAddPhone] = useState('');
-  const [addWhatsapp, setAddWhatsapp] = useState('');
-  const [addBusiness, setAddBusiness] = useState('');
-  const [addState, setAddState] = useState('Lagos');
-  const [addIndustry, setAddIndustry] = useState('Commerce & Retail');
-  const [isAdding, setIsAdding] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [s, c, camp, p] = await Promise.all([
+      const [s, c, camp] = await Promise.all([
         getContactGainSettings(),
         fetchCompiledContacts(),
         getActiveContactCampaigns(),
-        fetchContactProofs(),
       ]);
       setSettings(s);
       setContacts(c);
       setCampaigns(camp);
-      setProofs(p);
+      setProofs(getLocalProofs());
     } catch (err) {
       console.error('Failed to load admin contact gain data:', err);
     } finally {
@@ -91,9 +74,9 @@ export const AdminContactGainManager: React.FC = () => {
     try {
       const ok = await updateContactGainSettings(settings);
       if (ok) {
-        toast.success("Contact Gain platform settings saved to Firebase Firestore!");
+        toast.success("Contact Gain platform settings saved successfully!");
       } else {
-        toast.error("Failed to update settings in Firestore");
+        toast.error("Failed to update settings");
       }
     } catch (err: any) {
       toast.error(err?.message || "Error saving settings");
@@ -107,7 +90,7 @@ export const AdminContactGainManager: React.FC = () => {
       const res = await reviewContactProof(proofId, 'approved');
       if (res.success) {
         setProofs(prev => prev.map(p => p.id === proofId ? { ...p, status: 'approved' } : p));
-        toast.success("Proof approved in Firebase! Reward credits credited to user.");
+        toast.success("Proof approved! Reward credits credited to the user.");
         playMoneyTransferSound();
       } else {
         toast.error(res.error || "Failed to approve proof");
@@ -118,12 +101,14 @@ export const AdminContactGainManager: React.FC = () => {
   };
 
   const handleRejectProof = async (proofId: string) => {
-    const reason = prompt("Enter rejection reason (optional):") || "Proof screenshot was unclear or invalid.";
+    const reason = window.prompt("Enter rejection reason (optional):", "Screenshot does not clearly show contact saved in phonebook.");
+    if (reason === null) return;
+
     try {
       const res = await reviewContactProof(proofId, 'rejected', reason);
       if (res.success) {
         setProofs(prev => prev.map(p => p.id === proofId ? { ...p, status: 'rejected', rejection_reason: reason } : p));
-        toast.info("Proof rejected.");
+        toast.info("Proof marked as rejected.");
       } else {
         toast.error(res.error || "Failed to reject proof");
       }
@@ -132,277 +117,155 @@ export const AdminContactGainManager: React.FC = () => {
     }
   };
 
-  const handleDeleteContact = async (contact: ContactEntry) => {
-    if (!confirm(`Permanently delete contact "${contact.name}" (${contact.phone})?`)) return;
-    try {
-      if (contact.source === 'firestore' || contact.id.startsWith('ct_')) {
-        await deleteContactFromGainPool(contact.id);
-      }
-      setContacts(prev => prev.filter(c => c.id !== contact.id && c.phone !== contact.phone));
-      toast.success(`Contact "${contact.name}" removed from phonebook.`);
-    } catch {
-      toast.error("Failed to delete contact");
-    }
-  };
+  const filteredContacts = contacts.filter(c => 
+    !searchQuery ||
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.business_name && c.business_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    c.phone.includes(searchQuery) ||
+    c.state.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleAddContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addName.trim() || !addPhone.trim()) {
-      toast.error("Name and phone number are required.");
-      return;
-    }
-
-    setIsAdding(true);
-    try {
-      const res = await registerContactInGainPool({
-        userId: 'admin_verified',
-        name: addName.trim(),
-        phone: addPhone.trim(),
-        whatsapp: addWhatsapp.trim() || addPhone.trim(),
-        businessName: addBusiness.trim() || undefined,
-        state: addState,
-        industry: addIndustry,
-      });
-
-      if (res.success && res.entry) {
-        setContacts(prev => [res.entry!, ...prev]);
-        toast.success(`🎉 Verified contact "${addName}" added to Firebase Phonebook!`);
-        setAddName('');
-        setAddPhone('');
-        setAddWhatsapp('');
-        setAddBusiness('');
-        setActiveTab('contacts');
-      } else {
-        toast.error(res.error || "Failed to add contact");
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Error adding contact");
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const filteredContacts = contacts.filter(c => {
-    const matchesQuery = !searchQuery || 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.business_name && c.business_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      c.phone.includes(searchQuery);
-    const matchesState = selectedState === 'all' || c.state.toLowerCase() === selectedState.toLowerCase();
-    return matchesQuery && matchesState;
-  });
+  const pendingProofs = proofs.filter(p => p.status === 'pending');
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="rounded-3xl bg-gradient-to-br from-neutral-950 via-gray-900 to-orange-950 border-2 border-orange-500/40 p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-3xl bg-card border border-border shadow-sm">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs font-black">
-            <Database className="h-3.5 w-3.5 text-amber-400" /> FIREBASE FIRESTORE BACKEND
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-foreground">Contact Gain Administration</h2>
+            <Badge className="bg-orange-500/15 text-orange-600 font-bold border-none text-xs">
+              OFFICIAL SYSTEM
+            </Badge>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-            Contact Gain Master Management
-          </h2>
-          <p className="text-xs text-neutral-300 max-w-xl">
-            Real-time verified Nigerian entrepreneur phonebook compilation, Save-My-Contact campaigns, screenshot proof reviews, and automated daily rewards.
+          <p className="text-xs text-muted-foreground">
+            Manage daily compiled user contacts, VCF/CSV generation, credit rewards, and proof approvals.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            size="sm"
-            onClick={loadData}
-            variant="outline"
-            disabled={loading}
-            className="h-10 px-3 rounded-xl bg-neutral-900/80 text-white border-neutral-700 text-xs font-bold gap-1.5"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             onClick={() => downloadDailyVCFFile()}
-            className="h-10 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs font-bold gap-1.5 shadow-md shadow-orange-500/20"
+            className="rounded-xl h-10 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
           >
-            <Download className="h-3.5 w-3.5" /> Export .VCF ({contacts.length})
+            <Download className="h-3.5 w-3.5" /> Export VCF
           </Button>
 
           <Button
             size="sm"
-            onClick={() => downloadDailyCSVFile()}
             variant="outline"
-            className="h-10 px-3 rounded-xl bg-neutral-900/80 text-neutral-200 border-neutral-700 text-xs font-bold gap-1.5"
+            onClick={() => downloadDailyCSVFile()}
+            className="rounded-xl h-10 text-xs font-bold gap-1.5"
           >
-            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" /> CSV
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" /> Export CSV
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadData}
+            className="rounded-xl h-10 w-10 p-0"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="rounded-2xl border border-border p-4 bg-card shadow-sm">
-          <p className="text-xs text-muted-foreground font-semibold">Total Verified Contacts</p>
-          <p className="text-2xl font-black text-foreground mt-1">{contacts.length}</p>
-          <p className="text-[11px] text-emerald-600 font-bold mt-0.5">Firebase Live</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-border p-4 bg-card shadow-sm">
-          <p className="text-xs text-muted-foreground font-semibold">Active Campaigns</p>
-          <p className="text-2xl font-black text-orange-600 mt-1">{campaigns.length}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Paid Contact Tasks</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-border p-4 bg-card shadow-sm">
-          <p className="text-xs text-muted-foreground font-semibold">Pending Proofs</p>
-          <p className="text-2xl font-black text-amber-600 mt-1">
-            {proofs.filter(p => p.status === 'pending').length}
-          </p>
-          <p className="text-[11px] text-amber-600 font-bold mt-0.5">Awaiting Review</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-border p-4 bg-card shadow-sm">
-          <p className="text-xs text-muted-foreground font-semibold">Daily Download Reward</p>
-          <p className="text-2xl font-black text-emerald-600 mt-1">+{settings.daily_download_reward} Cr</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Per User / Day</p>
-        </Card>
-      </div>
-
-      {/* Main Tabs */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="grid grid-cols-5 w-full h-12 p-1 bg-card border border-border rounded-2xl">
-          <TabsTrigger value="contacts" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <Users className="h-3.5 w-3.5" /> Contacts ({contacts.length})
+        <TabsList className="grid grid-cols-4 w-full h-12 p-1 bg-muted/60 border border-border rounded-2xl">
+          <TabsTrigger value="contacts" className="rounded-xl text-xs font-bold gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Compiled ({contacts.length})
           </TabsTrigger>
-          <TabsTrigger value="proofs" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Proofs ({proofs.filter(p => p.status === 'pending').length})
+          <TabsTrigger value="proofs" className="rounded-xl text-xs font-bold gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Proofs ({pendingProofs.length} pending)
           </TabsTrigger>
-          <TabsTrigger value="campaigns" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+          <TabsTrigger value="campaigns" className="rounded-xl text-xs font-bold gap-1.5">
             <Sparkles className="h-3.5 w-3.5" /> Campaigns ({campaigns.length})
           </TabsTrigger>
-          <TabsTrigger value="add" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <Plus className="h-3.5 w-3.5" /> Add Contact
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <Settings className="h-3.5 w-3.5" /> Settings
+          <TabsTrigger value="settings" className="rounded-xl text-xs font-bold gap-1.5">
+            <Settings className="h-3.5 w-3.5" /> Rewards & Config
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: COMPILED CONTACTS LIST */}
+        {/* TAB 1: COMPILED CONTACTS */}
         <TabsContent value="contacts" className="space-y-4 mt-6">
-          <div className="bg-card border border-border rounded-2xl p-4 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filter by name, business name, or phone number..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 rounded-xl text-xs"
-                />
-              </div>
-
-              <select
-                value={selectedState}
-                onChange={e => setSelectedState(e.target.value)}
-                className="h-10 px-3 rounded-xl border border-input bg-background text-xs font-medium w-full sm:w-48"
-              >
-                <option value="all">All States ({contacts.length})</option>
-                {NIGERIAN_STATES.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+          <div className="flex items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by name, phone, business, state..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-9 h-10 rounded-xl text-xs"
+              />
             </div>
+            <span className="text-xs font-bold text-muted-foreground">
+              Showing {filteredContacts.length} of {contacts.length} Contacts
+            </span>
+          </div>
 
-            {filteredContacts.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground space-y-2">
-                <Users className="h-10 w-10 mx-auto opacity-30 text-muted-foreground" />
-                <p className="font-bold text-sm text-foreground">No Contacts Found</p>
-                <p className="text-xs">Try adjusting your search filter or add new contacts directly.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border border rounded-2xl overflow-hidden bg-background">
-                {filteredContacts.map(c => (
-                  <div key={c.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white font-black text-xs flex-shrink-0 shadow-sm">
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-xs text-foreground truncate">{c.name}</p>
-                          {c.is_verified && (
-                            <ShieldCheck className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                          )}
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 uppercase">
-                            {c.source || 'verified'}
-                          </Badge>
-                        </div>
-                        <p className="text-[11px] font-mono text-muted-foreground truncate">{c.phone}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          {c.business_name ? `${c.business_name} • ` : ''}{c.state} • {c.industry}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <a
-                        href={buildWhatsAppLink(c.whatsapp || c.phone, { message: `Hello ${c.name}, reaching out from GGD Ad Network Admin.` })}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 flex items-center justify-center transition-colors"
-                        title="Open WhatsApp"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                      </a>
-                      <a
-                        href={`tel:${c.phone}`}
-                        className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 flex items-center justify-center transition-colors"
-                        title="Call"
-                      >
-                        <Phone className="h-3.5 w-3.5" />
-                      </a>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleDeleteContact(c)}
-                        className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                        title="Delete Contact"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/60 border-b border-border text-muted-foreground font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="p-3.5">Name</th>
+                    <th className="p-3.5">Business Name</th>
+                    <th className="p-3.5">Phone / WhatsApp</th>
+                    <th className="p-3.5">State</th>
+                    <th className="p-3.5">Industry</th>
+                    <th className="p-3.5">Joined</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredContacts.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-3.5 font-bold text-foreground">{c.name}</td>
+                      <td className="p-3.5 text-muted-foreground">{c.business_name || '—'}</td>
+                      <td className="p-3.5 font-mono font-semibold text-foreground">{c.phone}</td>
+                      <td className="p-3.5">
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          {c.state}
+                        </Badge>
+                      </td>
+                      <td className="p-3.5 text-muted-foreground">{c.industry}</td>
+                      <td className="p-3.5 text-muted-foreground">
+                        {new Date(c.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </TabsContent>
 
         {/* TAB 2: PROOFS REVIEW */}
         <TabsContent value="proofs" className="space-y-4 mt-6">
-          <Card className="rounded-3xl border border-border p-6 bg-card shadow-sm">
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base font-black text-foreground">
-                Proof Screenshot Verification
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Review submitted screenshots of saved contacts. Approving immediately credits the user's wallet.
-              </CardDescription>
-            </CardHeader>
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+            <h3 className="font-bold text-sm text-foreground mb-1">
+              "Save My Contact" Proof Appeals & Verifications
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Review user screenshots confirming they have saved merchant contacts into their phonebook.
+            </p>
 
             {proofs.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground space-y-2">
-                <CheckCircle2 className="h-10 w-10 mx-auto opacity-30" />
-                <p className="font-bold text-sm text-foreground">No Proof Submissions Yet</p>
-                <p className="text-xs">User submissions for saving contacts will appear here in real-time.</p>
+              <div className="py-12 text-center text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 mx-auto opacity-30 mb-2" />
+                <p className="font-bold text-sm">No Proofs Submitted Yet</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-border">
                 {proofs.map(p => (
-                  <div key={p.id} className="p-4 rounded-2xl border border-border bg-background flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-foreground truncate">
-                          {p.campaign_title || 'Contact Campaign'}
+                  <div key={p.id} className="py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-lg">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-foreground">
+                          {p.user_name}
                         </span>
                         <Badge className={`text-[10px] font-bold ${
                           p.status === 'approved' 
@@ -413,25 +276,29 @@ export const AdminContactGainManager: React.FC = () => {
                         }`}>
                           {p.status.toUpperCase()}
                         </Badge>
+                        <span className="text-xs font-bold text-emerald-600">
+                          +{p.reward_credits} Credits
+                        </span>
                       </div>
-
                       <p className="text-xs text-muted-foreground">
-                        User: <strong className="text-foreground">{p.user_name}</strong> • Phone: <span className="font-mono">{p.user_phone || 'N/A'}</span>
+                        Target Campaign: <strong>{p.campaign_title || p.campaign_id}</strong>
                       </p>
-                      <p className="text-xs text-emerald-600 font-bold">
-                        Reward: +{p.reward_credits} Credits • {new Date(p.created_at).toLocaleString()}
-                      </p>
-                      {p.rejection_reason && (
-                        <p className="text-xs text-rose-500 italic">Reason: {p.rejection_reason}</p>
+                      {p.user_phone && (
+                        <p className="text-xs font-mono text-muted-foreground">
+                          User WhatsApp: {p.user_phone}
+                        </p>
                       )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Submitted on {new Date(p.created_at).toLocaleString()}
+                      </p>
                     </div>
 
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setPreviewImage(p.screenshot_url)}
-                        className="h-9 px-3 rounded-xl text-xs font-bold gap-1 flex-1 sm:flex-initial"
+                        className="rounded-xl h-9 text-xs font-bold gap-1"
                       >
                         <Eye className="h-3.5 w-3.5" /> View Screenshot
                       </Button>
@@ -441,15 +308,16 @@ export const AdminContactGainManager: React.FC = () => {
                           <Button
                             size="sm"
                             onClick={() => handleApproveProof(p.id)}
-                            className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1 flex-1 sm:flex-initial"
+                            className="rounded-xl h-9 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Approve & Credit
                           </Button>
+
                           <Button
                             size="sm"
                             variant="destructive"
                             onClick={() => handleRejectProof(p.id)}
-                            className="h-9 px-3 rounded-xl text-xs font-bold gap-1 flex-1 sm:flex-initial"
+                            className="rounded-xl h-9 text-xs font-bold gap-1"
                           >
                             <XCircle className="h-3.5 w-3.5" /> Reject
                           </Button>
@@ -460,204 +328,113 @@ export const AdminContactGainManager: React.FC = () => {
                 ))}
               </div>
             )}
-          </Card>
+          </div>
         </TabsContent>
 
         {/* TAB 3: CAMPAIGNS */}
         <TabsContent value="campaigns" className="space-y-4 mt-6">
-          <Card className="rounded-3xl border border-border p-6 bg-card shadow-sm">
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base font-black text-foreground">
-                Active "Save My Contact" Campaigns ({campaigns.length})
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Sponsored campaigns launched by merchants to grow their WhatsApp status viewership.
-              </CardDescription>
-            </CardHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {campaigns.map(camp => (
+              <Card key={camp.id} className="border border-border rounded-2xl p-4 bg-card space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <Badge className="bg-orange-500/15 text-orange-600 text-[10px] font-bold">
+                      {camp.status.toUpperCase()}
+                    </Badge>
+                    <h4 className="font-bold text-sm text-foreground mt-1">{camp.title}</h4>
+                    <p className="text-xs text-muted-foreground">{camp.contact_name} • {camp.contact_phone}</p>
+                  </div>
+                  <Badge className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
+                    +{camp.reward_per_save} Credits / Save
+                  </Badge>
+                </div>
 
-            {campaigns.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground space-y-2">
-                <Sparkles className="h-10 w-10 mx-auto opacity-30 text-orange-400" />
-                <p className="font-bold text-sm text-foreground">No Active Campaigns</p>
-                <p className="text-xs">User created campaigns will appear here.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {campaigns.map(camp => (
-                  <Card key={camp.id} className="p-4 rounded-2xl border border-border bg-background space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-foreground">{camp.title}</h4>
-                        <p className="text-xs text-muted-foreground font-mono">{camp.contact_phone}</p>
-                      </div>
-                      <Badge className="bg-orange-500/15 text-orange-600 font-bold text-[10px]">
-                        +{camp.reward_per_save} Cr / Save
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Progress</span>
-                        <span className="font-bold text-foreground">{camp.completed_saves} / {camp.total_target} saves</span>
-                      </div>
-                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full"
-                          style={{ width: `${Math.min(100, (camp.completed_saves / Math.max(1, camp.total_target)) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border">
-                      <span>Owner: {camp.user_email || camp.contact_name}</span>
-                      <span>Budget: {camp.budget_credits} Cr</span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </Card>
+                <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-2">
+                  <span>Progress: <strong>{camp.completed_saves} / {camp.total_target}</strong></span>
+                  <span>State: <strong>{camp.state}</strong></span>
+                </div>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
-        {/* TAB 4: ADD CONTACT */}
-        <TabsContent value="add" className="mt-6">
-          <Card className="border-2 border-orange-500/30 rounded-3xl p-6 shadow-md max-w-xl mx-auto bg-card">
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-lg font-black text-foreground flex items-center gap-2">
-                <Plus className="h-5 w-5 text-orange-500" />
-                Add Verified Contact to Firebase Phonebook
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Add an official Nigerian merchant or entrepreneur contact directly into the daily compiled VCF pool.
-              </CardDescription>
-            </CardHeader>
-
-            <form onSubmit={handleAddContactSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-foreground">Contact Name *</label>
-                <Input
-                  required
-                  placeholder="e.g. Bethel Chukwunyere"
-                  value={addName}
-                  onChange={e => setAddName(e.target.value)}
-                  className="h-10 rounded-xl text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-foreground">Business / Store Name</label>
-                <Input
-                  placeholder="e.g. Goodgift Digital"
-                  value={addBusiness}
-                  onChange={e => setAddBusiness(e.target.value)}
-                  className="h-10 rounded-xl text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">Phone Number *</label>
-                  <Input
-                    required
-                    type="tel"
-                    placeholder="e.g. +234 801 234 5678"
-                    value={addPhone}
-                    onChange={e => setAddPhone(e.target.value)}
-                    className="h-10 rounded-xl text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">WhatsApp Number</label>
-                  <Input
-                    type="tel"
-                    placeholder="e.g. +234 801 234 5678"
-                    value={addWhatsapp}
-                    onChange={e => setAddWhatsapp(e.target.value)}
-                    className="h-10 rounded-xl text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">State</label>
-                  <select
-                    value={addState}
-                    onChange={e => setAddState(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-input bg-background text-xs"
-                  >
-                    {NIGERIAN_STATES.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">Industry</label>
-                  <Input
-                    placeholder="e.g. Fashion, Real Estate"
-                    value={addIndustry}
-                    onChange={e => setAddIndustry(e.target.value)}
-                    className="h-10 rounded-xl text-xs"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isAdding}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-orange-500/20"
-              >
-                {isAdding ? 'Saving to Firebase...' : 'Add to Firebase Phonebook'}
-              </Button>
-            </form>
-          </Card>
-        </TabsContent>
-
-        {/* TAB 5: SETTINGS */}
+        {/* TAB 4: CONFIGURATION & REWARDS */}
         <TabsContent value="settings" className="mt-6">
-          <Card className="rounded-3xl border border-border p-6 bg-card shadow-sm max-w-xl mx-auto">
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-base font-black text-foreground">
-                Contact Gain System Configuration
+          <Card className="rounded-3xl border border-border p-6 bg-card max-w-xl shadow-sm">
+            <CardHeader className="p-0 mb-6">
+              <CardTitle className="text-lg font-black text-foreground">
+                Contact Gain Rewards & System Config
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Configured centrally in Firebase Firestore.
+                Configure reward credit amounts for daily file downloads and individual contact saves.
               </CardDescription>
             </CardHeader>
 
             <form onSubmit={handleSaveSettings} className="space-y-4">
-              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/50 border border-border">
-                <div className="space-y-0.5">
-                  <label className="text-xs font-bold text-foreground">Enable Contact Gain Module</label>
-                  <p className="text-[11px] text-muted-foreground">Allow users to download phonebook and earn credits</p>
-                </div>
-                <Switch
-                  checked={settings.is_enabled}
-                  onCheckedChange={c => setSettings(prev => ({ ...prev, is_enabled: c }))}
-                />
-              </div>
-
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">Daily VCF Download Reward (Credits)</label>
+                <label className="text-xs font-bold text-foreground">
+                  Daily VCF Download Reward (Credits)
+                </label>
                 <Input
                   type="number"
+                  min="0"
+                  max="500"
                   value={settings.daily_download_reward}
-                  onChange={e => setSettings(prev => ({ ...prev, daily_download_reward: parseInt(e.target.value, 10) || 0 }))}
-                  className="h-10 rounded-xl text-xs"
+                  onChange={e => setSettings(s => ({ ...s, daily_download_reward: parseInt(e.target.value, 10) || 0 }))}
+                  className="h-11 rounded-xl"
                 />
-                <p className="text-[10px] text-muted-foreground">Credited once every 24 hours per user.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Credits awarded to a user once per day when they download today's compiled contact file.
+                </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">Default Reward Per Save (Credits)</label>
+                <label className="text-xs font-bold text-foreground">
+                  Default Save My Contact Reward (Credits)
+                </label>
                 <Input
                   type="number"
+                  min="1"
+                  max="200"
                   value={settings.save_contact_default_reward}
-                  onChange={e => setSettings(prev => ({ ...prev, save_contact_default_reward: parseInt(e.target.value, 10) || 0 }))}
-                  className="h-10 rounded-xl text-xs"
+                  onChange={e => setSettings(s => ({ ...s, save_contact_default_reward: parseInt(e.target.value, 10) || 15 }))}
+                  className="h-11 rounded-xl"
                 />
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Enable Contact Gain System</p>
+                    <p className="text-[11px] text-muted-foreground">Allow users to download contacts and launch campaigns.</p>
+                  </div>
+                  <Switch
+                    checked={settings.is_enabled}
+                    onCheckedChange={v => setSettings(s => ({ ...s, is_enabled: v }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Auto-Compile Contacts Daily</p>
+                    <p className="text-[11px] text-muted-foreground">Automatically aggregate all newly registered members.</p>
+                  </div>
+                  <Switch
+                    checked={settings.auto_compile_daily}
+                    onCheckedChange={v => setSettings(s => ({ ...s, auto_compile_daily: v }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Show Contact Gain on Feed & Directory</p>
+                    <p className="text-[11px] text-muted-foreground">Display interactive promo cards in community stream.</p>
+                  </div>
+                  <Switch
+                    checked={settings.show_on_feed}
+                    onCheckedChange={v => setSettings(s => ({ ...s, show_on_feed: v }))}
+                  />
+                </div>
               </div>
 
               <Button
@@ -665,7 +442,7 @@ export const AdminContactGainManager: React.FC = () => {
                 disabled={savingSettings}
                 className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs"
               >
-                {savingSettings ? 'Saving to Firebase...' : 'Save Settings to Firebase'}
+                {savingSettings ? 'Saving...' : 'Save Configuration'}
               </Button>
             </form>
           </Card>
@@ -674,30 +451,20 @@ export const AdminContactGainManager: React.FC = () => {
 
       {/* Screenshot Preview Modal */}
       {previewImage && (
-        <div 
-          onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"
-        >
-          <div className="max-w-2xl w-full bg-card rounded-3xl p-4 shadow-2xl relative space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="max-w-lg w-full bg-card rounded-3xl p-4 space-y-3 border border-border">
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-sm text-foreground">Screenshot Proof Preview</h4>
-              <Button size="sm" variant="ghost" onClick={() => setPreviewImage(null)} className="h-8 w-8 rounded-full">
+              <h4 className="font-bold text-sm text-foreground">Proof Screenshot Preview</h4>
+              <Button size="sm" variant="ghost" onClick={() => setPreviewImage(null)} className="h-8 w-8 p-0 rounded-full">
                 ✕
               </Button>
             </div>
-            <div className="max-h-[75vh] overflow-auto rounded-2xl border border-border bg-black/50 flex items-center justify-center">
-              <img src={previewImage} alt="Proof" className="max-w-full h-auto object-contain rounded-xl" />
+            <div className="rounded-2xl overflow-hidden bg-black flex items-center justify-center max-h-[70vh]">
+              <img src={previewImage} alt="Proof" className="max-h-[65vh] object-contain" />
             </div>
-            <div className="flex justify-end">
-              <a
-                href={previewImage}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-orange-600 hover:underline font-bold inline-flex items-center gap-1"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
-              </a>
-            </div>
+            <Button onClick={() => setPreviewImage(null)} className="w-full rounded-xl">
+              Close Preview
+            </Button>
           </div>
         </div>
       )}

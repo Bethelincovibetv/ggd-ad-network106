@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Megaphone, ExternalLink, Share2 } from 'lucide-react';
+import { Megaphone, ExternalLink } from 'lucide-react';
 
-interface Props { ad: any; currentUserId?: string | null }
+interface Props { ad: any }
 
 /** Active Banner Adverts rendered as clearly-labelled sponsored feed posts.
  *  Reuses the existing `ads` table plus its impression/click counters. */
@@ -22,15 +22,6 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
     await supabase.from('ads').update({ clicks: (ad.clicks || 0) + 1 }).eq('id', ad.id);
     await supabase.from('ad_events').insert({ ad_id: ad.id, event_type: 'click' });
     window.open(ad.target_url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleShare = () => {
-    const shareText = `Check out "${ad.title}" on GGD Ad Network`;
-    if (navigator.share) {
-      navigator.share({ title: ad.title, text: ad.description || shareText, url: ad.target_url }).catch(() => {});
-    } else {
-      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${ad.target_url}`)}`, '_blank');
-    }
   };
 
   return (
@@ -52,20 +43,13 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
           <p className="px-3 pb-2 text-[14px] leading-snug whitespace-pre-wrap break-words">{ad.description}</p>
         )}
         {ad.image_url && (
-          <button onClick={open} className="block w-full bg-slate-950/[0.03] dark:bg-black/20 p-1 sm:p-2 overflow-hidden focus:outline-none">
-            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full h-auto max-h-[460px] object-contain block mx-auto rounded-lg hover:scale-[1.01] transition-transform duration-300" />
+          <button onClick={open} className="block w-full">
+            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full max-h-[420px] object-cover" />
           </button>
         )}
-        <div className="p-3 grid grid-cols-2 gap-2">
-          <Button onClick={open} className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-bold text-xs">
+        <div className="p-3">
+          <Button onClick={open} className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-bold">
             <ExternalLink className="h-4 w-4 mr-1.5" /> Learn more
-          </Button>
-          <Button
-            onClick={handleShare}
-            variant="outline"
-            className="h-11 rounded-xl font-bold text-xs"
-          >
-            <Share2 className="h-4 w-4 mr-1.5" /> Share
           </Button>
         </div>
       </CardContent>

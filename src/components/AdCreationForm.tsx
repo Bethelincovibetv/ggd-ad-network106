@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,9 +6,8 @@ import AICampaignAssistant from "@/components/AICampaignAssistant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins, Users, MessageCircle, Store } from "lucide-react";
+import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -35,23 +34,6 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
   });
   const [step, setStep] = useState(1);
   const [linkGenOpen, setLinkGenOpen] = useState(false);
-  const [myBusiness, setMyBusiness] = useState<any>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase
-            .from('business_profiles')
-            .select('whatsapp_group_link, whatsapp_link, phone_number, business_slug, business_name')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (data) setMyBusiness(data);
-        }
-      } catch {}
-    })();
-  }, []);
 
   const getPriceForDuration = (days: number) => days * 1.00;
 
@@ -335,51 +317,6 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
                 onChange={(e) => setNewAd({ ...newAd, targetUrl: e.target.value })}
                 className="h-12 rounded-2xl border-border/40 bg-muted/30 text-sm font-medium placeholder:text-muted-foreground/50 focus:bg-background transition-colors"
               />
-
-              {/* Quick Destination Presets */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Quick Fill:</span>
-                {myBusiness?.whatsapp_group_link && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAd({ ...newAd, targetUrl: myBusiness.whatsapp_group_link });
-                      toast.success('Inserted your WhatsApp Group link!');
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30 text-[11px] font-bold transition-colors"
-                  >
-                    <Users className="h-3 w-3 text-green-600" />
-                    WhatsApp Group
-                  </button>
-                )}
-                {myBusiness?.business_slug && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const storefrontUrl = `${window.location.origin}/b/${myBusiness.business_slug}`;
-                      setNewAd({ ...newAd, targetUrl: storefrontUrl });
-                      toast.success('Inserted your Storefront link!');
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-[11px] font-bold transition-colors"
-                  >
-                    <Store className="h-3 w-3 text-blue-600" />
-                    My Storefront
-                  </button>
-                )}
-                {myBusiness?.whatsapp_link && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAd({ ...newAd, targetUrl: myBusiness.whatsapp_link });
-                      toast.success('Inserted your direct WhatsApp link!');
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-colors"
-                  >
-                    <MessageCircle className="h-3 w-3 text-emerald-600" />
-                    WhatsApp Chat
-                  </button>
-                )}
-              </div>
               <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="text-[11px] text-orange-700 dark:text-orange-300 leading-snug">
                   Don't have a website link? Generate a trackable WhatsApp chat link or Business Storefront link.

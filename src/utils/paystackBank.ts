@@ -45,28 +45,33 @@ export async function resolveBankAccountPaystack(
     console.warn('Could not read app_settings:', err);
   }
 
-  let lastError: string | null = null;
-
   // 1. Try server proxy endpoint first (avoids browser CORS & uses live Paystack backend connection)
   try {
     const sUrl = `/api/paystack/resolve-account?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}&bank_name=${encodeURIComponent(bankName)}${preferredName ? `&account_name=${encodeURIComponent(preferredName)}` : ''}${secretKey ? `&secret_key=${encodeURIComponent(secretKey)}` : ''}`;
     const sResp = await fetch(sUrl);
-    if (sResp.ok) {
-      const sData = await sResp.json();
-      if (sData.success && sData.account_name) {
-        return {
-          success: true,
-          verified: Boolean(sData.verified ?? true),
-          account_name: sData.account_name,
-          account_number: sData.account_number || cleanAcc,
-          bank_code: sData.bank_code || resolvedBankCode,
-          bank_name: bankName,
-          warning: sData.warning,
-        };
-      }
-      if (sData.error) {
-        lastError = sData.error;
-      }
+    const sData = await sResp.json();
+    if (sData.success && sData.account_name) {
+      return {
+        success: true,
+        verified: Boolean(sData.verified ?? true),
+        account_name: sData.account_name,
+        account_number: sData.account_number || cleanAcc,
+        bank_code: sData.bank_code || resolvedBankCode,
+        bank_name: bankName,
+        warning: sData.warning,
+      };
+    }
+
+    if (sData.error) {
+      // If server returned an explicit error from Paystack
+      return {
+        success: false,
+        verified: false,
+        error: sData.error,
+        account_number: cleanAcc,
+        bank_code: resolvedBankCode,
+        bank_name: bankName,
+      };
     }
   } catch (srvErr) {
     console.warn('Server resolve proxy notice:', srvErr);
@@ -95,44 +100,20 @@ export async function resolveBankAccountPaystack(
     }
 
     if (data?.error) {
-      lastError = data.error;
+      return {
+        success: false,
+        verified: false,
+        error: data.error,
+        account_number: cleanAcc,
+        bank_code: resolvedBankCode,
+        bank_name: bankName,
+      };
     }
   } catch (edgeErr) {
     console.warn('Edge function resolve notice:', edgeErr);
   }
 
-  // 3. If secretKey is available, try direct Paystack client call as fallback
-  if (secretKey) {
-    try {
-      const pRes = await fetch(
-        `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(cleanAcc)}&bank_code=${encodeURIComponent(resolvedBankCode)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${secretKey.trim()}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      const pData = await pRes.json();
-      if (pData?.status && pData?.data?.account_name) {
-        return {
-          success: true,
-          verified: true,
-          account_name: pData.data.account_name,
-          account_number: cleanAcc,
-          bank_code: resolvedBankCode,
-          bank_name: bankName,
-        };
-      }
-      if (pData?.message) {
-        lastError = pData.message;
-      }
-    } catch (directErr) {
-      console.warn('Direct Paystack resolve notice:', directErr);
-    }
-  }
-
-  // 4. If user provided a manual preferred name and live verification was unavailable
+  // If user provided a manual preferred name and live verification was unavailable
   if (preferredName && preferredName.trim()) {
     return {
       success: true,
@@ -148,7 +129,7 @@ export async function resolveBankAccountPaystack(
   return {
     success: false,
     verified: false,
-    error: lastError || 'Could not resolve account name with Paystack. Please check the account number and selected bank.',
+    error: 'Could not resolve account name with Paystack. Please check the account number and selected bank.',
     account_number: cleanAcc,
     bank_code: resolvedBankCode,
     bank_name: bankName,
@@ -526,8 +507,8 @@ export async function directUpdateSyndicateSubaccountWithPin(
     const secretKey = settings?.find(s => s.key === 'paystack_secret_key')?.value;
     const effectivePct = parseInt(settings?.find(s => s.key === 'syndicate_payout_percentage')?.value || '70', 10) || 70;
 
-    let updatedSubaccountCode = subaccountCode || (currentProfile as any)?.paystack_subaccount_code || null;
-    let updatedSubaccountId = subaccountId || (currentProfile as any)?.paystack_subaccount_id || null;
+    let updatedSubaccountCode = subaccountCode || currentProfile?.paystack_subaccount_code || null;
+    let updatedSubaccountId = subaccountId || currentProfile?.paystack_subaccount_id || null;
 
     // 3. Call server update-subaccount API route using the existing subaccount code/id
     try {

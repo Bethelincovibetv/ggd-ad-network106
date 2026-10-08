@@ -1,46 +1,29 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { initializeFirestore, getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// CRITICAL: Initialize Firestore using the configured database ID
-// with auto-detect long polling and ignoreUndefinedProperties for seamless connectivity
-const firestoreDbId = (firebaseConfig as any)?.firestoreDatabaseId?.trim() || undefined;
-
-export const db = (() => {
-  try {
-    return initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-      ignoreUndefinedProperties: true,
-    }, firestoreDbId);
-  } catch {
-    return getFirestore(app, firestoreDbId);
-  }
-})();
-
+// CRITICAL: Initialize Firestore using the firestoreDatabaseId from configuration
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
-export { app, firebaseConfig };
+export { firebaseConfig };
 
-let isAuthInitializing = false;
 export async function ensureFirebaseAuth() {
   try {
-    if (!auth.currentUser && !isAuthInitializing) {
-      isAuthInitializing = true;
+    if (!auth.currentUser) {
       await signInAnonymously(auth);
     }
     return auth.currentUser;
   } catch (err) {
-    // Non-fatal: anonymous auth can gracefully retry in the background
+    console.warn('Firebase anonymous auth note:', err);
     return null;
-  } finally {
-    isAuthInitializing = false;
   }
 }
 
-// Background ensure auth
-ensureFirebaseAuth().catch(() => {});
+// Ensure auth on initialization
+ensureFirebaseAuth();
 
 export enum OperationType {
   CREATE = 'create',
@@ -75,27 +58,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.warn('Firestore Operation Info: ', errInfo.error);
-  return errInfo;
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
 }
 
-// Graceful connection check that avoids blocking or throwing unhandled unavailable errors
+// Test connection on boot as mandated
 export async function testFirestoreConnection() {
   try {
-    await ensureFirebaseAuth();
-    const snap = await getDoc(doc(db, 'admin_settings', 'healthcheck'));
-    return snap.exists();
-  } catch {
-    // Gracefully handle offline or connecting state
-    return false;
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firebase client offline or connecting.');
+    }
   }
 }
 
-// Non-blocking connection health ping
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    testFirestoreConnection().catch(() => {});
-  }, 1000);
-}
-
+testFirestoreConnection();
 export default app;

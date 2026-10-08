@@ -160,65 +160,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ai_copilot_messages: {
-        Row: {
-          content: Json
-          created_at: string
-          id: string
-          role: string
-          session_id: string
-          user_id: string
-        }
-        Insert: {
-          content: Json
-          created_at?: string
-          id?: string
-          role: string
-          session_id: string
-          user_id: string
-        }
-        Update: {
-          content?: Json
-          created_at?: string
-          id?: string
-          role?: string
-          session_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_copilot_messages_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "ai_copilot_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ai_copilot_sessions: {
-        Row: {
-          created_at: string
-          id: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          title?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       api_keys: {
         Row: {
           api_key: string
@@ -420,7 +361,6 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_directory_listed: boolean | null
-          is_verified: boolean
           logo_url: string | null
           paystack_enabled: boolean | null
           paystack_public_key: string | null
@@ -429,9 +369,6 @@ export type Database = {
           tiktok_url: string | null
           twitter_url: string | null
           user_id: string
-          verification_document_type: string | null
-          verification_status: string
-          verified_at: string | null
           website_link: string | null
           whatsapp_group_link: string | null
           whatsapp_link: string | null
@@ -448,7 +385,6 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_directory_listed?: boolean | null
-          is_verified?: boolean
           logo_url?: string | null
           paystack_enabled?: boolean | null
           paystack_public_key?: string | null
@@ -457,9 +393,6 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           user_id: string
-          verification_document_type?: string | null
-          verification_status?: string
-          verified_at?: string | null
           website_link?: string | null
           whatsapp_group_link?: string | null
           whatsapp_link?: string | null
@@ -476,7 +409,6 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_directory_listed?: boolean | null
-          is_verified?: boolean
           logo_url?: string | null
           paystack_enabled?: boolean | null
           paystack_public_key?: string | null
@@ -485,9 +417,6 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           user_id?: string
-          verification_document_type?: string | null
-          verification_status?: string
-          verified_at?: string | null
           website_link?: string | null
           whatsapp_group_link?: string | null
           whatsapp_link?: string | null
@@ -498,95 +427,6 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "business_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      business_verifications: {
-        Row: {
-          account_type: string
-          admin_action: string
-          admin_email: string | null
-          admin_id: string | null
-          admin_note: string | null
-          business_profile_id: string | null
-          document_file_url: string | null
-          document_number: string
-          document_type: string
-          evaluated_at: string
-          extraction_details: Json
-          id: string
-          last_updated_at: string
-          match_confidence: string
-          metadata: Json
-          registered_profile_name: string
-          rejection_reason: string | null
-          reviewed_at: string | null
-          status: string
-          submitted_at: string
-          submitted_name: string
-          user_email: string | null
-          user_id: string
-          verified_badge_granted: boolean
-        }
-        Insert: {
-          account_type: string
-          admin_action?: string
-          admin_email?: string | null
-          admin_id?: string | null
-          admin_note?: string | null
-          business_profile_id?: string | null
-          document_file_url?: string | null
-          document_number?: string
-          document_type: string
-          evaluated_at?: string
-          extraction_details?: Json
-          id?: string
-          last_updated_at?: string
-          match_confidence?: string
-          metadata?: Json
-          registered_profile_name: string
-          rejection_reason?: string | null
-          reviewed_at?: string | null
-          status?: string
-          submitted_at?: string
-          submitted_name: string
-          user_email?: string | null
-          user_id: string
-          verified_badge_granted?: boolean
-        }
-        Update: {
-          account_type?: string
-          admin_action?: string
-          admin_email?: string | null
-          admin_id?: string | null
-          admin_note?: string | null
-          business_profile_id?: string | null
-          document_file_url?: string | null
-          document_number?: string
-          document_type?: string
-          evaluated_at?: string
-          extraction_details?: Json
-          id?: string
-          last_updated_at?: string
-          match_confidence?: string
-          metadata?: Json
-          registered_profile_name?: string
-          rejection_reason?: string | null
-          reviewed_at?: string | null
-          status?: string
-          submitted_at?: string
-          submitted_name?: string
-          user_email?: string | null
-          user_id?: string
-          verified_badge_granted?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "business_verifications_business_profile_id_fkey"
-            columns: ["business_profile_id"]
-            isOneToOne: false
-            referencedRelation: "business_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1104,7 +944,6 @@ export type Database = {
           id: string
           industry: string | null
           is_banned: boolean | null
-          is_verified: boolean
           last_credit_date: string | null
           login_bonus_credits: number
           profile_setup_complete: boolean
@@ -1113,9 +952,6 @@ export type Database = {
           referred_by_user_id: string | null
           state: string | null
           user_id: string
-          verification_document_type: string | null
-          verification_status: string
-          verified_at: string | null
           whatsapp_number: string | null
         }
         Insert: {
@@ -1135,7 +971,6 @@ export type Database = {
           id?: string
           industry?: string | null
           is_banned?: boolean | null
-          is_verified?: boolean
           last_credit_date?: string | null
           login_bonus_credits?: number
           profile_setup_complete?: boolean
@@ -1144,9 +979,6 @@ export type Database = {
           referred_by_user_id?: string | null
           state?: string | null
           user_id: string
-          verification_document_type?: string | null
-          verification_status?: string
-          verified_at?: string | null
           whatsapp_number?: string | null
         }
         Update: {
@@ -1166,7 +998,6 @@ export type Database = {
           id?: string
           industry?: string | null
           is_banned?: boolean | null
-          is_verified?: boolean
           last_credit_date?: string | null
           login_bonus_credits?: number
           profile_setup_complete?: boolean
@@ -1175,9 +1006,6 @@ export type Database = {
           referred_by_user_id?: string | null
           state?: string | null
           user_id?: string
-          verification_document_type?: string | null
-          verification_status?: string
-          verified_at?: string | null
           whatsapp_number?: string | null
         }
         Relationships: []

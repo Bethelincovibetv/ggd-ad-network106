@@ -20,13 +20,11 @@ import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
 import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
 import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pushNotificationService";
-import { notifyNewEnquiry } from "@/services/automatedEmailNotificationService";
 import { CallButton } from "@/components/call/CallButton";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
 import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
 import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
-import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
 import { Phone, PhoneCall } from "lucide-react";
@@ -491,28 +489,13 @@ const GGDInbox: React.FC = () => {
       } else if (data) {
         setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
         
-        // Dispatch quick message push notification & automated email to recipient
+        // Dispatch quick message push notification to recipient
         sendQuickMessageNotification({
           recipientUserId: activeOther,
           senderName: myProfile?.display_name || 'GGD Member',
           messagePreview: text,
           chatUrl: `/inbox?chat=${me}`,
         });
-
-        // Trigger automated email notification for enquiry/message
-        notifyNewEnquiry({
-          recipientUserId: activeOther,
-          businessName: otherProfile?.business_name,
-          recipientName: otherProfile?.display_name || otherProfile?.business_name,
-          senderUserId: me,
-          senderName: myProfile?.display_name || myProfile?.business_name || 'GGD Member',
-          senderEmail: myProfile?.email,
-          messageText: text,
-          enquiryType: isTag ? (currentTag?.type === 'service' ? 'service_inquiry' : 'product_inquiry') : 'general',
-          itemTitle: currentTag?.title || undefined,
-          itemPrice: currentTag?.price || undefined,
-          chatUrl: `/inbox?chat=${me}`,
-        }).catch((err) => console.warn('Automated enquiry email dispatch note:', err));
       }
     } catch (err) {
       toast.error("Network error sending message");
@@ -959,7 +942,7 @@ const GGDInbox: React.FC = () => {
                           )}
 
                           {m.message && m.kind !== "voice" && (
-                            <StructuredChatMessage text={m.message} isMine={mine} />
+                            <p className="whitespace-pre-wrap break-words">{m.message}</p>
                           )}
 
                           {/* Approve & Pay action button — only for the receiver (business owner) */}
@@ -1163,6 +1146,7 @@ const GGDInbox: React.FC = () => {
       {inboxView === "calls" ? (
         <CallHistoryList
           userId={me}
+          onCallUser={(targetId) => openThread(targetId, null)}
         />
       ) : (
         <div className="space-y-3">

@@ -3,7 +3,6 @@ import React from 'react';
 import { User } from "lucide-react";
 import { Message } from '@/types/chat';
 import MessageStatusIndicator from './MessageStatusIndicator';
-import { StructuredChatMessage } from './StructuredChatMessage';
 
 interface ChatMessageProps {
   message: Message;
@@ -37,7 +36,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
               : 'bg-white text-gray-800 shadow-sm border rounded-bl-sm'
           }`}
         >
-          <StructuredChatMessage text={message.text} isMine={isUser} />
+          <p className="text-sm leading-relaxed">{message.text}</p>
         </div>
         <div className={`flex items-center gap-1 mt-1 px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
           {isUser ? (

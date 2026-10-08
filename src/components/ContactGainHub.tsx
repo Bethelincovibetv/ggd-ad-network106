@@ -21,7 +21,7 @@ import {
   getActiveContactCampaigns,
   createContactCampaign,
   submitContactProof,
-  fetchContactProofs,
+  getLocalProofs,
   getContactGainSettings,
   ContactEntry,
   ContactCampaign,
@@ -31,7 +31,6 @@ import {
 } from "@/services/contactGainService";
 import { NIGERIAN_STATES, TOP_COMMERCIAL_STATES } from "@/utils/nigerianStates";
 import { playMoneyTransferSound, playNotificationChime } from "@/utils/audio";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 interface ContactGainHubProps {
   userId?: string;
@@ -97,22 +96,22 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
         setCurrentUser({ id: user.id, email: user.email });
         const { data: profile } = await supabase
           .from('profiles')
-          .select('credits, display_name, business_phone, whatsapp_number, business_name, state, industry')
+          .select('credits, display_name, phone_number, business_name, state, industry')
           .eq('user_id', user.id)
           .maybeSingle();
 
         if (profile) {
           setUserCredits(profile.credits || 0);
           if (!newContactName) setNewContactName(profile.display_name || '');
-          if (!newContactPhone) setNewContactPhone(profile.whatsapp_number || profile.business_phone || '');
+          if (!newContactPhone) setNewContactPhone(profile.phone_number || '');
           if (!newBusinessName) setNewBusinessName(profile.business_name || '');
           if (profile.state) setNewState(profile.state);
         }
 
-        const userProofs = await fetchContactProofs(user.id);
-        setMyProofs(userProofs);
+        const allProofs = getLocalProofs();
+        setMyProofs(allProofs.filter(p => p.user_id === user.id));
       } else {
-        const allProofs = await fetchContactProofs();
+        const allProofs = getLocalProofs();
         setMyProofs(allProofs);
       }
     } catch (err) {
@@ -425,7 +424,7 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
 
                     <div className="flex items-center gap-1.5">
                       <a
-                        href={buildWhatsAppLink(c.phone, { message: `Hello ${c.name}, I found your contact on GGD Ad Network!` })}
+                        href={`https://wa.me/${c.phone.replace(/[^\d]/g, '')}?text=Hello%20${encodeURIComponent(c.name)}%2C%20I%20found%20your%20contact%20on%20GGD%20Ad%20Network!`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 text-xs font-bold transition-colors"
@@ -490,7 +489,7 @@ export const ContactGainHub: React.FC<ContactGainHubProps> = ({
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2 pt-2 border-t border-border/70">
                     <a
-                      href={buildWhatsAppLink(camp.contact_phone, { message: `Hello ${camp.contact_name}, I have saved your contact from GGD Ad Network!` })}
+                      href={`https://wa.me/${camp.contact_phone.replace(/[^\d]/g, '')}?text=Hello%20${encodeURIComponent(camp.contact_name)}%2C%20I%20have%20saved%20your%20contact%20from%20GGD%20Ad%20Network!`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex-1 h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"

@@ -2,7 +2,6 @@ import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface TopNavMenuProps {
   activeTab: string;
@@ -15,7 +14,6 @@ interface TopNavMenuProps {
 
 const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
   const { isEnabled } = useFeatureToggles();
-  const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
 
   const items = [
     { id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] },
@@ -44,36 +42,15 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
     { id: 'about', icon: Info, label: 'About GGD', matches: ['about'] },
   ];
 
-  const getTourStep = (id: string) => {
-    switch (id) {
-      case 'ads': return '1';
-      case 'wallet': return '2';
-      case 'campaigns': return '3';
-      case 'syndicate':
-      case 'syndicate-join':
-      case 'tasks': return '4';
-      case 'my-business': return '5';
-      case 'guide': return '6';
-      default: return undefined;
-    }
-  };
-
   return (
-    <div
-      className={`bg-card/90 backdrop-blur border-b border-border/80 sticky top-0 z-30 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
-        isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
-      }`}
-    >
+    <div className="bg-card/90 backdrop-blur border-b border-border/80 sticky top-0 z-30">
       <ScrollArea className="w-full">
         <div className="flex gap-2 px-3 py-2.5">
           {items.map(item => {
             const active = item.matches.includes(activeTab) || activeTab === item.id;
-            const tourStep = getTourStep(item.id);
             return (
               <button
                 key={item.id}
-                id={`${item.id}-nav-btn`}
-                data-tour-step={tourStep}
                 onClick={() => onTabChange(item.id)}
                 className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 min-w-[84px] h-[72px] rounded-2xl px-3 transition-all ${
                   active

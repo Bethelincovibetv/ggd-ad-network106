@@ -20,28 +20,10 @@ const EmojiReactionBar: React.FC<EmojiReactionBarProps> = ({ targetType, targetI
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      try {
-        const { data } = await supabase
-          .from('emoji_reactions')
-          .select('id, user_id, emoji')
-          .eq('target_type', targetType)
-          .eq('target_id', targetId);
-        if (isMounted) {
-          setRows((data as any) || []);
-        }
-      } catch (err) {
-        console.warn('Error loading emoji reactions:', err);
-      }
-    };
-
     load();
 
-    const channelName = `reactions-${targetType}-${targetId}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(channelName)
+      .channel(`reactions-${targetType}-${targetId}`)
       .on(
         'postgres_changes',
         {
@@ -51,18 +33,24 @@ const EmojiReactionBar: React.FC<EmojiReactionBarProps> = ({ targetType, targetI
           filter: `target_id=eq.${targetId}`,
         },
         () => {
-          if (isMounted) {
-            load();
-          }
+          load();
         }
       )
       .subscribe();
 
     return () => {
-      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [targetId, targetType]);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from('emoji_reactions')
+      .select('id, user_id, emoji')
+      .eq('target_type', targetType)
+      .eq('target_id', targetId);
+    setRows((data as any) || []);
+  };
 
   const toggle = async (emoji: string) => {
     if (!currentUserId) { toast.error('Please sign in to react'); return; }

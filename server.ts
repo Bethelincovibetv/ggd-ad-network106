@@ -1,59 +1,25 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
-
-// Automatically load local .env if available
-try {
-  if (typeof (process as any).loadEnvFile === 'function') {
-    (process as any).loadEnvFile();
-  }
-} catch {}
-
 import { GoogleGenAI } from '@google/genai';
-import nodemailer from 'nodemailer';
-import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
-import { registerAirtimeRoutes } from './src/server/airtimeRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Permissive CORS middleware for web previews and embed widgets
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, X-Requested-With, X-Project-Id, x-api-key');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
+app.use(express.json({ limit: '10mb' }));
 
 let customGeminiKey = '';
 let customPexelsKey = '';
 
-// Helper to check if an API key is a placeholder or invalid
-function isValidApiKeyFormat(key?: string): boolean {
-  if (!key || typeof key !== 'string') return false;
-  const clean = key.trim();
-  if (clean.length < 20) return false;
-  if (clean === 'your_gemini_api_key_here' || clean === 'undefined' || clean === 'null') return false;
-  if (clean.startsWith('AIzaSy...') || clean.includes('AIzaSy...')) return false;
-  return true;
-}
-
-// Dynamic helper to resolve list of candidate Gemini API Keys in order of priority
-async function getCandidateGeminiKeys(explicitKey?: string): Promise<string[]> {
-  const keys: string[] = [];
-  if (isValidApiKeyFormat(explicitKey)) keys.push(explicitKey!.trim());
-  if (isValidApiKeyFormat(process.env.GEMINI_API_KEY)) keys.push(process.env.GEMINI_API_KEY!.trim());
-  if (isValidApiKeyFormat(process.env.API_KEY)) keys.push(process.env.API_KEY!.trim());
-  if (isValidApiKeyFormat(process.env.VITE_GEMINI_API_KEY)) keys.push(process.env.VITE_GEMINI_API_KEY!.trim());
-  if (isValidApiKeyFormat(customGeminiKey)) keys.push(customGeminiKey.trim());
+// Dynamic helper to resolve Gemini API Key from environment, custom setting, or Supabase app_settings
+async function getGeminiApiKey(explicitKey?: string): Promise<string> {
+  if (explicitKey && explicitKey.trim()) return explicitKey.trim();
+  if (customGeminiKey && customGeminiKey.trim()) return customGeminiKey.trim();
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) return process.env.GEMINI_API_KEY.trim();
+  if (process.env.VITE_GEMINI_API_KEY && process.env.VITE_GEMINI_API_KEY.trim()) return process.env.VITE_GEMINI_API_KEY.trim();
 
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
@@ -66,72 +32,34 @@ async function getCandidateGeminiKeys(explicitKey?: string): Promise<string[]> {
     });
     if (resp.ok) {
       const data = await resp.json();
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          if (isValidApiKeyFormat(item?.value)) {
-            keys.push(item.value.trim());
-          }
+      if (Array.isArray(data) && data.length > 0) {
+        const found = data.find((r: any) => r.value && typeof r.value === 'string' && r.value.trim().length > 8);
+        if (found) {
+          customGeminiKey = found.value.trim();
+          return customGeminiKey;
         }
       }
     }
   } catch (err) {
-    // Ignore network lookup errors
+    console.warn('Could not query app_settings for Gemini key:', err);
   }
-
-  // Deduplicate keys
-  return Array.from(new Set(keys));
+  return '';
 }
 
-async function getGeminiApiKey(explicitKey?: string): Promise<string> {
-  const candidates = await getCandidateGeminiKeys(explicitKey);
-  return candidates[0] || '';
-}
-
-// Helper to generate smart offline/fallback content when keys are missing or invalid
-function generateSmartAiFallback(contents: any, responseMimeType?: string): string {
-  const rawText = typeof contents === 'string' ? contents : JSON.stringify(contents);
-  const isJson = responseMimeType === 'application/json' || rawText.includes('JSON') || rawText.includes('json');
-
-  if (isJson) {
-    if (rawText.includes('scene') || rawText.includes('script') || rawText.includes('video')) {
-      return JSON.stringify({
-        title: "High-Impact Viral Masterpiece",
-        topic: "Mastering Success & Growth",
-        summary: "Engaging step-by-step viral video framework.",
-        scenes: [
-          { sceneNumber: 1, text: "Stop scrolling if you want to scale your results today.", query: "motivation energetic confident person", mood: "fast energetic", durationSec: 4 },
-          { sceneNumber: 2, text: "Top performers focus on three essential principles daily.", query: "business planning strategy modern office", mood: "focused cinematic", durationSec: 5 },
-          { sceneNumber: 3, text: "Consistency, measurable metrics, and relentless execution.", query: "analytics growth chart financial success", mood: "triumphant dynamic", durationSec: 5 },
-          { sceneNumber: 4, text: "Drop your thoughts below and subscribe for more insights!", query: "call to action engaging creators cheering", mood: "upbeat viral", durationSec: 4 }
-        ],
-        tags: ["#viral", "#growth", "#success", "#mindset", "#shorts"],
-        hooks: ["Stop scrolling if you want real results!", "The #1 rule 99% get wrong..."]
-      });
-    }
-
-    if (rawText.includes('tag') || rawText.includes('hook') || rawText.includes('seo')) {
-      return JSON.stringify({
-        tags: ["#trending", "#viral", "#business", "#growth", "#creator"],
-        hooks: [
-          "Stop scrolling right now!",
-          "The biggest mistake you are making today...",
-          "Here is the secret framework top creators use daily."
-        ],
-        thumbnails: [
-          "High contrast yellow bold text on dramatic dark gradient",
-          "Split before and after growth chart with neon glow"
-        ]
-      });
-    }
-
-    return JSON.stringify({
-      success: true,
-      message: "Action completed successfully.",
-      data: { result: "Processed with high fidelity." }
-    });
+// Helper to get initialized GoogleGenAI client
+async function getGeminiClient(explicitKey?: string): Promise<GoogleGenAI | null> {
+  const apiKey = await getGeminiApiKey(explicitKey);
+  if (!apiKey) {
+    return null;
   }
-
-  return "Here is your high-impact creative blueprint! Focus on strong retention in the first 3 seconds, deliver high value through clear actionable steps, and conclude with an engaging viral call to action.";
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
 }
 
 // ----------------------------------------------------
@@ -155,7 +83,7 @@ app.get('/api/admin/config', (req, res) => {
 
 app.post('/api/admin/config', (req, res) => {
   const { geminiApiKey, pexelsApiKey } = req.body;
-  if (typeof geminiApiKey === 'string' && isValidApiKeyFormat(geminiApiKey)) {
+  if (typeof geminiApiKey === 'string') {
     customGeminiKey = geminiApiKey.trim();
   }
   if (typeof pexelsApiKey === 'string') {
@@ -170,560 +98,18 @@ app.post('/api/admin/config', (req, res) => {
 });
 
 // ----------------------------------------------------
-// API Route: Generic AI Content Generation (Vixora & Applet AI Proxy)
-// ----------------------------------------------------
-app.post('/api/ai/generate', async (req, res) => {
-  try {
-    const { contents, systemInstruction, temperature = 0.7, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
-    const candidateKeys = await getCandidateGeminiKeys(apiKey);
-
-    const config: any = {};
-    if (systemInstruction) config.systemInstruction = systemInstruction;
-    if (typeof temperature === 'number') config.temperature = temperature;
-    if (responseMimeType) config.responseMimeType = responseMimeType;
-
-    // Try candidate keys sequentially
-    for (const key of candidateKeys) {
-      try {
-        const client = new GoogleGenAI({
-          apiKey: key,
-          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-        });
-
-        const response = await client.models.generateContent({
-          model: model || 'gemini-2.5-flash',
-          contents,
-          config: Object.keys(config).length > 0 ? config : undefined,
-        });
-
-        if (response && response.text) {
-          return res.json({
-            ok: true,
-            text: response.text,
-            candidates: response.candidates || [],
-          });
-        }
-      } catch (keyErr: any) {
-        console.warn(`[Gemini generate key attempt failed, trying next candidate]:`, keyErr?.message || keyErr);
-      }
-    }
-
-    // High quality intelligent fallback if live keys are unavailable/quota-limited
-    const fallbackText = generateSmartAiFallback(contents, responseMimeType);
-    return res.json({
-      ok: true,
-      text: fallbackText,
-      candidates: [{ content: { parts: [{ text: fallbackText }] } }],
-    });
-  } catch (err: any) {
-    console.warn('Handling fallback in /api/ai/generate:', err?.message || err);
-    const fallbackText = generateSmartAiFallback(req.body?.contents, req.body?.responseMimeType);
-    return res.json({
-      ok: true,
-      text: fallbackText,
-      candidates: [{ content: { parts: [{ text: fallbackText }] } }],
-    });
-  }
-});
-
-// Ephemeral live key resolution for Web Audio live agent
-app.get('/api/vixora/ai/live-key', async (req, res) => {
-  const key = await getGeminiApiKey();
-  return res.json({
-    ok: true,
-    apiKey: key || '',
-  });
-});
-
-// ----------------------------------------------------
-// Real Email Gateway & SMTP Transport Infrastructure
-// ----------------------------------------------------
-interface ServerEmailAccount {
-  id: string;
-  email: string;
-  displayName: string;
-  provider: 'gmail' | 'google_workspace' | 'custom_smtp';
-  host: string;
-  port: number;
-  secure: boolean;
-  user: string;
-  pass?: string;
-  isActiveSender: boolean;
-  isVerified: boolean;
-  dailyQuota: number;
-  sentToday: number;
-  lastSentAt?: string;
-  lastVerifiedAt?: string;
-  lastVerificationStatus?: string;
-  deliverabilityRate: string;
-  allowedForUsers: boolean;
-}
-
-interface ServerEmailDispatchLog {
-  id: string;
-  recipient: string;
-  subject: string;
-  senderEmail: string;
-  senderName: string;
-  provider: string;
-  status: 'delivered' | 'accepted' | 'failed' | 'simulated';
-  messageId?: string;
-  response?: string;
-  error?: string;
-  timestamp: string;
-}
-
-// Default in-memory state with the real account
-let serverEmailAccounts: ServerEmailAccount[] = [
-  {
-    id: 'ggd-primary-gmail',
-    email: process.env.SMTP_USER || process.env.EMAIL_USER || 'goodgiftdigital@gmail.com',
-    displayName: process.env.EMAIL_SENDER_NAME || 'GGD Ad Network',
-    provider: 'gmail',
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) === 465 : true,
-    user: process.env.SMTP_USER || process.env.EMAIL_USER || 'goodgiftdigital@gmail.com',
-    pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASS || '',
-    isActiveSender: true,
-    isVerified: Boolean(process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASS),
-    dailyQuota: 2000,
-    sentToday: 0,
-    deliverabilityRate: '99.9%',
-    allowedForUsers: false,
-  }
-];
-
-let serverDispatchLogs: ServerEmailDispatchLog[] = [];
-
-// Helper to create a nodemailer transporter for an account
-function createAccountTransporter(account: ServerEmailAccount) {
-  const isSecure = account.port === 465 || account.secure;
-  
-  if (account.pass && account.pass.trim()) {
-    return nodemailer.createTransport({
-      host: account.host,
-      port: account.port,
-      secure: isSecure,
-      auth: {
-        user: account.user || account.email,
-        pass: account.pass.trim(),
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-    });
-  }
-
-  // Without password: attempt direct / local transport for development fallback
-  return nodemailer.createTransport({
-    host: account.host,
-    port: account.port,
-    secure: isSecure,
-    tls: {
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 10000,
-  });
-}
-
-// API Route: Get real Email Gateway Status & Connected Accounts
-app.get('/api/email/gateway-status', async (req, res) => {
-  const activeAccount = serverEmailAccounts.find((a) => a.isActiveSender) || serverEmailAccounts[0];
-  
-  // Clean accounts list (sanitize password)
-  const safeAccounts = serverEmailAccounts.map((acc) => {
-    const { pass, ...safe } = acc;
-    return {
-      ...safe,
-      hasCredentials: Boolean(pass && pass.trim().length > 0),
-    };
-  });
-
-  return res.json({
-    success: true,
-    activeGateway: {
-      ...activeAccount,
-      pass: undefined,
-      hasCredentials: Boolean(activeAccount.pass && activeAccount.pass.trim().length > 0),
-    },
-    accounts: safeAccounts,
-    totalSentToday: serverEmailAccounts.reduce((sum, a) => sum + (a.sentToday || 0), 0),
-    recentLogsCount: serverDispatchLogs.length,
-    systemEmail: 'goodgiftdigital@gmail.com',
-  });
-});
-
-// API Route: Test / Verify Live SMTP Connection Handshake
-app.post('/api/email/verify-connection', async (req, res) => {
-  const { accountId, host, port, secure, user, pass } = req.body || {};
-  
-  let targetAccount = accountId 
-    ? serverEmailAccounts.find((a) => a.id === accountId)
-    : serverEmailAccounts.find((a) => a.isActiveSender) || serverEmailAccounts[0];
-
-  // If explicit credentials were submitted to test
-  if (host && user) {
-    targetAccount = {
-      id: accountId || 'temp-test',
-      email: user,
-      displayName: 'Test Gateway',
-      provider: host.includes('gmail') ? 'gmail' : 'custom_smtp',
-      host,
-      port: Number(port) || 465,
-      secure: secure !== undefined ? Boolean(secure) : Number(port) === 465,
-      user,
-      pass: pass || '',
-      isActiveSender: false,
-      isVerified: false,
-      dailyQuota: 500,
-      sentToday: 0,
-      deliverabilityRate: '100%',
-      allowedForUsers: false,
-    };
-  }
-
-  if (!targetAccount) {
-    return res.status(404).json({ success: false, error: 'No email account found to verify' });
-  }
-
-  const startTime = Date.now();
-  try {
-    const transporter = createAccountTransporter(targetAccount);
-    
-    // Test SMTP verification
-    await transporter.verify();
-    const latencyMs = Date.now() - startTime;
-
-    // Update verified status
-    targetAccount.isVerified = true;
-    targetAccount.lastVerifiedAt = new Date().toISOString();
-    targetAccount.lastVerificationStatus = `Verified in ${latencyMs}ms (${targetAccount.host}:${targetAccount.port})`;
-
-    return res.json({
-      success: true,
-      message: `Successfully connected and authenticated with ${targetAccount.host} via ${targetAccount.email}`,
-      latencyMs,
-      account: {
-        email: targetAccount.email,
-        host: targetAccount.host,
-        port: targetAccount.port,
-        secure: targetAccount.secure,
-        provider: targetAccount.provider,
-        verifiedAt: targetAccount.lastVerifiedAt,
-      },
-    });
-  } catch (err: any) {
-    const latencyMs = Date.now() - startTime;
-    const errorMessage = err.message || 'SMTP Handshake Error';
-    
-    targetAccount.isVerified = false;
-    targetAccount.lastVerifiedAt = new Date().toISOString();
-    targetAccount.lastVerificationStatus = `Failed: ${errorMessage}`;
-
-    return res.status(400).json({
-      success: false,
-      error: errorMessage,
-      code: err.code || 'SMTP_CONNECTION_FAILED',
-      latencyMs,
-      account: {
-        email: targetAccount.email,
-        host: targetAccount.host,
-        port: targetAccount.port,
-      },
-      hint: targetAccount.host.includes('gmail') 
-        ? 'For Gmail accounts, you must generate a 16-character Google App Password (myaccount.google.com/apppasswords) with 2-Step Verification enabled.'
-        : 'Please verify host, port, username, password and SSL/TLS configuration.',
-    });
-  }
-});
-
-// API Route: Send Real Email via Active Gateway
-app.post('/api/email/send', async (req, res) => {
-  const {
-    recipientEmail,
-    to,
-    subject,
-    htmlContent,
-    html,
-    textContent,
-    text,
-    senderName,
-    replyTo,
-    scenarioId,
-  } = req.body || {};
-
-  const targetRecipient = (recipientEmail || to || '').trim();
-  const targetSubject = (subject || 'Notification from GGD Network').trim();
-  const targetHtml = htmlContent || html || `<p>${textContent || text || 'GGD Notification'}</p>`;
-  const targetText = textContent || text || targetHtml.replace(/<[^>]+>/g, ' ');
-
-  if (!targetRecipient || !targetRecipient.includes('@')) {
-    return res.status(400).json({ success: false, error: 'Valid recipient email address is required' });
-  }
-
-  const activeAccount = serverEmailAccounts.find((a) => a.isActiveSender) || serverEmailAccounts[0];
-  const fromAddress = `"${senderName || activeAccount.displayName || 'GGD Ad Network'}" <${activeAccount.email}>`;
-  const replyToAddress = replyTo || activeAccount.email;
-
-  const logEntry: ServerEmailDispatchLog = {
-    id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    recipient: targetRecipient,
-    subject: targetSubject,
-    senderEmail: activeAccount.email,
-    senderName: senderName || activeAccount.displayName,
-    provider: activeAccount.provider,
-    status: 'delivered',
-    timestamp: new Date().toISOString(),
-  };
-
-  try {
-    const transporter = createAccountTransporter(activeAccount);
-    
-    const mailOptions = {
-      from: fromAddress,
-      to: targetRecipient,
-      replyTo: replyToAddress,
-      subject: targetSubject,
-      text: targetText,
-      html: targetHtml,
-      headers: {
-        'X-GGD-Scenario': scenarioId || 'admin_dispatch',
-        'X-GGD-Sender-Gateway': activeAccount.email,
-        'X-Entity-Ref-ID': logEntry.id,
-      },
-    };
-
-    // Attempt real SMTP dispatch
-    let info: any = null;
-    let errorOccurred: any = null;
-
-    if (activeAccount.pass && activeAccount.pass.trim()) {
-      try {
-        info = await transporter.sendMail(mailOptions);
-      } catch (sendErr: any) {
-        errorOccurred = sendErr;
-        console.warn('Real SMTP send failed, recording outcome:', sendErr.message);
-      }
-    } else {
-      // Credentials not yet provided by admin: generate real message record & diagnostic
-      info = {
-        messageId: `<${Date.now()}.${Math.random().toString(36).substring(2, 9)}@${activeAccount.host}>`,
-        response: '250 2.0.0 OK (Gateway dispatched - configure App Password for production delivery)',
-        accepted: [targetRecipient],
-      };
-    }
-
-    if (errorOccurred) {
-      logEntry.status = 'failed';
-      logEntry.error = errorOccurred.message;
-      serverDispatchLogs.unshift(logEntry);
-
-      return res.status(500).json({
-        success: false,
-        error: `SMTP Dispatch Error: ${errorOccurred.message}`,
-        activeGateway: {
-          email: activeAccount.email,
-          host: activeAccount.host,
-          port: activeAccount.port,
-        },
-        hint: 'Please update your App Password or SMTP credentials in the Gateway Settings.',
-      });
-    }
-
-    // Success: Update stats
-    activeAccount.sentToday = (activeAccount.sentToday || 0) + 1;
-    activeAccount.lastSentAt = new Date().toISOString();
-    
-    logEntry.messageId = info?.messageId || `msg_${Date.now()}`;
-    logEntry.response = info?.response || '250 OK';
-    logEntry.status = 'delivered';
-    
-    // Store in recent logs (keep max 100)
-    serverDispatchLogs.unshift(logEntry);
-    if (serverDispatchLogs.length > 100) {
-      serverDispatchLogs.pop();
-    }
-
-    return res.json({
-      success: true,
-      message: `Email dispatched successfully to ${targetRecipient}`,
-      messageId: logEntry.messageId,
-      response: logEntry.response,
-      activeGateway: {
-        id: activeAccount.id,
-        email: activeAccount.email,
-        displayName: activeAccount.displayName,
-        provider: activeAccount.provider,
-        host: activeAccount.host,
-        port: activeAccount.port,
-      },
-      recipient: targetRecipient,
-      timestamp: logEntry.timestamp,
-    });
-  } catch (err: any) {
-    console.error('Critical email route error:', err);
-    logEntry.status = 'failed';
-    logEntry.error = err.message;
-    serverDispatchLogs.unshift(logEntry);
-
-    return res.status(500).json({
-      success: false,
-      error: err.message || 'Internal server error while sending email',
-    });
-  }
-});
-
-// API Route: Configure / Save SMTP & Google Gateway Credentials
-app.post('/api/email/configure', async (req, res) => {
-  const {
-    id,
-    email,
-    displayName,
-    provider,
-    host,
-    port,
-    secure,
-    user,
-    pass,
-    setActive,
-  } = req.body || {};
-
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ success: false, error: 'Valid email address is required' });
-  }
-
-  const targetHost = host || (email.endsWith('@gmail.com') ? 'smtp.gmail.com' : 'smtp.gmail.com');
-  const targetPort = Number(port) || 465;
-  const isSecure = secure !== undefined ? Boolean(secure) : targetPort === 465;
-  const targetUser = user || email;
-
-  let existingIndex = serverEmailAccounts.findIndex((a) => a.id === id || a.email.toLowerCase() === email.toLowerCase());
-
-  const updatedAccount: ServerEmailAccount = {
-    id: id || `gateway_${Date.now()}`,
-    email: email.trim(),
-    displayName: displayName || (email.split('@')[0] + ' Gateway'),
-    provider: provider || (email.endsWith('@gmail.com') ? 'gmail' : 'google_workspace'),
-    host: targetHost,
-    port: targetPort,
-    secure: isSecure,
-    user: targetUser,
-    pass: pass !== undefined ? pass : (existingIndex >= 0 ? serverEmailAccounts[existingIndex].pass : ''),
-    isActiveSender: setActive !== undefined ? Boolean(setActive) : (existingIndex >= 0 ? serverEmailAccounts[existingIndex].isActiveSender : serverEmailAccounts.length === 0),
-    isVerified: Boolean(pass && pass.trim().length > 0),
-    dailyQuota: email.endsWith('@gmail.com') ? 500 : 2000,
-    sentToday: existingIndex >= 0 ? serverEmailAccounts[existingIndex].sentToday : 0,
-    deliverabilityRate: '100%',
-    allowedForUsers: false,
-    lastSentAt: existingIndex >= 0 ? serverEmailAccounts[existingIndex].lastSentAt : undefined,
-  };
-
-  if (existingIndex >= 0) {
-    serverEmailAccounts[existingIndex] = updatedAccount;
-  } else {
-    serverEmailAccounts.push(updatedAccount);
-  }
-
-  if (updatedAccount.isActiveSender) {
-    serverEmailAccounts.forEach((acc) => {
-      if (acc.id !== updatedAccount.id) acc.isActiveSender = false;
-    });
-  }
-
-  // Attempt instant verification if password was supplied
-  let verificationResult = null;
-  if (updatedAccount.pass && updatedAccount.pass.trim()) {
-    try {
-      const transporter = createAccountTransporter(updatedAccount);
-      await transporter.verify();
-      updatedAccount.isVerified = true;
-      updatedAccount.lastVerifiedAt = new Date().toISOString();
-      updatedAccount.lastVerificationStatus = 'Verified & Ready';
-      verificationResult = { verified: true, message: 'SMTP credentials verified successfully' };
-    } catch (verErr: any) {
-      updatedAccount.isVerified = false;
-      updatedAccount.lastVerifiedAt = new Date().toISOString();
-      updatedAccount.lastVerificationStatus = `Failed: ${verErr.message}`;
-      verificationResult = { verified: false, message: verErr.message };
-    }
-  }
-
-  return res.json({
-    success: true,
-    message: `Email gateway ${updatedAccount.email} configured successfully.`,
-    account: {
-      ...updatedAccount,
-      pass: undefined,
-      hasCredentials: Boolean(updatedAccount.pass && updatedAccount.pass.trim().length > 0),
-    },
-    verification: verificationResult,
-  });
-});
-
-// API Route: Switch Active Gateway Account
-app.post('/api/email/switch-active', (req, res) => {
-  const { accountId } = req.body;
-  if (!accountId) {
-    return res.status(400).json({ success: false, error: 'accountId is required' });
-  }
-
-  const found = serverEmailAccounts.find((a) => a.id === accountId);
-  if (!found) {
-    return res.status(404).json({ success: false, error: 'Account not found' });
-  }
-
-  serverEmailAccounts.forEach((acc) => {
-    acc.isActiveSender = acc.id === accountId;
-  });
-
-  return res.json({
-    success: true,
-    message: `Active sending gateway switched to ${found.email}`,
-    activeGateway: {
-      ...found,
-      pass: undefined,
-      hasCredentials: Boolean(found.pass && found.pass.trim().length > 0),
-    },
-  });
-});
-
-// API Route: Get Recent Email Logs
-app.get('/api/email/logs', (req, res) => {
-  return res.json({
-    success: true,
-    logs: serverDispatchLogs,
-    count: serverDispatchLogs.length,
-  });
-});
-
-// ----------------------------------------------------
 // Paystack Helper Functions & Key Cache
 // ----------------------------------------------------
 let cachedPaystackKey: { key: string; expiry: number } | null = null;
 let cachedPaystackBanks: { banks: any[]; expiry: number } | null = null;
 
-function sanitizeSecretKey(key?: string | null): string | null {
-  if (!key || typeof key !== 'string') return null;
-  const clean = key.trim().replace(/^["']|["']$/g, '').trim();
-  if (clean.length < 10) return null;
-  return clean;
-}
-
 async function getPaystackSecretKey(overrideKey?: string): Promise<string | null> {
-  const sanitizedOverride = sanitizeSecretKey(overrideKey);
-  if (sanitizedOverride) return sanitizedOverride;
-
-  const envKey = sanitizeSecretKey(
-    process.env.PAYSTACK_SECRET_KEY ||
-    process.env.PAYSTACK_LIVE_SECRET_KEY ||
-    process.env.VITE_PAYSTACK_SECRET_KEY ||
-    process.env.PAYSTACK_TEST_SECRET_KEY
-  );
-  if (envKey) return envKey;
+  if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim()) {
+    return overrideKey.trim();
+  }
+  if (process.env.PAYSTACK_SECRET_KEY) return process.env.PAYSTACK_SECRET_KEY.trim();
+  if (process.env.PAYSTACK_LIVE_SECRET_KEY) return process.env.PAYSTACK_LIVE_SECRET_KEY.trim();
+  if (process.env.VITE_PAYSTACK_SECRET_KEY) return process.env.VITE_PAYSTACK_SECRET_KEY.trim();
 
   // Check in-memory cache (5 min TTL)
   const now = Date.now();
@@ -734,7 +120,7 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
     const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
-    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=in.(paystack_secret_key,paystack_live_secret_key,paystack_key,paystack_test_secret_key)&select=value`, {
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.paystack_secret_key&select=value`, {
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`
@@ -742,14 +128,10 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
     });
     if (resp.ok) {
       const data = await resp.json();
-      if (Array.isArray(data) && data.length > 0) {
-        for (const item of data) {
-          const clean = sanitizeSecretKey(item?.value);
-          if (clean) {
-            cachedPaystackKey = { key: clean, expiry: now + 5 * 60 * 1000 };
-            return clean;
-          }
-        }
+      if (Array.isArray(data) && data[0]?.value) {
+        const key = data[0].value.trim();
+        cachedPaystackKey = { key, expiry: now + 5 * 60 * 1000 };
+        return key;
       }
     }
   } catch (err) {
@@ -758,156 +140,33 @@ async function getPaystackSecretKey(overrideKey?: string): Promise<string | null
   return null;
 }
 
-// Map comprehensive candidate bank codes for Paystack NUBAN resolution
-function getCandidateBankCodes(primaryCode: string, bankName?: string): string[] {
-  const codes = new Set<string>();
-  if (primaryCode && primaryCode.trim()) {
-    codes.add(primaryCode.trim());
-  }
-
-  const normalized = (bankName || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
-
-  // OPay / Paycom
-  if (primaryCode === '999992' || primaryCode === '100004' || primaryCode === '304' || normalized.includes('opay') || normalized.includes('paycom')) {
-    codes.add('999992');
-    codes.add('100004');
-    codes.add('304');
-    codes.add('090110');
-  }
-
-  // PalmPay
-  if (primaryCode === '999991' || primaryCode === '100033' || primaryCode === '322' || normalized.includes('palmpay')) {
-    codes.add('999991');
-    codes.add('100033');
-    codes.add('322');
-  }
-
-  // Kuda Bank
-  if (primaryCode === '50211' || primaryCode === '090110' || primaryCode === '090267' || normalized.includes('kuda')) {
-    codes.add('50211');
-    codes.add('090110');
-    codes.add('090267');
-  }
-
-  // Moniepoint
-  if (primaryCode === '50515' || primaryCode === '090405' || primaryCode === '090392' || primaryCode === '100022' || normalized.includes('moniepoint')) {
-    codes.add('50515');
-    codes.add('090405');
-    codes.add('090392');
-  }
-
-  // Dot Microfinance Bank
-  if (primaryCode === '50162' || primaryCode === '50163' || normalized.includes('dot')) {
-    codes.add('50162');
-    codes.add('50163');
-  }
-
-  // ALAT / Wema Bank
-  if (primaryCode === '035' || primaryCode === '035A' || normalized.includes('alat') || normalized.includes('wema')) {
-    codes.add('035');
-    codes.add('035A');
-  }
-
-  // Access Bank & Access Diamond
-  if (primaryCode === '044' || primaryCode === '063' || normalized.includes('access') || normalized.includes('diamond')) {
-    codes.add('044');
-    codes.add('063');
-  }
-
-  // First Bank
-  if (primaryCode === '011' || (normalized.includes('first bank') && !normalized.includes('monument'))) {
-    codes.add('011');
-    codes.add('000016');
-  }
-
-  // GTBank
-  if (primaryCode === '058' || normalized.includes('gtb') || normalized.includes('guaranty')) {
-    codes.add('058');
-    codes.add('000013');
-  }
-
-  // Zenith Bank
-  if (primaryCode === '057' || normalized.includes('zenith')) {
-    codes.add('057');
-    codes.add('000015');
-  }
-
-  // UBA
-  if (primaryCode === '033' || normalized.includes('uba') || normalized.includes('united bank')) {
-    codes.add('033');
-    codes.add('000004');
-  }
-
-  // FCMB
-  if (primaryCode === '214' || normalized.includes('fcmb') || normalized.includes('monument')) {
-    codes.add('214');
-    codes.add('000003');
-  }
-
-  // Sterling
-  if (primaryCode === '232' || normalized.includes('sterling')) {
-    codes.add('232');
-    codes.add('000023');
-  }
-
-  // Providus
-  if (primaryCode === '101' || normalized.includes('providus')) {
-    codes.add('101');
-    codes.add('000026');
-  }
-
-  // Stanbic IBTC
-  if (primaryCode === '221' || normalized.includes('stanbic')) {
-    codes.add('221');
-    codes.add('000012');
-  }
-
-  // FairMoney
-  if (primaryCode === '51318' || normalized.includes('fairmoney')) {
-    codes.add('51318');
-    codes.add('090551');
-  }
-
-  // Rubies
-  if (primaryCode === '125' || normalized.includes('rubies')) {
-    codes.add('125');
-    codes.add('090175');
-  }
-
-  // Carbon
-  if (primaryCode === '565' || normalized.includes('carbon')) {
-    codes.add('565');
-    codes.add('100026');
-  }
-
-  return Array.from(codes);
-}
-
-// Handler function for resolving NUBAN account with Paystack
-async function handlePaystackResolve(req: express.Request, res: express.Response) {
-  const query = req.method === 'POST' ? req.body : req.query;
-  const accountNumber = String(query.account_number || '').trim().replace(/\D/g, '');
-  const bankCode = String(query.bank_code || '').trim();
-  const bankName = String(query.bank_name || '').trim();
-  const manualName = String(query.account_name || '').trim();
-  const explicitKey = String(query.paystack_secret_key || query.secret_key || '').trim();
+// ----------------------------------------------------
+// API Route: Paystack Account Resolution (NUBAN Verification)
+// ----------------------------------------------------
+app.get('/api/paystack/resolve-account', async (req, res) => {
+  const accountNumber = String(req.query.account_number || '').trim().replace(/\D/g, '');
+  const bankCode = String(req.query.bank_code || '').trim();
+  const bankName = String(req.query.bank_name || '').trim();
+  const manualName = String(req.query.account_name || '').trim();
 
   if (!accountNumber || accountNumber.length !== 10) {
     return res.status(400).json({ success: false, error: 'Account number must be exactly 10 digits' });
   }
 
-  if (!bankCode && !bankName) {
-    return res.status(400).json({ success: false, error: 'Bank code or bank name is required' });
+  if (!bankCode) {
+    return res.status(400).json({ success: false, error: 'Bank code is required' });
   }
 
-  const secretKey = await getPaystackSecretKey(explicitKey);
+  const secretKey = await getPaystackSecretKey(
+    (req.query.paystack_secret_key as string) || (req.query.secret_key as string)
+  );
 
   if (!secretKey) {
     if (manualName) {
       return res.json({
         success: true,
         verified: false,
-        account_name: manualName.toUpperCase(),
+        account_name: manualName,
         account_number: accountNumber,
         bank_code: bankCode,
         bank_name: bankName,
@@ -920,7 +179,17 @@ async function handlePaystackResolve(req: express.Request, res: express.Response
     });
   }
 
-  const candidateCodes = getCandidateBankCodes(bankCode, bankName);
+  // Define potential fallback codes for banks with multiple CBN / Paystack mapping codes
+  const candidateCodes = [bankCode];
+  if (bankCode === '090110') candidateCodes.push('50211');
+  if (bankCode === '50211') candidateCodes.push('090110');
+  if (bankCode === '090405') candidateCodes.push('50515');
+  if (bankCode === '50515') candidateCodes.push('090405');
+  if (bankCode === '999992') candidateCodes.push('100004', '304');
+  if (bankCode === '999991') candidateCodes.push('100033', '322');
+  if (bankCode === '063') candidateCodes.push('044');
+  if (bankCode === '044') candidateCodes.push('063');
+
   let lastErrorMsg = 'Could not resolve account name. Please check your bank and account number.';
 
   for (const code of candidateCodes) {
@@ -958,14 +227,13 @@ async function handlePaystackResolve(req: express.Request, res: express.Response
   // If live resolution could not resolve with Paystack
   if (manualName) {
     return res.json({
-      success: true,
+      success: false,
       verified: false,
-      account_name: manualName.toUpperCase(),
+      account_name: manualName,
       account_number: accountNumber,
       bank_code: bankCode,
       bank_name: bankName,
       error: lastErrorMsg,
-      warning: 'Live verification could not find account name. Using provided manual name.',
     });
   }
 
@@ -977,12 +245,7 @@ async function handlePaystackResolve(req: express.Request, res: express.Response
     bank_code: bankCode,
     bank_name: bankName,
   });
-}
-
-// ----------------------------------------------------
-// API Route: Paystack Account Resolution (NUBAN Verification)
-// ----------------------------------------------------
-app.all(['/api/paystack/resolve-account', '/api/paystack/bank/resolve'], handlePaystackResolve);
+});
 
 // ----------------------------------------------------
 // API Route: Paystack Bank List (Live & Cached)
@@ -1325,192 +588,6 @@ app.get('/api/search-pexels', async (req, res) => {
 
 
 // ----------------------------------------------------
-// API Route: Google Real-Time Search with Grounding
-// ----------------------------------------------------
-app.post('/api/realtime-search', async (req, res) => {
-  const { query, category, location } = req.body;
-  if (!query || typeof query !== 'string' || !query.trim()) {
-    return res.status(400).json({ success: false, error: 'Query is required' });
-  }
-
-  const cleanQuery = query.trim();
-  const searchPrompt = `You are a real-time web search assistant integrated into GGD Ad Network.
-Search the live web for the latest, up-to-the-minute information regarding:
-"${cleanQuery}"
-${category ? `Category: ${category}` : ''}
-${location ? `Location Focus: ${location}` : 'Location Focus: Nigeria & Global Commerce'}
-
-Provide a structured, accurate, and comprehensive real-time update in clean Markdown.
-- Highlight key facts, current numbers, exchange rates, dates, prices, or recent events clearly.
-- Maintain an objective, professional tone.
-- Format using neat bullet points and bold section headings.
-- Include actionable insights or business takeaways where applicable.`;
-
-  try {
-    const ai = await getGeminiClient();
-    if (ai) {
-      const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-      for (const model of candidateModels) {
-        try {
-          const response = await ai.models.generateContent({
-            model,
-            contents: searchPrompt,
-            config: {
-              tools: [{ googleSearch: {} }],
-            },
-          });
-
-          const text = response.text;
-          if (text) {
-            const candidate = response.candidates?.[0];
-            const groundingChunks = candidate?.groundingMetadata?.groundingChunks || [];
-            const webSearchQueries = candidate?.groundingMetadata?.webSearchQueries || [cleanQuery];
-
-            // Normalize sources
-            const sources: Array<{ title: string; url: string; domain?: string }> = [];
-            groundingChunks.forEach((chunk: any) => {
-              if (chunk.web?.uri) {
-                try {
-                  const urlObj = new URL(chunk.web.uri);
-                  sources.push({
-                    title: chunk.web.title || urlObj.hostname.replace('www.', ''),
-                    url: chunk.web.uri,
-                    domain: urlObj.hostname.replace('www.', ''),
-                  });
-                } catch {
-                  sources.push({
-                    title: chunk.web.title || 'Web Source',
-                    url: chunk.web.uri,
-                    domain: 'web',
-                  });
-                }
-              }
-            });
-
-            return res.json({
-              success: true,
-              query: cleanQuery,
-              content: text,
-              sources,
-              webSearchQueries,
-              searchedAt: new Date().toISOString(),
-              grounded: sources.length > 0 || webSearchQueries.length > 0,
-            });
-          }
-        } catch (err) {
-          console.warn(`Realtime search attempt with ${model} failed:`, err);
-        }
-      }
-    }
-
-    // Zero-failure fallback response
-    const fallbackResponse = generateFallbackSearchResponse(cleanQuery, category);
-    return res.json({
-      success: true,
-      query: cleanQuery,
-      content: fallbackResponse.content,
-      sources: fallbackResponse.sources,
-      webSearchQueries: [cleanQuery, `${cleanQuery} latest news`, `${cleanQuery} updates`],
-      searchedAt: new Date().toISOString(),
-      grounded: false,
-      fallback: true,
-    });
-  } catch (error: any) {
-    console.error('Error in /api/realtime-search:', error);
-    const fallbackResponse = generateFallbackSearchResponse(cleanQuery, category);
-    return res.json({
-      success: true,
-      query: cleanQuery,
-      content: fallbackResponse.content,
-      sources: fallbackResponse.sources,
-      webSearchQueries: [cleanQuery],
-      searchedAt: new Date().toISOString(),
-      grounded: false,
-      fallback: true,
-    });
-  }
-});
-
-// Trending Google search topics endpoint
-app.get('/api/realtime-search/trending', (req, res) => {
-  const trending = [
-    {
-      id: 't1',
-      topic: 'Dollar to Naira Parallel & Official Market Rate Today',
-      category: 'Forex & Economy',
-      badge: 'Live FX',
-      query: 'Current USD to NGN exchange rate today in Nigeria CBN and black market',
-    },
-    {
-      id: 't2',
-      topic: 'CAC Registration Requirements & Online Filing 2026',
-      category: 'Business & Legal',
-      badge: 'CAC',
-      query: 'Corporate Affairs Commission CAC business registration requirements and fees in Nigeria',
-    },
-    {
-      id: 't3',
-      topic: 'Fuel Price & Energy Market Changes in Nigeria',
-      category: 'Economy',
-      badge: 'Energy',
-      query: 'Current PMS fuel petrol price per litre in Lagos Abuja Nigeria today',
-    },
-    {
-      id: 't4',
-      topic: 'Top High-Demand E-Commerce & Retail Products in Nigeria',
-      category: 'Market Trends',
-      badge: 'Trending',
-      query: 'Most profitable fast selling products to sell online in Nigeria 2026',
-    },
-    {
-      id: 't5',
-      topic: 'CBN Interest Rate & Banking Regulations Updates',
-      category: 'Banking',
-      badge: 'Finance',
-      query: 'Central Bank of Nigeria CBN monetary policy interest rates and fintech rules update',
-    },
-    {
-      id: 't6',
-      topic: 'Digital Marketing & Social Media Ad Strategies for WhatsApp/Instagram',
-      category: 'Marketing',
-      badge: 'Growth',
-      query: 'Best digital marketing and WhatsApp status advertising tactics for Nigerian businesses',
-    },
-  ];
-
-  return res.json({ success: true, trending, timestamp: new Date().toISOString() });
-});
-
-function generateFallbackSearchResponse(query: string, category?: string) {
-  const googleDirectUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-  const newsDirectUrl = `https://news.google.com/search?q=${encodeURIComponent(query)}`;
-  
-  return {
-    content: `### Real-Time Search Summary: "${query}"\n\n` +
-      `Here is a compiled summary for your query across Nigerian and global digital market intelligence:\n\n` +
-      `- **Search Query:** ${query}\n` +
-      `- **Topic Classification:** ${category || 'General Business & Market Research'}\n` +
-      `- **Real-time Status:** Active live search query indexed.\n\n` +
-      `#### Key Insights & Next Steps:\n` +
-      `1. **Market Verification:** For time-sensitive figures (such as daily FX rates or live regulatory notices), consult the direct web citations below.\n` +
-      `2. **Business Application:** Leverage these insights to adjust pricing, refine your advertising strategy, or syndicate offers on GGD Ad Network.\n` +
-      `3. **Continuous Tracking:** You can re-run this query at any time to receive real-time updates directly from Google.`,
-    sources: [
-      {
-        title: `Google Live Search: ${query}`,
-        url: googleDirectUrl,
-        domain: 'google.com',
-      },
-      {
-        title: `Google News Real-Time Coverage`,
-        url: newsDirectUrl,
-        domain: 'news.google.com',
-      },
-    ],
-  };
-}
-
-// ----------------------------------------------------
 // API Route: Blog Generation
 // ----------------------------------------------------
 app.post('/api/generate-blog', async (req, res) => {
@@ -1808,65 +885,20 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
 // ----------------------------------------------------
 // Vite Middleware / Static Serve
 // ----------------------------------------------------
-function getDistPaths() {
-  const candidates = [
-    path.resolve(process.cwd(), 'dist'),
-    path.resolve(__dirname, 'dist'),
-    path.resolve(__dirname),
-    path.resolve(process.cwd(), 'build'),
-  ];
-  for (const dir of candidates) {
-    const htmlPath = path.join(dir, 'index.html');
-    if (fs.existsSync(htmlPath)) {
-      return { distPath: dir, indexHtmlPath: htmlPath, exists: true };
-    }
-  }
-  const fallbackDir = path.resolve(process.cwd(), 'dist');
-  return { distPath: fallbackDir, indexHtmlPath: path.join(fallbackDir, 'index.html'), exists: false };
-}
-
 async function startServer() {
-  // Register Vixora AI Creator & Video Studio API Routes
-  try {
-    registerVixoraRoutes(app);
-    console.log('[Vixora Engine] AI Video Creator and Studio routes registered successfully');
-  } catch (vixoraErr) {
-    console.warn('[Vixora Engine] Route registration notice:', vixoraErr);
-  }
-
-  // Register Airtime & Credit Redemption Sabuss API Routes
-  try {
-    registerAirtimeRoutes(app);
-    console.log('[Sabuss Airtime Engine] Airtime & Credit Redemption routes registered successfully');
-  } catch (airtimeErr) {
-    console.warn('[Sabuss Airtime Engine] Route registration notice:', airtimeErr);
-  }
-
-  const { distPath, indexHtmlPath, exists } = getDistPaths();
-
-  if (process.env.NODE_ENV === 'production') {
-    // Serve production static assets from the resolved dist folder
-    app.use(express.static(distPath));
-
-    // SPA fallback: Route all non-API GET requests to index.html
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api')) {
-        return next();
-      }
-      if (fs.existsSync(indexHtmlPath)) {
-        res.sendFile(indexHtmlPath);
-      } else {
-        res.status(404).send('Frontend bundle (index.html) not found in build directory. Run npm run build first.');
-      }
-    });
-  } else {
-    // Development mode: Mount Vite middleware
+  if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*all', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

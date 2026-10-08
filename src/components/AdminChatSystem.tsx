@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
 import MessageStatusIndicator from "@/components/chat/MessageStatusIndicator";
-import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 
 const AdminChatSystem = () => {
 
@@ -19,7 +17,6 @@ const AdminChatSystem = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [searchParams] = useSearchParams();
   const [adminId, setAdminId] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -33,50 +30,12 @@ const AdminChatSystem = () => {
     fetchUsersWithChats();
   }, []);
 
-  // Automatically select target user if userId query param is provided
-  useEffect(() => {
-    const targetUserId = searchParams.get('userId');
-    if (targetUserId && users.length > 0) {
-      const match = users.find(u => u.user_id === targetUserId || u.id === targetUserId);
-      if (match) {
-        setSelectedUser(match);
-      }
-    }
-  }, [searchParams, users]);
-
   useEffect(() => {
     if (!selectedUser || !adminId) return;
     fetchMessages();
 
-    const channelName = `admin-chat-${selectedUser.user_id}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(channelName)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'p2p_messages',
-      }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const msg = payload.new as any;
-          if (
-            (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
-            (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
-          ) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
-            if (msg.sender_id === selectedUser.user_id) {
-              supabase.from('p2p_messages').update({ is_read: true }).eq('id', msg.id);
-            }
-          }
-        } else if (payload.eventType === 'UPDATE') {
-          const updated = payload.new as any;
-          setMessages(prev =>
-            prev.map(m => (m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
-          );
-        }
-      })
+      .channel(`chat-${selectedUser.user_id}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -96,6 +55,11 @@ const AdminChatSystem = () => {
               supabase.from('admin_chat_messages').update({ is_read: true }).eq('id', msg.id);
             }
           }
+        } else if (payload.eventType === 'UPDATE') {
+          const updated = payload.new as any;
+          setMessages(prev =>
+            prev.map(m => (m.id === updated.id ? { ...m, is_read: updated.is_read } : m))
+          );
         }
       })
       .subscribe();
@@ -112,83 +76,38 @@ const AdminChatSystem = () => {
       .from('profiles')
       .select('user_id, email, display_name, avatar_url')
       .order('created_at', { ascending: false });
-    const userList = profiles || [];
-    setUsers(userList);
+    setUsers(profiles || []);
 
-    // If userId query param present, select right away
-    const targetUserId = searchParams.get('userId');
-    if (targetUserId) {
-      const match = userList.find(u => u.user_id === targetUserId);
-      if (match) setSelectedUser(match);
-    }
-
-    // Get unread counts from both p2p_messages and admin_chat_messages
+    // Get unread counts
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const [{ data: p2pUnread }, { data: adminUnread }] = await Promise.all([
-        supabase
-          .from('p2p_messages')
-          .select('sender_id')
-          .eq('receiver_id', user.id)
-          .eq('is_read', false),
-        supabase
-          .from('admin_chat_messages')
-          .select('sender_id')
-          .eq('receiver_id', user.id)
-          .eq('is_read', false),
-      ]);
+      const { data: unread } = await supabase
+        .from('admin_chat_messages')
+        .select('sender_id')
+        .eq('receiver_id', user.id)
+        .eq('is_read', false);
       const counts: Record<string, number> = {};
-      p2pUnread?.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
-      adminUnread?.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
+      unread?.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
       setUnreadCounts(counts);
     }
   };
 
   const fetchMessages = async () => {
     if (!selectedUser || !adminId) return;
-    
-    // Fetch from p2p_messages (the standard in-app messages table connected to /inbox)
-    const { data: p2pData } = await supabase
-      .from('p2p_messages')
-      .select('*')
-      .or(`and(sender_id.eq.${adminId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${adminId})`)
-      .order('created_at', { ascending: true });
-
-    // Also fetch legacy admin_chat_messages to preserve past conversation history
-    const { data: legacyData } = await supabase
+    const { data } = await supabase
       .from('admin_chat_messages')
       .select('*')
       .or(`and(sender_id.eq.${adminId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${adminId})`)
       .order('created_at', { ascending: true });
+    setMessages(data || []);
 
-    // Deduplicate and combine messages
-    const existingIds = new Set<string>();
-    const combined: any[] = [];
-    [...(legacyData || []), ...(p2pData || [])].forEach((msg) => {
-      if (!existingIds.has(msg.id)) {
-        existingIds.add(msg.id);
-        combined.push(msg);
-      }
-    });
-
-    combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    setMessages(combined);
-
-    // Mark as read in both tables
-    await Promise.all([
-      supabase
-        .from('p2p_messages')
-        .update({ is_read: true })
-        .eq('sender_id', selectedUser.user_id)
-        .eq('receiver_id', adminId)
-        .eq('is_read', false),
-      supabase
-        .from('admin_chat_messages')
-        .update({ is_read: true })
-        .eq('sender_id', selectedUser.user_id)
-        .eq('receiver_id', adminId)
-        .eq('is_read', false)
-    ]);
+    // Mark as read
+    await supabase
+      .from('admin_chat_messages')
+      .update({ is_read: true })
+      .eq('sender_id', selectedUser.user_id)
+      .eq('receiver_id', adminId)
+      .eq('is_read', false);
     
     setUnreadCounts(prev => ({ ...prev, [selectedUser.user_id]: 0 }));
   };
@@ -199,54 +118,21 @@ const AdminChatSystem = () => {
     setNewMessage('');
     
     try {
-      // 1. Insert into p2p_messages so user sees message directly in their GGD Inbox (/inbox)
-      const { data: insertedMsg, error: p2pError } = await supabase.from('p2p_messages').insert({
+      await supabase.from('admin_chat_messages').insert({
         sender_id: adminId,
         receiver_id: selectedUser.user_id,
         message: text,
-        kind: 'text',
-        is_read: false,
-      }).select().single();
+      });
 
-      if (p2pError) throw p2pError;
-
-      if (insertedMsg) {
-        setMessages(prev => [...prev, insertedMsg]);
-      }
-
-      // 2. Also insert into admin_chat_messages for dual-table compatibility
-      try {
-        await supabase.from('admin_chat_messages').insert({
-          sender_id: adminId,
-          receiver_id: selectedUser.user_id,
-          message: text,
-          is_read: false,
-        });
-      } catch {}
-
-      // 3. Dispatch in-app notification in notifications table
-      try {
-        await supabase.from('notifications').insert({
-          user_id: selectedUser.user_id,
-          title: '💬 Direct Support Message from GGD Admin',
-          message: text.length > 100 ? `${text.slice(0, 100)}...` : text,
-          type: 'message',
-          link_url: '/inbox',
-          is_read: false,
-        });
-      } catch {}
-
-      // 4. Dispatch real-time push notification to user's registered devices
+      // Dispatch real-time push & notification to user
       sendQuickMessageNotification({
         recipientUserId: selectedUser.user_id,
         senderName: 'GGD Admin Support',
         messagePreview: text,
         chatUrl: '/inbox',
       });
-
-      toast.success('Message sent to user inbox!');
     } catch (err: any) {
-      toast.error('Failed to send message: ' + (err?.message || 'Network error'));
+      toast.error('Failed to send message');
     }
   };
 
@@ -293,7 +179,7 @@ const AdminChatSystem = () => {
                     ? 'bg-orange-500 text-white rounded-br-sm' 
                     : 'bg-secondary text-foreground rounded-bl-sm'
                 }`}>
-                  <StructuredChatMessage text={msg.message} isMine={msg.sender_id === adminId} />
+                  <p className="whitespace-pre-wrap">{msg.message}</p>
                   <div className={`mt-1 flex items-center justify-end ${msg.sender_id === adminId ? 'text-orange-100' : 'text-muted-foreground'}`}>
                     {msg.sender_id === adminId ? (
                       <MessageStatusIndicator

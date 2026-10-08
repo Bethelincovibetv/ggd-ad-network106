@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet, Video, Share2, Sparkles, Check } from 'lucide-react';
+import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
@@ -35,13 +35,6 @@ const UserProfilePage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Creator & Channel Preferences state
-  const [creatorNiche, setCreatorNiche] = useState('finance');
-  const [preferredVoice, setPreferredVoice] = useState('Kore');
-  const [preferredRatio, setPreferredRatio] = useState('vertical');
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(['whatsapp', 'tiktok', 'youtube']);
-  const [autoSfx, setAutoSfx] = useState(true);
-
   useEffect(() => { load(); }, []);
 
   const load = async () => {
@@ -68,61 +61,7 @@ const UserProfilePage = () => {
     setBusinessPhone(p?.business_phone || '');
     setBusinessWebsite(p?.business_website || '');
     setNewEmail(user.email || '');
-
-    // Load creator channel preferences from localStorage & profile metadata
-    try {
-      const savedVixora = localStorage.getItem('vixora_user_preferences');
-      if (savedVixora) {
-        const parsed = JSON.parse(savedVixora);
-        if (parsed.niche) setCreatorNiche(parsed.niche);
-        if (parsed.preferredVoice) setPreferredVoice(parsed.preferredVoice);
-        if (parsed.preferredRatio) setPreferredRatio(parsed.preferredRatio);
-        if (Array.isArray(parsed.channels)) setSelectedChannels(parsed.channels);
-        if (typeof parsed.autoSfx === 'boolean') setAutoSfx(parsed.autoSfx);
-      }
-    } catch (e) {
-      // Non-blocking
-    }
-
     setLoading(false);
-  };
-
-  const toggleChannel = (chId: string) => {
-    setSelectedChannels(prev => 
-      prev.includes(chId) ? prev.filter(c => c !== chId) : [...prev, chId]
-    );
-  };
-
-  const saveCreatorPreferences = async () => {
-    setSaving(true);
-    try {
-      const payload = {
-        niche: creatorNiche,
-        preferredVoice,
-        preferredRatio,
-        channels: selectedChannels,
-        autoSfx,
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem('vixora_user_preferences', JSON.stringify(payload));
-      
-      const existing = localStorage.getItem('ggd_creator_user');
-      const existingUser = existing ? JSON.parse(existing) : {};
-      localStorage.setItem('ggd_creator_user', JSON.stringify({
-        ...existingUser,
-        fullName: displayName || authUser?.email?.split('@')[0] || 'GGD Creator',
-        email: authUser?.email,
-        niche: creatorNiche,
-        preferredVoice,
-        aspectRatio: preferredRatio
-      }));
-
-      toast.success('Creator channel and video preferences saved!');
-    } catch (err: any) {
-      toast.error('Error saving creator preferences');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -315,9 +254,8 @@ const UserProfilePage = () => {
       </Card>
 
       <Tabs defaultValue="profile">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="profile" className="text-xs"><User className="h-3.5 w-3.5 mr-1" />Profile</TabsTrigger>
-          <TabsTrigger value="creator" className="text-xs"><Video className="h-3.5 w-3.5 mr-1 text-orange-500" />Creator Channels</TabsTrigger>
           <TabsTrigger value="email" className="text-xs"><Mail className="h-3.5 w-3.5 mr-1" />Email</TabsTrigger>
           <TabsTrigger value="password" className="text-xs"><Lock className="h-3.5 w-3.5 mr-1" />Password</TabsTrigger>
         </TabsList>
@@ -418,138 +356,6 @@ const UserProfilePage = () => {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        {/* CREATOR & CHANNEL PREFERENCES TAB */}
-        <TabsContent value="creator" className="space-y-4">
-          <Card className="border shadow-md rounded-2xl">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-black flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Video className="h-4 w-4 text-orange-500" /> Creator Channel & Distribution Settings
-                </span>
-                <Badge className="bg-orange-500/15 text-orange-600 border-orange-500/30 text-[10px] uppercase font-black">
-                  Vixora Studio Sync
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* PUBLISHING CHANNELS */}
-              <div className="space-y-2">
-                <Label className="text-xs font-bold flex items-center justify-between">
-                  <span>Target Content Distribution Channels</span>
-                  <span className="text-[10px] text-muted-foreground">Select where you publish</span>
-                </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: 'whatsapp', label: 'WhatsApp Status & Groups', icon: 'fa-whatsapp', color: 'text-emerald-500 bg-emerald-500/10' },
-                    { id: 'tiktok', label: 'TikTok Shorts', icon: 'fa-tiktok', color: 'text-pink-500 bg-pink-500/10' },
-                    { id: 'youtube', label: 'YouTube Shorts', icon: 'fa-youtube', color: 'text-red-500 bg-red-500/10' },
-                    { id: 'instagram', label: 'Instagram Reels', icon: 'fa-instagram', color: 'text-purple-500 bg-purple-500/10' },
-                    { id: 'facebook', label: 'Facebook Reels & Pages', icon: 'fa-facebook', color: 'text-blue-500 bg-blue-500/10' },
-                    { id: 'telegram', label: 'Telegram Broadcast', icon: 'fa-telegram', color: 'text-sky-500 bg-sky-500/10' },
-                  ].map(ch => {
-                    const active = selectedChannels.includes(ch.id);
-                    return (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        onClick={() => toggleChannel(ch.id)}
-                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between text-xs font-bold cursor-pointer ${
-                          active 
-                            ? 'border-orange-500 bg-orange-500/10 text-foreground shadow-sm' 
-                            : 'border-border/60 hover:bg-muted/50 text-muted-foreground'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${ch.color}`}>
-                            <i className={`fa-brands ${ch.icon} text-xs`}></i>
-                          </span>
-                          <span className="truncate text-[11px]">{ch.label}</span>
-                        </div>
-                        {active && <Check className="h-3.5 w-3.5 text-orange-600 shrink-0 ml-1" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* CREATOR NICHE */}
-              <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs font-bold">Default Creator Niche</Label>
-                <Select value={creatorNiche} onValueChange={setCreatorNiche}>
-                  <SelectTrigger className="rounded-xl text-xs">
-                    <SelectValue placeholder="Select primary niche" />
-                  </SelectTrigger>
-                  <SelectContent className="z-50">
-                    <SelectItem value="finance">💰 Wealth, Money & Investing</SelectItem>
-                    <SelectItem value="motivation">🔥 Motivation, Stoic & Mindset</SelectItem>
-                    <SelectItem value="tech">⚡ AI, Future Tech & Breakdowns</SelectItem>
-                    <SelectItem value="history">📜 Untold African History & Culture</SelectItem>
-                    <SelectItem value="health">🌿 Health, Energy & Vitality</SelectItem>
-                    <SelectItem value="ecommerce">🛍️ Product Deals & Business Offers</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">Vixora AI will automatically adapt script tones, hooks, and visual search terms to this niche.</p>
-              </div>
-
-              {/* DEFAULT VOICE & ASPECT RATIO */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">Preferred AI Video Voice</Label>
-                  <Select value={preferredVoice} onValueChange={setPreferredVoice}>
-                    <SelectTrigger className="rounded-xl text-xs">
-                      <SelectValue placeholder="Select voice" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      <SelectItem value="Kore">Kore (Vixora Signature Flagship AI)</SelectItem>
-                      <SelectItem value="Aoede">Aoede (Warm Storytelling)</SelectItem>
-                      <SelectItem value="Puck">Puck (Viral High-Energy)</SelectItem>
-                      <SelectItem value="Charon">Charon (Deep Cinematic)</SelectItem>
-                      <SelectItem value="Fenrir">Fenrir (Bold Tech)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">Default Video Ratio</Label>
-                  <Select value={preferredRatio} onValueChange={setPreferredRatio}>
-                    <SelectTrigger className="rounded-xl text-xs">
-                      <SelectValue placeholder="Select ratio" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      <SelectItem value="vertical">9:16 (Vertical Shorts / Reels / TikTok)</SelectItem>
-                      <SelectItem value="horizontal">16:9 (Widescreen Landscape)</SelectItem>
-                      <SelectItem value="square">1:1 (Square Feed)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* AUTO-SFX TOGGLE */}
-              <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/30">
-                <div>
-                  <p className="text-xs font-bold text-foreground">Auto-SFX Sound Effects</p>
-                  <p className="text-[10px] text-muted-foreground">Automatically add transition whooshes and audio pops to video scenes</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={autoSfx}
-                  onChange={(e) => setAutoSfx(e.target.checked)}
-                  className="h-4 w-4 accent-orange-600 rounded cursor-pointer"
-                />
-              </div>
-
-              <Button
-                onClick={saveCreatorPreferences}
-                disabled={saving}
-                className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Save Creator & Channel Preferences
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="email" className="space-y-3">

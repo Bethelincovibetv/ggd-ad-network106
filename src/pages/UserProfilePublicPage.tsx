@@ -8,7 +8,7 @@ import {
   ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe,
   MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown,
   ShoppingBag, Share2, Mail, Play, Menu, X, Home, Info, ShieldCheck, ChevronRight,
-  Clock, PackageCheck, Palette, Megaphone
+  Clock, PackageCheck, Palette
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -18,20 +18,6 @@ import { WEBSITE_TEMPLATES, getWebsiteTemplate, DEFAULT_TEMPLATE_ID } from '@/ut
 import { getEffectiveBusinessDescription } from '@/utils/industryData';
 import { CallButton } from '@/components/call/CallButton';
 import MetaTags from '@/components/MetaTags';
-import { BusinessVerificationBadge } from '@/components/business/BusinessVerificationBadge';
-import { getUserVerificationRecord, subscribeToUserVerification } from '@/services/businessVerificationEngine';
-import { VerificationSubmissionRecord } from '@/types/verification';
-import { BusinessReviewsSection } from '@/components/business/BusinessReviewsSection';
-import { AdminDirectVerificationBar } from '@/components/business/AdminDirectVerificationBar';
-import { FavoriteButton } from '@/components/favorites/FavoriteButton';
-import { WhatsAppCheckoutModal } from '@/components/orders/WhatsAppCheckoutModal';
-import { normalizePhone, buildWhatsAppLink, buildWhatsAppOrderLink } from '@/lib/whatsapp';
-import { 
-  subscribeToBusinessReviews, 
-  BusinessReview, 
-  ReviewStats, 
-  calculateReviewStats 
-} from '@/services/businessReviewService';
 
 const UserProfilePublicPage: React.FC = () => {
   const { id, slug } = useParams<{ id?: string; slug?: string }>();
@@ -44,22 +30,18 @@ const UserProfilePublicPage: React.FC = () => {
   const [listingFilter, setListingFilter] = useState<'all' | 'products' | 'services'>('all');
   const [sitesEnabled, setSitesEnabled] = useState(true);
   const [premiumTier, setPremiumTier] = useState<number>(0);
-  const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
-  const [reviews, setReviews] = useState<BusinessReview[]>([]);
-  const [reviewStats, setReviewStats] = useState<ReviewStats>(calculateReviewStats([]));
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust' | 'reviews'>('overview');
+  const [activeSection, setActiveSection] = useState<'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust'>('overview');
   const [templateKey, setTemplateKey] = useState<string>(DEFAULT_TEMPLATE_ID);
   const [showAdminTemplatePicker, setShowAdminTemplatePicker] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const [checkoutProduct, setCheckoutProduct] = useState<any | null>(null);
 
   const activeTemplate = getWebsiteTemplate(templateKey);
 
-  const scrollToSection = (sectionId: 'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust' | 'reviews') => {
+  const scrollToSection = (sectionId: 'overview' | 'catalog' | 'about' | 'contact' | 'socials' | 'trust') => {
     setActiveSection(sectionId);
     setSidebarOpen(false);
     const element = document.getElementById(sectionId);
@@ -130,141 +112,26 @@ const UserProfilePublicPage: React.FC = () => {
 
   useEffect(() => {
     if (!id && !slug) return;
-    let unsubscribeVerif: (() => void) | undefined;
-    let unsubscribeReviews: (() => void) | undefined;
-    let rtChannel: any = null;
-    let handleGlobalVerifEvent: ((e: any) => void) | undefined;
-
     (async () => {
       let resolvedId = id;
-
       if (!resolvedId && slug) {
-        // 1. Try profiles business_slug
         const { data: bySlug } = await supabase
           .from('profiles').select('user_id').eq('business_slug', slug).maybeSingle();
-        if (bySlug?.user_id) {
-          resolvedId = bySlug.user_id;
-        } else {
-          // 2. Try business_profiles slug
-          const { data: bpBySlug } = await (supabase.from('business_profiles') as any)
-            .select('user_id').eq('slug', slug).maybeSingle();
-          if (bpBySlug?.user_id) {
-            resolvedId = bpBySlug.user_id;
-          } else {
-            // 3. Try profiles user_id directly or referral_code
-            const { data: byUid } = await supabase
-              .from('profiles').select('user_id').or(`user_id.eq.${slug},referral_code.eq.${slug}`).maybeSingle();
-            if (byUid?.user_id) {
-              resolvedId = byUid.user_id;
-            } else {
-              // 4. Try business_profiles id
-              const { data: bpById } = await (supabase.from('business_profiles') as any)
-                .select('user_id').eq('id', slug).maybeSingle();
-              if (bpById?.user_id) {
-                resolvedId = bpById.user_id;
-              }
-            }
-          }
-        }
-      } else if (resolvedId) {
-        // If id was provided, check if it's actually a business_profile id
-        const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedId);
-        if (uuidLike) {
-          const { data: byProf } = await supabase
-            .from('profiles').select('user_id').eq('user_id', resolvedId).maybeSingle();
-          if (!byProf) {
-            const { data: bpById } = await (supabase.from('business_profiles') as any)
-              .select('user_id').eq('id', resolvedId).maybeSingle();
-            if (bpById?.user_id) {
-              resolvedId = bpById.user_id;
-            }
-          }
-        }
+        resolvedId = bySlug?.user_id;
       }
-
-      if (!resolvedId) {
-        setLoading(false);
-        return;
-      }
-
-      // Real-time verification subscription
-      unsubscribeVerif = subscribeToUserVerification(resolvedId, (rec) => {
-        setVerificationRecord(rec);
-        if (rec) {
-          const isAppr = rec.status === 'VERIFIED' && rec.verified_badge_granted === true;
-          setProfile((prev: any) => prev ? { ...prev, is_verified: isAppr, verification_status: rec.status } : prev);
-          setBusiness((prev: any) => prev ? { ...prev, is_verified: isAppr, verification_status: rec.status } : prev);
-        }
-      });
-
-      // Real-time reviews subscription
-      unsubscribeReviews = subscribeToBusinessReviews(resolvedId, (revs, stats) => {
-        setReviews(revs);
-        setReviewStats(stats);
-      });
-
-      // Real-time Supabase profile changes listener
-      rtChannel = supabase
-        .channel(`profile_rt_${resolvedId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `user_id=eq.${resolvedId}` }, (payload: any) => {
-          if (payload.new) {
-            setProfile((prev: any) => ({ ...prev, ...payload.new }));
-          }
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'business_profiles', filter: `user_id=eq.${resolvedId}` }, (payload: any) => {
-          if (payload.new) {
-            setBusiness((prev: any) => ({ ...prev, ...payload.new }));
-            setProfile((prev: any) => prev ? { ...prev, is_verified: payload.new.is_verified } : prev);
-          }
-        })
-        .subscribe();
-
-      handleGlobalVerifEvent = (e: any) => {
-        const detail = e.detail;
-        if (detail && (detail.userId === resolvedId || (business?.id && detail.businessProfileId === business.id))) {
-          const isV = Boolean(detail.isVerified);
-          setProfile((prev: any) => prev ? { ...prev, is_verified: isV, verification_status: detail.status || (isV ? 'VERIFIED' : 'UNVERIFIED') } : prev);
-          setBusiness((prev: any) => prev ? { ...prev, is_verified: isV, verification_status: detail.status || (isV ? 'VERIFIED' : 'UNVERIFIED') } : prev);
-          if (detail.record) {
-            setVerificationRecord(detail.record);
-          }
-        }
-      };
-      window.addEventListener('ggd_verification_updated', handleGlobalVerifEvent);
-
-      const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes, verifRecord] = await Promise.all([
-        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at, is_verified, verification_status').eq('user_id', resolvedId).maybeSingle(),
+      if (!resolvedId) { setLoading(false); return; }
+      const [p, s, b, toggle, roleRow, defaultTplRes, userTplRes] = await Promise.all([
+        supabase.from('profiles').select('user_id, display_name, business_name, avatar_url, business_logo_url, business_description, business_category, business_location, business_phone, business_website, business_slug, created_at').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('syndicate_profiles').select('*').eq('user_id', resolvedId).maybeSingle(),
         (supabase.from('business_profiles') as any).select('*').eq('user_id', resolvedId).maybeSingle(),
         supabase.from('feature_toggles').select('is_enabled').eq('feature_key', 'business_sites').maybeSingle(),
         (supabase.from('user_roles') as any).select('premium_tier, premium_expires_at').eq('user_id', resolvedId).eq('role', 'premium').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'default_business_website_template').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', `biz_template_${resolvedId}`).maybeSingle(),
-        getUserVerificationRecord(resolvedId),
       ]);
-
-      // Fallback: If user profile not found, synthesize from business_profiles
-      const effectiveProfile = p.data || (b.data ? {
-        user_id: resolvedId,
-        display_name: b.data.business_name || 'Enterprise Business',
-        business_name: b.data.business_name || 'Enterprise Business',
-        avatar_url: b.data.logo_url,
-        business_logo_url: b.data.logo_url,
-        business_description: b.data.description,
-        business_category: b.data.category_name,
-        business_location: b.data.address,
-        business_phone: b.data.phone_number,
-        business_website: b.data.website_link,
-        business_slug: b.data.slug || slug,
-        created_at: b.data.created_at || new Date().toISOString(),
-        is_verified: b.data.is_verified || false,
-        verification_status: b.data.is_verified ? 'VERIFIED' : 'UNVERIFIED'
-      } : null);
-
-      setProfile(effectiveProfile);
+      setProfile(p.data);
       setSyndicate(s.data);
       setBusiness(b.data);
-      if (verifRecord) setVerificationRecord(verifRecord);
       setSitesEnabled(toggle.data?.is_enabled !== false);
       const tier = (roleRow as any)?.data?.premium_tier ?? 0;
       const exp = (roleRow as any)?.data?.premium_expires_at;
@@ -298,13 +165,6 @@ const UserProfilePublicPage: React.FC = () => {
       }
       setLoading(false);
     })();
-
-    return () => {
-      if (unsubscribeVerif) unsubscribeVerif();
-      if (unsubscribeReviews) unsubscribeReviews();
-      if (rtChannel) supabase.removeChannel(rtChannel);
-      if (handleGlobalVerifEvent) window.removeEventListener('ggd_verification_updated', handleGlobalVerifEvent);
-    };
   }, [id, slug]);
 
   const share = async () => {
@@ -345,14 +205,8 @@ const UserProfilePublicPage: React.FC = () => {
   const address = business?.address || profile.business_location;
   const catName = category?.name || profile.business_category;
   const description = getEffectiveBusinessDescription(rawDescription, name, catName);
-  const waPhone = normalizePhone(phone);
-  const brandedWa = waPhone ? buildWhatsAppLink(waPhone, { message: `Hello ${name}, I saw your official website on GGD Ad Network and would like to inquire about your offers.` }) : null;
-
-  const isVerified = Boolean(
-    business?.is_verified === true ||
-    profile?.is_verified === true ||
-    (verificationRecord && verificationRecord.status === 'VERIFIED' && verificationRecord.verified_badge_granted === true)
-  );
+  const waPhone = (phone || '').replace(/[^\d]/g, '');
+  const brandedWa = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello ${name}, I saw your official website on GGD and would like to inquire about your offers.`)}` : null;
 
   const socials = [
     { key: 'whatsapp', href: business?.whatsapp_link || brandedWa, icon: MessageCircle, label: 'WhatsApp', color: 'bg-green-500 hover:bg-green-600' },
@@ -380,7 +234,6 @@ const UserProfilePublicPage: React.FC = () => {
     { id: 'overview' as const, label: 'Home Overview', icon: Home },
     { id: 'catalog' as const, label: 'Products & Services', icon: ShoppingBag, count: listings.length },
     { id: 'about' as const, label: 'About Business', icon: Info },
-    { id: 'reviews' as const, label: 'Customer Reviews', icon: Star, count: reviewStats.totalReviews },
     { id: 'contact' as const, label: 'Contact & Location', icon: Phone },
     { id: 'socials' as const, label: 'Social Channels', icon: Globe, count: socials.length },
     { id: 'trust' as const, label: 'Trust & Verification', icon: ShieldCheck },
@@ -407,64 +260,49 @@ const UserProfilePublicPage: React.FC = () => {
         }}
       />
       
-      {/* Admin Template Bar & Direct Verification Control */}
+      {/* Admin Template Bar: lets Admin select and preview website templates */}
       {isAdmin && (
-        <div className="sticky top-0 z-50">
-          <div className="bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 shadow-md flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
-                <Palette className="h-4 w-4" />
-              </div>
-              <span className="font-bold text-xs text-slate-200">Admin Website Template:</span>
-              <span className="bg-white/10 px-2.5 py-0.5 rounded-full text-xs font-semibold text-orange-300 flex items-center gap-1.5 border border-white/10">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeTemplate.swatchPrimary }} />
-                {activeTemplate.name}
-              </span>
+        <div className="sticky top-0 z-50 bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 shadow-md flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400">
+              <Palette className="h-4 w-4" />
             </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {Object.values(WEBSITE_TEMPLATES).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => handleAdminSaveTemplate(t.id, false)}
-                  disabled={savingTemplate}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                    templateKey === t.id
-                      ? 'bg-orange-500 text-white border-orange-400 shadow-sm'
-                      : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
-                  }`}
-                  title={t.subtitle}
-                >
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.swatchPrimary }} />
-                  <span>{t.name.replace(' (Default)', '')}</span>
-                </button>
-              ))}
-
-              <Button
-                size="sm"
-                disabled={savingTemplate}
-                onClick={() => handleAdminSaveTemplate(templateKey, true)}
-                className="h-8 px-3 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl shadow"
-                title="Save this template as default for all new/unconfigured business websites"
-              >
-                Set as Platform Default
-              </Button>
-            </div>
+            <span className="font-bold text-xs text-slate-200">Admin Website Template:</span>
+            <span className="bg-white/10 px-2.5 py-0.5 rounded-full text-xs font-semibold text-orange-300 flex items-center gap-1.5 border border-white/10">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeTemplate.swatchPrimary }} />
+              {activeTemplate.name}
+            </span>
           </div>
 
-          <AdminDirectVerificationBar
-            userId={profile.user_id}
-            businessProfileId={business?.id}
-            profileName={name}
-            isVerified={isVerified}
-            verificationRecord={verificationRecord}
-            currentUser={currentUser}
-            onStatusChanged={() => {
-              setProfile((prev: any) => prev ? { ...prev, is_verified: !isVerified, verification_status: !isVerified ? 'VERIFIED' : 'UNVERIFIED' } : prev);
-              if (business) setBusiness((prev: any) => prev ? { ...prev, is_verified: !isVerified } : prev);
-            }}
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            {Object.values(WEBSITE_TEMPLATES).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => handleAdminSaveTemplate(t.id, false)}
+                disabled={savingTemplate}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                  templateKey === t.id
+                    ? 'bg-orange-500 text-white border-orange-400 shadow-sm'
+                    : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
+                }`}
+                title={t.subtitle}
+              >
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.swatchPrimary }} />
+                <span>{t.name.replace(' (Default)', '')}</span>
+              </button>
+            ))}
+
+            <Button
+              size="sm"
+              disabled={savingTemplate}
+              onClick={() => handleAdminSaveTemplate(templateKey, true)}
+              className="h-8 px-3 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl shadow"
+              title="Save this template as default for all new/unconfigured business websites"
+            >
+              Set as Platform Default
+            </Button>
+          </div>
         </div>
       )}
 
@@ -567,7 +405,7 @@ const UserProfilePublicPage: React.FC = () => {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                {isVerified && (
+                {premiumTier >= 1 && (
                   <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm">
                     <CheckCircle className={`h-4 w-4 ${activeTemplate.verifiedIconColor}`} />
                   </div>
@@ -575,17 +413,9 @@ const UserProfilePublicPage: React.FC = () => {
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h2 className="text-base font-black text-slate-900 leading-tight truncate" title={name}>
-                    {name}
-                  </h2>
-                  <BusinessVerificationBadge 
-                    status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
-                    isVerified={isVerified} 
-                    size="sm"
-                    showText={false}
-                  />
-                </div>
+                <h2 className="text-base font-black text-slate-900 leading-tight truncate" title={name}>
+                  {name}
+                </h2>
                 {catName && (
                   <p className={`text-xs font-bold ${activeTemplate.accentText} mt-0.5 truncate`}>{catName}</p>
                 )}
@@ -599,20 +429,12 @@ const UserProfilePublicPage: React.FC = () => {
             </div>
 
             {/* Quick Status Pill */}
-            <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border ${
-              isVerified ? 'bg-emerald-50 border-emerald-200/80' : 'bg-slate-50 border-slate-200'
-            }`}>
+            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2 text-xs">
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                <span className={`${isVerified ? 'text-emerald-700' : 'text-slate-700'} font-bold text-[11px]`}>
-                  {isVerified ? 'Open for Inquiries' : 'Standard Merchant'}
-                </span>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-700 font-bold text-[11px]">Open for Inquiries</span>
               </div>
-              {isVerified ? (
-                <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
-              ) : (
-                <span className="text-[10px] text-slate-500 font-medium">Unverified Site</span>
-              )}
+              <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
             </div>
           </div>
 
@@ -720,38 +542,32 @@ const UserProfilePublicPage: React.FC = () => {
           <section id="overview" className="scroll-mt-6">
             <Card className={`${activeTemplate.cardBg} ${activeTemplate.cardBorder} overflow-hidden rounded-3xl shadow-sm relative border`}>
               {/* Hero Banner Image with dynamic gradient overlay */}
-              <div className={`relative min-h-[220px] sm:min-h-[280px] md:min-h-[340px] max-h-[460px] w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden flex items-center justify-center`}>
+              <div className={`relative h-60 sm:h-76 md:h-88 w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden`}>
                 {heroBanner ? (
-                  <>
-                    {/* Ambient backdrop blur so wide container looks filled */}
-                    <img 
-                      src={heroBanner} 
-                      alt="" 
-                      aria-hidden="true"
-                      className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none" 
-                    />
-                    {/* Full Banner Advert / Storefront Cover - completely uncropped */}
-                    <img 
-                      src={heroBanner} 
-                      alt={name} 
-                      className="relative z-10 w-full h-auto max-h-[440px] object-contain mx-auto transition-transform duration-700 ease-out" 
-                    />
-                  </>
+                  <img 
+                    src={heroBanner} 
+                    alt={name} 
+                    className="w-full h-full object-cover opacity-85 scale-105 hover:scale-110 transition-transform duration-1000 ease-out" 
+                  />
                 ) : (
-                  <div className="w-full h-56 sm:h-72 flex items-center justify-center bg-gradient-to-br from-orange-400 via-amber-500 to-orange-600">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 via-amber-500 to-orange-600">
                     <Store className="h-24 w-24 text-white/30" />
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/40 to-transparent z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent" />
                 
-                {/* Badges on Hero Banner - Only shown when merchant is verified */}
-                {isVerified && (
-                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
-                    <Badge className="bg-emerald-600 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
-                      <CheckCircle className="h-3.5 w-3.5 fill-white text-emerald-600" /> Verified Partner
+                {/* Badges on Hero Banner */}
+                <div className="absolute top-4 right-4 flex items-center gap-2 flex-wrap">
+                  {premiumTier >= 1 ? (
+                    <Badge className="bg-sky-500 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
+                      <CheckCircle className="h-3.5 w-3.5 fill-white text-sky-500" /> Verified Business
                     </Badge>
-                  </div>
-                )}
+                  ) : (
+                    <Badge className="bg-amber-400 text-amber-950 gap-1.5 font-bold text-xs py-1 px-3 border-0 shadow-sm">
+                      <Sparkles className="h-3.5 w-3.5" /> Trusted Merchant
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Business Identity and Introduction Info */}
@@ -765,13 +581,11 @@ const UserProfilePublicPage: React.FC = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="pb-1">
-                      <h1 className={`text-2xl sm:text-4xl font-black ${activeTemplate.headingText} tracking-tight flex items-center gap-2 flex-wrap`}>
-                        <span>{name}</span>
-                        <BusinessVerificationBadge 
-                          status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
-                          isVerified={isVerified} 
-                          size="md" 
-                        />
+                      <h1 className={`text-2xl sm:text-4xl font-black ${activeTemplate.headingText} tracking-tight flex items-center gap-2`}>
+                        {name}
+                        {premiumTier >= 1 && (
+                          <CheckCircle className={`h-6 w-6 ${activeTemplate.verifiedIconColor} shrink-0`} />
+                        )}
                       </h1>
                       <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mt-1 flex-wrap font-medium">
                         {catName && <span className={`${activeTemplate.accentText} font-bold`}>{catName}</span>}
@@ -826,42 +640,9 @@ const UserProfilePublicPage: React.FC = () => {
                         className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-xs"
                       >
                         <MessageCircle className="h-4 w-4" />
-                        <span>WhatsApp Chat</span>
+                        <span>WhatsApp</span>
                       </Button>
                     )}
-
-                    {business?.whatsapp_group_link && (
-                      <Button
-                        onClick={() => window.open(business.whatsapp_group_link, '_blank')}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-sm animate-pulse"
-                      >
-                        <Users className="h-4 w-4" />
-                        <span>Join WA Group</span>
-                      </Button>
-                    )}
-
-                    <FavoriteButton
-                      item={{
-                        targetId: business?.id || profile.user_id || id || 'biz',
-                        type: 'business',
-                        title: name,
-                        subtitle: catName || 'Verified Merchant Storefront',
-                        description: description,
-                        imageUrl: logoImage,
-                        location: address,
-                        category: catName,
-                        verified: isVerified,
-                        linkUrl: window.location.pathname,
-                        businessName: name,
-                        businessPhone: phone,
-                        businessWebsite: website,
-                      }}
-                      variant="outline"
-                      size="md"
-                      showLabel
-                      className="border-slate-200 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 hover:border-rose-300 text-xs sm:text-sm h-11 px-4 rounded-xl shadow-xs"
-                    />
-
                     <Button
                       variant="outline"
                       onClick={share}
@@ -881,12 +662,8 @@ const UserProfilePublicPage: React.FC = () => {
                   <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Satisfaction</p>
                     <p className="text-lg sm:text-xl font-black text-amber-500 mt-0.5 flex items-center justify-center gap-1">
-                      <Star className="h-4 w-4 fill-current" />
-                      {reviewStats.totalReviews > 0 ? `${reviewStats.averageRating.toFixed(1)} / 5.0` : '5.0 (New)'}
+                      <Star className="h-4 w-4 fill-current" /> 4.9 / 5.0
                     </p>
-                    <span className="text-[9px] text-slate-400 font-medium block">
-                      {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} genuine ratings` : 'Real client rating'}
-                    </span>
                   </div>
                   <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Response</p>
@@ -984,30 +761,6 @@ const UserProfilePublicPage: React.FC = () => {
                         <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
                           <Crown className="h-3 w-3" /> Featured {listing.listing_type === 'service' ? 'Service' : 'Product'}
                         </div>
-
-                        {/* Favorite Overlay on Featured Card */}
-                        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
-                          <FavoriteButton
-                            item={{
-                              targetId: listing.id,
-                              type: listing.listing_type === 'service' ? 'service' : 'product',
-                              title: listing.title,
-                              subtitle: name,
-                              description: listing.description,
-                              imageUrl: listing.image_url,
-                              price: listing.price,
-                              location: address,
-                              category: catName,
-                              verified: isVerified,
-                              linkUrl: `/product/${listing.id}`,
-                              businessName: name,
-                              businessPhone: phone,
-                              businessWebsite: website,
-                            }}
-                            variant="overlay"
-                            size="md"
-                          />
-                        </div>
                         {listing.video_url && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
                             <div className="h-12 w-12 rounded-full bg-white/95 text-orange-600 flex items-center justify-center shadow-lg">
@@ -1044,14 +797,6 @@ const UserProfilePublicPage: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <Button
                               size="sm"
-                              onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-md hover:shadow-emerald-600/30 transition-all cursor-pointer"
-                            >
-                              <MessageCircle className="h-4 w-4 fill-white" />
-                              <span>{listing.listing_type === 'service' ? 'Book via WhatsApp' : 'WhatsApp Order'}</span>
-                            </Button>
-                            <Button
-                              size="sm"
                               variant="outline"
                               onClick={(e) => { e.stopPropagation(); handleChatDirect(listing); }}
                               className="border-amber-300 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-3 rounded-xl gap-1 shadow-xs"
@@ -1060,10 +805,9 @@ const UserProfilePublicPage: React.FC = () => {
                             </Button>
                             <Button
                               size="sm"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
                               className={`${activeTemplate.primaryBtn} text-xs h-10 px-3.5 rounded-xl`}
                             >
-                              Details
+                              View Details
                             </Button>
                           </div>
                         </div>
@@ -1098,30 +842,6 @@ const UserProfilePublicPage: React.FC = () => {
                       <Badge className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur text-slate-800 text-[10px] border border-slate-200 font-bold shadow-xs">
                         {listing.listing_type === 'service' ? 'Service' : 'Product'}
                       </Badge>
-
-                      {/* Favorite Button on Standard Catalog Card */}
-                      <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
-                        <FavoriteButton
-                          item={{
-                            targetId: listing.id,
-                            type: listing.listing_type === 'service' ? 'service' : 'product',
-                            title: listing.title,
-                            subtitle: name,
-                            description: listing.description,
-                            imageUrl: listing.image_url,
-                            price: listing.price,
-                            location: address,
-                            category: catName,
-                            verified: isVerified,
-                            linkUrl: `/product/${listing.id}`,
-                            businessName: name,
-                            businessPhone: phone,
-                            businessWebsite: website,
-                          }}
-                          variant="overlay"
-                          size="sm"
-                        />
-                      </div>
                       {listing.video_url && (
                         <div className="absolute top-2.5 right-2.5 bg-orange-600 text-white p-1 rounded-full shadow">
                           <Play className="h-3 w-3 fill-current" />
@@ -1156,19 +876,17 @@ const UserProfilePublicPage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-2">
                           <Button
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-9 rounded-xl gap-1 shadow-sm hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); handleChatDirect(listing); }}
+                            className="w-full border-slate-200 bg-white hover:bg-orange-50 text-orange-600 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs"
                           >
-                            <MessageCircle className="h-3.5 w-3.5 fill-white" />
-                            <span>{listing.listing_type === 'service' ? 'Book via WA' : 'WhatsApp Buy'}</span>
+                            <MessageCircle className="h-3 w-3" /> Inquire
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                            className="w-full border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs"
+                            className={`w-full ${activeTemplate.primaryBtn} text-[11px] h-9 rounded-xl`}
                           >
-                            Details →
+                            Details
                           </Button>
                         </div>
                       </div>
@@ -1340,18 +1058,7 @@ const UserProfilePublicPage: React.FC = () => {
             </section>
           )}
 
-          {/* SECTION 6: CUSTOMER REVIEWS & RATINGS */}
-          <BusinessReviewsSection
-            businessUserId={profile.user_id}
-            businessName={name}
-            reviews={reviews}
-            stats={reviewStats}
-            currentUser={currentUser}
-            isAdmin={isAdmin}
-            activeTemplate={activeTemplate}
-          />
-
-          {/* SECTION 7: TRUST & ACCREDITATION */}
+          {/* SECTION 6: TRUST & ACCREDITATION */}
           <section id="trust" className="scroll-mt-24 space-y-4">
             <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
@@ -1364,39 +1071,6 @@ const UserProfilePublicPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Official Verification Status Card */}
-              <Card className={`rounded-2xl p-6 shadow-xs border ${
-                isVerified 
-                  ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200' 
-                  : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200'
-              }`}>
-                <div className="flex items-start gap-3.5">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
-                    isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {isVerified ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                      <h3 className="text-base font-black text-slate-900">
-                        {isVerified ? 'Accredited & Verified Merchant' : 'Unverified Merchant Profile'}
-                      </h3>
-                      <BusinessVerificationBadge 
-                        status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
-                        isVerified={isVerified} 
-                        size="sm" 
-                      />
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {isVerified 
-                        ? `This merchant has completed official identity verification${verificationRecord?.document_type ? ` via ${verificationRecord.document_type}` : ''} on the GGD Merchant Network.` 
-                        : 'This store has not yet completed official CAC or NIN identity verification.'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
               {syndicate && (
                 <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
                   <div className="flex items-start gap-3.5">
@@ -1425,15 +1099,15 @@ const UserProfilePublicPage: React.FC = () => {
               )}
 
               {/* Network Security Guarantee Card */}
-              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-xs`}>
+              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? '' : 'sm:col-span-2'} shadow-xs`}>
                 <div className="flex items-start gap-3.5">
                   <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-900">GGD Safe Commerce Pledge</h3>
+                    <h3 className="text-base font-black text-slate-900">GGD Verified Business Profile</h3>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Identity, commercial phone lines, and corporate profiles are monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
+                      Identity, commercial phone lines, and corporate profiles are periodically monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
                     </p>
                   </div>
                 </div>
@@ -1443,17 +1117,9 @@ const UserProfilePublicPage: React.FC = () => {
 
           {/* Sponsored Ad Banner & Network Footer */}
           <div className="pt-4 border-t border-slate-200 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-1.5">
-                <Megaphone className="h-3.5 w-3.5 text-orange-500" />
-                <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/15 text-orange-600 px-2.5 py-0.5 rounded-full">
-                  Sponsored Network Advert
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Full Display Banner
-              </span>
-            </div>
+            <p className="text-[10px] text-slate-400 text-center uppercase tracking-widest font-bold">
+              Sponsored Advertisement
+            </p>
             <AdDisplayPreview />
             
             <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-100 space-y-1">
@@ -1482,37 +1148,6 @@ const UserProfilePublicPage: React.FC = () => {
             <span className="truncate max-w-[140px] sm:max-w-[180px]">Chat with {name}</span>
           </button>
         </aside>
-      )}
-
-      {/* WhatsApp Checkout Modal */}
-      {checkoutProduct && (
-        <WhatsAppCheckoutModal
-          isOpen={!!checkoutProduct}
-          onClose={() => setCheckoutProduct(null)}
-          product={{
-            id: checkoutProduct.id,
-            title: checkoutProduct.title,
-            price: checkoutProduct.price,
-            image_url: checkoutProduct.image_url,
-            listing_type: checkoutProduct.listing_type,
-            description: checkoutProduct.description,
-            user_id: checkoutProduct.user_id || profile?.user_id,
-            business_name: name,
-            business_phone: waPhone || phone,
-            seller_phone: waPhone || phone,
-          }}
-          sellerInfo={{
-            name,
-            phone: waPhone || phone,
-            business_name: name,
-            address,
-          }}
-          onChatGgd={() => {
-            if (checkoutProduct) {
-              handleChatDirect(checkoutProduct);
-            }
-          }}
-        />
       )}
     </div>
   );
