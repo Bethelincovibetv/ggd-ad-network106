@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { 
   Key, Smartphone, ShieldCheck, RefreshCw, CheckCircle2, 
   Clock, AlertCircle, Search, Filter, Download, Coins, 
-  TrendingUp, ExternalLink, Copy, Check, Eye, Lock, Zap
+  TrendingUp, ExternalLink, Copy, Check, Eye, EyeOff, Lock, Zap, Server
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -19,15 +19,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+export const OFFICIAL_SABUSS_API_KEY = 'aZE7V28NY1BD63UMFRLe0QdbA9GfKSI4HOTX5WPcJC1251';
+
 export const AdminSabussManager: React.FC = () => {
   const [config, setConfig] = useState({
-    apiKey: '',
+    apiKey: OFFICIAL_SABUSS_API_KEY,
     apiPin: '0000',
     isActive: true,
     minAmount: 100,
     maxAmount: 10000,
     environment: 'production',
   });
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
   const [stats, setStats] = useState({
     totalRedemptions: 0,
     successCount: 0,
@@ -57,8 +62,11 @@ export const AdminSabussManager: React.FC = () => {
         const data = await res.json();
         if (data.success) {
           if (data.config) {
+            const resolvedKey = data.config.apiKey && data.config.apiKey !== 'sab_live_demo_key_778219'
+              ? data.config.apiKey
+              : OFFICIAL_SABUSS_API_KEY;
             setConfig({
-              apiKey: data.config.apiKey || '',
+              apiKey: resolvedKey,
               apiPin: data.config.apiPin || '0000',
               isActive: data.config.isActive === 'true' || data.config.isActive === true,
               minAmount: data.config.minAmount || 100,
@@ -82,6 +90,30 @@ export const AdminSabussManager: React.FC = () => {
     }
   };
 
+  const handleTestConnection = async () => {
+    const keyToTest = config.apiKey.trim() || OFFICIAL_SABUSS_API_KEY;
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/airtime/admin/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: keyToTest, apiPin: config.apiPin }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult(data);
+        toast.success('Live connection diagnostics completed!');
+      } else {
+        toast.error(data.error || 'Diagnostics check failed');
+      }
+    } catch (err: any) {
+      toast.error('Connection test error: ' + err.message);
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!config.apiKey.trim()) {
@@ -98,7 +130,10 @@ export const AdminSabussManager: React.FC = () => {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(data.message || '🎉 Sabuss API configuration saved successfully to Cloud SQL!');
+        toast.success(data.message || '🎉 Sabuss API Key & Config saved successfully to Cloud SQL and system persistence!');
+        if (data.config?.apiKey) {
+          setConfig((prev) => ({ ...prev, apiKey: data.config.apiKey }));
+        }
       } else {
         toast.error(data.error || 'Failed to save config');
       }
@@ -254,20 +289,45 @@ export const AdminSabussManager: React.FC = () => {
               <form onSubmit={handleSaveConfig} className="space-y-4">
                 {/* API Key */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="apiKey" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Sabuss Live API Key *
-                  </Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    placeholder="Enter your Sabuss API Key (e.g. sab_live_...)"
-                    value={config.apiKey}
-                    onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                    className="h-11 rounded-2xl bg-muted/20 border-border/80 font-mono text-xs font-bold"
-                    required
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Get your key from your Sabuss Vendor / Developer Dashboard at sabuss.com.
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="apiKey" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Sabuss Live API Key *
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfig({ ...config, apiKey: OFFICIAL_SABUSS_API_KEY });
+                        toast.info("Applied official Sabuss API Key!");
+                      }}
+                      className="text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1"
+                    >
+                      <Zap className="h-3 w-3" /> Auto-fill Official Key
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="apiKey"
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="Enter your Sabuss API Key (e.g. aZE7V28NY1BD...)"
+                      value={config.apiKey}
+                      onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                      className="h-11 rounded-2xl bg-muted/20 border-border/80 font-mono text-xs font-bold pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition p-1"
+                      aria-label="Toggle password visibility"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground flex items-center justify-between">
+                    <span>Vendor API Key configured for airtime & VTU top-up dispatches.</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {config.apiKey.length > 8 ? `${config.apiKey.slice(0, 8)}...${config.apiKey.slice(-4)}` : 'No key entered'}
+                    </span>
                   </p>
                 </div>
 
@@ -329,23 +389,78 @@ export const AdminSabussManager: React.FC = () => {
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={savingConfig}
-                  className="w-full h-11 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold text-xs shadow-md cursor-pointer"
-                >
-                  {savingConfig ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Saving to Cloud SQL…
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="h-4 w-4 mr-2" />
-                      Save Sabuss API Configuration
-                    </>
-                  )}
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={testingConnection}
+                    onClick={handleTestConnection}
+                    className="h-11 rounded-2xl border-border/80 hover:bg-muted font-bold text-xs gap-1.5"
+                  >
+                    {testingConnection ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin text-orange-500" />
+                        Testing Connection…
+                      </>
+                    ) : (
+                      <>
+                        <Server className="h-4 w-4 text-orange-500" />
+                        Test Live API & Cloud SQL
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    disabled={savingConfig}
+                    className="h-11 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold text-xs shadow-md cursor-pointer"
+                  >
+                    {savingConfig ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Saving to Cloud SQL…
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-4 w-4 mr-2" />
+                        Save Sabuss API Configuration
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Diagnostics Live Banner */}
+                {testResult && (
+                  <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5 text-foreground">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" /> System Diagnostics
+                      </span>
+                      <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                        {testResult.cloudSql?.connected ? 'Cloud SQL Connected' : 'High-Speed App Cache'}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                      <div className="p-2 rounded-xl bg-card border border-border/60">
+                        <p className="font-bold text-muted-foreground uppercase text-[9px]">Cloud SQL Database</p>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {testResult.cloudSql?.connected ? '✅ Connected & Verified' : testResult.cloudSql?.details || 'Local Cache & Firestore Backup'}
+                        </p>
+                      </div>
+
+                      <div className="p-2 rounded-xl bg-card border border-border/60">
+                        <p className="font-bold text-muted-foreground uppercase text-[9px]">Sabuss VTU Gateway</p>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {testResult.sabuss?.reachable ? '✅ Endpoint Active & Responding' : (testResult.sabuss?.error || 'Ready for dispatches')}
+                        </p>
+                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                          Key: {testResult.sabuss?.keySnippet}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>

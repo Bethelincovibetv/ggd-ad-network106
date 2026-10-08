@@ -7,6 +7,7 @@ import {
   getUserAirtimeRedemptions, 
   getAllAirtimeRedemptions 
 } from '../services/airtimeDb.ts';
+import { isCloudSqlConfigured, createPool } from '../db/index.ts';
 
 const router = Router();
 
@@ -425,8 +426,83 @@ router.post('/admin/retry/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/airtime/admin/test-connection - Diagnostic test for Sabuss and Cloud SQL
+router.post('/admin/test-connection', async (req: Request, res: Response) => {
+  try {
+    const config = await getSabussConfig();
+    const apiKey = (req.body?.apiKey || config.apiKey || '').trim();
+    
+    // 1. Check Cloud SQL status
+    let cloudSqlStatus = {
+      configured: isCloudSqlConfigured(),
+      connected: false,
+      details: isCloudSqlConfigured() ? 'Checking Cloud SQL pool...' : 'Cloud SQL env vars not set (using high-speed persistence cache & Firestore backup)',
+    };
+
+    if (isCloudSqlConfigured()) {
+      try {
+        const pool = createPool();
+        if (pool) {
+          const check = await pool.query('SELECT 1 as alive');
+          cloudSqlStatus.connected = Boolean(check.rowCount && check.rowCount > 0);
+          cloudSqlStatus.details = 'Connected to Cloud SQL PostgreSQL instance successfully.';
+        }
+      } catch (dbErr: any) {
+        cloudSqlStatus.details = `Cloud SQL connection attempt note: ${dbErr.message}`;
+      }
+    }
+
+    // 2. Test Sabuss API Key connectivity
+    let sabussStatus: any = {
+      keySnippet: apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : 'No key provided',
+      configured: Boolean(apiKey && apiKey.length >= 10),
+      reachable: false,
+    };
+
+    if (apiKey) {
+      try {
+        const testRes = await fetch(`https://sabuss.com/vtu/api/buy/${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            pin: req.body?.apiPin || config.apiPin || '0000',
+            plan_id: '1',
+            phone: '08000000000',
+            amount: '50',
+            reference: `TEST_CONN_${Date.now()}`
+          }).toString()
+        });
+
+        const rawText = await testRes.text();
+        let parsed: any;
+        try { parsed = JSON.parse(rawText); } catch { parsed = { raw: rawText }; }
+        
+        sabussStatus.reachable = true;
+        sabussStatus.response = parsed;
+        sabussStatus.httpStatus = testRes.status;
+      } catch (apiErr: any) {
+        sabussStatus.reachable = false;
+        sabussStatus.error = apiErr.message;
+      }
+    }
+
+    return res.json({
+      success: true,
+      cloudSql: cloudSqlStatus,
+      sabuss: sabussStatus,
+      activeConfig: {
+        ...config,
+        apiKey,
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export function registerAirtimeRoutes(app: any) {
   app.use('/api/airtime', router);
+  app.use('/api/admin/airtime', router);
 }
 
 export default router;

@@ -1,4 +1,4 @@
-import { db, isCloudSqlConfigured } from '../db/index.ts';
+import { db, isCloudSqlConfigured, createPool } from '../db/index.ts';
 import { airtimeRedemptions, sabussApiConfigs } from '../db/schema.ts';
 import { eq, desc } from 'drizzle-orm';
 import fs from 'fs';
@@ -32,11 +32,14 @@ export interface SabussApiConfigRecord {
   updatedAt: string;
 }
 
+// User-provided official Sabuss API Key
+export const DEFAULT_SABUSS_API_KEY = 'aZE7V28NY1BD63UMFRLe0QdbA9GfKSI4HOTX5WPcJC1251';
+
 // Resilient memory cache + file persistence for redundancy
 const memoryRedemptions = new Map<string, AirtimeRedemptionRecord>();
 let memorySabussConfig: SabussApiConfigRecord = {
   id: 'sabuss_primary_config',
-  apiKey: process.env.SABUSS_API_KEY || 'sab_live_demo_key_778219',
+  apiKey: process.env.SABUSS_API_KEY || DEFAULT_SABUSS_API_KEY,
   apiPin: '0000',
   isActive: 'true',
   minAmount: 100,
@@ -49,6 +52,7 @@ let memorySabussConfig: SabussApiConfigRecord = {
 const DATA_DIR = path.resolve(process.cwd(), '.data');
 const BACKUP_FILE = path.join(DATA_DIR, 'airtime_redemptions.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'sabuss_config.json');
+const ENV_FILE = path.resolve(process.cwd(), '.env');
 
 function ensureDataDir() {
   try {
@@ -56,6 +60,68 @@ function ensureDataDir() {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
   } catch {}
+}
+
+function persistToEnv(apiKey: string) {
+  try {
+    process.env.SABUSS_API_KEY = apiKey;
+    if (fs.existsSync(ENV_FILE)) {
+      let content = fs.readFileSync(ENV_FILE, 'utf8');
+      if (content.includes('SABUSS_API_KEY=')) {
+        content = content.replace(/SABUSS_API_KEY=.*/g, `SABUSS_API_KEY=${apiKey}`);
+      } else {
+        content = content.trimEnd() + `\nSABUSS_API_KEY=${apiKey}\n`;
+      }
+      fs.writeFileSync(ENV_FILE, content, 'utf8');
+    } else {
+      fs.writeFileSync(ENV_FILE, `SABUSS_API_KEY=${apiKey}\n`, 'utf8');
+    }
+  } catch (e) {
+    console.warn('Could not write SABUSS_API_KEY to .env:', e);
+  }
+}
+
+let tablesChecked = false;
+export async function ensureCloudSqlAirtimeTables(): Promise<boolean> {
+  if (tablesChecked) return true;
+  if (!isCloudSqlConfigured()) return false;
+  try {
+    const pool = createPool();
+    if (!pool) return false;
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sabuss_api_configs (
+        id TEXT PRIMARY KEY,
+        api_key TEXT NOT NULL,
+        api_pin TEXT NOT NULL DEFAULT '0000',
+        is_active TEXT NOT NULL DEFAULT 'true',
+        min_amount INTEGER NOT NULL DEFAULT 100,
+        max_amount INTEGER NOT NULL DEFAULT 10000,
+        environment TEXT NOT NULL DEFAULT 'production',
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS airtime_redemptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_email TEXT,
+        network TEXT NOT NULL,
+        plan_id TEXT NOT NULL,
+        phone_number TEXT NOT NULL,
+        amount_ngn INTEGER NOT NULL,
+        credits_deducted INTEGER NOT NULL,
+        reference TEXT NOT NULL UNIQUE,
+        api_status_code TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        api_response TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    tablesChecked = true;
+    return true;
+  } catch (e) {
+    console.warn('Notice: Cloud SQL airtime table init check:', e);
+    return false;
+  }
 }
 
 function loadLocalBackups() {
@@ -73,7 +139,13 @@ function loadLocalBackups() {
     if (fs.existsSync(CONFIG_FILE)) {
       const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
       const conf = JSON.parse(raw);
-      if (conf?.apiKey) memorySabussConfig = { ...memorySabussConfig, ...conf };
+      if (conf?.apiKey && conf.apiKey.trim().length > 0) {
+        memorySabussConfig = { ...memorySabussConfig, ...conf };
+      }
+    }
+    // If no config file yet or still default placeholder, ensure our real API key is saved
+    if (!memorySabussConfig.apiKey || memorySabussConfig.apiKey === 'sab_live_demo_key_778219') {
+      memorySabussConfig.apiKey = process.env.SABUSS_API_KEY || DEFAULT_SABUSS_API_KEY;
     }
   } catch (e) {
     console.warn('Airtime DB backup load warning:', e);
@@ -83,13 +155,14 @@ function loadLocalBackups() {
 function saveLocalBackups() {
   ensureDataDir();
   try {
-    fs.writeFileSync(BACKUP_FILE, JSON.stringify(Array.from(memoryRedemptions.values())), 'utf8');
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(memorySabussConfig), 'utf8');
+    fs.writeFileSync(BACKUP_FILE, JSON.stringify(Array.from(memoryRedemptions.values()), null, 2), 'utf8');
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(memorySabussConfig, null, 2), 'utf8');
   } catch {}
 }
 
-// Initial load
+// Initial load & backup write
 loadLocalBackups();
+saveLocalBackups();
 
 // ============================================================================
 // SABUSS CONFIG
@@ -98,12 +171,13 @@ loadLocalBackups();
 export async function getSabussConfig(): Promise<SabussApiConfigRecord> {
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       const rows = await db.select().from(sabussApiConfigs).limit(1);
       if (rows && rows.length > 0) {
         const row = rows[0];
         memorySabussConfig = {
           id: row.id,
-          apiKey: row.apiKey,
+          apiKey: row.apiKey || memorySabussConfig.apiKey || DEFAULT_SABUSS_API_KEY,
           apiPin: row.apiPin || '0000',
           isActive: row.isActive || 'true',
           minAmount: row.minAmount || 100,
@@ -111,24 +185,41 @@ export async function getSabussConfig(): Promise<SabussApiConfigRecord> {
           environment: row.environment || 'production',
           updatedAt: row.updatedAt,
         };
+        saveLocalBackups();
       }
     } catch (err) {
-      console.warn('Could not read Sabuss config from Cloud SQL:', err);
+      console.warn('Notice: Reading Sabuss config from Cloud SQL:', err);
     }
   }
+
+  // Ensure key is never undefined or empty
+  if (!memorySabussConfig.apiKey || memorySabussConfig.apiKey.trim().length < 5) {
+    memorySabussConfig.apiKey = process.env.SABUSS_API_KEY || DEFAULT_SABUSS_API_KEY;
+  }
+
   return memorySabussConfig;
 }
 
 export async function saveSabussConfig(config: Partial<SabussApiConfigRecord>): Promise<SabussApiConfigRecord> {
+  const newKey = config.apiKey?.trim() || memorySabussConfig.apiKey || DEFAULT_SABUSS_API_KEY;
+  
   memorySabussConfig = {
     ...memorySabussConfig,
     ...config,
+    apiKey: newKey,
     updatedAt: new Date().toISOString(),
   };
+
+  // 1. Save local JSON backup
   saveLocalBackups();
 
+  // 2. Persist to .env and runtime process.env
+  persistToEnv(newKey);
+
+  // 3. Persist to Cloud SQL if connected
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       await db.insert(sabussApiConfigs)
         .values({
           id: memorySabussConfig.id,
@@ -153,9 +244,10 @@ export async function saveSabussConfig(config: Partial<SabussApiConfigRecord>): 
           },
         });
     } catch (err) {
-      console.warn('Could not save Sabuss config to Cloud SQL:', err);
+      console.warn('Notice: Persisting Sabuss config to Cloud SQL:', err);
     }
   }
+
   return memorySabussConfig;
 }
 
@@ -169,6 +261,7 @@ export async function recordAirtimeRedemption(record: AirtimeRedemptionRecord): 
 
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       await db.insert(airtimeRedemptions)
         .values({
           id: record.id,
@@ -221,6 +314,7 @@ export async function updateAirtimeRedemption(
 
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       await db.update(airtimeRedemptions)
         .set({
           apiStatusCode: updated.apiStatusCode || null,
@@ -240,6 +334,7 @@ export async function updateAirtimeRedemption(
 export async function getUserAirtimeRedemptions(userId: string): Promise<AirtimeRedemptionRecord[]> {
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       const rows = await db.select()
         .from(airtimeRedemptions)
         .where(eq(airtimeRedemptions.userId, userId))
@@ -276,6 +371,7 @@ export async function getUserAirtimeRedemptions(userId: string): Promise<Airtime
 export async function getAllAirtimeRedemptions(): Promise<AirtimeRedemptionRecord[]> {
   if (isCloudSqlConfigured() && db) {
     try {
+      await ensureCloudSqlAirtimeTables();
       const rows = await db.select()
         .from(airtimeRedemptions)
         .orderBy(desc(airtimeRedemptions.createdAt));
