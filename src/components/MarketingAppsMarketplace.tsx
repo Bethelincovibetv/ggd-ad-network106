@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Layers } from "lucide-react";
+import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Wand2, Video, Mic, ScrollText, Music, Flame, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import LinkShortener from "@/components/LinkShortener";
+import NaijaScriptWriter from "@/components/NaijaScriptWriter";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { VIXORA_TOOLS_REGISTRY, VixoraToolEntry } from "@/vixora/services/vixoraToolsRegistry";
 
 interface MarketingAppsMarketplaceProps {
   pagePlacement?: 'marketplace' | 'landing' | 'dashboard' | 'directory';
@@ -22,7 +26,11 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
   subtitle,
   maxDisplay,
 }) => {
-  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'link_shortener'>('apps');
+  const navigate = useNavigate();
+  const { isEnabled } = useFeatureToggles();
+  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'naija_script' | 'vixora_tools' | 'link_shortener'>('apps');
+  const [vixoraSearch, setVixoraSearch] = useState('');
+  const [vixoraCategory, setVixoraCategory] = useState('all');
   const [apps, setApps] = useState<any[]>([]);
   const [redeemed, setRedeemed] = useState<string[]>([]);
   const [credits, setCredits] = useState(0);
@@ -51,9 +59,17 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 
     const allApps = appsRes.data || [];
 
-    // Filter apps based on pagePlacement
+    // Filter apps based on pagePlacement and guarantee airtime/data redeem offers NEVER appear in marketing tools
     const filteredApps = allApps.filter(app => {
       const appPlacements = placementsMap[app.id] || ['marketplace', 'landing'];
+      if (
+        appPlacements.includes('airtime_data_redeem') ||
+        appPlacements.includes('redeem_marketplace') ||
+        appPlacements.includes('airtime_redeem') ||
+        appPlacements.includes('data_redeem')
+      ) {
+        return false;
+      }
       if (pagePlacement === 'marketplace') {
         return appPlacements.includes('marketplace') || appPlacements.includes('all');
       }
@@ -156,10 +172,10 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 
       {/* Tabs navigation for Marketplace Page */}
       {pagePlacement === 'marketplace' && (
-        <div className="flex items-center gap-2 p-1 bg-muted/60 rounded-xl border border-border/60">
+        <div className="flex flex-wrap items-center gap-2 p-1 bg-muted/60 rounded-xl border border-border/60">
           <button
             onClick={() => setActiveMarketTab('apps')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeMarketTab === 'apps'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -169,8 +185,34 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <span>Marketing Apps ({apps.length})</span>
           </button>
           <button
+            onClick={() => setActiveMarketTab('naija_script')}
+            className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeMarketTab === 'naija_script'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            <span>Naija Script & Copy Genius</span>
+            <Badge className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0">🇳🇬 AI</Badge>
+          </button>
+          {isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
+            <button
+              onClick={() => setActiveMarketTab('vixora_tools')}
+              className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeMarketTab === 'vixora_tools'
+                  ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Vixora AI Studio & Tools</span>
+              <Badge className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0 animate-pulse">HOT</Badge>
+            </button>
+          )}
+          <button
             onClick={() => setActiveMarketTab('link_shortener')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeMarketTab === 'link_shortener'
                 ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -183,10 +225,169 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
         </div>
       )}
 
+      {/* When Naija Script Writer tab is active */}
+      {pagePlacement === 'marketplace' && activeMarketTab === 'naija_script' && (
+        <div className="pt-1">
+          <NaijaScriptWriter 
+            onNavigateToStudio={(script) => {
+              localStorage.setItem('vixora_preloaded_script', script);
+              navigate('/vixora');
+              toast.success('🚀 Script transferred to Vixora AI Video Studio!');
+            }}
+          />
+        </div>
+      )}
+
       {/* When Link Shortener tab is active */}
       {pagePlacement === 'marketplace' && activeMarketTab === 'link_shortener' && (
         <div className="pt-1">
           <LinkShortener />
+        </div>
+      )}
+
+      {/* When Vixora Tools tab is active on Marketing page */}
+      {pagePlacement === 'marketplace' && activeMarketTab === 'vixora_tools' && isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
+        <div className="space-y-4 pt-1">
+          {/* Vixora Hero Launch Banner */}
+          <div className="rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-purple-800 p-6 text-white shadow-xl relative overflow-hidden border border-orange-400/30">
+            <div className="relative z-10 space-y-3 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 backdrop-blur-xs">
+                  GGD Marketing & AI Video Suite
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400 text-neutral-950">
+                  12+ Built-in Tools
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+                Vixora AI Creator Studio — Automated Video, Voice & Growth Engine
+              </h3>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-medium">
+                Produce high-retention viral shorts, AI voiceover narrations with natural accents, YouTube scripts, stock video sequencer timelines, and promotional flyers directly on GGD.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <Button
+                  onClick={() => navigate('/vixora')}
+                  className="bg-white text-orange-600 hover:bg-orange-50 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5 text-orange-500" />
+                  Open Full Vixora AI Studio
+                </Button>
+                <Button
+                  onClick={() => navigate('/autopilot')}
+                  variant="outline"
+                  className="bg-black/30 border-white/30 text-white hover:bg-black/50 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
+                >
+                  <Wand2 className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
+                  1-Click Video Autopilot
+                </Button>
+                <Button
+                  onClick={() => navigate('/voiceover')}
+                  variant="outline"
+                  className="bg-black/30 border-white/30 text-white hover:bg-black/50 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
+                >
+                  <Mic className="h-3.5 w-3.5 mr-1.5 text-cyan-300" />
+                  Voiceover Studio
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Category Filter for Vixora Tools */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-muted/40 rounded-2xl border border-border/50">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={vixoraSearch}
+                onChange={e => setVixoraSearch(e.target.value)}
+                placeholder="Search AI tools (e.g. video, script, voice)..."
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-background border border-border outline-none focus:border-orange-500"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
+              {[
+                { id: 'all', label: 'All Tools' },
+                { id: 'video', label: 'Video & Scripting' },
+                { id: 'voice', label: 'AI Voice & Audio' },
+                { id: 'growth', label: 'Growth & SEO' },
+                { id: 'creative', label: 'Creative Assets' },
+                { id: 'mentorship', label: 'Mentorship' },
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setVixoraCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                    vixoraCategory === cat.id
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-xs'
+                      : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tools Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {VIXORA_TOOLS_REGISTRY.filter(tool => {
+              const matchesCat = vixoraCategory === 'all' || tool.category === vixoraCategory;
+              const q = vixoraSearch.toLowerCase().trim();
+              if (!q) return matchesCat;
+              return matchesCat && (
+                tool.name.toLowerCase().includes(q) ||
+                tool.shortDescription.toLowerCase().includes(q) ||
+                tool.keywords.some(k => k.toLowerCase().includes(q))
+              );
+            }).map(tool => (
+              <Card
+                key={tool.id}
+                className="overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group bg-card hover:border-orange-500/50"
+              >
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center text-white text-base shadow shrink-0`}>
+                      <i className={`fa-solid ${tool.icon}`}></i>
+                    </div>
+                    {tool.badge && (
+                      <Badge className="bg-orange-500/15 border border-orange-500/30 text-orange-600 font-bold text-[9px]">
+                        {tool.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground group-hover:text-orange-500 transition-colors">
+                      {tool.name}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                      {tool.shortDescription}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-4 pt-0">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (tool.actionType === 'chat_command') {
+                        navigate(`/vixora?tab=studio&chat=open&prompt=${encodeURIComponent(tool.suggestedPrompt || `Help me with ${tool.name}`)}`);
+                      } else if (tool.actionType === 'live_voice') {
+                        navigate('/vixora?tab=studio&voice=start');
+                      } else if (tool.targetTab) {
+                        navigate(`/${tool.targetTab === 'more' ? 'growth' : tool.targetTab}`);
+                      } else {
+                        navigate('/vixora');
+                      }
+                    }}
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1.5 cursor-pointer"
+                  >
+                    <span>{tool.actionType === 'chat_command' ? 'Invoke in AI Chat' : tool.actionType === 'live_voice' ? 'Start Voice Call' : 'Launch Studio'}</span>
+                    <ArrowRight className="h-3.5 w-3.5 ml-auto" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 

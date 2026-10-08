@@ -55,7 +55,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   const authorAvatar = author?.business_logo_url || author?.avatar_url;
   const authorHref = author?.business_slug ? `/b/${author.business_slug}` : `/user/${post.user_id}`;
 
-  const totalReactions = Object.values(post.reactions || {}).reduce((a: any, b: any) => a + Number(b), 0);
+  const totalReactions: number = Object.values(post.reactions || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
   const topReactions = (Object.entries(post.reactions || {}) as [string, number][])
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1])
@@ -290,7 +290,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
           )}
 
           {/* Action Row */}
-          <div className="grid grid-cols-2 px-1 py-0.5 border-t border-border/50">
+          <div className="grid grid-cols-3 px-1 py-0.5 border-t border-border/50">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -303,7 +303,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
                   ) : (
                     <ThumbsUp className="h-4 w-4" />
                   )}
-                  <span className="text-[13px]">
+                  <span className="text-[12px] truncate">
                     {post.myReaction
                       ? REACTIONS.find(r => r.key === post.myReaction)?.label
                       : 'Like'}
@@ -327,12 +327,59 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5 h-9"
+              className="gap-1.5 h-9 text-[12px] truncate"
               onClick={() => setReaderOpen(true)}
             >
               <MessageCircle className="h-4 w-4" />
-              <span className="text-[13px]">Read & Comment</span>
+              <span>Read</span>
             </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5 h-9 text-[12px] truncate">
+                  <Share2 className="h-4 w-4" />
+                  <span>Share</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2 space-y-1" side="top">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    const text = `📰 "${blog.title || 'Article'}" by ${authorName} on GGD Ad Network`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank');
+                  }}
+                >
+                  <span className="mr-2">💬</span> WhatsApp
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    const text = `📰 "${blog.title || 'Article'}" by ${authorName} on GGD Ad Network`;
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                  }}
+                >
+                  <span className="mr-2">🐦</span> X / Twitter
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs font-normal"
+                  onClick={() => {
+                    const url = `${window.location.origin}/post/${post.id}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success('Article link copied to clipboard!');
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-2" /> Copy Link
+                </Button>
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>

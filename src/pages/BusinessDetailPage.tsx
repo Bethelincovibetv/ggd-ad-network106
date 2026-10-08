@@ -13,20 +13,42 @@ const BusinessDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     (async () => {
-      // If id looks like a slug (non-uuid), try slug first
-      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      if (!uuidLike) {
-        const { data: bySlug } = await supabase
-          .from('profiles').select('user_id').eq('business_slug', id).maybeSingle();
-        if (bySlug?.user_id) return navigate(`/b/${id}`, { replace: true });
+      // 1. Try slug on profiles
+      const { data: bySlug } = await supabase
+        .from('profiles').select('user_id, business_slug').eq('business_slug', id).maybeSingle();
+      if (bySlug?.user_id) {
+        return navigate(`/b/${bySlug.business_slug || id}`, { replace: true });
       }
-      const { data: bp } = await (supabase.from('business_profiles') as any)
-        .select('user_id').eq('id', id).maybeSingle();
-      if (!bp?.user_id) return navigate('/', { replace: true });
-      const { data: prof } = await supabase
-        .from('profiles').select('business_slug').eq('user_id', bp.user_id).maybeSingle();
-      if (prof?.business_slug) navigate(`/b/${prof.business_slug}`, { replace: true });
-      else navigate(`/user/${bp.user_id}`, { replace: true });
+
+      // 2. Try user_id directly on profiles
+      const { data: byUserId } = await supabase
+        .from('profiles').select('user_id, business_slug').eq('user_id', id).maybeSingle();
+      if (byUserId?.user_id) {
+        if (byUserId.business_slug) return navigate(`/b/${byUserId.business_slug}`, { replace: true });
+        return navigate(`/user/${byUserId.user_id}`, { replace: true });
+      }
+
+      // 3. Try business_profiles by id
+      const { data: bpById } = await (supabase.from('business_profiles') as any)
+        .select('user_id, slug').eq('id', id).maybeSingle();
+      if (bpById?.user_id) {
+        if (bpById.slug) return navigate(`/b/${bpById.slug}`, { replace: true });
+        const { data: prof } = await supabase
+          .from('profiles').select('business_slug').eq('user_id', bpById.user_id).maybeSingle();
+        if (prof?.business_slug) return navigate(`/b/${prof.business_slug}`, { replace: true });
+        return navigate(`/user/${bpById.user_id}`, { replace: true });
+      }
+
+      // 4. Try business_profiles by user_id
+      const { data: bpByUser } = await (supabase.from('business_profiles') as any)
+        .select('user_id, slug').eq('user_id', id).maybeSingle();
+      if (bpByUser?.user_id) {
+        if (bpByUser.slug) return navigate(`/b/${bpByUser.slug}`, { replace: true });
+        return navigate(`/user/${bpByUser.user_id}`, { replace: true });
+      }
+
+      // Fallback directly to user route
+      navigate(`/user/${id}`, { replace: true });
     })();
   }, [id, navigate]);
 

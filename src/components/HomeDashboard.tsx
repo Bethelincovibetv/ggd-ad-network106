@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote, Video, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import WatchVideoAds from "@/components/WatchVideoAd";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -118,7 +119,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
   );
 
   return (
-    <div className="space-y-4">
+    <div id="overview-tab" data-tour-step="1" className="space-y-4">
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
@@ -170,6 +171,38 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
           </CardContent>
         </Card>
       </div>
+
+      {/* Vixora AI Creator Studio Hero Card */}
+      {isEnabled('vixora_ai') && (
+        <Card
+          className="border-0 bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-all overflow-hidden relative group"
+          onClick={() => onNavigate('vixora-creator')}
+        >
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 translate-x-10 pointer-events-none group-hover:translate-x-6 transition-transform" />
+          <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-lg text-white">
+                <Video className="h-6 w-6 text-amber-200" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-amber-300" /> NEW AI STUDIO
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-200 uppercase">Viral Video & Script Suite</span>
+                </div>
+                <h2 className="text-base sm:text-lg font-black text-white truncate mt-0.5">Vixora AI Creator Studio</h2>
+                <p className="text-xs text-white/80 line-clamp-1">Generate automated viral shorts, multi-scene video timelines, AI scripts, voiceovers & subtitles in 1 click.</p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
+              <Button size="sm" className="bg-white hover:bg-white/90 text-orange-600 font-black text-xs uppercase px-4 py-2 shadow-md rounded-xl">
+                Open Studio <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Watch & Earn (YouTube ads) */}
       <WatchVideoAds />

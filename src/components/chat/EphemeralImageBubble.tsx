@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { EphemeralImageRecord, deleteEphemeralImage, getRemainingHours } from '@/utils/ephemeralImageDB';
+import { EphemeralImageRecord, deleteEphemeralImage } from '@/utils/ephemeralImageDB';
 
 interface EphemeralImageBubbleProps {
   image: EphemeralImageRecord;

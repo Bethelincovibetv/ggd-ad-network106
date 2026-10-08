@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video, Smartphone, Compass
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -35,6 +35,11 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const handleSelect = (id: string) => {
+    if (id === 'tour') {
+      window.dispatchEvent(new CustomEvent('ggd-launch-tour'));
+      if (isMobile) setOpenMobile(false);
+      return;
+    }
     onTabChange(id);
     if (isMobile) setOpenMobile(false);
   };
@@ -43,9 +48,11 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home' }] : []),
+    ...(isEnabled('vixora_ai') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI Creator' }] : []),
     ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
     ...(isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
+    ...(isEnabled('airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime & Data' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...(isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
@@ -65,7 +72,8 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const discover = [
-    { id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' },
+    { id: 'favorites', icon: Heart, label: 'Saved & Favorites' },
+    ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
     ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
     ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
     ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
@@ -73,6 +81,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const help = [
+    { id: 'tour', icon: Compass, label: 'Platform Tour (60s)' },
     ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];
@@ -80,6 +89,8 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const iconGrad: Record<string, string> = {
     ads: 'from-orange-400 to-red-500',
     campaigns: 'from-amber-500 to-orange-600',
+    'redeem-airtime': 'from-orange-500 to-amber-500',
+    tour: 'from-[#e67e22] to-amber-600',
     growth: 'from-emerald-500 to-green-600',
     feed: 'from-pink-400 to-fuchsia-500',
     tasks: 'from-emerald-400 to-teal-500',
@@ -95,6 +106,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     'syndicate-join': 'from-violet-500 to-purple-600',
     marketplace: 'from-emerald-400 to-green-600',
     'contact-gain': 'from-orange-500 to-amber-600',
+    favorites: 'from-rose-500 to-pink-600',
     directory: 'from-orange-400 to-amber-500',
     promo: 'from-pink-500 to-rose-500',
     'share-earn': 'from-pink-500 to-rose-500',

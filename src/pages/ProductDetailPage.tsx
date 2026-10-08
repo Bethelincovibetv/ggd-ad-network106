@@ -7,15 +7,19 @@ import {
   ArrowLeft, Loader2, MessageCircle, Phone, Globe, Store, 
   ExternalLink, Share2, Crown, ShoppingBag, Play, Package, 
   Briefcase, ChevronRight, MapPin, Sparkles, ShieldCheck, 
-  Layers, ArrowRight 
+  Layers, ArrowRight, Heart 
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
+import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
-import { getShowcaseListingById, SHOWCASE_PRODUCTS_AND_SERVICES } from '@/utils/showcaseListings';
+import { ProductPhotoViewerModal } from '@/components/ProductPhotoViewerModal';
+import { WhatsAppCheckoutModal } from '@/components/orders/WhatsAppCheckoutModal';
+import { normalizePhone, buildWhatsAppOrderLink, buildWhatsAppLink } from '@/lib/whatsapp';
+import { Maximize2, Image as ImageIcon } from 'lucide-react';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +33,9 @@ const ProductDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
@@ -48,22 +55,6 @@ const ProductDetailPage: React.FC = () => {
         .maybeSingle();
 
       if (!L) {
-        // Check if this is a curated showcase listing
-        const showcase = getShowcaseListingById(id || '');
-        if (showcase) {
-          setListing(showcase);
-          setActiveImg(showcase.image_url || null);
-          setBusiness(showcase.business_profiles);
-          setCategory({
-            id: showcase.category_slug || 'commercial',
-            name: showcase.category_slug || 'Commercial Business',
-            slug: showcase.category_slug || 'commercial'
-          });
-          const related = SHOWCASE_PRODUCTS_AND_SERVICES
-            .filter(item => item.id !== id && item.category_slug === showcase.category_slug)
-            .slice(0, 4);
-          setRelatedListings(related);
-        }
         setLoading(false);
         return;
       }
@@ -146,12 +137,6 @@ const ProductDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching product details:', err);
-      const showcase = getShowcaseListingById(id || '');
-      if (showcase) {
-        setListing(showcase);
-        setActiveImg(showcase.image_url || null);
-        setBusiness(showcase.business_profiles);
-      }
     } finally {
       setLoading(false);
     }
@@ -197,7 +182,8 @@ const ProductDetailPage: React.FC = () => {
 
   const bizName = business?.business_name || profile?.business_name || profile?.display_name || 'Accredited Business';
   const bizUrl = profile?.business_slug ? `/b/${profile.business_slug}` : (business?.id ? `/business/${business.id}` : null);
-  const waPhone = (business?.phone_number || profile?.business_phone || '').replace(/[^\d]/g, '');
+  const rawPhone = business?.phone_number || profile?.business_phone || '';
+  const waPhone = normalizePhone(rawPhone);
   const gallery = [listing.image_url, ...(Array.isArray(listing.extra_images) ? listing.extra_images : [])].filter(Boolean);
   const isService = listing.listing_type === 'service';
   const industryMeta = getIndustryMeta(category?.slug || category?.name || '');
@@ -257,6 +243,27 @@ const ProductDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1.5">
+            <FavoriteButton
+              item={{
+                targetId: listing.id,
+                type: isService ? 'service' : 'product',
+                title: listing.title,
+                subtitle: category?.name,
+                description: listing.description || listing.long_description,
+                imageUrl: listing.image_url,
+                price: listing.price,
+                location: business?.address,
+                category: category?.name,
+                verified: true,
+                linkUrl: `/product/${listing.id}`,
+                businessName: bizName,
+                businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                businessWebsite: profile?.business_website,
+              }}
+              variant="outline"
+              size="sm"
+              showLabel
+            />
             <Button variant="ghost" size="sm" onClick={share} className="gap-1 rounded-xl text-xs font-bold">
               <Share2 className="h-4 w-4" />
               <span className="hidden sm:inline">Share</span>
@@ -288,7 +295,31 @@ const ProductDetailPage: React.FC = () => {
         )}
 
         {/* Media Gallery / Video Card */}
-        <Card className="overflow-hidden border border-border/80 shadow-lg rounded-3xl">
+        <Card className="overflow-hidden border border-border/80 shadow-lg rounded-3xl relative">
+          {/* Overlay Favorite Button on Hero Image */}
+          <div className="absolute top-4 right-4 z-20">
+            <FavoriteButton
+              item={{
+                targetId: listing.id,
+                type: isService ? 'service' : 'product',
+                title: listing.title,
+                subtitle: category?.name,
+                description: listing.description || listing.long_description,
+                imageUrl: listing.image_url,
+                price: listing.price,
+                location: business?.address,
+                category: category?.name,
+                verified: true,
+                linkUrl: `/product/${listing.id}`,
+                businessName: bizName,
+                businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                businessWebsite: profile?.business_website,
+              }}
+              variant="overlay"
+              size="lg"
+            />
+          </div>
+
           {listing.video_url ? (
             <div className="aspect-video bg-black">
               {/youtube\.com|youtu\.be/.test(listing.video_url) ? (
@@ -303,13 +334,25 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
           ) : activeImg ? (
-            <div className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3">
+            <div 
+              onClick={() => {
+                const idx = gallery.indexOf(activeImg);
+                setPhotoViewerIndex(idx >= 0 ? idx : 0);
+                setIsPhotoViewerOpen(true);
+              }}
+              className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3 relative group cursor-zoom-in"
+              title="Click to view full screen photo slider"
+            >
               <img
                 loading="lazy"
                 src={activeImg}
                 alt={listing.title}
-                className="w-full max-h-[500px] h-auto object-contain rounded-2xl shadow-xs"
+                className="w-full max-h-[500px] h-auto object-contain rounded-2xl shadow-xs group-hover:scale-[1.01] transition-transform duration-300"
               />
+              <div className="absolute bottom-4 right-4 bg-black/75 hover:bg-orange-600 text-white backdrop-blur-md px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-lg opacity-90 group-hover:opacity-100 transition-all">
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Full View Slider ({gallery.length} photos)</span>
+              </div>
             </div>
           ) : (
             <div className="w-full aspect-video bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white">
@@ -318,18 +361,40 @@ const ProductDetailPage: React.FC = () => {
           )}
 
           {gallery.length > 1 && (
-            <div className="flex gap-2 p-3 overflow-x-auto bg-card border-t border-border/60 no-scrollbar">
-              {gallery.map((img: string, i: number) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImg(img)}
-                  className={`flex-shrink-0 h-16 w-16 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                    activeImg === img ? 'border-orange-500 scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2 p-3 bg-card border-t border-border/60">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+                {gallery.map((img: string, i: number) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImg(img)}
+                    onDoubleClick={() => {
+                      setPhotoViewerIndex(i);
+                      setIsPhotoViewerOpen(true);
+                    }}
+                    className={`flex-shrink-0 h-16 w-16 rounded-xl overflow-hidden border-2 transition-all cursor-pointer relative ${
+                      activeImg === img ? 'border-orange-500 scale-105 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img loading="lazy" src={img} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] font-mono px-1 rounded-sm">
+                      {i + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const idx = gallery.indexOf(activeImg);
+                  setPhotoViewerIndex(idx >= 0 ? idx : 0);
+                  setIsPhotoViewerOpen(true);
+                }}
+                className="shrink-0 h-9 rounded-xl text-xs font-bold gap-1 border-orange-500/30 text-orange-600 hover:bg-orange-500/10"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Full Slider</span>
+              </Button>
             </div>
           )}
         </Card>
@@ -390,63 +455,67 @@ const ProductDetailPage: React.FC = () => {
 
         {/* Order & Contact Action Hub */}
         <div className="space-y-3">
-          {/* Direct GGD Chat */}
+          {/* Primary WhatsApp Instant Checkout Button */}
           <Button
-            className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white h-13 rounded-2xl gap-2 text-sm sm:text-base font-black shadow-lg cursor-pointer"
-            onClick={() => {
-              if (!currentUser) {
-                toast({
-                  title: "Sign in required",
-                  description: "Please sign in or register to chat with this seller directly on GGD.",
-                });
-                navigate('/?auth=signin');
-                return;
-              }
-              const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
-              if (!sellerId) {
-                toast({ title: "Unable to reach seller", description: "Seller contact details unavailable." });
-                return;
-              }
-              if (currentUser.id === sellerId) {
-                toast({ title: "This is your listing", description: "You are the owner of this item." });
-                return;
-              }
-              const type = listing.listing_type || 'product';
-              const title = encodeURIComponent(listing.title || '');
-              const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
-              const itemId = listing.id ? encodeURIComponent(listing.id) : '';
-              const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
-              navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
-            }}
+            className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white h-14 rounded-2xl gap-2.5 text-base font-black shadow-xl hover:shadow-emerald-600/30 cursor-pointer transition-all animate-in zoom-in-95 duration-200"
+            onClick={() => setIsCheckoutModalOpen(true)}
           >
-            <MessageCircle className="h-5 w-5" />
-            {isService ? 'Inquire on GGD Platform Chat' : 'Chat & Order on GGD Platform'}
+            <MessageCircle className="h-6 w-6 fill-white" />
+            <span>{isService ? 'WhatsApp Service Booking & Inquiry' : 'WhatsApp Instant Checkout 🚀'}</span>
           </Button>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {waPhone && (
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold shadow-md cursor-pointer"
-                onClick={() => {
-                  const text = isService
-                    ? `Hello! I saw your service "${listing.title}" on GGD Ad Network and would like to make an inquiry.`
-                    : `Hello! I saw your product "${listing.title}" on GGD Ad Network and would like to place an order.`;
-                  window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
-                }}
-              >
-                <MessageCircle className="h-4 w-4" />
-                {isService ? 'WhatsApp Inquiry' : 'WhatsApp Order Now'}
-              </Button>
-            )}
+            {/* Direct GGD Chat */}
+            <Button
+              variant="outline"
+              className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 shadow-xs cursor-pointer"
+              onClick={() => {
+                if (!currentUser) {
+                  toast({
+                    title: "Sign in required",
+                    description: "Please sign in or register to chat with this seller directly on GGD.",
+                  });
+                  navigate('/?auth=signin');
+                  return;
+                }
+                const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
+                if (!sellerId) {
+                  toast({ title: "Unable to reach seller", description: "Seller contact details unavailable." });
+                  return;
+                }
+                if (currentUser.id === sellerId) {
+                  toast({ title: "This is your listing", description: "You are the owner of this item." });
+                  return;
+                }
+                const type = listing.listing_type || 'product';
+                const title = encodeURIComponent(listing.title || '');
+                const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
+                const itemId = listing.id ? encodeURIComponent(listing.id) : '';
+                const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
+                navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {isService ? 'Inquire on GGD Chat' : 'Chat on GGD Platform'}
+            </Button>
 
-            {(business?.phone_number || profile?.business_phone) && (
+            {(business?.phone_number || profile?.business_phone) ? (
               <Button
                 variant="outline"
-                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer"
+                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer hover:bg-muted"
                 onClick={() => window.open(`tel:${business?.phone_number || profile?.business_phone}`)}
               >
                 <Phone className="h-4 w-4 text-orange-500" />
-                Call Seller
+                Call Seller ({business?.phone_number || profile?.business_phone})
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="h-12 rounded-2xl gap-2 text-xs sm:text-sm font-bold border-border/80 shadow-xs cursor-pointer"
+                onClick={share}
+              >
+                <Share2 className="h-4 w-4 text-orange-500" />
+                Share Product Link
               </Button>
             )}
           </div>
@@ -487,13 +556,34 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <Button
-                onClick={() => navigate(bizUrl)}
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl text-xs font-bold gap-1.5 h-10 px-4 shadow-md cursor-pointer"
-              >
-                <Store className="h-4 w-4" />
-                Visit Storefront
-              </Button>
+              <div className="flex items-center gap-2">
+                <FavoriteButton
+                  item={{
+                    targetId: business?.id || profile?.user_id || listing?.business_profile_id || 'biz',
+                    type: 'business',
+                    title: bizName,
+                    subtitle: category?.name || 'Verified Merchant Storefront',
+                    description: business?.description || profile?.business_description,
+                    imageUrl: profile?.business_logo_url || profile?.avatar_url || business?.logo_url,
+                    location: business?.address,
+                    category: category?.name,
+                    verified: true,
+                    linkUrl: bizUrl,
+                    businessPhone: waPhone || business?.phone_number || profile?.business_phone,
+                    businessWebsite: profile?.business_website,
+                  }}
+                  variant="outline"
+                  size="sm"
+                  showLabel
+                />
+                <Button
+                  onClick={() => navigate(bizUrl)}
+                  className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl text-xs font-bold gap-1.5 h-10 px-4 shadow-md cursor-pointer"
+                >
+                  <Store className="h-4 w-4" />
+                  Visit Storefront
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -581,6 +671,60 @@ const ProductDetailPage: React.FC = () => {
           <AdDisplayPreview />
         </div>
       </article>
+
+      {/* WhatsApp Checkout Modal */}
+      {listing && (
+        <WhatsAppCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          product={{
+            id: listing.id,
+            title: listing.title,
+            price: listing.price,
+            image_url: activeImg || listing.image_url,
+            listing_type: listing.listing_type,
+            description: listing.description || listing.long_description,
+            user_id: listing.user_id || business?.user_id,
+            business_name: bizName,
+            business_phone: waPhone || business?.phone_number || profile?.business_phone,
+            seller_phone: waPhone || business?.phone_number || profile?.business_phone,
+          }}
+          sellerInfo={{
+            name: bizName,
+            phone: waPhone || business?.phone_number || profile?.business_phone,
+            business_name: bizName,
+            address: business?.address || profile?.business_location,
+          }}
+          onChatGgd={() => {
+            const sellerId = business?.user_id || listing?.user_id || profile?.user_id;
+            if (sellerId && currentUser?.id !== sellerId) {
+              const type = listing.listing_type || 'product';
+              const title = encodeURIComponent(listing.title || '');
+              const price = listing.price ? encodeURIComponent(String(listing.price)) : '';
+              const itemId = listing.id ? encodeURIComponent(listing.id) : '';
+              const image = (activeImg || listing.image_url) ? encodeURIComponent(activeImg || listing.image_url) : '';
+              navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
+            }
+          }}
+        />
+      )}
+
+      {/* Full Resolution Photo Slider Modal */}
+      {listing && (
+        <ProductPhotoViewerModal
+          isOpen={isPhotoViewerOpen}
+          onClose={() => setIsPhotoViewerOpen(false)}
+          images={gallery}
+          initialIndex={photoViewerIndex}
+          productTitle={listing.title}
+          price={listing.price}
+          businessName={bizName}
+          isVerified={true}
+          isService={isService}
+          productUrl={window.location.href}
+          whatsappPhone={waPhone || business?.phone_number || profile?.business_phone}
+        />
+      )}
     </div>
   );
 };

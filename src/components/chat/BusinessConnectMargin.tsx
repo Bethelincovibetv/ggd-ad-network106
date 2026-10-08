@@ -7,6 +7,7 @@ import {
   ExternalLink, Phone, MessageSquare, ChevronRight, HelpCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { buildWhatsAppLink } from '@/lib/whatsapp';
 
 interface BusinessConnectMarginProps {
   businessUserId: string;
@@ -40,7 +41,7 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
         // Fetch user profile
         const { data: prof } = await supabase
           .from('profiles')
-          .select('user_id, business_name, display_name, avatar_url, business_logo_url, business_phone, whatsapp_number, bio')
+          .select('user_id, business_name, display_name, avatar_url, business_logo_url, business_phone, whatsapp_number, bio, is_verified, verification_status')
           .eq('user_id', businessUserId)
           .maybeSingle();
 
@@ -103,7 +104,12 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
     );
 
   // Recommendation strategy
-  let typeLabel = 'Accredited Partner';
+  const isBizVerified = Boolean(
+    profile?.is_verified ||
+    bizProfile?.is_verified ||
+    profile?.verification_status === 'VERIFIED'
+  );
+  let typeLabel = isBizVerified ? 'Accredited Partner' : 'Business Merchant';
   let Icon = Store;
   let themeColor = 'from-orange-500 to-amber-500';
   let badgeColor = 'bg-orange-500/15 text-orange-600 border-orange-500/30';
@@ -320,7 +326,7 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
         {phone && (
           <div className="pt-2 border-t border-border/60 flex items-center gap-2">
             <a
-              href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+              href={buildWhatsAppLink(phone, { message: `Hello! I am chatting with ${displayName} on GGD Ad Network and would like to connect on WhatsApp.` })}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 text-center py-1.5 px-2 rounded-lg bg-green-600/10 hover:bg-green-600/20 text-green-700 dark:text-green-400 font-bold text-[11px] flex items-center justify-center gap-1 transition"

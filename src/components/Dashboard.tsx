@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
+import { getCurrentUser } from "@/services/authService";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -31,11 +32,13 @@ import PremiumUpgrade from "@/components/PremiumUpgrade";
 import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
 import WalletHub from "@/components/WalletHub";
+import CreditRedeemAirtime from "@/components/CreditRedeemAirtime";
 import SyndicateApplicationForm from "@/components/SyndicateApplicationForm";
 import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
 import PremiumRenewalBanner from "@/components/PremiumRenewalBanner";
+const VixoraCreatorApp = lazy(() => import('@/vixora/VixoraCreatorApp'));
 
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
@@ -67,6 +70,11 @@ import BusinessProfileWizard from "@/components/BusinessProfileWizard";
 import CommunityFeed from "@/components/CommunityFeed";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import ContactGainHub from "@/components/ContactGainHub";
+import { FavoritesQuickButton } from "@/components/favorites/FavoritesQuickButton";
+import { FavoritesPage } from "@/components/favorites/FavoritesPage";
+import { HeaderWallets } from "@/components/wallet/HeaderWallets";
+import { GuidedTourModal, hasSeenWalkthrough } from "@/components/GuidedTourModal";
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface Ad {
   id: string;
@@ -150,6 +158,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
   const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
   const [extendingAd, setExtendingAd] = useState<Ad | null>(null);
+  
+  // YouTube-like scroll behavior: header and mobile footer hide on scroll down, reveal on scroll up
+  const { isVisible: isNavVisible, showNav } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
   const scrollToBannerForm = () => {
     setTimeout(() => {
       document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -181,6 +192,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     }
   };
   const { isEnabled } = useFeatureToggles();
+  const [isTourOpen, setIsTourOpen] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [profileSetupComplete, setProfileSetupComplete] = useState<boolean | null>(null);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
@@ -204,34 +216,42 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     let subChannel: any = null;
     let isMounted = true;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !isMounted) return;
-      subChannel = supabase
-        .channel(`dashboard-wallet-sync-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'task_wallets', filter: `user_id=eq.${user.id}` },
-          (payload: any) => {
-            if (payload.new && typeof payload.new.balance === 'number' && isMounted) {
-              setWalletBalance(payload.new.balance);
+      try {
+        const user = await getCurrentUser();
+        if (!user || !isMounted) return;
+        subChannel = supabase
+          .channel(`dashboard-wallet-sync-${user.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'task_wallets', filter: `user_id=eq.${user.id}` },
+            (payload: any) => {
+              if (payload.new && typeof payload.new.balance === 'number' && isMounted) {
+                setWalletBalance(payload.new.balance);
+              }
             }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
-          (payload: any) => {
-            if (payload.new && typeof payload.new.credits === 'number' && isMounted) {
-              setCredits(payload.new.credits);
+          )
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` },
+            (payload: any) => {
+              if (payload.new && typeof payload.new.credits === 'number' && isMounted) {
+                setCredits(payload.new.credits);
+              }
             }
-          }
-        )
-        .subscribe();
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn("Real-time channel init skipped:", err);
+      }
     })();
 
     return () => {
       isMounted = false;
-      if (subChannel) supabase.removeChannel(subChannel);
+      if (subChannel) {
+        try {
+          supabase.removeChannel(subChannel);
+        } catch {}
+      }
     };
   }, []);
 
@@ -250,185 +270,153 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     return () => window.removeEventListener('ggd-nav', handler);
   }, []);
 
+  useEffect(() => {
+    const tourHandler = () => setIsTourOpen(true);
+    window.addEventListener('ggd-launch-tour', tourHandler);
+
+    // Prompt first-time visitors after short pause
+    if (typeof window !== 'undefined') {
+      const seen = hasSeenWalkthrough();
+      if (!seen) {
+        const timer = setTimeout(() => {
+          setIsTourOpen(true);
+        }, 1600);
+        return () => {
+          window.removeEventListener('ggd-launch-tour', tourHandler);
+          clearTimeout(timer);
+        };
+      }
+    }
+
+    return () => window.removeEventListener('ggd-launch-tour', tourHandler);
+  }, []);
+
   const initDashboard = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setCurrentUserId(user.id);
-
-    // Securely ensure task wallet exists & load latest balance
     try {
-      let { data: tw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
-      if (!tw) {
-        await supabase.from('task_wallets').insert({ user_id: user.id, balance: 0, total_funded: 0 } as any);
-        const { data: createdTw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
-        tw = createdTw;
+      const user = await getCurrentUser();
+      if (!user) {
+        setLoading(false);
+        return;
       }
-      setWalletBalance(Number(tw?.balance || 0));
-    } catch (e) {
-      console.warn('Dashboard task wallet sync:', e);
-    }
+      setCurrentUserId(user.id);
+      setDisplayName(user.user_metadata?.display_name || user.email?.split('@')[0] || 'GGD Member');
 
-    const [rolesRes, synProfRes, synAppRes] = await Promise.all([
-      supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
-      supabase.from('syndicate_profiles').select('id, is_suspended').eq('user_id', user.id).maybeSingle(),
-      supabase.from('syndicate_applications').select('status').eq('user_id', user.id).maybeSingle(),
-    ]);
-
-    const userRoles = (rolesRes.data || []).map(r => r.role);
-    setIsAdmin(userRoles.includes('admin'));
-    setIsPremium(userRoles.includes('premium'));
-    const premRow: any = (rolesRes.data || []).find((r: any) => r.role === 'premium');
-    if (premRow) {
-      setCurrentTier(premRow.premium_tier ?? 0);
-      setPremiumExpiresAt(premRow.premium_expires_at ?? null);
-    }
-    // Every registered user is a business by default
-    setIsBusiness(true);
-    const hasSyndicateAccess = userRoles.includes('syndicate') || 
-      Boolean(synProfRes.data && !synProfRes.data.is_suspended) ||
-      synAppRes.data?.status === 'approved';
-    setIsSyndicate(hasSyndicateAccess);
-
-    // Automatically sync any pending incoming transfers from credit_transfers
-    try {
-      const syncResult = await syncPendingTransfersForUser(user.id);
-      if (syncResult.credited && syncResult.totalAdded > 0) {
-        toast.success(`🎉 +${syncResult.totalAdded} credits received from transfer!`);
-      }
-    } catch {
-      // Non-blocking sync
-    }
-
-    let { data: profile } = await (supabase.from('profiles')
-      .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, business_phone, business_slug, profile_setup_complete, login_bonus_credits, syndicate_status')
-      .eq('user_id', user.id)
-      .maybeSingle() as any);
-    if (!profile) {
-      const ensured = await ensureUserProfileAndReferral(user);
-      profile = (ensured as any)?.profile || ensured;
-    }
-    if (profile?.syndicate_status === 'active') {
-      setIsSyndicate(true);
-    }
-
-    // Check if user already has an active business storefront or ads
-    let hasExistingBusinessProfile = false;
-    try {
-      const { data: bp } = await (supabase.from('business_profiles') as any)
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (bp?.id) hasExistingBusinessProfile = true;
-    } catch {}
-
-    let hasExistingAds = false;
-    try {
-      const { count } = await supabase
-        .from('ads')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      if (count && count > 0) hasExistingAds = true;
-    } catch {}
-
-    // An activated user is any user who:
-    // - Is an admin
-    // - Has profile_setup_complete marked true
-    // - Already has business_name, business_phone, or business_slug configured
-    // - Has active syndicate status or syndicate access
-    // - Has a business profile or has created ads
-    // - Or has already completed/seen the wizard previously in localStorage
-    const isAlreadyActivated = 
-      userRoles.includes('admin') ||
-      Boolean((profile as any)?.profile_setup_complete) ||
-      Boolean((profile as any)?.business_name && (profile as any).business_name.trim().length > 0) ||
-      Boolean((profile as any)?.business_phone && (profile as any).business_phone.trim().length > 0) ||
-      Boolean((profile as any)?.business_slug && (profile as any).business_slug.trim().length > 0) ||
-      Boolean((profile as any)?.syndicate_status === 'active') ||
-      hasSyndicateAccess ||
-      hasExistingBusinessProfile ||
-      hasExistingAds ||
-      localStorage.getItem('ggd_wizard_seen') === 'true' ||
-      localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
-      localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
-      localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
-
-    setProfileSetupComplete(isAlreadyActivated);
-
-    if (isAlreadyActivated) {
-      // Auto-heal remote profile if profile_setup_complete was not set in DB
-      if (profile && !(profile as any).profile_setup_complete) {
-        supabase.from('profiles').update({ profile_setup_complete: true } as any).eq('user_id', user.id).then(() => {});
-      }
+      // Securely ensure task wallet exists & load latest balance
       try {
-        localStorage.setItem('ggd_wizard_seen', 'true');
-        localStorage.setItem(`ggd_wizard_seen_${user.id}`, 'true');
-        localStorage.setItem('ggd_profile_setup_complete', 'true');
-        localStorage.setItem(`ggd_profile_activated_${user.id}`, 'true');
-      } catch {}
-    }
-
-    const { data: settings } = await supabase.from('app_settings').select('*');
-    
-    const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
-    const adCost = parseInt(settings?.find(s => s.key === 'ad_cost_credits')?.value || '5');
-    setAdCostCredits(adCost);
-    const waGroup = settings?.find(s => s.key === 'whatsapp_group_link')?.value || '';
-    setWhatsappGroupLink(waGroup);
-
-    // The mandatory business setup replaces the old optional onboarding wizard.
-    setShowWizard(false);
-
-    if (profile) {
-      setAvatarUrl(profile.avatar_url || null);
-      setDisplayName(profile.display_name || profile.business_name || user.email || '');
-      if (!profile.referral_code) {
-        const code = 'GGD' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        await supabase.from('profiles').update({ referral_code: code }).eq('user_id', user.id);
-      }
-      const currentCredits = profile.credits || 0;
-      const today = new Date().toISOString().split('T')[0];
-      const userKey = `${user.id}_${today}`;
-      const isAlreadyCreditedToday = 
-        profile.last_credit_date === today || 
-        dailyLoginCheckedUsersRef.current.has(userKey) ||
-        (typeof window !== 'undefined' && localStorage.getItem(`ggd_daily_credit_${userKey}`) === 'true');
-
-      // Only grant free daily credits once per day per user account when credits balance is 0
-      if (!isAlreadyCreditedToday && currentCredits === 0 && !userRoles.includes('admin')) {
-        dailyLoginCheckedUsersRef.current.add(userKey);
-        try {
-          localStorage.setItem(`ggd_daily_credit_${userKey}`, 'true');
-        } catch {}
-
-        const newCredits = loginCreditsAmount;
-        const newLoginBonus = Number((profile as any).login_bonus_credits || 0) + newCredits;
-
-        // Perform atomic update conditioned on last_credit_date != today to prevent duplicate credits
-        const { data: updatedRows } = await supabase
-          .from('profiles')
-          .update({ 
-            credits: newCredits, 
-            last_credit_date: today, 
-            login_bonus_credits: newLoginBonus 
-          } as any)
-          .eq('user_id', user.id)
-          .or(`last_credit_date.is.null,last_credit_date.neq.${today}`)
-          .select('credits, last_credit_date');
-
-        if (updatedRows && updatedRows.length > 0) {
-          setCredits(newCredits);
-          toast.success(`🎉 You received ${loginCreditsAmount} free daily credits!`);
-        } else {
-          setCredits(currentCredits);
+        let { data: tw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+        if (!tw) {
+          await supabase.from('task_wallets').insert({ user_id: user.id, balance: 0, total_funded: 0 } as any);
+          const { data: createdTw } = await supabase.from('task_wallets').select('*').eq('user_id', user.id).maybeSingle();
+          tw = createdTw;
         }
-      } else {
-        dailyLoginCheckedUsersRef.current.add(userKey);
-        setCredits(currentCredits);
+        setWalletBalance(Number(tw?.balance || 0));
+      } catch (e) {
+        console.warn('Dashboard task wallet sync:', e);
       }
-    }
 
-      fetchAds();
-      fetchApiKeys();
+      try {
+        const [rolesRes, synProfRes, synAppRes] = await Promise.all([
+          supabase.from('user_roles').select('role, premium_tier, premium_expires_at').eq('user_id', user.id),
+          supabase.from('syndicate_profiles').select('id, is_suspended').eq('user_id', user.id).maybeSingle(),
+          supabase.from('syndicate_applications').select('status').eq('user_id', user.id).maybeSingle(),
+        ]);
+
+        const userRoles = (rolesRes.data || []).map(r => r.role);
+        setIsAdmin(userRoles.includes('admin') || user.email === 'goodgiftdigital@gmail.com' || user.email === 'accessa787@gmail.com');
+        setIsPremium(userRoles.includes('premium'));
+        const premRow: any = (rolesRes.data || []).find((r: any) => r.role === 'premium');
+        if (premRow) {
+          setCurrentTier(premRow.premium_tier ?? 0);
+          setPremiumExpiresAt(premRow.premium_expires_at ?? null);
+        }
+        setIsBusiness(true);
+        const hasSyndicateAccess = userRoles.includes('syndicate') || 
+          Boolean(synProfRes.data && !synProfRes.data.is_suspended) ||
+          synAppRes.data?.status === 'approved';
+        setIsSyndicate(hasSyndicateAccess);
+      } catch (err) {
+        console.warn('Roles fetch non-blocking:', err);
+      }
+
+      // Automatically sync any pending incoming transfers from credit_transfers
+      try {
+        const syncResult = await syncPendingTransfersForUser(user.id);
+        if (syncResult.credited && syncResult.totalAdded > 0) {
+          toast.success(`🎉 +${syncResult.totalAdded} credits received from transfer!`);
+        }
+      } catch {
+        // Non-blocking sync
+      }
+
+      let profile: any = null;
+      try {
+        const { data: p } = await (supabase.from('profiles')
+          .select('credits, last_credit_date, referral_code, avatar_url, display_name, business_name, business_phone, business_slug, profile_setup_complete, login_bonus_credits, syndicate_status')
+          .eq('user_id', user.id)
+          .maybeSingle() as any);
+        profile = p;
+      } catch {}
+
+      if (!profile) {
+        try {
+          const ensured = await ensureUserProfileAndReferral(user);
+          profile = (ensured as any)?.profile || ensured;
+        } catch {}
+      }
+      if (profile?.syndicate_status === 'active') {
+        setIsSyndicate(true);
+      }
+
+      // Check if user already has an active business storefront or ads
+      let hasExistingBusinessProfile = false;
+      try {
+        const { data: bp } = await (supabase.from('business_profiles') as any)
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (bp?.id) hasExistingBusinessProfile = true;
+      } catch {}
+
+      let hasExistingAds = false;
+      try {
+        const { count } = await supabase
+          .from('ads')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (count && count > 0) hasExistingAds = true;
+      } catch {}
+
+      const isAlreadyActivated = 
+        Boolean((profile as any)?.profile_setup_complete) ||
+        Boolean((profile as any)?.business_name && (profile as any).business_name.trim().length > 0) ||
+        Boolean((profile as any)?.business_phone && (profile as any).business_phone.trim().length > 0) ||
+        Boolean((profile as any)?.business_slug && (profile as any).business_slug.trim().length > 0) ||
+        Boolean((profile as any)?.syndicate_status === 'active') ||
+        hasExistingBusinessProfile ||
+        hasExistingAds ||
+        localStorage.getItem('ggd_wizard_seen') === 'true' ||
+        localStorage.getItem(`ggd_wizard_seen_${user.id}`) === 'true' ||
+        localStorage.getItem('ggd_profile_setup_complete') === 'true' ||
+        localStorage.getItem(`ggd_profile_activated_${user.id}`) === 'true';
+
+      setProfileSetupComplete(isAlreadyActivated);
+
+      try {
+        const { data: settings } = await supabase.from('app_settings').select('*');
+        const loginCreditsAmount = parseInt(settings?.find(s => s.key === 'login_credits')?.value || '10');
+        const adCost = parseInt(settings?.find(s => s.key === 'ad_cost_credits')?.value || '5');
+        setAdCostCredits(adCost);
+        const waGroup = settings?.find(s => s.key === 'whatsapp_group_link')?.value || '';
+        setWhatsappGroupLink(waGroup);
+      } catch {}
+
+      setShowWizard(false);
+
+      if (profile) {
+        setAvatarUrl(profile.avatar_url || null);
+        setDisplayName(profile.display_name || profile.business_name || user.email || '');
+        setCredits(profile.credits || 10);
+      }
 
       // Check and display activity notifications upon user entry
       if (typeof window !== 'undefined' && !sessionStorage.getItem('ggd_entry_activities_checked')) {
@@ -437,7 +425,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           try {
             const [notifRes, tasksRes] = await Promise.all([
               supabase.from('notifications').select('id, title, message').eq('user_id', user.id).eq('is_read', false).limit(3),
-              supabase.from('credit_tasks').select('id', { count: 'exact', head: true }).eq('is_active', true),
+              (supabase.from as any)('credit_tasks').select('id', { count: 'exact', head: true }).eq('is_active', true),
             ]);
             const unreadCount = notifRes.data?.length || 0;
             const taskCount = tasksRes.count || 0;
@@ -463,19 +451,36 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           }
         }, 1200);
       }
-    };
+
+      await fetchAds();
+      await fetchApiKeys();
+    } catch (criticalErr) {
+      console.warn('initDashboard non-blocking error handled:', criticalErr);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchAds = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    setAds(data || []);
-    setLoading(false);
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+      const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      setAds(data || []);
+    } catch (e) {
+      console.warn('fetchAds non-blocking:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchApiKeys = async () => {
-    const { data } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
-    setApiKeys(data || []);
+    try {
+      const { data } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
+      setApiKeys(data || []);
+    } catch (e) {
+      console.warn('fetchApiKeys non-blocking:', e);
+    }
   };
 
   const uploadAdImage = async (file: File): Promise<string | null> => {
@@ -956,6 +961,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'tasks':
         return <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} />;
 
+      case 'redeem':
+      case 'redeem-airtime':
+      case 'airtime':
+        return (
+          <CreditRedeemAirtime
+            currentCredits={credits}
+            onCreditsUpdated={(c) => setCredits(c)}
+            onNavigate={handleTabChange}
+          />
+        );
+
       case 'fund-credits':
       case 'transfer':
       case 'task-wallet':
@@ -1026,10 +1042,48 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
 
       case 'business':
       case 'my-business':
-        return isEnabled('nav_my_business') ? <BusinessStorefront onNavigate={handleTabChange} /> : disabled;
+      case 'storefront':
+      case 'business-storefront':
+      case 'business-site':
+      case 'business-website':
+      case 'store':
+      case 'biz':
+      case 'my-biz':
+      case 'business-hub':
+        return (isEnabled('nav_my_business') || isEnabled('business_sites') || isBusiness || isAdmin) 
+          ? <BusinessStorefront onNavigate={handleTabChange} /> 
+          : disabled;
 
       case 'inbox':
         return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+
+      case 'vixora':
+      case 'vixora-creator':
+      case 'creator':
+      case 'vixora-studio':
+        if (!isEnabled('vixora_ai') && !isAdmin) {
+          return disabled;
+        }
+        return (
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center p-12 space-y-3">
+              <div className="animate-spin h-9 w-9 border-4 border-orange-500 border-t-transparent rounded-full" />
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Loading Vixora AI Creator Studio...</p>
+            </div>
+          }>
+            <VixoraCreatorApp
+              embedded={true}
+              onBackToDashboard={() => setActiveTab('ads')}
+              userEmail={userEmail}
+            />
+          </Suspense>
+        );
+
+      case 'favorites':
+      case 'saved':
+      case 'wishlist':
+      case 'bookmarks':
+        return <FavoritesPage onNavigateTab={handleTabChange} />;
 
       case 'directory':
         return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
@@ -1134,7 +1188,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'contact-gain':
       case 'contacts':
       case 'contact_gain':
-        return <ContactGainHub userId={currentUserId || undefined} userEmail={userEmail} onNavigateTab={handleTabChange} />;
+        return isEnabled('contact_gain') 
+          ? <ContactGainHub userId={currentUserId || undefined} userEmail={userEmail} onNavigateTab={handleTabChange} />
+          : disabled;
 
       case 'growth':
         return <BusinessGrowthDashboard onNavigate={handleTabChange} />;
@@ -1177,52 +1233,43 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b border-border sticky top-0 z-40">
-            <div className="px-3 sm:px-4 py-2.5 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <SidebarTrigger className="flex-shrink-0 h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-6 [&_svg]:w-6 [&_svg]:text-white" />
-                  <img loading="lazy" src={ggdLogo} alt="GGD" className="h-7 w-7 rounded-lg flex-shrink-0 md:hidden" />
-                  <h1 className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate">
+          <header
+            onFocusCapture={showNav}
+            className={`bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+              isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+            }`}
+          >
+            <div className="px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 max-w-7xl mx-auto w-full">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                {/* Left Brand & Sidebar Trigger Zone */}
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink">
+                  <SidebarTrigger className="flex-shrink-0 h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-5 sm:[&_svg]:h-6 [&_svg]:w-5 sm:[&_svg]:w-6 [&_svg]:text-white transition-all active:scale-95" />
+                  <img loading="lazy" src={ggdLogo} alt="GGD" className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex-shrink-0 md:hidden" />
+                  <h1 className="text-xs sm:text-base md:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate hidden min-[360px]:inline">
                     GGD AD NETWORK
                   </h1>
                 </div>
+
+                {/* Right Utility & Wallets Zone */}
                 <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                  {/* Live Connected Cash Wallet Pill */}
-                  <button
-                    onClick={() => handleTabChange('task-wallet')}
-                    className="flex items-center gap-1 sm:gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
-                    title="Naira Cash Wallet (Click to open)"
-                  >
-                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-emerald-700 dark:text-emerald-400 font-black text-[11px] sm:text-xs">₦{walletBalance.toLocaleString()}</span>
-                    <Banknote className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-                  </button>
+                  {/* Structured Responsive Cash & Credit Wallets */}
+                  <HeaderWallets
+                    walletBalance={walletBalance}
+                    credits={credits}
+                    isAdmin={isAdmin}
+                    isPremium={isPremium}
+                    isBusiness={isBusiness}
+                    isSyndicate={isSyndicate}
+                    onNavigate={handleTabChange}
+                  />
 
-                  {/* Live Connected Credit Wallet Pill */}
-                  <button
-                    onClick={() => handleTabChange('fund-credits')}
-                    className="flex items-center gap-1 sm:gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2 sm:px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group"
-                    title="Credit Wallet (Click to open / top up)"
-                  >
-                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-orange-500"></span>
-                    </span>
-                    <span className="text-orange-700 dark:text-orange-400 font-black text-[11px] sm:text-xs">
-                      {isAdmin ? '∞' : credits.toLocaleString()} <span className="text-[10px] font-extrabold opacity-80">cr</span>
-                    </span>
-                    <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
-                  </button>
+                  {/* Saved & Favorites Quick Drawer/Modal Trigger */}
+                  <FavoritesQuickButton onNavigateTab={(tab) => handleTabChange(tab)} />
 
-                  {isAdmin && <Shield className="h-4 w-4 text-red-500" />}
-                  {isPremium && <Crown className="h-4 w-4 text-yellow-500" />}
-                  {isBusiness && <Briefcase className="h-4 w-4 text-blue-500" />}
-                  {isSyndicate && <Users className="h-4 w-4 text-purple-500" />}
+                  {/* Notifications */}
                   <NotificationBell />
+
+                  {/* User Profile Avatar Menu */}
                   <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
                 </div>
               </div>
@@ -1230,7 +1277,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             </div>
           </header>
 
-          <main className="flex-1 px-3 sm:px-4 py-4 pb-40 md:pb-24 max-w-5xl w-full mx-auto">
+          <main className={`flex-1 px-3 sm:px-4 py-4 ${activeTab === 'feed' || activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto`}>
             {isPremium && (
               <PremiumRenewalBanner
                 expiresAt={premiumExpiresAt}
@@ -1247,7 +1294,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
             {renderContent()}
           </main>
 
-          <MobileFooterMenu activeTab={activeTab} onTabChange={handleTabChange} isAdmin={isAdmin} isBusiness={isBusiness} isSyndicate={isSyndicate} />
+          {activeTab !== 'feed' && activeTab !== 'directory' && (
+            <MobileFooterMenu
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              isAdmin={isAdmin}
+              isBusiness={isBusiness}
+              isSyndicate={isSyndicate}
+              isVisible={isNavVisible}
+            />
+          )}
           <CreateFab onNavigate={handleTabChange} />
 
           <ExtendAdvertModal
@@ -1260,6 +1316,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               setAds(prev => prev.map(a => a.id === updatedAd.id ? { ...a, ...updatedAd } : a));
               fetchAds();
             }}
+          />
+
+          {/* Interactive Guided Walkthrough Tour Modal */}
+          <GuidedTourModal
+            isOpen={isTourOpen}
+            onClose={() => setIsTourOpen(false)}
+            onComplete={() => setIsTourOpen(false)}
           />
         </div>
       </div>

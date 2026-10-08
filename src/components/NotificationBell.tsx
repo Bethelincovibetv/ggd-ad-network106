@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, ExternalLink, MailOpen, Trash2, Volume2, ArrowRight,
-  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles,
+  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +120,11 @@ const NotificationBell = () => {
   const markAsRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+  };
+
+  const markAsUnread = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
+    await supabase.from('notifications').update({ is_read: false }).eq('id', id);
   };
 
   const markAllRead = async () => {
@@ -372,10 +377,18 @@ const NotificationBell = () => {
                           onClick={() => handleClick(n)}
                         >
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {!n.is_read && (
-                              <span className="h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-400/30 inline-block animate-pulse" />
+                            {!n.is_read ? (
+                              <Badge className="bg-orange-500 text-white border-0 text-[9px] font-black px-1.5 py-0 flex items-center gap-1">
+                                <span className="h-1 w-1 rounded-full bg-white animate-pulse" />
+                                NEW
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground border-border/60 text-[9px] font-bold px-1.5 py-0 flex items-center gap-0.5">
+                                <Check className="h-2.5 w-2.5 text-emerald-500" />
+                                SEEN
+                              </Badge>
                             )}
-                            <h4 className="text-xs sm:text-sm font-bold text-foreground leading-tight">
+                            <h4 className={`text-xs sm:text-sm leading-tight ${!n.is_read ? 'font-black text-foreground' : 'font-semibold text-foreground/80'}`}>
                               {n.title}
                             </h4>
                             {isTransfer && (
@@ -396,7 +409,7 @@ const NotificationBell = () => {
                             </p>
                           )}
 
-                          <div className="flex items-center gap-3 mt-2">
+                          <div className="flex items-center gap-3 mt-2 flex-wrap">
                             <span className="text-[10px] text-muted-foreground font-medium">
                               {new Date(n.created_at).toLocaleString(undefined, {
                                 month: 'short',
@@ -426,18 +439,33 @@ const NotificationBell = () => {
                           </div>
                         </div>
 
-                        {/* Delete action */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeNotification(n.id);
-                          }}
-                          className="text-muted-foreground hover:text-destructive p-1 rounded-lg hover:bg-muted/60 transition-colors opacity-60 hover:opacity-100"
-                          aria-label="Delete notification"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {/* Actions: Mark read/unread & Delete */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (n.is_read) markAsUnread(n.id);
+                              else markAsRead(n.id);
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted/60 transition-colors opacity-70 hover:opacity-100"
+                            title={n.is_read ? 'Mark unread' : 'Mark seen'}
+                            aria-label={n.is_read ? 'Mark unread' : 'Mark seen'}
+                          >
+                            {n.is_read ? <Mail className="h-3.5 w-3.5 text-orange-500" /> : <Check className="h-3.5 w-3.5 text-emerald-500" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeNotification(n.id);
+                            }}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded-lg hover:bg-muted/60 transition-colors opacity-60 hover:opacity-100"
+                            aria-label="Delete notification"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

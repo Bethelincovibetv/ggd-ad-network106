@@ -32,6 +32,7 @@ import { parseBlogPost, CommunityBlogPostData } from '@/types/blog';
 import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
+import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
 import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
 import SendGiftModal from '@/components/feed/SendGiftModal';
@@ -636,7 +637,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 authorProfile={me.profile}
                 onSuccess={() => {
                   setComposerMode('normal');
-                  loadPosts();
+                  loadFeed(me.id);
                 }}
                 onCancel={() => setComposerMode('normal')}
               />
@@ -699,17 +700,22 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 )}
 
                 {showLink && (
-                  <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
-                    <Link2 className="h-4 w-4 text-blue-600 shrink-0" />
-                    <Input
-                      placeholder="https://your-website.com or article link"
-                      value={linkUrl}
-                      onChange={e => setLinkUrl(e.target.value)}
-                      className="h-8 text-xs bg-background"
-                    />
-                    <button type="button" onClick={() => { setShowLink(false); setLinkUrl(''); }} className="text-muted-foreground p-1">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/60">
+                      <Link2 className="h-4 w-4 text-blue-600 shrink-0" />
+                      <Input
+                        placeholder="https://your-website.com or article link"
+                        value={linkUrl}
+                        onChange={e => setLinkUrl(e.target.value)}
+                        className="h-8 text-xs bg-background"
+                      />
+                      <button type="button" onClick={() => { setShowLink(false); setLinkUrl(''); }} className="text-muted-foreground p-1">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {linkUrl.trim().length > 3 && (
+                      <FeedLinkPreview url={linkUrl.trim()} isInteractive={false} className="border border-blue-500/40 shadow-xs" />
+                    )}
                   </div>
                 )}
 
@@ -890,7 +896,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       </div>
 
       {/* Daily Contact Gain Spotlight Card */}
-      {feedFilter === 'all' && (
+      {feedFilter === 'all' && isEnabled('contact_gain') && (
         <ContactGainFeedCard onOpenContactHub={() => onNavigate?.('contact-gain')} />
       )}
 
@@ -907,7 +913,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         feedItems.map(item => item.kind === 'listing' ? (
           <FeaturedListingCard key={`listing-${item.data.id}`} listing={item.data} />
         ) : item.kind === 'ad' ? (
-          <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} />
+          <SponsoredAdCard key={`ad-${item.data.id}`} ad={item.data} currentUserId={me?.id || null} />
         ) : item.kind === 'post' ? (
           (() => {
             const blogData = parseBlogPost(item.data.content);
@@ -1353,7 +1359,7 @@ const PostCard: React.FC<PostCardProps> = ({
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                 <span>{timeAgo(post.created_at)}</span>
-                {post.updated_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
+                {(post as any).updated_at && new Date((post as any).updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
                   <span className="text-[10px] text-muted-foreground/80 italic font-medium">(edited)</span>
                 )}
                 <span>•</span>
@@ -1468,10 +1474,12 @@ const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {post.link_url && (
-          <a href={post.link_url} target="_blank" rel="noopener noreferrer"
-             className="block mx-3 mb-2 px-3 py-2 bg-muted rounded-lg text-xs text-blue-600 hover:underline truncate">
-            <Link2 className="h-3 w-3 inline mr-1" />{post.link_url}
-          </a>
+          <div className="mx-3 mb-3">
+            <FeedLinkPreview
+              url={post.link_url}
+              title={post.content ? (post.content.length > 80 ? post.content.slice(0, 80) + '...' : post.content) : null}
+            />
+          </div>
         )}
 
         {/* Tag chips */}
@@ -1510,12 +1518,12 @@ const PostCard: React.FC<PostCardProps> = ({
         )}
 
         {/* Action buttons */}
-        <div className="grid grid-cols-2 px-1 py-0.5">
+        <div className="grid grid-cols-3 px-1 py-0.5 border-t border-border/50">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className={`gap-1.5 h-9 ${post.myReaction ? 'text-orange-600 font-bold' : ''}`}>
                 {post.myReaction ? <span className="text-base">{reactionEmoji(post.myReaction)}</span> : <ThumbsUp className="h-4 w-4" />}
-                <span className="text-[13px]">
+                <span className="text-[12px] truncate">
                   {post.myReaction ? REACTIONS.find(r => r.key === post.myReaction)?.label : 'Like'}
                 </span>
               </Button>
@@ -1533,16 +1541,75 @@ const PostCard: React.FC<PostCardProps> = ({
               ))}
             </PopoverContent>
           </Popover>
+
           <Button
             variant="ghost"
             size="sm"
-            className={`gap-1.5 h-9 ${showComments ? 'text-orange-600 font-bold bg-orange-500/10' : ''}`}
+            className={`gap-1.5 h-9 text-[12px] truncate ${showComments ? 'text-orange-600 font-bold bg-orange-500/10' : ''}`}
             onClick={toggleComments}
           >
             <MessageCircle className="h-4 w-4" />
-            <span className="text-[13px]">Comment</span>
-            {commentCount > 0 && <span className="text-xs ml-0.5 font-bold">({commentCount})</span>}
+            <span>Comment</span>
+            {commentCount > 0 && <span className="text-[11px] font-bold">({commentCount})</span>}
           </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1.5 h-9 text-[12px] truncate">
+                <Share2 className="h-4 w-4" />
+                <span>Share</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-52 p-2 space-y-1" side="top">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs font-normal"
+                onClick={() => {
+                  const url = `${window.location.origin}/#post-${post.id}`;
+                  const text = post.content ? post.content.slice(0, 100) : 'Check this post out on GGD';
+                  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank');
+                }}
+              >
+                <span className="mr-2">💬</span> WhatsApp
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs font-normal"
+                onClick={() => {
+                  const url = `${window.location.origin}/#post-${post.id}`;
+                  const text = post.content ? post.content.slice(0, 100) : 'Check this post out on GGD';
+                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                }}
+              >
+                <span className="mr-2">🐦</span> X / Twitter
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs font-normal"
+                onClick={() => {
+                  const url = `${window.location.origin}/#post-${post.id}`;
+                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+                }}
+              >
+                <span className="mr-2">📘</span> Facebook
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs font-normal"
+                onClick={() => {
+                  const url = `${window.location.origin}/#post-${post.id}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success('Post link copied to clipboard!');
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-2" /> Copy Link
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Facebook-style Collapsible Comments & Threaded Replies Section */}

@@ -152,7 +152,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             description: a.description || 'Verified commercial advertisement on GGD Ad Network.',
             image_url: a.image_url || defaultAd,
             target_url: a.target_url || '#',
-            sponsor: a.advertiser_name || 'Verified Advertiser',
+            sponsor: (a as any).advertiser_name || 'Verified Advertiser',
             tag: 'Live Ad Campaign',
             ctaText: 'Visit Advertiser →',
           }));

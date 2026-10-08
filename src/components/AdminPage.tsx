@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
-  Menu, X, Bell, MessageSquare, Crown, Mail
+  Menu, X, Bell, MessageSquare, Crown, Mail, Smartphone
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
@@ -26,7 +26,11 @@ import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
 import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
 import AdminContactGainManager from "@/components/AdminContactGainManager";
+import { AdminVerificationManager } from "@/components/admin/AdminVerificationManager";
+import AdminVixoraManager from "@/components/AdminVixoraManager";
+import AdminRedeemManager from "@/components/AdminRedeemManager";
 import ggdLogo from '@/assets/ggd-logo.png';
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface NavGroup {
   title: string;
@@ -59,6 +63,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'ADVERTISING & CAMPAIGNS',
     items: [
+      { id: 'vixora-admin', icon: Video, label: 'Vixora AI Studio & API', sublabel: 'AI video engine, keys & render jobs', color: 'text-white', gradient: 'from-orange-500 via-purple-600 to-indigo-700' },
       { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
       { id: 'email-studio', icon: Mail, label: 'Email & Ad Studio', sublabel: 'Modern templates & sponsor ads', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
@@ -70,6 +75,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'USERS & COMMUNITY',
     items: [
+      { id: 'verification', icon: Shield, label: 'Business Verification', sublabel: 'Automated NIN & CAC Engine', color: 'text-white', gradient: 'from-emerald-500 to-teal-600' },
       { id: 'users', icon: Users, label: 'User Management', sublabel: 'Profiles, roles and credits', color: 'text-white', gradient: 'from-orange-500 to-red-600' },
       { id: 'contact-gain', icon: Users, label: 'Contact Gain System', sublabel: 'Daily VCF/CSV & Contact Tasks', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'chat', icon: MessageSquare, label: 'User Chat', sublabel: 'Direct support & messaging', color: 'text-white', gradient: 'from-lime-500 to-green-600' },
@@ -80,6 +86,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'PLATFORM & CONFIG',
     items: [
+      { id: 'airtime', icon: Smartphone, label: 'Airtime & Data Marketplace', sublabel: 'Create & manage redeemable offers', color: 'text-white', gradient: 'from-orange-500 via-amber-500 to-red-600' },
       { id: 'settings', icon: Settings, label: 'Platform Settings', sublabel: 'Exchange rate & global config', color: 'text-white', gradient: 'from-pink-500 to-rose-600' },
       { id: 'features', icon: Settings2, label: 'Feature Toggles', sublabel: 'Enable or disable modules', color: 'text-white', gradient: 'from-cyan-500 to-blue-600' },
       { id: 'api', icon: Key, label: 'API Keys', sublabel: 'External integration secrets', color: 'text-white', gradient: 'from-yellow-500 to-amber-600' },
@@ -97,6 +104,7 @@ const AdminPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeSection] });
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -173,6 +181,7 @@ const AdminPage = () => {
       case 'guide': return <AdminGuide />;
       case 'analytics': return <AdminAnalytics />;
       case 'users': return <AdminUserManager />;
+      case 'verification': return <AdminVerificationManager />;
       case 'syndicate': return (
         <AdminSyndicateManager 
           initialCampaignId={syndicateProps.initialCampaignId} 
@@ -180,6 +189,10 @@ const AdminPage = () => {
           onNavigateSection={navigateToSection}
         />
       );
+      case 'sabuss':
+      case 'airtime':
+      case 'redeem':
+        return <AdminRedeemManager />;
       case 'settings': return <AdminSettings />;
       case 'features': return <AdminFeatureToggles />;
       case 'slides': return <SlideManager />;
@@ -192,6 +205,9 @@ const AdminPage = () => {
           onNavigateSyndicate={(ad) => navigateToSection('syndicate', { initialCampaignId: ad.id, initialTab: 'campaigns' })} 
         />
       );
+      case 'vixora-admin':
+      case 'vixora':
+        return <AdminVixoraManager />;
       case 'email-studio': return <AdminEmailStudio />;
       case 'contact-gain': return <AdminContactGainManager />;
       case 'notifications': return <AdminNotificationSender />;
@@ -279,7 +295,9 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
+      <header className={`md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+      }`}>
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button

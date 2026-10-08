@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Shield, Users, Wallet, Sparkles, Store, BarChart2, CheckSquare, MessageCircle } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
 interface MobileFooterMenuProps {
   activeTab: string;
@@ -9,19 +10,23 @@ interface MobileFooterMenuProps {
   isAdmin: boolean;
   isBusiness?: boolean;
   isSyndicate?: boolean;
+  isVisible?: boolean;
 }
 
 /**
  * Mobile Bottom Navigation:
+ * - YouTube-style dynamic scrolling: disappears when scrolling down, reappears when scrolling up.
  * - 5 high-priority, clearly separated mobile destinations.
  * - Complies with >= 48px mobile touch target standards.
  * - Bold, easily legible typography (>= 11px font size).
  * - Tactile 3D gradient icon badges with active state indicators.
  * - Never squishes or truncates labels.
  */
-const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: MobileFooterMenuProps) => {
+const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisible: controlledVisible }: MobileFooterMenuProps) => {
   const navigate = useNavigate();
   const { isEnabled } = useFeatureToggles();
+  const { isVisible: internalVisible } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
+  const isNavVisible = controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   // Define primary mobile destinations
   const baseItems = [
@@ -92,13 +97,17 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate }: Mobi
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="fixed left-0 right-0 z-50 md:hidden pointer-events-none px-2.5"
+      className={`fixed left-0 right-0 z-50 md:hidden px-2.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        isNavVisible
+          ? 'translate-y-0 opacity-100 pointer-events-none'
+          : 'translate-y-[calc(100%+3rem)] opacity-0 pointer-events-none'
+      }`}
       style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)' }}
     >
-      <div className="pointer-events-auto mx-auto max-w-lg flex items-center justify-around gap-1 px-1.5 py-2
+      <div className={`mx-auto max-w-lg flex items-center justify-around gap-1 px-1.5 py-2
         rounded-[1.75rem] bg-card/95 backdrop-blur-2xl border border-border/80
         shadow-[0_12px_36px_-6px_rgba(0,0,0,0.38),0_4px_12px_rgba(0,0,0,0.15)] overflow-x-auto no-scrollbar
-        animate-in slide-in-from-bottom-4 duration-300">
+        ${isNavVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
         {items.map(item => {
           const active = item.matches ? item.matches.includes(activeTab) : activeTab === item.id;
           const Icon = item.icon;

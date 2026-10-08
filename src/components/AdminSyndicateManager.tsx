@@ -45,7 +45,7 @@ const PRESET_REJECTION_REASONS = [
   "Required hashtags, flyer image, or tags are missing",
 ];
 
-const AdminSyndicateManager = () => {
+const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?: string; onNavigateSection?: (sectionId: string, extraProps?: any) => void } = {}) => {
   const [applications, setApplications] = useState<any[]>([]);
   const [syndicates, setSyndicates] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -136,7 +136,7 @@ const AdminSyndicateManager = () => {
         _stats: statsMap[t.id] || { total: 0, pending: 0, approved: 0, rejected: 0, assigned: 0 },
       })));
       const existingPricing = pricingRes.data || [];
-      const mergedPricing = [...existingPricing];
+      const mergedPricing: any[] = [...existingPricing];
       DEFAULT_PLATFORM_LIST.forEach(dp => {
         if (!mergedPricing.some(p => p.platform_key === dp.platform_key)) {
           mergedPricing.push({ id: `default-${dp.platform_key}`, ...dp });

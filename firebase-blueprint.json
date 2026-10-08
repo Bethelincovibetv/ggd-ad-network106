@@ -1,5 +1,74 @@
 {
   "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile with display name, referral attribution and credits",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "email": { "type": "string" },
+        "display_name": { "type": "string" },
+        "referral_code": { "type": "string" },
+        "referred_by": { "type": "string" },
+        "referred_by_user_id": { "type": "string" },
+        "credits": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["user_id", "email", "created_at"]
+    },
+    "AppUser": {
+      "title": "AppUser",
+      "description": "User account document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
+    },
+    "EmailGateway": {
+      "title": "EmailGateway",
+      "description": "Configured SMTP / Gmail sending gateway",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "provider": { "type": "string" },
+        "host": { "type": "string" },
+        "port": { "type": "number" },
+        "secure": { "type": "boolean" },
+        "user": { "type": "string" },
+        "isActiveSender": { "type": "boolean" },
+        "isVerified": { "type": "boolean" }
+      },
+      "required": ["id", "email", "host", "port"]
+    },
+    "SystemSetting": {
+      "title": "SystemSetting",
+      "description": "System-level configurations and parameters",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    },
+    "ContactGainSettings": {
+      "title": "ContactGainSettings",
+      "description": "Settings for contact gain and phonebook synchronization",
+      "type": "object",
+      "properties": {
+        "dailyRewardCredits": { "type": "number" },
+        "minSaveSeconds": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["dailyRewardCredits"]
+    },
     "Notification": {
       "title": "Notification",
       "description": "Real-time user notification and push alert",
@@ -109,9 +178,146 @@
         "createdAt": { "type": "string" }
       },
       "required": ["candidate", "createdAt"]
+    },
+    "ContactGainEntry": {
+      "title": "ContactGainEntry",
+      "description": "Verified Nigerian business contact registered for daily phonebook compilation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "whatsapp": { "type": "string", "maxLength": 30 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 50 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "phone", "state", "createdAt"]
+    },
+    "ContactGainCampaign": {
+      "title": "ContactGainCampaign",
+      "description": "User created campaign to pay others for saving their business contact",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "title": { "type": "string", "maxLength": 120 },
+        "contactName": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 30 },
+        "contactWhatsapp": { "type": "string", "maxLength": 30 },
+        "businessName": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 50 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "rewardPerSave": { "type": "number" },
+        "totalTarget": { "type": "number" },
+        "completedSaves": { "type": "number" },
+        "budgetCredits": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed", "paused"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "title", "contactName", "contactPhone", "rewardPerSave", "totalTarget", "status", "createdAt"]
+    },
+    "ContactGainProof": {
+      "title": "ContactGainProof",
+      "description": "Proof of contact saved submission with screenshot",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "campaignTitle": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rewardCredits": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "rejectionReason": { "type": "string" }
+      },
+      "required": ["campaignId", "userId", "userName", "screenshotUrl", "status", "rewardCredits", "createdAt"]
+    },
+    "ContactGainDownload": {
+      "title": "ContactGainDownload",
+      "description": "Audit record of daily VCF/CSV downloads and credit reward claims",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "creditsAwarded": { "type": "number" },
+        "downloadedAt": { "type": "string" }
+      },
+      "required": ["userId", "date", "creditsAwarded", "downloadedAt"]
+    },
+    "MarketplaceVerification": {
+      "title": "MarketplaceVerification",
+      "description": "Real-time automated and manual business verification submissions and badge status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "business_profile_id": { "type": "string" },
+        "user_email": { "type": "string" },
+        "account_type": { "type": "string", "enum": ["individual", "registered_business"] },
+        "document_type": { "type": "string", "enum": ["NIN", "CAC", "DRIVERS_LICENSE", "PASSPORT", "VOTERS_CARD", "UNKNOWN"] },
+        "document_number": { "type": "string" },
+        "submitted_name": { "type": "string" },
+        "registered_profile_name": { "type": "string" },
+        "document_file_url": { "type": "string" },
+        "status": { "type": "string", "enum": ["UNVERIFIED", "FLAGGED_FOR_MANUAL_REVIEW", "VERIFIED", "REJECTED"] },
+        "verified_badge_granted": { "type": "boolean" },
+        "match_confidence": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "submitted_at": { "type": "string" },
+        "evaluated_at": { "type": "string" },
+        "last_updated_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "account_type", "document_type", "document_number", "status", "verified_badge_granted", "submitted_at"]
+    },
+    "BusinessReview": {
+      "title": "BusinessReview",
+      "description": "Real verified customer reviews and ratings for merchant websites and public storefronts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "business_user_id": { "type": "string" },
+        "reviewer_id": { "type": "string" },
+        "reviewer_name": { "type": "string", "maxLength": 100 },
+        "reviewer_email": { "type": "string", "maxLength": 120 },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "comment": { "type": "string", "maxLength": 2000 },
+        "verified_purchase": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "hidden"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "business_user_id", "reviewer_name", "rating", "comment", "created_at"]
     }
   },
   "firestore": {
+    "/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "User profile data, referrals and credits"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/AppUser" },
+      "description": "User account documents"
+    },
+    "/email_gateways/{gatewayId}": {
+      "schema": { "$ref": "#/entities/EmailGateway" },
+      "description": "Configured SMTP gateways and sender accounts"
+    },
+    "/system_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SystemSetting" },
+      "description": "System-level configuration parameters"
+    },
+    "/contact_gain_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ContactGainSettings" },
+      "description": "Contact gain global reward settings"
+    },
     "/notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/Notification" },
       "description": "User push and in-app notifications"
@@ -143,6 +349,30 @@
     "/call_logs/{logId}": {
       "schema": { "$ref": "#/entities/CallLog" },
       "description": "Call history records for incoming, outgoing, and missed calls"
+    },
+    "/contact_gain_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/ContactGainEntry" },
+      "description": "Verified Nigerian entrepreneur contacts compiled in daily phonebook"
+    },
+    "/contact_gain_campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/ContactGainCampaign" },
+      "description": "Save My Contact promotional campaigns"
+    },
+    "/contact_gain_proofs/{proofId}": {
+      "schema": { "$ref": "#/entities/ContactGainProof" },
+      "description": "Proof submissions for saving contacts"
+    },
+    "/contact_gain_downloads/{downloadId}": {
+      "schema": { "$ref": "#/entities/ContactGainDownload" },
+      "description": "User daily download logs and reward tracking"
+    },
+    "/marketplace_verifications/{verificationId}": {
+      "schema": { "$ref": "#/entities/MarketplaceVerification" },
+      "description": "Live business identity submissions, automated evaluations and verified status"
+    },
+    "/business_reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/BusinessReview" },
+      "description": "Real verified customer reviews and star ratings for merchants and business websites"
     }
   }
 }

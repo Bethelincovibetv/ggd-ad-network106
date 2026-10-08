@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CommunityBlogPostData, parseBlogPost, serializeBlogPost, BlogSection } from '@/types/blog';
 import GifPickerPopover from '@/components/chat/GifPickerPopover';
+import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
 
 export interface Template {
   id: string;
@@ -207,6 +208,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
           return;
         }
         const updatedBlog: CommunityBlogPostData = {
+          is_blog: true,
           title: blogTitle.trim(),
           subtitle: blogSubtitle.trim(),
           category: blogCategory,
@@ -543,6 +545,10 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                   />
                 </div>
               </div>
+
+              {linkUrl.trim().length > 3 && (
+                <FeedLinkPreview url={linkUrl.trim()} isInteractive={false} className="my-1 border border-blue-500/30" />
+              )}
 
               {/* Tags Manager */}
               <div className="space-y-1.5 pt-1">

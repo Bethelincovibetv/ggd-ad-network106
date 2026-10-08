@@ -23,6 +23,8 @@ const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
 const IndustryPage = lazy(() => import("./pages/IndustryPage"));
 const NotificationsDedicatedPage = lazy(() => import("./pages/NotificationsDedicatedPage"));
 const GuideDedicatedPage = lazy(() => import("./pages/GuideDedicatedPage"));
+const VixoraCreatorPage = lazy(() => import("./pages/VixoraCreatorPage"));
+const RedeemAirtimePage = lazy(() => import("./pages/RedeemAirtimePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 
@@ -38,10 +40,10 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CallProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <BrowserRouter>
+          <CallProvider>
+            <Toaster />
+            <Sonner />
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -56,6 +58,22 @@ const App = () => (
               <Route path="/syndicate-register" element={<SyndicateRegister />} />
               <Route path="/notifications" element={<NotificationsDedicatedPage />} />
               <Route path="/guide" element={<GuideDedicatedPage />} />
+              <Route path="/vixora" element={<VixoraCreatorPage />} />
+              <Route path="/vixora-creator" element={<VixoraCreatorPage />} />
+              <Route path="/creator" element={<VixoraCreatorPage />} />
+              <Route path="/studio" element={<VixoraCreatorPage />} />
+              <Route path="/autopilot" element={<VixoraCreatorPage />} />
+              <Route path="/voiceover" element={<VixoraCreatorPage />} />
+              <Route path="/scripts" element={<VixoraCreatorPage />} />
+              <Route path="/videos" element={<VixoraCreatorPage />} />
+              <Route path="/bgmusic" element={<VixoraCreatorPage />} />
+              <Route path="/tools" element={<VixoraCreatorPage />} />
+              <Route path="/growth" element={<VixoraCreatorPage />} />
+              <Route path="/contact" element={<VixoraCreatorPage />} />
+              <Route path="/coach" element={<VixoraCreatorPage />} />
+              <Route path="/developer" element={<VixoraCreatorPage />} />
+              <Route path="/redeem" element={<RedeemAirtimePage />} />
+              <Route path="/airtime" element={<RedeemAirtimePage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 
               <Route path="*" element={<NotFound />} />
@@ -66,8 +84,8 @@ const App = () => (
             <PushNotificationPrompt />
             <IncomingCallBanner />
             <CallModal />
-          </BrowserRouter>
-        </CallProvider>
+          </CallProvider>
+        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>

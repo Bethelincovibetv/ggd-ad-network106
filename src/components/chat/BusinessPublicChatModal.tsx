@@ -12,11 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
 import { sendQuickMessageNotification } from '@/services/pushNotificationService';
+import { notifyNewEnquiry } from '@/services/automatedEmailNotificationService';
 import VoiceNoteRecorder from '@/components/chat/VoiceNoteRecorder';
 import VoiceNotePlayer from '@/components/chat/VoiceNotePlayer';
 import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
 import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
 import MessageStatusIndicator from '@/components/chat/MessageStatusIndicator';
+import { StructuredChatMessage } from '@/components/chat/StructuredChatMessage';
 
 interface BusinessPublicChatModalProps {
 
@@ -115,8 +117,9 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
     loadChatHistory();
 
     // Subscribe to realtime changes in p2p_messages (INSERT and UPDATE for seen status)
+    const channelName = `public-biz-chat-${currentUserId}-${businessUserId}-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel(`public-biz-chat-${currentUserId}-${businessUserId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -221,14 +224,17 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
         setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as ChatMsg) : m)));
       }
 
-      // 2. Alert the business owner via notifications table and real-time push
+      // 2. Alert the business owner via automated email alert & targeted in-app notification
       try {
-        await sendQuickMessageNotification({
+        notifyNewEnquiry({
           recipientUserId: businessUserId,
+          businessName: businessName,
+          senderUserId: currentUserId,
           senderName: currentUserName,
-          messagePreview: text,
-          chatUrl: '/inbox',
-        });
+          messageText: text,
+          enquiryType: 'general',
+          chatUrl: `/inbox?chat=${currentUserId}`,
+        }).catch((err) => console.warn('Automated email enquiry dispatch note:', err));
       } catch {
         // Non-blocking notification
       }
@@ -275,6 +281,20 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
       if (data) {
         setMessages((prev) => prev.map((m) => (m.id === optimisticMsg.id ? (data as any) : m)));
       }
+
+      // Alert the business owner via automated email alert & targeted notification
+      try {
+        notifyNewEnquiry({
+          recipientUserId: businessUserId,
+          businessName: businessName,
+          senderUserId: currentUserId,
+          senderName: currentUserName,
+          messageText: `🎤 Sent a ${durationSeconds}s Voice Note inquiry`,
+          enquiryType: 'general',
+          chatUrl: `/inbox?chat=${currentUserId}`,
+        }).catch((err) => console.warn('Automated email voice note note:', err));
+      } catch {}
+
       toast.success('Voice note sent to business');
     } catch (err) {
       toast.error('Failed to send voice note');
@@ -386,13 +406,13 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                         {m.kind === 'voice' ? (
                           <div className="min-w-[200px]">
                             <VoiceNotePlayer
-                              src={(m as any).action_payload?.audio_url || m.image_url || ''}
+                              src={(m as any).action_payload?.audio_url || (m as any).image_url || ''}
                               duration={(m as any).action_payload?.duration || 0}
                               isMine={isMe}
                             />
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                          <StructuredChatMessage text={m.message} isMine={isMe} />
                         )}
                       </div>
                     </WhatsAppSlideMessage>

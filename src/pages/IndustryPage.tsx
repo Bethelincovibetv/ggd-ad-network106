@@ -21,8 +21,8 @@ import { supabase } from '@/integrations/supabase/client';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import MetaTags from '@/components/MetaTags';
 import BlazingBadge from '@/components/BlazingBadge';
+import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
-import { getShowcaseListingsByCategory } from '@/utils/showcaseListings';
 import { 
   NIGERIAN_STATES, 
   TOP_COMMERCIAL_STATES, 
@@ -30,6 +30,7 @@ import {
   extractStateFromLocation 
 } from '@/utils/nigerianStates';
 import { toast } from 'sonner';
+import { buildWhatsAppLink } from '@/lib/whatsapp';
 
 const IndustryPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -62,7 +63,7 @@ const IndustryPage: React.FC = () => {
         localStorage.setItem('ggd_user_state', detected.state);
         toast.success(`Location detected: ${detected.state} State, Nigeria`);
       } else {
-        toast.info(detected.formattedAddress || 'Could not precisely identify Nigerian state. Please select from the dropdown.');
+        toast.info((detected as any)?.formattedAddress || 'Could not precisely identify Nigerian state. Please select from the dropdown.');
       }
     } catch (err: any) {
       toast.error('Could not access GPS. Please choose your Nigerian state.');
@@ -132,26 +133,13 @@ const IndustryPage: React.FC = () => {
             .filter((l: any) => l.is_active !== false);
         }
 
-        // Get showcase listings for this industry category
-        const categorySlugOrName = activeCategory.slug || activeCategory.name || slug || '';
-        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
-
-        const existingDbIds = new Set(dbListings.map((l: any) => l.id));
-        const combined = [
-          ...dbListings,
-          ...showcaseItems.filter(s => !existingDbIds.has(s.id))
-        ];
-
-        setListings(combined);
+        setListings(dbListings);
       } else {
-        const categorySlugOrName = slug || '';
-        const showcaseItems = getShowcaseListingsByCategory(categorySlugOrName);
-        setListings(showcaseItems);
+        setListings([]);
       }
     } catch (err) {
       console.error('Error fetching industry data:', err);
-      const categorySlugOrName = slug || '';
-      setListings(getShowcaseListingsByCategory(categorySlugOrName));
+      setListings([]);
     } finally {
       setLoading(false);
     }
@@ -537,10 +525,13 @@ const IndustryPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
                 {products.map(item => (
-                  <button
+                  <div
                     key={item.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/product/${item.id}`)}
-                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-emerald-500 hover:shadow-md active:scale-[0.98] transition-all flex flex-col justify-between group"
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${item.id}`)}
+                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-emerald-500 hover:shadow-md active:scale-[0.98] transition-all flex flex-col justify-between group cursor-pointer focus:outline-hidden"
                   >
                     <div>
                       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
@@ -562,10 +553,32 @@ const IndustryPage: React.FC = () => {
                           </div>
                         )}
                         {item.video_url && (
-                          <div className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 grid place-items-center z-10">
+                          <div className="absolute top-1.5 right-8 h-6 w-6 rounded-full bg-black/60 grid place-items-center z-10">
                             <Play className="h-3 w-3 text-white" fill="white" />
                           </div>
                         )}
+                        <div className="absolute top-1.5 right-1.5 z-20" onClick={(e) => e.stopPropagation()}>
+                          <FavoriteButton
+                            item={{
+                              targetId: item.id,
+                              type: 'product',
+                              title: item.title,
+                              subtitle: item.business_profiles?.business_name,
+                              description: item.description,
+                              imageUrl: item.image_url,
+                              price: item.price,
+                              location: getBusinessEffectiveState(item.business_profiles),
+                              category: category?.name,
+                              verified: true,
+                              linkUrl: `/product/${item.id}`,
+                              businessName: item.business_profiles?.business_name,
+                              businessPhone: item.business_profiles?.phone_number,
+                              businessWebsite: item.business_profiles?.website_link,
+                            }}
+                            variant="overlay"
+                            size="sm"
+                          />
+                        </div>
                         <div className="absolute bottom-1.5 left-1.5 z-10">
                           <Badge className="bg-emerald-600 text-white text-[8px] font-bold border-0 rounded-full px-1.5 shadow-sm">
                             📦 Product
@@ -599,7 +612,7 @@ const IndustryPage: React.FC = () => {
                         Details →
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -632,17 +645,44 @@ const IndustryPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 {services.map(srv => (
-                  <button
+                  <div
                     key={srv.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/product/${srv.id}`)}
-                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-blue-500 hover:shadow-md active:scale-[0.98] transition-all p-4 flex flex-col justify-between group"
+                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/product/${srv.id}`)}
+                    className="text-left rounded-2xl overflow-hidden shadow-xs bg-card border border-border/60 hover:border-blue-500 hover:shadow-md active:scale-[0.98] transition-all p-4 flex flex-col justify-between group cursor-pointer focus:outline-hidden"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Badge className="bg-blue-600 text-white text-[9px] font-bold border-0 rounded-full px-2 py-0.5">
                           💼 Professional Service
                         </Badge>
-                        {srv.is_featured && <BlazingBadge label="FEATURED" size="sm" />}
+                        <div className="flex items-center gap-1">
+                          {srv.is_featured && <BlazingBadge label="FEATURED" size="sm" />}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <FavoriteButton
+                              item={{
+                                targetId: srv.id,
+                                type: 'service',
+                                title: srv.title,
+                                subtitle: srv.business_profiles?.business_name,
+                                description: srv.description,
+                                imageUrl: srv.image_url,
+                                price: srv.price,
+                                location: getBusinessEffectiveState(srv.business_profiles),
+                                category: category?.name,
+                                verified: true,
+                                linkUrl: `/product/${srv.id}`,
+                                businessName: srv.business_profiles?.business_name,
+                                businessPhone: srv.business_profiles?.phone_number,
+                                businessWebsite: srv.business_profiles?.website_link,
+                              }}
+                              variant="overlay"
+                              size="sm"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <h3 className="font-black text-sm text-foreground group-hover:text-blue-600 transition-colors line-clamp-1">
@@ -681,7 +721,7 @@ const IndustryPage: React.FC = () => {
                         Inquire <ArrowRight className="h-3 w-3" />
                       </span>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -754,6 +794,28 @@ const IndustryPage: React.FC = () => {
                             )}
                           </div>
                         </div>
+
+                        <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                          <FavoriteButton
+                            item={{
+                              targetId: biz.id,
+                              type: 'business',
+                              title: biz.business_name,
+                              subtitle: category?.name,
+                              description: biz.description,
+                              imageUrl: biz.logo_url,
+                              location: getBusinessEffectiveState(biz),
+                              category: category?.name,
+                              verified: true,
+                              linkUrl: `/business/${biz.id}`,
+                              businessName: biz.business_name,
+                              businessPhone: biz.phone_number,
+                              businessWebsite: biz.website,
+                            }}
+                            variant="overlay"
+                            size="sm"
+                          />
+                        </div>
                       </div>
 
                       <div className="p-3.5 bg-card flex items-center justify-between gap-2 border-t border-border/40">
@@ -765,7 +827,8 @@ const IndustryPage: React.FC = () => {
                               className="h-8 px-2.5 text-xs text-muted-foreground rounded-xl gap-1"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`https://wa.me/${biz.phone_number.replace(/[^\d]/g, '')}`, '_blank');
+                                const url = buildWhatsAppLink(biz.phone_number, { message: `Hello ${biz.business_name}, I found your business on GGD Ad Network!` });
+                                window.open(url, '_blank');
                               }}
                             >
                               <MessageCircle className="h-3.5 w-3.5 text-green-600" />

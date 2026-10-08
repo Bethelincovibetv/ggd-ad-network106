@@ -38,25 +38,30 @@ export const usePremiumSettings = (): PremiumSettings => {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('app_settings').select('key, value');
-      const map: Record<string, string> = {};
-      (data || []).forEach((r: any) => { map[r.key] = r.value; });
-      const num = (k: string, d: number) => parseInt(map[k] || '') || d;
-      setState({
-        loading: false,
-        enabled: (map['premium_system_enabled'] ?? 'true') === 'true',
-        freeAdDays: num('ad_duration_free_days', 3),
-        exchangeRate: num('credit_exchange_rate', 100),
-        autoConvertAds: (map['auto_convert_ads_to_tasks'] ?? 'false') === 'true',
-        businessContact: map['premium_business_contact'] || '',
-        tiers: [
-          { tier: 0, days: num('premium_tier0_days', 3), credits: 0, label: map['premium_tier0_label'] || 'Free Premium' },
-          { tier: 1, days: num('premium_tier1_days', 7), credits: num('premium_tier1_credits', 50), label: 'Starter' },
-          { tier: 2, days: num('premium_tier2_days', 15), credits: num('premium_tier2_credits', 120), label: 'Growth' },
-          { tier: 3, days: num('premium_tier3_days', 30), credits: num('premium_tier3_credits', 250), label: 'Pro' },
-          { tier: 4, days: num('premium_tier3_days', 30), credits: 0, label: map['premium_tier4_label'] || 'Business / White-Label' },
-        ],
-      });
+      try {
+        const { data } = await supabase.from('app_settings').select('key, value');
+        const map: Record<string, string> = {};
+        (data || []).forEach((r: any) => { map[r.key] = r.value; });
+        const num = (k: string, d: number) => parseInt(map[k] || '') || d;
+        setState({
+          loading: false,
+          enabled: (map['premium_system_enabled'] ?? 'true') === 'true',
+          freeAdDays: num('ad_duration_free_days', 3),
+          exchangeRate: num('credit_exchange_rate', 100),
+          autoConvertAds: (map['auto_convert_ads_to_tasks'] ?? 'false') === 'true',
+          businessContact: map['premium_business_contact'] || '',
+          tiers: [
+            { tier: 0, days: num('premium_tier0_days', 3), credits: 0, label: map['premium_tier0_label'] || 'Free Premium' },
+            { tier: 1, days: num('premium_tier1_days', 7), credits: num('premium_tier1_credits', 50), label: 'Starter' },
+            { tier: 2, days: num('premium_tier2_days', 15), credits: num('premium_tier2_credits', 120), label: 'Growth' },
+            { tier: 3, days: num('premium_tier3_days', 30), credits: num('premium_tier3_credits', 250), label: 'Pro' },
+            { tier: 4, days: num('premium_tier3_days', 30), credits: 0, label: map['premium_tier4_label'] || 'Business / White-Label' },
+          ],
+        });
+      } catch (err) {
+        console.warn('usePremiumSettings load non-blocking:', err);
+        setState((prev) => ({ ...prev, loading: false }));
+      }
     })();
   }, []);
 

@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, 
   MessageCircle, Globe, Shield, Sparkles, Package, Zap, LayoutTemplate, 
-  Palette, User, Award, Quote, CheckCircle2 
+  Palette, User, Award, Quote, CheckCircle2, Edit, X, Check, Eye, Play, Pause
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +32,9 @@ const AdminSettings = () => {
   const [uploadingCeoAvatar, setUploadingCeoAvatar] = useState(false);
   const [uploadingCeoFlyer, setUploadingCeoFlyer] = useState(false);
   const [promos, setPromos] = useState<any[]>([]);
-  const [newPromo, setNewPromo] = useState({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users' });
+  const [newPromo, setNewPromo] = useState({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users', is_active: true });
+  const [editingPromo, setEditingPromo] = useState<any | null>(null);
+  const [uploadingPromoReplace, setUploadingPromoReplace] = useState(false);
 
   useEffect(() => { fetchSettings(); fetchPromos(); }, []);
 
@@ -191,8 +195,55 @@ const AdminSettings = () => {
   };
 
   const deletePromo = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this promotional flyer?')) return;
     await supabase.from('promotional_materials' as any).delete().eq('id', id);
-    toast.success('Deleted!');
+    toast.success('Promotional flyer deleted!');
+    fetchPromos();
+  };
+
+  const togglePromoActive = async (promo: any) => {
+    const nextStatus = promo.is_active === false ? true : false;
+    const { error } = await supabase.from('promotional_materials' as any).update({ is_active: nextStatus }).eq('id', promo.id);
+    if (error) {
+      toast.error('Failed to change status: ' + error.message);
+      return;
+    }
+    toast.success(nextStatus ? 'Flyer activated (LIVE)' : 'Flyer deactivated (INACTIVE)');
+    fetchPromos();
+  };
+
+  const uploadReplacePromoImage = async (file: File) => {
+    setUploadingPromoReplace(true);
+    const fileName = `promos/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+      setEditingPromo((prev: any) => prev ? { ...prev, image_url: publicUrl } : prev);
+      toast.success('Replacement flyer image uploaded!');
+    } else {
+      toast.error('Failed to upload image: ' + error.message);
+    }
+    setUploadingPromoReplace(false);
+  };
+
+  const saveEditPromo = async () => {
+    if (!editingPromo) return;
+    if (!editingPromo.title?.trim()) { toast.error('Enter flyer title'); return; }
+    const { error } = await supabase.from('promotional_materials' as any).update({
+      title: editingPromo.title.trim(),
+      description: editingPromo.description || null,
+      image_url: editingPromo.image_url || null,
+      is_active: editingPromo.is_active !== false,
+      target_audience: editingPromo.target_audience || 'users',
+      type: editingPromo.type || 'flyer',
+    }).eq('id', editingPromo.id);
+
+    if (error) {
+      toast.error('Failed to update flyer: ' + error.message);
+      return;
+    }
+    toast.success('Promotional flyer successfully updated!');
+    setEditingPromo(null);
     fetchPromos();
   };
 
@@ -673,8 +724,8 @@ const AdminSettings = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.previewColor }} />
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.accentColor }} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatchPrimary }} />
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatchSecondary }} />
                       </div>
                       {active && (
                         <span className="text-[9px] font-black uppercase tracking-wider text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
@@ -683,10 +734,10 @@ const AdminSettings = () => {
                       )}
                     </div>
                     <p className="text-xs font-black text-foreground">{t.name}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{t.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{t.subtitle}</p>
                   </div>
                   <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[9px] text-muted-foreground">
-                    <span className="capitalize">{t.tone}</span>
+                    <span className="capitalize">{t.tag}</span>
                     <span className="font-semibold text-slate-700">Light / Modern</span>
                   </div>
                 </button>
@@ -733,32 +784,232 @@ const AdminSettings = () => {
 
       {/* Promo Materials */}
       <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-500 to-fuchsia-600 p-3 flex items-center gap-2 text-white">
-          <Image className="h-4 w-4" /><h4 className="text-sm font-bold">Promotional Materials</h4>
+        <div className="bg-gradient-to-r from-purple-500 to-fuchsia-600 p-3 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Image className="h-4 w-4" />
+            <h4 className="text-sm font-bold">Promotional Flyers & Marketing Materials</h4>
+          </div>
+          <span className="text-[11px] bg-white/20 px-2.5 py-0.5 rounded-full font-bold">
+            {promos.length} {promos.length === 1 ? 'Flyer' : 'Flyers'}
+          </span>
         </div>
-        <CardContent className="p-4 space-y-3">
-          <Input placeholder="Flyer title" value={newPromo.title} onChange={e => setNewPromo(p => ({ ...p, title: e.target.value }))} className="rounded-xl bg-secondary/30 border-0" />
-          <Textarea placeholder="Description" rows={2} value={newPromo.description} onChange={e => setNewPromo(p => ({ ...p, description: e.target.value }))} className="rounded-xl bg-secondary/30 border-0" />
-          <input type="file" id="promoImageUpload" accept="image/*" onChange={uploadPromoImage} className="hidden" />
-          <Button variant="outline" size="sm" className="w-full rounded-xl" onClick={() => document.getElementById('promoImageUpload')?.click()}>
-            <Upload className="h-4 w-4 mr-1" />{newPromo.image_url ? 'Change Image' : 'Upload Image'}
-          </Button>
-          {newPromo.image_url && <img loading="lazy" src={newPromo.image_url} alt="Preview" className="w-full rounded-xl" />}
-          <Button onClick={addPromo} className="w-full bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl h-10 shadow-md">
-            <Plus className="h-4 w-4 mr-1" />Add Material
-          </Button>
-
-          {promos.map((p: any) => (
-            <div key={p.id} className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl">
-              {p.image_url && <img loading="lazy" src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover shadow-sm" />}
-              <p className="text-xs flex-1 text-foreground font-medium">{p.title}</p>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive rounded-lg" onClick={() => deletePromo(p.id)}>
-                <Trash2 className="h-3.5 w-3.5" />
+        <CardContent className="p-4 space-y-4">
+          {/* Create New Flyer Form */}
+          <div className="bg-secondary/30 p-3.5 rounded-xl space-y-3 border border-border/40">
+            <h5 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5 text-purple-600" /> Create New Promotional Flyer
+            </h5>
+            <Input 
+              placeholder="Flyer title (e.g. Syndicate WhatsApp Status Flyer)" 
+              value={newPromo.title} 
+              onChange={e => setNewPromo(p => ({ ...p, title: e.target.value }))} 
+              className="rounded-xl bg-background border text-xs" 
+            />
+            <Textarea 
+              placeholder="Flyer description and instructions for users..." 
+              rows={2} 
+              value={newPromo.description} 
+              onChange={e => setNewPromo(p => ({ ...p, description: e.target.value }))} 
+              className="rounded-xl bg-background border text-xs" 
+            />
+            <div className="flex items-center gap-2">
+              <input type="file" id="promoImageUpload" accept="image/*" onChange={uploadPromoImage} className="hidden" />
+              <Button 
+                type="button"
+                variant="outline" 
+                size="sm" 
+                className="flex-1 rounded-xl text-xs gap-1.5" 
+                onClick={() => document.getElementById('promoImageUpload')?.click()}
+              >
+                <Upload className="h-3.5 w-3.5 text-purple-600" />
+                {newPromo.image_url ? 'Change Selected Image' : 'Upload Flyer Image Banner'}
               </Button>
             </div>
-          ))}
+            {newPromo.image_url && (
+              <div className="relative rounded-xl overflow-hidden border border-border max-h-48 bg-black/5">
+                <img loading="lazy" src={newPromo.image_url} alt="Preview" className="w-full h-36 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setNewPromo(p => ({ ...p, image_url: '' }))}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <Button 
+              type="button"
+              onClick={addPromo} 
+              className="w-full bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white rounded-xl h-10 shadow-md font-bold text-xs"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Promotional Material
+            </Button>
+          </div>
+
+          {/* List of Existing Flyers */}
+          <div className="space-y-2.5">
+            <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Manage Existing Flyers ({promos.length})
+            </h5>
+            {promos.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">No promotional materials uploaded yet.</p>
+            ) : (
+              promos.map((p: any) => (
+                <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-card border border-border/80 rounded-xl shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {p.image_url ? (
+                      <img loading="lazy" src={p.image_url} alt={p.title} className="h-14 w-14 rounded-lg object-cover shadow-xs shrink-0 border" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                        <Image className="h-6 w-6" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-bold text-foreground truncate">{p.title}</p>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                          p.is_active !== false 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400' 
+                            : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-400'
+                        }`}>
+                          {p.is_active !== false ? 'ACTIVE (LIVE)' : 'INACTIVE (PAUSED)'}
+                        </span>
+                      </div>
+                      {p.description && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">{p.description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions Deck */}
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {p.is_active !== false ? 'Active' : 'Inactive'}
+                      </span>
+                      <Switch 
+                        checked={p.is_active !== false} 
+                        onCheckedChange={() => togglePromoActive(p)} 
+                        title="Toggle flyer activation status"
+                      />
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-8 px-2.5 text-xs font-semibold rounded-lg gap-1 border-purple-200 hover:bg-purple-50 text-purple-700"
+                      onClick={() => setEditingPromo({ ...p })}
+                    >
+                      <Edit className="h-3.5 w-3.5" /> Edit / Replace
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 text-destructive hover:bg-rose-50 rounded-lg" 
+                      onClick={() => deletePromo(p.id)}
+                      title="Delete flyer permanently"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      {/* Edit Flyer Dialog */}
+      <Dialog open={!!editingPromo} onOpenChange={(open) => { if (!open) setEditingPromo(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Edit className="h-4 w-4 text-purple-600" />
+              Edit Promotional Flyer
+            </DialogTitle>
+          </DialogHeader>
+
+          {editingPromo && (
+            <div className="space-y-3.5 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Flyer Title</Label>
+                <Input 
+                  value={editingPromo.title || ''} 
+                  onChange={e => setEditingPromo({ ...editingPromo, title: e.target.value })} 
+                  className="text-xs" 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Description</Label>
+                <Textarea 
+                  rows={3} 
+                  value={editingPromo.description || ''} 
+                  onChange={e => setEditingPromo({ ...editingPromo, description: e.target.value })} 
+                  className="text-xs" 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold">Flyer Image & Replacement</Label>
+                {editingPromo.image_url && (
+                  <div className="rounded-xl overflow-hidden border border-border h-36 bg-black/5">
+                    <img src={editingPromo.image_url} alt="Flyer" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  id="replacePromoImageInput" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadReplacePromoImage(f);
+                  }} 
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={uploadingPromoReplace}
+                  className="w-full text-xs font-semibold gap-1.5"
+                  onClick={() => document.getElementById('replacePromoImageInput')?.click()}
+                >
+                  {uploadingPromoReplace ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5 text-purple-600" />
+                  )}
+                  {uploadingPromoReplace ? 'Uploading Replacement...' : 'Replace Flyer Image'}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-muted/40 rounded-xl border">
+                <div>
+                  <p className="text-xs font-bold text-foreground">Flyer Status</p>
+                  <p className="text-[10px] text-muted-foreground">Make this flyer active and visible for user downloads</p>
+                </div>
+                <Switch 
+                  checked={editingPromo.is_active !== false} 
+                  onCheckedChange={checked => setEditingPromo({ ...editingPromo, is_active: checked })} 
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setEditingPromo(null)}>
+              Cancel
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={saveEditPromo}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Flyer Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

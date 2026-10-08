@@ -27,9 +27,11 @@ import AdminGuide from "@/components/AdminGuide";
 import AdminVideoManager from "@/components/AdminVideoManager";
 import AdminAdManager from "@/components/AdminAdManager";
 import AdminChatSystem from "@/components/AdminChatSystem";
+import AdminVixoraManager from "@/components/AdminVixoraManager";
 import { MessageSquare, LayoutGrid } from "lucide-react";
 
 const ADMIN_MODULES = [
+  { id: 'vixora-admin', label: 'Vixora AI & API', icon: Video, color: 'from-orange-500 via-purple-600 to-indigo-700', badge: 'AI Engine' },
   { id: 'syndicate', label: 'Syndicate Management', icon: Briefcase, color: 'from-purple-600 to-indigo-600', badge: 'Syndicate' },
   { id: 'ads', label: 'Full Ad Manager', icon: Megaphone, color: 'from-amber-600 to-orange-600', badge: 'Ads' },
   { id: 'chat', label: 'Support & Chat', icon: MessageSquare, color: 'from-blue-600 to-indigo-600', badge: 'Live' },
@@ -86,6 +88,7 @@ const AdminPanel = () => {
 
       {/* Module Content Container */}
       <div className="w-full">
+        {activeModule === 'vixora-admin' && <AdminVixoraManager />}
         {activeModule === 'syndicate' && <AdminSyndicateManager />}
         {activeModule === 'ads' && <AdminAdManager />}
         {activeModule === 'chat' && <AdminChatSystem />}
