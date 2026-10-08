@@ -14,6 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.136",
     "@google/genai": "^2.21.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -48,6 +49,7 @@
     "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "ai": "^7.0.133",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -22,6 +22,13 @@
       "when": 1791109778558,
       "tag": "0002_allow_admin_insert_business_verifications",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791471369657,
+      "tag": "0003_create_ggd_ai_chat_threads",
+      "breakpoints": true
     }
   ]
 }
