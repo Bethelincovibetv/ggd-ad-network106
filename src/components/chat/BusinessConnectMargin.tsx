@@ -326,7 +326,7 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
         {phone && (
           <div className="pt-2 border-t border-border/60 flex items-center gap-2">
             <a
-              href={buildWhatsAppLink(phone, { message: `Hello! I am chatting with ${bizName} on GGD Ad Network and would like to connect on WhatsApp.` })}
+              href={buildWhatsAppLink(phone, { message: `Hello! I am chatting with ${displayName} on GGD Ad Network and would like to connect on WhatsApp.` })}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 text-center py-1.5 px-2 rounded-lg bg-green-600/10 hover:bg-green-600/20 text-green-700 dark:text-green-400 font-bold text-[11px] flex items-center justify-center gap-1 transition"

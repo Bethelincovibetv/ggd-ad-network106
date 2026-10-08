@@ -36,6 +36,8 @@ import {
 import { NetworkLogo, GGDRewardBrandBadge } from "@/components/telecom/TelecomLogos";
 import { supabase } from "@/integrations/supabase/client";
 import { setFeatureToggleLocally } from "@/hooks/useFeatureToggles";
+import { RedeemFallingAnimation } from "@/components/RedeemFallingAnimation";
+import { playRedeemSound } from "@/utils/redeemSound";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 export const AdminRedeemManager: React.FC = () => {
@@ -55,6 +57,7 @@ export const AdminRedeemManager: React.FC = () => {
   const [filterNetwork, setFilterNetwork] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [previewAnimationOffer, setPreviewAnimationOffer] = useState<RedeemOffer | null>(null);
 
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const offerImgFileInputRef = useRef<HTMLInputElement>(null);
@@ -743,6 +746,16 @@ export const AdminRedeemManager: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setPreviewAnimationOffer(offer)}
+                          className="h-8 px-2 rounded-lg hover:bg-orange-500/10 text-orange-600 font-bold text-[10px] gap-1"
+                          title="Preview Falling Animation & Sound"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span className="hidden sm:inline">Preview FX</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleOpenEdit(offer)}
                           className="h-8 w-8 p-0 rounded-lg hover:bg-muted"
                           title="Edit Offer"
@@ -1402,6 +1415,18 @@ export const AdminRedeemManager: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ADMIN PREVIEW FALLING ANIMATION & SOUND MODAL */}
+      {previewAnimationOffer && (
+        <RedeemFallingAnimation
+          isOpen={!!previewAnimationOffer}
+          onClose={() => setPreviewAnimationOffer(null)}
+          offer={previewAnimationOffer}
+          appLink={previewAnimationOffer.app_link}
+          globalRewardLogo={globalRewardLogo}
+          userRemainingCredits={9999}
+        />
+      )}
     </div>
   );
 };

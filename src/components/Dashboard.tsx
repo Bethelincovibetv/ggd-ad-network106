@@ -73,6 +73,7 @@ import ContactGainHub from "@/components/ContactGainHub";
 import { FavoritesQuickButton } from "@/components/favorites/FavoritesQuickButton";
 import { FavoritesPage } from "@/components/favorites/FavoritesPage";
 import { HeaderWallets } from "@/components/wallet/HeaderWallets";
+import { GuidedTourModal, hasSeenWalkthrough } from "@/components/GuidedTourModal";
 
 interface Ad {
   id: string;
@@ -187,6 +188,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     }
   };
   const { isEnabled } = useFeatureToggles();
+  const [isTourOpen, setIsTourOpen] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [profileSetupComplete, setProfileSetupComplete] = useState<boolean | null>(null);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
@@ -262,6 +264,27 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const handler = (e: any) => { if (e?.detail) handleTabChange(e.detail); };
     window.addEventListener('ggd-nav', handler);
     return () => window.removeEventListener('ggd-nav', handler);
+  }, []);
+
+  useEffect(() => {
+    const tourHandler = () => setIsTourOpen(true);
+    window.addEventListener('ggd-launch-tour', tourHandler);
+
+    // Prompt first-time visitors after short pause
+    if (typeof window !== 'undefined') {
+      const seen = hasSeenWalkthrough();
+      if (!seen) {
+        const timer = setTimeout(() => {
+          setIsTourOpen(true);
+        }, 1600);
+        return () => {
+          window.removeEventListener('ggd-launch-tour', tourHandler);
+          clearTimeout(timer);
+        };
+      }
+    }
+
+    return () => window.removeEventListener('ggd-launch-tour', tourHandler);
   }, []);
 
   const initDashboard = async () => {
@@ -1277,6 +1300,13 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               setAds(prev => prev.map(a => a.id === updatedAd.id ? { ...a, ...updatedAd } : a));
               fetchAds();
             }}
+          />
+
+          {/* Interactive Guided Walkthrough Tour Modal */}
+          <GuidedTourModal
+            isOpen={isTourOpen}
+            onClose={() => setIsTourOpen(false)}
+            onComplete={() => setIsTourOpen(false)}
           />
         </div>
       </div>

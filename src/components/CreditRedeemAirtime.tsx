@@ -28,6 +28,8 @@ import {
 } from "@/services/redeemMarketplaceService";
 import { NetworkLogo, GGDRewardBrandBadge } from "@/components/telecom/TelecomLogos";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { RedeemFallingAnimation } from "@/components/RedeemFallingAnimation";
+import { playRedeemSound } from "@/utils/redeemSound";
 
 interface CreditRedeemAirtimeProps {
   currentCredits?: number;
@@ -817,85 +819,17 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* UNLOCKED SUCCESS DIALOG MODAL */}
-      <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
-        <DialogContent className="max-w-md rounded-2xl text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 grid place-items-center text-emerald-500 mb-2">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-foreground">
-              Redemption Successful!
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Your airtime/data claim link is now unlocked and ready for you to access.
-            </DialogDescription>
-          </DialogHeader>
-
-          {unlockedOffer && (
-            <div className="space-y-4 py-2 text-left">
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <NetworkLogo network={unlockedOffer.offer.network} size="sm" />
-                    <span className="text-xs font-black uppercase text-foreground">
-                      {NETWORK_THEMES[unlockedOffer.offer.network]?.name || unlockedOffer.offer.network}
-                    </span>
-                  </div>
-                  <GGDRewardBrandBadge 
-                    customLogoUrl={unlockedOffer.offer.reward_logo_url || globalRewardLogo} 
-                    size="sm" 
-                  />
-                </div>
-                <p className="text-xs font-black text-foreground">{unlockedOffer.offer.title}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {unlockedOffer.offer.instructions || 'Click the button below to open your tool portal.'}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                  Unlocked Tool URL:
-                </span>
-                <div className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/30 flex items-center justify-between gap-2">
-                  <p className="font-mono text-xs font-bold text-foreground truncate select-all">
-                    {unlockedOffer.appLink}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyLink(unlockedOffer.appLink)}
-                    className="h-8 px-2 rounded-lg text-xs font-bold gap-1 text-orange-600 hover:bg-orange-500/10"
-                  >
-                    {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedLink ? 'Copied' : 'Copy'}</span>
-                  </Button>
-                </div>
-              </div>
-
-              <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                <a
-                  href={unlockedOffer.appLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white shadow-md transition-all"
-                >
-                  <span>Launch Tool / Claim Link</span>
-                  <ArrowUpRight className="h-4 w-4" />
-                </a>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsSuccessOpen(false)}
-                  className="h-11 rounded-xl text-xs font-bold"
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* FULL-SCREEN FALLING REDEEM ANIMATION & RICH AUDIO EFFECT */}
+      {unlockedOffer && (
+        <RedeemFallingAnimation
+          isOpen={isSuccessOpen}
+          onClose={() => setIsSuccessOpen(false)}
+          offer={unlockedOffer.offer}
+          appLink={unlockedOffer.appLink}
+          globalRewardLogo={globalRewardLogo}
+          userRemainingCredits={credits}
+        />
+      )}
     </div>
   );
 };

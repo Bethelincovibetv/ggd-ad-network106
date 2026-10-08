@@ -119,7 +119,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
   );
 
   return (
-    <div className="space-y-4">
+    <div id="overview-tab" data-tour-step="1" className="space-y-4">
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
