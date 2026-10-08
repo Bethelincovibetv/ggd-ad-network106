@@ -9,7 +9,8 @@ import {
 import { 
   Smartphone, Wifi, Coins, Sparkles, ShieldCheck, ArrowRight, 
   ExternalLink, Copy, Check, Clock, Search, Lock, Unlock, 
-  RefreshCw, CheckCircle2, AlertCircle, ArrowUpRight, Flame, Store
+  RefreshCw, CheckCircle2, AlertCircle, ArrowUpRight, Flame, Store,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,8 +23,11 @@ import {
   getUserRedeemedOfferIds, 
   redeemOfferWithCredits,
   getUserRedemptionHistory,
+  getGlobalRewardLogo,
   UserRedemptionRecord 
 } from "@/services/redeemMarketplaceService";
+import { NetworkLogo, GGDRewardBrandBadge } from "@/components/telecom/TelecomLogos";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface CreditRedeemAirtimeProps {
   currentCredits?: number;
@@ -36,11 +40,15 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
   onCreditsUpdated,
   onNavigate,
 }) => {
+  const { isEnabled } = useFeatureToggles();
+  const isRedeemEnabled = isEnabled('airtime_redeem');
+
   const [user, setUser] = useState<any>(null);
   const [credits, setCredits] = useState<number>(propCredits ?? 0);
   const [offers, setOffers] = useState<RedeemOffer[]>([]);
   const [redeemedIds, setRedeemedIds] = useState<string[]>([]);
   const [userHistory, setUserHistory] = useState<UserRedemptionRecord[]>([]);
+  const [globalRewardLogo, setGlobalRewardLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'store' | 'my-items'>('store');
   const [filterType, setFilterType] = useState<string>('all');
@@ -74,14 +82,17 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
       const currentUser = authData?.user || null;
       setUser(currentUser);
 
-      const [offersList, { data: profile }] = await Promise.all([
+      const [offersList, { data: profile }, rewardLogo] = await Promise.all([
         getRedeemOffers(),
         currentUser 
           ? supabase.from('profiles').select('credits').eq('user_id', currentUser.id).maybeSingle()
           : Promise.resolve({ data: null }),
+        getGlobalRewardLogo(),
       ]);
 
+      // Only show active offers to regular users
       setOffers(offersList.filter(o => o.is_active));
+      setGlobalRewardLogo(rewardLogo);
 
       if (profile && profile.credits !== undefined) {
         const c = Number(profile.credits) || 0;
@@ -104,142 +115,191 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
     }
   };
 
-  const handleOpenRedeemModal = (offer: RedeemOffer) => {
+  const handleStartRedeem = (offer: RedeemOffer) => {
     if (!user) {
-      toast.info('Please sign in to redeem airtime and data with your credits.');
+      toast.error('Please log in to redeem airtime & data packages.');
       return;
     }
+
     if (credits < offer.credit_cost) {
-      toast.error(`Insufficient credit balance. You need ${offer.credit_cost} credits, but you have ${credits} credits.`);
+      toast.error(`Insufficient credits! You need ${offer.credit_cost} credits, but only have ${credits} credits.`);
       return;
     }
+
     setSelectedOfferForRedeem(offer);
     setIsConfirmOpen(true);
   };
 
   const handleConfirmRedeem = async () => {
-    if (!user || !selectedOfferForRedeem) return;
+    if (!selectedOfferForRedeem || !user) return;
 
     setRedeeming(true);
     try {
-      const result = await redeemOfferWithCredits(user.id, selectedOfferForRedeem);
-      
-      // Update state
-      setCredits(result.remainingCredits);
-      if (onCreditsUpdated) onCreditsUpdated(result.remainingCredits);
-      setRedeemedIds(prev => Array.from(new Set([...prev, selectedOfferForRedeem.id])));
+      const res = await redeemOfferWithCredits(user.id, selectedOfferForRedeem);
 
-      // Add to user history
-      const newHistoryItem: UserRedemptionRecord = {
-        id: `red_${Date.now()}`,
-        offerId: selectedOfferForRedeem.id,
-        offerTitle: selectedOfferForRedeem.title,
-        type: selectedOfferForRedeem.type,
-        network: selectedOfferForRedeem.network,
-        creditCost: selectedOfferForRedeem.credit_cost,
-        appLink: result.appLink,
-        redeemedAt: new Date().toISOString(),
-        userId: user.id,
-      };
-      setUserHistory(prev => [newHistoryItem, ...prev]);
+      if (res.success) {
+        // Update local state immediately
+        const newCredits = res.remainingCredits;
+        setCredits(newCredits);
+        if (onCreditsUpdated) onCreditsUpdated(newCredits);
 
-      setIsConfirmOpen(false);
-      setUnlockedOffer({ offer: selectedOfferForRedeem, appLink: result.appLink });
-      setIsSuccessOpen(true);
+        setRedeemedIds(prev => Array.from(new Set([...prev, selectedOfferForRedeem.id])));
 
-      toast.success(`🎉 ${selectedOfferForRedeem.title} unlocked! Your redemption tool link is ready.`);
+        // Add to history
+        const newRecord: UserRedemptionRecord = {
+          id: `red_${Date.now()}`,
+          offerId: selectedOfferForRedeem.id,
+          offerTitle: selectedOfferForRedeem.title,
+          type: selectedOfferForRedeem.type,
+          network: selectedOfferForRedeem.network,
+          creditCost: selectedOfferForRedeem.credit_cost,
+          appLink: res.appLink,
+          redeemedAt: new Date().toISOString(),
+          userId: user.id,
+        };
+        setUserHistory(prev => [newRecord, ...prev]);
+
+        setIsConfirmOpen(false);
+        setUnlockedOffer({ offer: selectedOfferForRedeem, appLink: res.appLink });
+        setIsSuccessOpen(true);
+
+        toast.success(`🎉 Successfully unlocked ${selectedOfferForRedeem.title}!`);
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Redemption failed. Please try again.');
+      toast.error(err.message || 'Failed to complete redemption. Please try again.');
     } finally {
       setRedeeming(false);
     }
   };
 
-  const handleCopyLink = (url: string) => {
-    navigator.clipboard.writeText(url);
+  const handleCopyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
     setCopiedLink(true);
-    toast.success('Redemption link copied to clipboard!');
+    toast.success('Redemption tool link copied to clipboard!');
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const filteredOffers = offers.filter(o => {
-    const matchesSearch = 
-      o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (o.denomination && o.denomination.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      o.network.toLowerCase().includes(searchQuery.toLowerCase());
+  // If redemption feature is switched off from feature toggles by admin
+  if (!isRedeemEnabled) {
+    return (
+      <div className="p-8 sm:p-12 text-center max-w-xl mx-auto my-6 bg-card rounded-3xl border border-border/80 shadow-md">
+        <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-xs">
+          <AlertTriangle className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-black text-foreground">
+          Airtime & Data Redemption Paused
+        </h2>
+        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+          The Airtime & Data Redeem Marketplace is currently paused by platform administration for scheduled maintenance or catalog restocking.
+        </p>
+        <div className="mt-4 p-4 rounded-2xl bg-muted/40 border border-border/60 text-xs text-muted-foreground text-left space-y-1.5">
+          <p className="font-bold text-foreground flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            Your Credits Are 100% Safe
+          </p>
+          <p>
+            You currently have <span className="font-black text-orange-600 dark:text-orange-400">{credits.toLocaleString()} credits</span> in your account. You can continue earning credits via tasks and community activities.
+          </p>
+        </div>
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2">
+          {onNavigate && (
+            <Button
+              onClick={() => onNavigate('tasks')}
+              className="w-full sm:w-auto h-10 px-5 text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white rounded-xl shadow-xs"
+            >
+              Earn More Credits
+            </Button>
+          )}
+          {onNavigate && (
+            <Button
+              variant="outline"
+              onClick={() => onNavigate('ads')}
+              className="w-full sm:w-auto h-10 px-5 text-xs font-semibold rounded-xl"
+            >
+              Back to Home
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-    const matchesType = filterType === 'all' || o.type === filterType;
-    const matchesNetwork = filterNetwork === 'all' || o.network === filterNetwork;
+  // Filtered store offers
+  const filteredOffers = offers.filter(offer => {
+    const matchesSearch = 
+      offer.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (offer.denomination && offer.denomination.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesType = filterType === 'all' || offer.type === filterType;
+    const matchesNetwork = filterNetwork === 'all' || offer.network === filterNetwork;
 
     return matchesSearch && matchesType && matchesNetwork;
   });
 
-  const myRedeemedOffers = offers.filter(o => redeemedIds.includes(o.id));
+  // Filtered redeemed items
+  const redeemedOffersList = offers.filter(offer => redeemedIds.includes(offer.id));
 
   return (
     <div className="space-y-6">
-      {/* Hero Header with Live Wallet Balance Card */}
-      <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-zinc-900 to-neutral-950 text-white p-5 sm:p-7 border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 -mb-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Hero Header with Wallet Balance & GGD Reward Branding */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-zinc-900 to-neutral-900 text-white p-5 sm:p-7 border border-white/10 shadow-xl">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-orange-500/20 via-amber-500/15 to-transparent rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          {/* Brand & Title */}
           <div className="space-y-2 max-w-xl">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs font-bold gap-1.5 px-3 py-1">
-                <Sparkles className="h-3 w-3" />
-                Instant Credit Redemption
-              </Badge>
-              <Badge variant="outline" className="text-zinc-300 border-white/10 text-xs font-semibold">
-                MTN • Airtel • Glo • 9mobile
+            <div className="flex flex-wrap items-center gap-2">
+              <GGDRewardBrandBadge customLogoUrl={globalRewardLogo} size="md" />
+              <Badge className="bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 shadow-sm">
+                Instant Top-Up
               </Badge>
             </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-              Airtime & Data Redeem Marketplace
+
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white">
+              Airtime & Mobile Data Marketplace
             </h1>
-            
+
             <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-              Use your earned credit wallet to purchase high-speed data bundles and airtime recharge tools. Once redeemed, your unique claim portal link unlocks instantly for immediate access!
+              Use your earned wallet credits to redeem instant 30-day mobile data bundles and talktime airtime vouchers for MTN, Airtel, Glo, and 9mobile.
             </p>
           </div>
 
-          {/* Credits Balance Showcase Widget */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between backdrop-blur-md min-w-[240px] shadow-lg">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                Earned Credit Wallet
-              </span>
-              <Coins className="h-4 w-4 text-orange-400 animate-bounce" />
+          {/* Credits Balance Card */}
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md shrink-0 shadow-lg">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-md">
+              <Coins className="h-6 w-6" />
             </div>
 
-            <div className="my-2">
+            <div>
+              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                Available Credits
+              </p>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <span className="text-2xl font-black text-white">
                   {credits.toLocaleString()}
                 </span>
                 <span className="text-xs font-bold text-orange-400">Credits</span>
               </div>
-              <p className="text-[10px] text-zinc-400 mt-0.5">
-                Available to redeem for data & airtime
-              </p>
             </div>
 
-            <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+            <div className="ml-2 pl-2 border-l border-white/10 flex flex-col gap-1">
+              {onNavigate && (
+                <Button
+                  size="sm"
+                  onClick={() => onNavigate('tasks')}
+                  className="h-7 text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white rounded-lg px-2.5 border border-white/10"
+                >
+                  Earn More
+                </Button>
+              )}
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate ? onNavigate('tasks') : window.location.assign('/?tab=tasks')}
-                className="flex-1 bg-white/5 border-white/15 hover:bg-white/10 text-white text-[11px] h-8 font-bold rounded-xl"
-              >
-                Earn Credits
-              </Button>
-              <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={fetchMarketplaceData}
                 disabled={loading}
-                className="h-8 w-8 p-0 bg-white/5 border-white/15 hover:bg-white/10 text-white rounded-xl"
+                className="h-7 w-7 p-0 bg-white/5 border-white/15 hover:bg-white/10 text-white rounded-lg mx-auto"
                 title="Refresh credits"
               >
                 <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
@@ -255,8 +315,8 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-bold text-white text-[11px]">Instant Tool Access</p>
-              <p className="text-[10px] text-zinc-400">Unlocks on redemption</p>
+              <p className="font-bold text-white text-[11px]">Instant Link Unlocked</p>
+              <p className="text-[10px] text-zinc-400">Immediate access upon redeem</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-zinc-300">
@@ -264,7 +324,7 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
               <Coins className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-bold text-white text-[11px]">Zero Cash Required</p>
+              <p className="font-bold text-white text-[11px]">Zero Naira Cost</p>
               <p className="text-[10px] text-zinc-400">Pay with task credits</p>
             </div>
           </div>
@@ -273,8 +333,8 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-bold text-white text-[11px]">Admin Verified</p>
-              <p className="text-[10px] text-zinc-400">Direct telecom links</p>
+              <p className="font-bold text-white text-[11px]">GGD Verified Voucher</p>
+              <p className="text-[10px] text-zinc-400">Authentic telco portals</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-zinc-300">
@@ -282,8 +342,8 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
               <Clock className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-bold text-white text-[11px]">Permanent Access</p>
-              <p className="text-[10px] text-zinc-400">Saved in your account</p>
+              <p className="font-bold text-white text-[11px]">Saved in Account</p>
+              <p className="text-[10px] text-zinc-400">Always accessible</p>
             </div>
           </div>
         </div>
@@ -346,18 +406,18 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
         </div>
       </div>
 
-      {/* Network Filter Pills (When on store tab) */}
+      {/* Network Filter Pills with Authentic Telecom Logos (When on store tab) */}
       {activeTab === 'store' && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilterNetwork('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
               filterNetwork === 'all'
-                ? 'bg-foreground text-background shadow-xs'
+                ? 'bg-foreground text-background shadow-xs font-black'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
-            All Networks ({offers.length})
+            <span>All Networks ({offers.length})</span>
           </button>
           {(['mtn', 'airtel', 'glo', '9mobile'] as NetworkProvider[]).map((net) => {
             const count = offers.filter(o => o.network === net).length;
@@ -367,13 +427,14 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
               <button
                 key={net}
                 onClick={() => setFilterNetwork(net)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all uppercase whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all uppercase whitespace-nowrap flex items-center gap-2 ${
                   isSelected
-                    ? `${theme.badgeBg} border shadow-xs font-black`
-                    : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? `${theme.badgeBg} border shadow-xs font-black ring-1 ring-orange-500/30`
+                    : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
                 }`}
               >
-                <span>{net}</span>
+                <NetworkLogo network={net} size="sm" />
+                <span>{theme.name.split(' ')[0]}</span>
                 <span className="text-[10px] opacity-70">({count})</span>
               </button>
             );
@@ -415,26 +476,38 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
                 return (
                   <Card
                     key={offer.id}
-                    className={`border transition-all duration-200 overflow-hidden flex flex-col justify-between hover:shadow-lg ${
+                    className={`border transition-all duration-200 overflow-hidden flex flex-col justify-between hover:shadow-lg relative ${
                       isRedeemed
                         ? 'border-emerald-500/60 dark:border-emerald-500/40 bg-emerald-500/[0.02] ring-1 ring-emerald-500/20'
                         : theme.accentBorder
                     }`}
                   >
                     <div>
-                      {/* Top Bar with Network Badge & Category */}
-                      <div className="p-4 pb-3 flex items-start justify-between gap-2 border-b border-border/50">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border ${theme.badgeBg}`}>
-                            {theme.name.split(' ')[0]}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
-                            offer.type === 'airtime'
-                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                              : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300'
-                          }`}>
-                            {offer.type === 'airtime' ? 'Airtime Voucher' : 'Data Bundle'}
-                          </span>
+                      {/* Top Bar with Real Network Logo, GGD Reward Badge & Price */}
+                      <div className="p-4 pb-3 flex items-start justify-between gap-2 border-b border-border/50 bg-muted/15">
+                        <div className="flex items-center gap-2.5">
+                          {/* Real Authentic Telecom Logo */}
+                          <NetworkLogo network={offer.network} size="md" />
+
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black tracking-tight text-foreground">
+                              {theme.name}
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                offer.type === 'airtime'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                  : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
+                              }`}>
+                                {offer.type === 'airtime' ? 'Airtime' : 'Data'}
+                              </span>
+                              <GGDRewardBrandBadge 
+                                customLogoUrl={offer.reward_logo_url || globalRewardLogo} 
+                                size="sm" 
+                                showText={false} 
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         {/* Price Badge */}
@@ -488,48 +561,48 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
                       </div>
                     </div>
 
-                    {/* Action Button Area */}
-                    <div className="p-4 pt-2 border-t border-border/40 bg-muted/10">
+                    {/* Bottom Action Footer */}
+                    <div className="p-4 pt-0">
                       {isRedeemed ? (
-                        <div className="flex items-center gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <a
                             href={offer.app_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md transition-all"
+                            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
                           >
-                            <span>Open Redemption Tool</span>
+                            <span>Open Tool</span>
                             <ArrowUpRight className="h-3.5 w-3.5" />
                           </a>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleCopyLink(offer.app_link)}
-                            className="h-10 w-10 p-0 rounded-xl"
-                            title="Copy link"
+                            className="h-10 text-xs font-bold rounded-xl gap-1"
                           >
-                            <Copy className="h-3.5 w-3.5 text-foreground" />
+                            <Copy className="h-3 w-3" />
+                            <span>Copy Link</span>
                           </Button>
                         </div>
                       ) : (
                         <Button
-                          onClick={() => handleOpenRedeemModal(offer)}
+                          onClick={() => handleStartRedeem(offer)}
                           disabled={!canAfford}
-                          className={`w-full h-10 font-bold text-xs rounded-xl transition-all shadow-sm gap-1.5 ${
+                          className={`w-full h-10 rounded-xl font-bold text-xs gap-1.5 shadow-sm transition-all ${
                             canAfford
                               ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white'
-                              : 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
+                              : 'bg-muted text-muted-foreground cursor-not-allowed'
                           }`}
                         >
                           {canAfford ? (
                             <>
-                              <Lock className="h-3.5 w-3.5" />
+                              <Unlock className="h-3.5 w-3.5" />
                               <span>Redeem for {offer.credit_cost} Credits</span>
                             </>
                           ) : (
                             <>
-                              <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
-                              <span>Need {offer.credit_cost} Credits (Have {credits})</span>
+                              <Lock className="h-3.5 w-3.5" />
+                              <span>Need {offer.credit_cost - credits} More Credits</span>
                             </>
                           )}
                         </Button>
@@ -546,95 +619,98 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
       {/* TAB 2: MY REDEEMED OFFERS */}
       {activeTab === 'my-items' && (
         <div className="space-y-4">
-          {myRedeemedOffers.length === 0 ? (
-            <div className="text-center p-14 bg-card rounded-2xl border border-border shadow-xs">
-              <Lock className="h-10 w-10 text-orange-500/50 mx-auto mb-3" />
-              <h3 className="text-base font-black text-foreground">No Redeemed Offers Yet</h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                You haven't redeemed any airtime or data offers yet. Browse our marketplace and use your credit balance to unlock immediate access!
+          {redeemedOffersList.length === 0 ? (
+            <div className="text-center p-12 bg-card rounded-2xl border border-border shadow-xs space-y-3">
+              <div className="h-12 w-12 rounded-full bg-orange-500/10 grid place-items-center text-orange-500 mx-auto">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h3 className="text-sm font-black text-foreground">
+                No Redeemed Airtime or Data Offers Yet
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Once you redeem offers using your credit wallet, your unlocked links and tools will always be saved here for quick access.
               </p>
               <Button
+                size="sm"
                 onClick={() => setActiveTab('store')}
-                className="mt-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-white text-xs font-bold h-9 rounded-xl gap-1.5 shadow-sm"
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs h-9 rounded-xl"
               >
-                <Store className="h-4 w-4" />
-                Browse Store Packages
+                Browse Available Packages
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-muted-foreground">
-                  Your Unlocked Redemption Links ({myRedeemedOffers.length})
+                  You have unlocked <span className="text-foreground font-black">{redeemedOffersList.length}</span> airtime & data tools.
                 </p>
-                <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Permanent Access Unlocked
-                </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {myRedeemedOffers.map(offer => {
+                {redeemedOffersList.map((offer) => {
                   const theme = NETWORK_THEMES[offer.network] || NETWORK_THEMES.all;
                   return (
-                    <Card key={offer.id} className="border border-emerald-500/40 shadow-sm overflow-hidden bg-card">
-                      <div className="p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${theme.badgeBg}`}>
-                                {offer.network}
-                              </span>
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                {offer.type}
-                              </span>
-                            </div>
-                            <h4 className="font-black text-sm text-foreground">{offer.title}</h4>
-                            {offer.denomination && (
-                              <p className="text-xs font-bold text-orange-600 dark:text-orange-400">
-                                {offer.denomination}
-                              </p>
-                            )}
+                    <Card
+                      key={offer.id}
+                      className="border-emerald-500/40 bg-emerald-500/[0.02] rounded-2xl p-4 flex flex-col justify-between shadow-xs"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <NetworkLogo network={offer.network} size="sm" />
+                            <span className="text-xs font-black uppercase text-foreground">
+                              {theme.name}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                              Unlocked
+                            </span>
                           </div>
-
-                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[11px] font-black gap-1">
-                            <Check className="h-3 w-3" /> UNLOCKED
-                          </Badge>
+                          <GGDRewardBrandBadge 
+                            customLogoUrl={offer.reward_logo_url || globalRewardLogo} 
+                            size="sm" 
+                            showText={false} 
+                          />
                         </div>
 
-                        <p className="text-xs text-muted-foreground">
-                          {offer.instructions || 'Click the button below to access your redemption tool and claim your package.'}
-                        </p>
-
-                        {/* Unlocked Link Box */}
-                        <div className="p-2.5 rounded-xl bg-muted/40 border border-border/80 space-y-1">
-                          <span className="text-[10px] font-bold text-muted-foreground block">
-                            Direct Redemption URL:
-                          </span>
-                          <p className="font-mono text-[11px] text-foreground truncate select-all">
-                            {offer.app_link}
+                        <div>
+                          <h4 className="font-black text-sm text-foreground">{offer.title}</h4>
+                          {offer.denomination && (
+                            <p className="text-xs font-bold text-orange-600 dark:text-orange-400">
+                              {offer.denomination}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {offer.instructions || offer.description}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
-                          <a
-                            href={offer.app_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md transition-all"
-                          >
-                            <span>Open Redemption Portal</span>
-                            <ArrowUpRight className="h-4 w-4" />
-                          </a>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyLink(offer.app_link)}
-                            className="h-10 px-3 rounded-xl text-xs font-bold gap-1"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            <span>Copy</span>
-                          </Button>
+                        {/* Direct link box */}
+                        <div className="p-2.5 rounded-xl bg-muted/60 border border-border/80 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-mono text-[11px] truncate select-all text-foreground">
+                            {offer.app_link}
+                          </span>
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-border/40">
+                        <a
+                          href={offer.app_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                        >
+                          <span>Launch Tool</span>
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </a>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyLink(offer.app_link)}
+                          className="h-10 px-3 rounded-xl text-xs font-bold gap-1"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Copy</span>
+                        </Button>
                       </div>
                     </Card>
                   );
@@ -660,18 +736,27 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
 
           {selectedOfferForRedeem && (
             <div className="space-y-4 py-2">
-              <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-3">
                 <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <NetworkLogo network={selectedOfferForRedeem.network} size="sm" />
+                    <span className="text-xs font-black uppercase text-foreground">
+                      {NETWORK_THEMES[selectedOfferForRedeem.network]?.name || selectedOfferForRedeem.network}
+                    </span>
+                  </div>
+                  <GGDRewardBrandBadge 
+                    customLogoUrl={selectedOfferForRedeem.reward_logo_url || globalRewardLogo} 
+                    size="sm" 
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-border/40">
                   <span className="text-xs text-muted-foreground font-medium">Package:</span>
                   <span className="text-xs font-black text-foreground">{selectedOfferForRedeem.title}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground font-medium">Category:</span>
                   <span className="text-xs font-bold capitalize text-foreground">{selectedOfferForRedeem.type}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Network:</span>
-                  <span className="text-xs font-black uppercase text-foreground">{selectedOfferForRedeem.network}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-border/50">
                   <span className="text-xs text-muted-foreground font-bold">Cost in Credits:</span>
@@ -750,7 +835,19 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
 
           {unlockedOffer && (
             <div className="space-y-4 py-2 text-left">
-              <div className="p-3 rounded-xl bg-muted/40 border border-border/80">
+              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <NetworkLogo network={unlockedOffer.offer.network} size="sm" />
+                    <span className="text-xs font-black uppercase text-foreground">
+                      {NETWORK_THEMES[unlockedOffer.offer.network]?.name || unlockedOffer.offer.network}
+                    </span>
+                  </div>
+                  <GGDRewardBrandBadge 
+                    customLogoUrl={unlockedOffer.offer.reward_logo_url || globalRewardLogo} 
+                    size="sm" 
+                  />
+                </div>
                 <p className="text-xs font-black text-foreground">{unlockedOffer.offer.title}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   {unlockedOffer.offer.instructions || 'Click the button below to open your tool portal.'}

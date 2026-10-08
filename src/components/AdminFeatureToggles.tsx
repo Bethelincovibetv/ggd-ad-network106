@@ -36,6 +36,7 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'quick_guide', feature_name: 'User Guide', description: 'Interactive platform instructions', is_enabled: true },
   { feature_key: 'vixora_ai', feature_name: 'Vixora AI Creator Studio', description: 'Master toggle to enable or disable Vixora AI across the platform for users (Studio, Tools, Hero cards, and AI features).', is_enabled: true },
   { feature_key: 'vixora_tools', feature_name: 'Marketplace: Vixora AI Tools Tab', description: 'Show or hide the Vixora AI Tools & Capabilities tab in the Marketing Apps Marketplace.', is_enabled: true },
+  { feature_key: 'airtime_redeem', feature_name: 'Airtime & Data Redeem Marketplace', description: 'Master toggle for the Airtime & Data Redeem Marketplace. When disabled, users cannot redeem credits for airtime or data offers and access is temporarily paused.', is_enabled: true },
 
   // Create Menu
   { feature_key: 'create_credit_task', feature_name: 'Create: Credit Task', description: 'Quick action to create a credit task', is_enabled: true },
@@ -49,6 +50,7 @@ const DEFAULT_SYSTEM_TOGGLES = [
   { feature_key: 'nav_credit_tasks', feature_name: 'Menu: Credit Tasks Button', description: 'Hide or show the Credit Tasks button on side nav, top nav, and mobile footer menu without disabling the underlying task system', is_enabled: true },
   { feature_key: 'nav_contact_gain', feature_name: 'Menu: Contact Gain Hub Button', description: 'Show or hide the Contact Gain Hub button on side navigation menus', is_enabled: true },
   { feature_key: 'nav_home', feature_name: 'Menu: Home Button', description: 'Show or hide Home button on menus', is_enabled: true },
+  { feature_key: 'nav_airtime_redeem', feature_name: 'Menu: Redeem Airtime & Data Button', description: 'Show or hide Redeem Airtime & Data button on navigation menus', is_enabled: true },
   { feature_key: 'nav_campaigns', feature_name: 'Menu: Banner Ads Button', description: 'Show or hide Banner Ads button on menus', is_enabled: true },
   { feature_key: 'nav_wallet', feature_name: 'Menu: Wallet Button', description: 'Show or hide Wallet button on menus', is_enabled: true },
   { feature_key: 'nav_inbox', feature_name: 'Menu: Inbox Button', description: 'Show or hide Inbox button on menus', is_enabled: true },

@@ -17,6 +17,7 @@ export interface RedeemOffer {
   network: NetworkProvider;
   denomination?: string; // e.g. "1GB", "2GB", "₦500", "₦1,000"
   instructions?: string;
+  reward_logo_url?: string; // Custom uploaded reward logo or brand crest
   created_at?: string;
 }
 
@@ -249,6 +250,7 @@ export async function getRedeemOffers(): Promise<RedeemOffer[]> {
           network: (meta.network as NetworkProvider) || detectNetworkFromTitle(app.title),
           denomination: meta.denomination || extractDenomination(app.title),
           instructions: meta.instructions || 'Click the unlocked button to open your redemption link.',
+          reward_logo_url: meta.reward_logo_url || app.image_url || undefined,
           created_at: app.created_at,
         });
       }
@@ -391,6 +393,7 @@ export async function createRedeemOffer(offerData: Omit<RedeemOffer, 'id' | 'cre
     network: offerData.network,
     denomination: offerData.denomination || '',
     instructions: offerData.instructions || '',
+    reward_logo_url: offerData.reward_logo_url || offerData.image_url || '',
   };
 
   await Promise.all([
@@ -441,7 +444,7 @@ export async function updateRedeemOffer(
   }
 
   // Update meta in app_settings
-  if (updates.type || updates.network || updates.denomination !== undefined || updates.instructions !== undefined) {
+  if (updates.type || updates.network || updates.denomination !== undefined || updates.instructions !== undefined || updates.reward_logo_url !== undefined) {
     const metaRes = await supabase
       .from('app_settings')
       .select('value')
@@ -459,6 +462,7 @@ export async function updateRedeemOffer(
       ...(updates.network ? { network: updates.network } : {}),
       ...(updates.denomination !== undefined ? { denomination: updates.denomination } : {}),
       ...(updates.instructions !== undefined ? { instructions: updates.instructions } : {}),
+      ...(updates.reward_logo_url !== undefined ? { reward_logo_url: updates.reward_logo_url } : {}),
     };
 
     await supabase.from('app_settings').upsert({
@@ -470,6 +474,91 @@ export async function updateRedeemOffer(
   // Update local cache
   const cached = getLocalFallbackOffers().map(o => o.id === id ? { ...o, ...updates } : o);
   saveLocalFallbackOffers(cached);
+}
+
+/**
+ * Toggle single offer active/deactive status instantly
+ */
+export async function toggleOfferActive(id: string, is_active: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('marketing_apps')
+    .update({ is_active })
+    .eq('id', id);
+
+  if (error) {
+    console.warn('Failed to update active state in DB, keeping local:', error);
+  }
+
+  const cached = getLocalFallbackOffers().map(o => o.id === id ? { ...o, is_active } : o);
+  saveLocalFallbackOffers(cached);
+}
+
+export const REDEEM_GLOBAL_LOGO_KEY = 'ggd_redeem_reward_logo';
+
+/**
+ * Fetch platform-wide GGD Reward Logo configured by Admin
+ */
+export async function getGlobalRewardLogo(): Promise<string | null> {
+  try {
+    const res = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', REDEEM_GLOBAL_LOGO_KEY)
+      .maybeSingle();
+
+    if (res.data?.value) {
+      return res.data.value;
+    }
+  } catch {}
+
+  try {
+    return localStorage.getItem(REDEEM_GLOBAL_LOGO_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save platform-wide GGD Reward Logo configured by Admin
+ */
+export async function setGlobalRewardLogo(logoUrl: string): Promise<void> {
+  try {
+    await supabase.from('app_settings').upsert({
+      key: REDEEM_GLOBAL_LOGO_KEY,
+      value: logoUrl,
+    }, { onConflict: 'key' });
+  } catch (err) {
+    console.warn('Failed to save reward logo to database:', err);
+  }
+
+  try {
+    localStorage.setItem(REDEEM_GLOBAL_LOGO_KEY, logoUrl);
+  } catch {}
+}
+
+/**
+ * Upload an image file for Reward Logo or Offer thumbnail
+ * Uses Supabase storage with robust Data URL fallback
+ */
+export async function uploadRewardImage(file: File): Promise<string> {
+  try {
+    const ext = file.name.split('.').pop() || 'png';
+    const fileName = `rewards/reward_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+      if (data?.publicUrl) return data.publicUrl;
+    }
+  } catch (e) {
+    console.warn('Storage upload fallback to Data URL:', e);
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 /**

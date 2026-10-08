@@ -6,6 +6,7 @@ import CreditFunding from "@/components/CreditFunding";
 import CreditTransfer from "@/components/CreditTransfer";
 import TaskWalletFunding from "@/components/TaskWalletFunding";
 import CreditRedeemAirtime from "@/components/CreditRedeemAirtime";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface WalletHubProps {
   credits: number;
@@ -16,8 +17,12 @@ interface WalletHubProps {
 }
 
 const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initialTab = 'task-wallet' }: WalletHubProps) => {
+  const { isEnabled } = useFeatureToggles();
+  const isRedeemEnabled = isEnabled('airtime_redeem');
   const [exchangeRate, setExchangeRate] = useState<number>(100);
-  const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer' | 'redeem'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer' | 'redeem'>(
+    initialTab === 'redeem' && !isRedeemEnabled ? 'task-wallet' : initialTab
+  );
   const [taskWallet, setTaskWallet] = useState<any>(null);
   const channelRef = useRef<any>(null);
   const walletChannelRef = useRef<any>(null);
@@ -229,13 +234,15 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             <Banknote className="h-3.5 w-3.5" />
             Naira Wallet (₦)
           </TabsTrigger>
-          <TabsTrigger
-            value="redeem"
-            className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold h-10"
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-            Redeem Airtime & Data
-          </TabsTrigger>
+          {isRedeemEnabled && (
+            <TabsTrigger
+              value="redeem"
+              className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold h-10"
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              Redeem Airtime & Data
+            </TabsTrigger>
+          )}
           <TabsTrigger
             value="buy"
             className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
@@ -256,9 +263,11 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
           <TaskWalletFunding />
         </TabsContent>
 
-        <TabsContent value="redeem" className="mt-4">
-          <CreditRedeemAirtime currentCredits={credits} onCreditsUpdated={onCreditsUpdate} />
-        </TabsContent>
+        {isRedeemEnabled && (
+          <TabsContent value="redeem" className="mt-4">
+            <CreditRedeemAirtime currentCredits={credits} onCreditsUpdated={onCreditsUpdate} />
+          </TabsContent>
+        )}
 
         <TabsContent value="buy" className="mt-4">
           <CreditFunding credits={credits} onCreditsUpdate={onCreditsUpdate} />
