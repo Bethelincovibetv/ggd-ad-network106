@@ -84,3 +84,26 @@ export const sabussApiConfigs = pgTable('sabuss_api_configs', {
   environment: text('environment').notNull().default('production'),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const chatMessages = pgTable('chat_messages', {
+  id: text('id').primaryKey(),
+  senderId: text('sender_id').notNull(),
+  receiverId: text('receiver_id').notNull(),
+  message: text('message'),
+  imageUrl: text('image_url'),
+  taskId: text('task_id'),
+  kind: text('kind').default('text'),
+  isRead: text('is_read').default('false'),
+  createdAt: text('created_at').notNull(),
+});
+
+export const chatImages = pgTable('chat_images', {
+  id: text('id').primaryKey(),
+  senderId: text('sender_id').notNull(),
+  receiverId: text('receiver_id').notNull(),
+  imageUrl: text('image_url').notNull(),
+  originalName: text('original_name'),
+  caption: text('caption'),
+  fileSize: integer('file_size'),
+  createdAt: text('created_at').notNull(),
+});

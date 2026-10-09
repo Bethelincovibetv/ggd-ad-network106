@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video, Smartphone, Compass
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video, Smartphone
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -35,11 +35,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const handleSelect = (id: string) => {
-    if (id === 'tour') {
-      window.dispatchEvent(new CustomEvent('ggd-launch-tour'));
-      if (isMobile) setOpenMobile(false);
-      return;
-    }
     onTabChange(id);
     if (isMobile) setOpenMobile(false);
   };
@@ -81,7 +76,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const help = [
-    { id: 'tour', icon: Compass, label: 'Platform Tour (60s)' },
     ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];
@@ -90,7 +84,6 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ads: 'from-orange-400 to-red-500',
     campaigns: 'from-amber-500 to-orange-600',
     'redeem-airtime': 'from-orange-500 to-amber-500',
-    tour: 'from-[#e67e22] to-amber-600',
     growth: 'from-emerald-500 to-green-600',
     feed: 'from-pink-400 to-fuchsia-500',
     tasks: 'from-emerald-400 to-teal-500',

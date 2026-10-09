@@ -6,7 +6,6 @@ import { getLocalSession, resilientSignOut } from "@/services/authService";
 import AuthForm from "@/components/AuthForm";
 import LandingPage from "@/components/LandingPage";
 import Dashboard from "@/components/Dashboard";
-import FeaturedStorefronts from "@/components/FeaturedStorefronts";
 import MetaTags from "@/components/MetaTags";
 
 const Index = () => {
@@ -131,7 +130,6 @@ const Index = () => {
         keywords={['ad network Nigeria', 'social syndicate', 'WhatsApp marketing', 'business directory', 'monetization', 'Telegram promotions']}
       />
       <LandingPage onGetStarted={() => setShowAuth(true)} />
-      <FeaturedStorefronts onRequireAuth={() => setShowAuth(true)} />
     </>
   );
 };

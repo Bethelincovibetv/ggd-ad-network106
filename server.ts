@@ -24,6 +24,17 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Ensure upload directory exists for chat images and serve statically
+const CHAT_UPLOADS_DIR = path.resolve(process.cwd(), 'uploads', 'chat-images');
+try {
+  if (!fs.existsSync(CHAT_UPLOADS_DIR)) {
+    fs.mkdirSync(CHAT_UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Notice creating uploads directory:', e);
+}
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
 // Permissive CORS middleware for web previews and embed widgets
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -2514,6 +2525,157 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
     deviceTokensFound,
     message: 'High-priority incoming call notification dispatched to callee devices.',
   });
+});
+
+// ----------------------------------------------------
+// Cloud SQL Chat & Image Sharing Routes
+// ----------------------------------------------------
+app.post('/api/chat/upload-image', async (req, res) => {
+  try {
+    const { imageData, fileName, senderId, receiverId, caption, taskId } = req.body;
+    if (!imageData || !senderId || !receiverId) {
+      return res.status(400).json({ error: 'Missing imageData, senderId, or receiverId' });
+    }
+
+    let buffer: Buffer;
+    let ext = 'jpg';
+    if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+      const matches = imageData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mime = matches[1];
+        if (mime.includes('png')) ext = 'png';
+        else if (mime.includes('webp')) ext = 'webp';
+        else if (mime.includes('gif')) ext = 'gif';
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        buffer = Buffer.from(imageData, 'base64');
+      }
+    } else {
+      buffer = Buffer.from(imageData, 'base64');
+    }
+
+    const imageId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const msgId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const safeFileName = `${imageId}.${ext}`;
+    const filePath = path.join(CHAT_UPLOADS_DIR, safeFileName);
+    fs.writeFileSync(filePath, buffer);
+
+    const imageUrl = `/uploads/chat-images/${safeFileName}`;
+    const createdAt = new Date().toISOString();
+
+    // 1. Record image and message into Cloud SQL PostgreSQL database
+    try {
+      const { db, isCloudSqlConfigured } = await import('./src/db/index.ts');
+      const { chatImages, chatMessages } = await import('./src/db/schema.ts');
+
+      if (db && isCloudSqlConfigured()) {
+        await db.insert(chatImages).values({
+          id: imageId,
+          senderId,
+          receiverId,
+          imageUrl,
+          originalName: fileName || 'chat-image.jpg',
+          caption: caption || null,
+          fileSize: buffer.length,
+          createdAt,
+        });
+
+        await db.insert(chatMessages).values({
+          id: msgId,
+          senderId,
+          receiverId,
+          message: caption || null,
+          imageUrl,
+          taskId: taskId || null,
+          kind: 'image',
+          isRead: 'false',
+          createdAt,
+        });
+        console.log(`[Cloud SQL Chat] Persisted image ${imageId} and message ${msgId}`);
+      }
+    } catch (sqlErr) {
+      console.warn('[Cloud SQL Chat] Notice executing Cloud SQL insert:', sqlErr);
+    }
+
+    // 2. Also insert into Supabase p2p_messages table so existing realtime listeners update immediately
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://cilkybiebptqtuhbopyz.supabase.co';
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+      if (supabaseUrl && supabaseKey) {
+        await fetch(`${supabaseUrl}/rest/v1/p2p_messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            id: msgId,
+            sender_id: senderId,
+            receiver_id: receiverId,
+            message: caption || null,
+            image_url: imageUrl,
+            task_id: taskId || null,
+            kind: 'image',
+            is_read: false,
+            created_at: createdAt
+          })
+        });
+      }
+    } catch (sbErr) {
+      console.warn('Notice syncing image message to Supabase realtime:', sbErr);
+    }
+
+    return res.json({
+      success: true,
+      id: msgId,
+      imageId,
+      imageUrl,
+      caption,
+      createdAt,
+    });
+  } catch (err: any) {
+    console.error('Error in /api/chat/upload-image:', err);
+    return res.status(500).json({ error: err.message || 'Failed to upload chat image' });
+  }
+});
+
+app.get('/api/chat/images', async (req, res) => {
+  try {
+    const { user1, user2 } = req.query;
+    if (!user1 || !user2) {
+      return res.status(400).json({ error: 'user1 and user2 query parameters required' });
+    }
+
+    try {
+      const { db, isCloudSqlConfigured } = await import('./src/db/index.ts');
+      const { chatImages } = await import('./src/db/schema.ts');
+      const { or, and, eq, desc } = await import('drizzle-orm');
+
+      if (db && isCloudSqlConfigured()) {
+        const rows = await db
+          .select()
+          .from(chatImages)
+          .where(
+            or(
+              and(eq(chatImages.senderId, String(user1)), eq(chatImages.receiverId, String(user2))),
+              and(eq(chatImages.senderId, String(user2)), eq(chatImages.receiverId, String(user1)))
+            )
+          )
+          .orderBy(desc(chatImages.createdAt));
+
+        return res.json({ success: true, images: rows });
+      }
+    } catch (sqlErr) {
+      console.warn('[Cloud SQL Chat] Notice reading images from Cloud SQL:', sqlErr);
+    }
+
+    return res.json({ success: true, images: [] });
+  } catch (err: any) {
+    console.error('Error fetching chat images:', err);
+    return res.status(500).json({ error: err.message || 'Failed to fetch chat images' });
+  }
 });
 
 // ----------------------------------------------------
