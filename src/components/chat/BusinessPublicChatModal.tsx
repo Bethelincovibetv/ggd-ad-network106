@@ -19,6 +19,7 @@ import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
 import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
 import MessageStatusIndicator from '@/components/chat/MessageStatusIndicator';
 import { StructuredChatMessage } from '@/components/chat/StructuredChatMessage';
+import { ChatContactMatchmaker } from '@/components/chat/ChatContactMatchmaker';
 
 interface BusinessPublicChatModalProps {
 
@@ -338,6 +339,21 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
           </div>
         </div>
 
+        {/* 1-Click Matchmaker Contact Saver */}
+        {currentUserId && businessUserId && (
+          <div className="px-3 py-1.5 border-b border-border/50 bg-muted/30">
+            <ChatContactMatchmaker
+              currentUserId={currentUserId}
+              contact={{
+                userId: businessUserId,
+                name: businessName,
+                businessName: businessName,
+                avatarUrl: businessLogo,
+              }}
+            />
+          </div>
+        )}
+
         {/* Smart Business Connect Margin */}
         <div className="px-3 pt-2.5 pb-1 border-b border-border/50 bg-muted/20">
           <BusinessConnectMargin
@@ -443,11 +459,12 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
           <div className="flex items-center gap-2">
             <VoiceNoteRecorder onSendVoice={handleSendVoiceNote} disabled={sending} />
             <Input
+              dir="ltr"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${businessName}...`}
-              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500 flex-1"
+              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500 flex-1 text-left [direction:ltr]"
               disabled={sending}
             />
             <Button

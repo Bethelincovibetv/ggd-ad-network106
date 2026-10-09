@@ -111,14 +111,15 @@ const GlobalSearchBar: React.FC = () => {
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {q && (
+            {(q || open) && (
               <button
                 type="button"
-                onClick={() => { setQ(''); setResults([]); }}
-                className="h-7 w-7 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors"
-                title="Clear"
+                onClick={() => { setQ(''); setResults([]); setOpen(false); }}
+                className="h-7 sm:h-8 px-2.5 rounded-lg bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-bold transition-colors cursor-pointer"
+                title="Exit search and view menu"
               >
                 <X className="h-3.5 w-3.5" />
+                <span>Exit</span>
               </button>
             )}
 
@@ -157,6 +158,21 @@ const GlobalSearchBar: React.FC = () => {
 
       {open && q.trim().length >= 2 && (
         <div className="absolute left-0 right-0 top-full mt-2 z-50 max-h-[70vh] overflow-y-auto rounded-2xl border border-border/80 bg-card/98 backdrop-blur-md shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
+          <div className="p-2 border-b border-border/60 bg-muted/40 flex items-center justify-between text-[11px] text-muted-foreground px-3 sticky top-0 backdrop-blur-md z-10">
+            <span className="font-semibold flex items-center gap-1.5 text-foreground">
+              <Search className="h-3.5 w-3.5 text-orange-500" />
+              Results for "{q}"
+            </span>
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setQ(''); setResults([]); }}
+              className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <span>Close</span>
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
           {loading && (
             <div className="p-4 flex items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin mr-2 text-orange-500" />Searching…

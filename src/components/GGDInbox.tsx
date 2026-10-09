@@ -27,6 +27,7 @@ import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
 import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
 import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
+import { ChatContactMatchmaker } from "@/components/chat/ChatContactMatchmaker";
 import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
 import { Phone, PhoneCall } from "lucide-react";
@@ -812,6 +813,24 @@ const GGDInbox: React.FC = () => {
           </div>
         </div>
 
+        {/* 1-Click Matchmaker Contact Saver Header */}
+        {activeOther && (
+          <div className="px-3 py-2 border-b border-border/60 bg-muted/20">
+            <ChatContactMatchmaker
+              currentUserId={me}
+              contact={{
+                userId: activeOther,
+                name: otherProfile?.display_name || otherProfile?.business_name || "Member",
+                phone: otherProfile?.business_phone || otherProfile?.whatsapp_number,
+                whatsapp: otherProfile?.whatsapp_number || otherProfile?.business_phone,
+                email: otherProfile?.email,
+                businessName: otherProfile?.business_name,
+                avatarUrl: otherProfile?.avatar_url,
+              }}
+            />
+          </div>
+        )}
+
         {/* Pinned Metadata Box */}
         {activeTaskId && (
           <div className="border-b bg-muted/30 px-3 py-2">
@@ -1111,14 +1130,15 @@ const GGDInbox: React.FC = () => {
                   />
 
                   {/* Input field */}
-                  <div className="relative flex-1 min-w-0">
+                  <div className="relative flex-1 min-w-0" dir="ltr">
                     <Input
+                      dir="ltr"
                       value={input}
                       disabled={isSending}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
                       placeholder={replyingTo ? "Type your reply..." : "Type a message to start conversation..."}
-                      className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1 w-full"
+                      className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1 w-full text-left [direction:ltr]"
                     />
                   </div>
 

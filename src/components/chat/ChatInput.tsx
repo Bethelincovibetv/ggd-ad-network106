@@ -34,13 +34,14 @@ const ChatInput = ({
           </div>
 
           {/* Input */}
-          <div className="relative flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0" dir="ltr">
             <Input
+              dir="ltr"
               value={inputText}
               onChange={(e) => onInputChange(e.target.value)}
               onKeyDown={onKeyPress}
               placeholder="Ask GGD AI about Marketing, DeepMind Science, or Ad Campaigns..."
-              className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1"
+              className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1 text-left [direction:ltr]"
               disabled={isTyping}
             />
           </div>
