@@ -128,9 +128,6 @@ const GGDInbox: React.FC = () => {
   useEffect(() => {
     const sessionTarget = typeof window !== 'undefined' ? sessionStorage.getItem("ggd_chat_target") : null;
     const targetUid = searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("to") || searchParams.get("user") || sessionTarget;
-    if (sessionTarget) {
-      sessionStorage.removeItem("ggd_chat_target");
-    }
 
     const tType = searchParams.get("tagType");
     const tTitle = searchParams.get("tagTitle");
@@ -154,6 +151,7 @@ const GGDInbox: React.FC = () => {
     }
 
     if (targetUid && me && targetUid !== me) {
+      if (sessionTarget) sessionStorage.removeItem("ggd_chat_target");
       openThread(targetUid, null);
     }
   }, [searchParams, me]);
@@ -186,6 +184,14 @@ const GGDInbox: React.FC = () => {
       if (myProf) setMyProfile(myProf as Profile);
 
       await loadThreads(data.user.id);
+
+      const targetFromStorage = typeof window !== 'undefined' ? sessionStorage.getItem("ggd_chat_target") : null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTarget = urlParams.get("chatWith") || urlParams.get("chat") || urlParams.get("to") || urlParams.get("user") || targetFromStorage;
+      if (urlTarget && urlTarget !== data.user.id) {
+        if (targetFromStorage) sessionStorage.removeItem("ggd_chat_target");
+        openThread(urlTarget, null);
+      }
     })();
   }, []);
 
@@ -1065,55 +1071,78 @@ const GGDInbox: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 items-center">
-                {activeTaskId && (
-                  <>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.currentTarget.value = ""; }}
-                    />
-                    <Button
-                      variant="outline" size="icon"
-                      disabled={uploading}
-                      onClick={() => fileRef.current?.click()}
-                      title="Upload proof screenshot"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
+              {/* 3D Colorful Community-Style Chat Composer Bar */}
+              <div className="relative group p-[2px] rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 via-purple-600 to-amber-400 shadow-md hover:shadow-xl transition-all duration-300">
+                <div className="bg-card/95 backdrop-blur-md rounded-[14px] p-1.5 sm:p-2 flex items-center gap-1.5 sm:gap-2">
+                  {/* 3D Icon Badge */}
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-orange-500/30 shrink-0 group-hover:scale-105 transition-transform">
+                    <MessageCircle className="h-4 w-4 drop-shadow" />
+                  </div>
 
-                <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
+                  {activeTaskId && (
+                    <>
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.currentTarget.value = ""; }}
+                      />
+                      <Button
+                        variant="ghost" size="icon"
+                        disabled={uploading}
+                        onClick={() => fileRef.current?.click()}
+                        title="Upload proof screenshot"
+                        className="h-8 w-8 rounded-lg shrink-0"
+                      >
+                        <Upload className="h-4 w-4 text-orange-500" />
+                      </Button>
+                    </>
+                  )}
 
-                <EphemeralImageSender
-                  currentUserId={me}
-                  recipientUserId={activeOther}
-                  recipientUserName={otherProfile?.business_name || otherProfile?.display_name || "Contact"}
-                  onImageSent={(rec) => setEphemeralImages((prev) => [rec, ...prev.filter((x) => x.id !== rec.id)])}
-                  disabled={isSending}
-                />
+                  <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
 
-                <div className="flex-1 relative group p-[1.5px] rounded-xl bg-gradient-to-r from-orange-500/30 via-rose-500/20 to-amber-500/30 focus-within:from-orange-500 focus-within:via-rose-500 focus-within:to-amber-500 transition-all duration-300">
-                  <Input
-                    value={input}
+                  <EphemeralImageSender
+                    currentUserId={me}
+                    recipientUserId={activeOther}
+                    recipientUserName={otherProfile?.business_name || otherProfile?.display_name || "Contact"}
+                    onImageSent={(rec) => setEphemeralImages((prev) => [rec, ...prev.filter((x) => x.id !== rec.id)])}
                     disabled={isSending}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
-                    placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-                    className="w-full bg-card rounded-[10px] border-0 h-10 px-3 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
                   />
+
+                  {/* Input field */}
+                  <div className="relative flex-1 min-w-0">
+                    <Input
+                      value={input}
+                      disabled={isSending}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
+                      placeholder={replyingTo ? "Type your reply..." : "Type a message to start conversation..."}
+                      className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1 w-full"
+                    />
+                  </div>
+
+                  {input && (
+                    <button
+                      type="button"
+                      onClick={() => setInput("")}
+                      className="h-7 w-7 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors shrink-0"
+                      title="Clear"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
+                  {/* Send Button */}
+                  <Button
+                    onClick={send}
+                    disabled={isSending || !input.trim()}
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs rounded-xl h-9 sm:h-10 px-3.5 shadow-md shadow-orange-500/30 shrink-0 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Send className="h-4 w-4" />
+                    <span className="hidden sm:inline">Send</span>
+                  </Button>
                 </div>
-                <Button
-                  onClick={send}
-                  disabled={isSending || !input.trim()}
-                  size="icon"
-                  className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl h-10 w-10 shadow-md shadow-orange-500/30 shrink-0 active:scale-95 transition-all"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </div>

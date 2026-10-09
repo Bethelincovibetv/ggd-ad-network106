@@ -1041,29 +1041,29 @@ const UserProfilePublicPage: React.FC = () => {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
                             <Button
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-md hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                              className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-md hover:shadow-emerald-600/30 transition-all cursor-pointer whitespace-nowrap"
                             >
-                              <MessageCircle className="h-4 w-4 fill-white" />
+                              <MessageCircle className="h-4 w-4 fill-white shrink-0" />
                               <span>{listing.listing_type === 'service' ? 'Book via WhatsApp' : 'WhatsApp Order'}</span>
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={(e) => { e.stopPropagation(); handleChatDirect(listing); }}
-                              className="border-amber-300 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-3 rounded-xl gap-1 shadow-xs"
+                              className="border-amber-300 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-3 rounded-xl gap-1 shadow-xs shrink-0 whitespace-nowrap"
                             >
                               <MessageCircle className="h-3.5 w-3.5" /> Inquire
                             </Button>
                             <Button
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                              className={`${activeTemplate.primaryBtn} text-xs h-10 px-3.5 rounded-xl`}
+                              className={`${activeTemplate.primaryBtn} text-xs font-bold h-10 px-4 rounded-xl shrink-0 whitespace-nowrap shadow-sm`}
                             >
-                              Details
+                              Full Details →
                             </Button>
                           </div>
                         </div>
@@ -1153,24 +1153,24 @@ const UserProfilePublicPage: React.FC = () => {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-9 rounded-xl gap-1 shadow-sm hover:shadow-emerald-600/30 transition-all cursor-pointer"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5 fill-white" />
-                            <span>{listing.listing_type === 'service' ? 'Book via WA' : 'WhatsApp Buy'}</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                            className="w-full border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs"
-                          >
-                            Details →
-                          </Button>
-                        </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-9 rounded-xl gap-1 shadow-sm hover:shadow-emerald-600/30 transition-all cursor-pointer whitespace-nowrap"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 fill-white shrink-0" />
+                              <span>{listing.listing_type === 'service' ? 'Book via WA' : 'WhatsApp Buy'}</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
+                              className="w-full border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs whitespace-nowrap"
+                            >
+                              Full Details →
+                            </Button>
+                          </div>
                       </div>
                     </CardContent>
                   </Card>

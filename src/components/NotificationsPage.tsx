@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bell, CheckCircle2, Check, Mail, MailOpen, Trash2, Volume2, Search, ArrowRight,
   ExternalLink, ArrowDownLeft, ArrowUpRight, BookOpen, Sparkles, Filter,
-  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck,
+  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck, MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
@@ -907,6 +907,16 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               n.title?.toLowerCase().includes('guide') ||
               n.nav_target?.toLowerCase().includes('guide');
 
+            const isChat =
+              n.type === 'chat' ||
+              n.type === 'message' ||
+              n.type === 'urgent_message' ||
+              n.title?.toLowerCase().includes('message') ||
+              n.title?.toLowerCase().includes('quick message') ||
+              n.nav_target?.startsWith('chat:') ||
+              n.link_url?.includes('inbox') ||
+              n.nav_target?.includes('inbox');
+
             const isRead = Boolean(n.is_read);
 
             return (
@@ -1063,7 +1073,17 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             </Button>
                           )}
 
-                          {!isTransfer && !isGuide && (n.nav_target || n.link_url) && (
+                          {isChat && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAction(n)}
+                              className="h-8 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 px-3 shadow-xs"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" /> Open Chat <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          )}
+
+                          {!isTransfer && !isGuide && !isChat && (n.nav_target || n.link_url) && (
                             <Button
                               size="sm"
                               variant="outline"

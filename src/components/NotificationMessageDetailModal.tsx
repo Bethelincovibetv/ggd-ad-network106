@@ -162,6 +162,7 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
         localStorage.setItem('ggd_active_tab', 'inbox');
       } catch {}
       window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
+      return;
     }
 
     if (onAction) {
