@@ -30,9 +30,11 @@ import { AdminVerificationManager } from "@/components/admin/AdminVerificationMa
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
+import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
 import AdminRealtimeSearchBar from "@/components/admin/AdminRealtimeSearchBar";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
+import { Package } from "lucide-react";
 
 interface NavGroup {
   title: string;
@@ -65,6 +67,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'ADVERTISING & CAMPAIGNS',
     items: [
+      { id: 'digital-products', icon: Package, label: 'Digital Products', sublabel: 'Direct purchase listings & access', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'vixora-admin', icon: Video, label: 'Vixora AI Studio & API', sublabel: 'AI video engine, keys & render jobs', color: 'text-white', gradient: 'from-orange-500 via-purple-600 to-indigo-700' },
       { id: 'business-agent', icon: Sparkles, label: 'Vixora Business AI Agent', sublabel: 'Storefront copilot & permissions', color: 'text-white', gradient: 'from-violet-600 via-purple-600 to-fuchsia-600' },
       { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
@@ -202,6 +205,9 @@ const AdminPage = () => {
       case 'tasks': return <TaskManager />;
       case 'api': return <AdminApiManager />;
       case 'apps': return <AdminMarketingApps />;
+      case 'digital-products':
+      case 'digital':
+        return <AdminDigitalProductsManager />;
       case 'videos': return <AdminVideoManager />;
       case 'ads': return (
         <AdminAdManager 

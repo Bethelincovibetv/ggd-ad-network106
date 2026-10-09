@@ -28,7 +28,10 @@ import {
   generateOrderClosingInvoice,
   uploadAgentMedia,
   getUserBusinessMemory,
+  fetchUserBusinessMemoryFromServer,
   saveUserBusinessMemory,
+  saveUserBusinessMemoryAsync,
+  deleteUserBusinessMemoryNote,
   executeBusinessAgentTool,
   parseAndExecuteNaturalLanguageIntent,
   BusinessOverviewContext,
@@ -140,7 +143,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       if (!user) return;
       const ctx = await fetchUserBusinessContext(user.id);
       setBusinessContext(ctx);
-      const mem = getUserBusinessMemory(user.id);
+      const mem = await fetchUserBusinessMemoryFromServer(user.id);
       setUserMemory(mem);
     } catch (e) {
       console.warn("Could not load business context:", e);
@@ -179,20 +182,35 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
     } catch {}
   };
 
-  const handleSaveMemoryField = (field: keyof BusinessAgentMemory, val: any) => {
+  const handleSaveMemoryField = async (field: keyof BusinessAgentMemory, val: any) => {
     if (!businessContext?.userId) return;
-    const updated = saveUserBusinessMemory(businessContext.userId, { [field]: val });
-    setUserMemory(updated);
-    toast.success("AI Memory & Brand Voice updated!");
+    try {
+      const updated = await saveUserBusinessMemoryAsync(businessContext.userId, { [field]: val });
+      setUserMemory(updated);
+      toast.success("Saved to persistent business memory! Changes confirmed.");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not save to persistent storage");
+    }
   };
 
-  const handleAddMemoryNote = () => {
+  const handleAddMemoryNote = async () => {
     if (!newMemoryNote.trim() || !businessContext?.userId) return;
     const notes = [...(userMemory.customLearnedNotes || []), newMemoryNote.trim()];
-    const updated = saveUserBusinessMemory(businessContext.userId, { customLearnedNotes: notes });
+    try {
+      const updated = await saveUserBusinessMemoryAsync(businessContext.userId, { customLearnedNotes: notes });
+      setUserMemory(updated);
+      setNewMemoryNote('');
+      toast.success("Saved note to Vixora AI permanent memory!");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not save note to persistent storage");
+    }
+  };
+
+  const handleDeleteMemoryNote = async (noteText: string) => {
+    if (!businessContext?.userId) return;
+    const updated = await deleteUserBusinessMemoryNote(businessContext.userId, noteText);
     setUserMemory(updated);
-    setNewMemoryNote('');
-    toast.success("Saved note to Vixora AI permanent memory!");
+    toast.success("Note removed from AI permanent memory.");
   };
 
   const handleSendMessage = async (promptText?: string) => {
@@ -453,11 +471,69 @@ YOUR MANDATE:
     }
   };
 
+  const formatInlineBold = (str: string) => {
+    const parts = str.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} className="font-black text-slate-950 dark:text-white bg-violet-500/10 px-1 py-0.5 rounded">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
+  const renderFormattedAiText = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return (
+      <div className="space-y-2.5 text-[14px] sm:text-[15px] leading-relaxed text-slate-900 dark:text-slate-100 font-bold tracking-normal">
+        {lines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={idx} className="h-1.5" />;
+
+          if (trimmed.startsWith('### ') || trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+            const headerText = trimmed.replace(/^#+\s*/, '');
+            return (
+              <h4 key={idx} className="text-base sm:text-lg font-black text-slate-950 dark:text-white pt-2.5 pb-1 border-b border-border/60 tracking-tight">
+                {headerText}
+              </h4>
+            );
+          }
+
+          if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            const bulletText = trimmed.replace(/^[•\-*]\s*/, '');
+            return (
+              <div key={idx} className="flex items-start gap-2.5 pl-1.5 py-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-black shrink-0 text-base leading-none mt-1">•</span>
+                <span className="flex-1 font-bold text-slate-900 dark:text-slate-100">{formatInlineBold(bulletText)}</span>
+              </div>
+            );
+          }
+
+          const numMatch = trimmed.match(/^(\d+[.)])\s*(.*)$/);
+          if (numMatch) {
+            return (
+              <div key={idx} className="flex items-start gap-2.5 pl-1.5 py-0.5">
+                <span className="text-violet-600 dark:text-violet-400 font-black shrink-0 text-sm mt-0.5">{numMatch[1]}</span>
+                <span className="flex-1 font-bold text-slate-900 dark:text-slate-100">{formatInlineBold(numMatch[2])}</span>
+              </div>
+            );
+          }
+
+          return <p key={idx} className="font-bold text-slate-900 dark:text-slate-100">{formatInlineBold(line)}</p>;
+        })}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent 
         data-ai-modal-open="true"
-        className="w-full max-w-5xl h-[95vh] sm:h-[92vh] max-h-[900px] p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl flex flex-col rounded-2xl sm:rounded-3xl"
+        className="w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl h-[100dvh] sm:h-[96vh] sm:max-h-[1080px] p-0 gap-0 overflow-hidden bg-background border-0 sm:border sm:border-border/90 shadow-2xl flex flex-col rounded-none sm:rounded-3xl z-[120]"
       >
         {/* Header */}
         <DialogHeader className="p-3 sm:px-5 bg-gradient-to-r from-violet-950 via-purple-900 to-slate-950 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
@@ -607,9 +683,9 @@ YOUR MANDATE:
                         )}
 
                         <div
-                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed tracking-normal whitespace-pre-wrap shadow-xs ${
+                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed tracking-normal shadow-xs ${
                             isUser
-                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs font-semibold'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs font-semibold whitespace-pre-wrap'
                               : 'bg-card border-2 border-border/80 text-foreground dark:text-slate-100 rounded-tl-xs font-bold'
                           }`}
                         >
@@ -618,8 +694,10 @@ YOUR MANDATE:
                               <Loader2 className="h-4 w-4 animate-spin" />
                               <span>{msg.text}</span>
                             </div>
-                          ) : (
+                          ) : isUser ? (
                             msg.text
+                          ) : (
+                            renderFormattedAiText(msg.text)
                           )}
                         </div>
 
@@ -949,17 +1027,15 @@ YOUR MANDATE:
                     <p className="text-xs text-muted-foreground italic">No custom notes saved yet. Tell Vixora what to remember below!</p>
                   ) : (
                     userMemory.customLearnedNotes.map((note, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-xl text-xs">
-                        <span>• {note}</span>
+                      <div key={idx} className="flex items-center justify-between bg-muted/50 p-2.5 rounded-xl text-xs gap-2 border border-border/40">
+                        <span className="font-semibold text-foreground flex-1">• {note}</span>
                         <button
                           type="button"
-                          onClick={() => {
-                            const updated = userMemory.customLearnedNotes.filter((_, i) => i !== idx);
-                            handleSaveMemoryField('customLearnedNotes', updated);
-                          }}
-                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleDeleteMemoryNote(note)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title="Delete saved memory"
                         >
-                          <X className="h-3 w-3" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))

@@ -18,8 +18,10 @@ import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getIndustryMeta, getEffectiveBusinessDescription } from '@/utils/industryData';
 import { ProductPhotoViewerModal } from '@/components/ProductPhotoViewerModal';
 import { WhatsAppCheckoutModal } from '@/components/orders/WhatsAppCheckoutModal';
+import { DigitalProductCheckoutModal } from '@/components/orders/DigitalProductCheckoutModal';
+import { fetchDigitalProductById, DigitalProduct } from '@/services/digitalProductsService';
 import { normalizePhone, buildWhatsAppOrderLink, buildWhatsAppLink } from '@/lib/whatsapp';
-import { Maximize2, Image as ImageIcon } from 'lucide-react';
+import { Maximize2, Image as ImageIcon, Wallet, CreditCard } from 'lucide-react';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +38,8 @@ const ProductDetailPage: React.FC = () => {
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [digitalProductData, setDigitalProductData] = useState<DigitalProduct | null>(null);
+  const [isDigitalCheckoutOpen, setIsDigitalCheckoutOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user));
@@ -55,12 +59,50 @@ const ProductDetailPage: React.FC = () => {
         .maybeSingle();
 
       if (!L) {
+        // Authoritative resolution of digital products
+        const digitalProd = await fetchDigitalProductById(id);
+        if (digitalProd) {
+          setDigitalProductData(digitalProd);
+          const synthesizedListing = {
+            id: digitalProd.id,
+            title: digitalProd.title,
+            description: digitalProd.description,
+            long_description: digitalProd.long_description,
+            price: digitalProd.price,
+            image_url: digitalProd.image_url,
+            listing_type: 'product',
+            is_digital: true,
+            is_verified: true,
+            payment_methods: digitalProd.payment_methods,
+            digital_access_url: digitalProd.digital_access_url,
+            access_instructions: digitalProd.access_instructions,
+          };
+          setListing(synthesizedListing);
+          setActiveImg(digitalProd.image_url || null);
+          setBusiness({
+            id: 'ggd-official',
+            business_name: 'GGD Official Store & Admin Hub',
+            logo_url: null,
+            is_directory_listed: true,
+            address: 'Lagos, Nigeria • Official GGD Digital Publishing',
+            state: 'Lagos',
+          });
+          setLoading(false);
+          return;
+        }
         setLoading(false);
         return;
       }
 
       setListing(L);
       setActiveImg(L.image_url || null);
+
+      if (L.is_digital || L.id?.startsWith('dp_')) {
+        const digitalProd = await fetchDigitalProductById(L.id);
+        if (digitalProd) {
+          setDigitalProductData(digitalProd);
+        }
+      }
 
       // Fetch parent business profile
       let B: any = null;
@@ -455,6 +497,40 @@ const ProductDetailPage: React.FC = () => {
 
         {/* Order & Contact Action Hub */}
         <div className="space-y-3">
+          {/* DIRECT PURCHASE BUTTON FOR DIGITAL PRODUCTS */}
+          {(digitalProductData || listing?.is_digital) && (
+            <div className="space-y-2 p-4 rounded-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-red-500/10 border-2 border-orange-500/40 shadow-md animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500" /> Instant Digital Delivery
+                </span>
+                <span className="text-[11px] font-bold text-muted-foreground">Admin-Verified Direct Purchase</span>
+              </div>
+
+              <Button
+                className="w-full bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white h-14 rounded-2xl gap-2.5 text-base font-black shadow-xl hover:shadow-orange-600/30 cursor-pointer transition-all"
+                onClick={() => setIsDigitalCheckoutOpen(true)}
+              >
+                <ShoppingBag className="h-6 w-6 text-white" />
+                <span>Buy Digital Product (Direct Purchase) ⚡</span>
+              </Button>
+
+              <div className="flex items-center justify-center gap-2 pt-1 text-xs font-semibold text-muted-foreground flex-wrap">
+                <span>Accepted Payments:</span>
+                {(digitalProductData?.payment_methods === 'wallet_only' || digitalProductData?.payment_methods === 'both' || !digitalProductData) && (
+                  <Badge variant="outline" className="bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30 text-[11px] font-bold gap-1">
+                    <Wallet className="h-3 w-3 text-orange-500" /> Wallet Balance
+                  </Badge>
+                )}
+                {(digitalProductData?.payment_methods === 'paystack_only' || digitalProductData?.payment_methods === 'both' || !digitalProductData) && (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 text-[11px] font-bold gap-1">
+                    <CreditCard className="h-3 w-3 text-blue-500" /> Paystack
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Primary WhatsApp Instant Checkout Button */}
           <Button
             className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white h-14 rounded-2xl gap-2.5 text-base font-black shadow-xl hover:shadow-emerald-600/30 cursor-pointer transition-all animate-in zoom-in-95 duration-200"
@@ -706,6 +782,27 @@ const ProductDetailPage: React.FC = () => {
               navigate(`/?tab=inbox&chatWith=${sellerId}&tagType=${type}&tagTitle=${title}&tagPrice=${price}&tagId=${itemId}&tagImage=${image}`);
             }
           }}
+        />
+      )}
+
+      {/* Direct Digital Product Checkout Modal */}
+      {(digitalProductData || listing?.is_digital) && (
+        <DigitalProductCheckoutModal
+          open={isDigitalCheckoutOpen}
+          onOpenChange={setIsDigitalCheckoutOpen}
+          product={digitalProductData || (listing ? {
+            id: listing.id,
+            title: listing.title,
+            description: listing.description || '',
+            long_description: listing.long_description,
+            price: Number(listing.price) || 0,
+            image_url: listing.image_url || activeImg || '',
+            digital_access_url: listing.digital_access_url || 'https://ggdadnetwork.com',
+            access_instructions: listing.access_instructions || 'Your digital materials are unlocked.',
+            payment_methods: listing.payment_methods || 'both',
+            is_active: true,
+            is_digital: true,
+          } : null)}
         />
       )}
 

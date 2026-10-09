@@ -1277,6 +1277,717 @@ app.post('/api/admin/reset-syndicate-banks', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// In-Memory Fallback Caches for Instant Persistence
+// ----------------------------------------------------
+const memoryStoreCache = new Map<string, any>();
+let digitalProductsCache: any[] | null = null;
+const processedPaystackRefs = new Set<string>();
+
+// ----------------------------------------------------
+// API Routes: Persistent Memory for Business AI Agent
+// ----------------------------------------------------
+app.get('/api/ai/business-memories', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string || '').trim();
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    if (memoryStoreCache.has(userId)) {
+      return res.json({ success: true, memory: memoryStoreCache.get(userId), source: 'cache' });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.biz_memory_${encodeURIComponent(userId)}&select=value`, {
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].value) {
+        try {
+          const parsed = JSON.parse(data[0].value);
+          memoryStoreCache.set(userId, parsed);
+          return res.json({ success: true, memory: parsed, source: 'database' });
+        } catch {}
+      }
+    }
+
+    // Default template if no memory saved yet
+    const defaultMemory = {
+      brandVoice: 'naija_energetic',
+      targetAudience: 'African shoppers, wholesale buyers, and WhatsApp customers',
+      bankDetails: '',
+      whatsappHotline: '',
+      deliveryTerms: 'Fast nationwide doorstep delivery',
+      returnPolicy: '7-day inspection and exchange guarantee',
+      keySellingPoints: ['Verified authentic quality', 'Direct WhatsApp support', 'Best market value'],
+      customLearnedNotes: [],
+      lastUpdated: new Date().toISOString()
+    };
+    memoryStoreCache.set(userId, defaultMemory);
+    return res.json({ success: true, memory: defaultMemory, source: 'default' });
+  } catch (err: any) {
+    console.error('Error fetching business memory:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Could not fetch memory' });
+  }
+});
+
+app.post('/api/ai/business-memories', async (req, res) => {
+  try {
+    const { userId, memory, note } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    let current = memoryStoreCache.get(userId) || {
+      brandVoice: 'naija_energetic',
+      targetAudience: 'African shoppers, wholesale buyers, and WhatsApp customers',
+      bankDetails: '',
+      whatsappHotline: '',
+      deliveryTerms: 'Fast nationwide doorstep delivery',
+      returnPolicy: '7-day inspection and exchange guarantee',
+      keySellingPoints: ['Verified authentic quality', 'Direct WhatsApp support', 'Best market value'],
+      customLearnedNotes: []
+    };
+
+    if (memory && typeof memory === 'object') {
+      current = { ...current, ...memory };
+    }
+
+    if (note && typeof note === 'string' && note.trim().length > 0) {
+      const trimmedNote = note.trim();
+      const notes = Array.isArray(current.customLearnedNotes) ? [...current.customLearnedNotes] : [];
+      if (!notes.includes(trimmedNote)) {
+        notes.push(trimmedNote);
+      }
+      current.customLearnedNotes = notes;
+    }
+
+    current.lastUpdated = new Date().toISOString();
+    memoryStoreCache.set(userId, current);
+
+    // Persist to Supabase app_settings
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `biz_memory_${userId}`,
+        value: JSON.stringify(current),
+        updated_at: new Date().toISOString()
+      })
+    }).catch(e => console.warn('Supabase memory save note:', e));
+
+    return res.json({ success: true, memory: current });
+  } catch (err: any) {
+    console.error('Error saving business memory:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Could not save memory' });
+  }
+});
+
+app.delete('/api/ai/business-memories', async (req, res) => {
+  try {
+    const { userId, noteText, noteIndex } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    let current = memoryStoreCache.get(userId) || {
+      brandVoice: 'naija_energetic',
+      targetAudience: 'African shoppers, wholesale buyers, and WhatsApp customers',
+      bankDetails: '',
+      whatsappHotline: '',
+      deliveryTerms: 'Fast nationwide doorstep delivery',
+      returnPolicy: '7-day inspection and exchange guarantee',
+      keySellingPoints: ['Verified authentic quality', 'Direct WhatsApp support', 'Best market value'],
+      customLearnedNotes: []
+    };
+
+    let notes = Array.isArray(current.customLearnedNotes) ? [...current.customLearnedNotes] : [];
+    if (typeof noteIndex === 'number' && noteIndex >= 0 && noteIndex < notes.length) {
+      notes.splice(noteIndex, 1);
+    } else if (typeof noteText === 'string') {
+      notes = notes.filter(n => n.trim() !== noteText.trim());
+    }
+
+    current.customLearnedNotes = notes;
+    current.lastUpdated = new Date().toISOString();
+    memoryStoreCache.set(userId, current);
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `biz_memory_${userId}`,
+        value: JSON.stringify(current),
+        updated_at: new Date().toISOString()
+      })
+    }).catch(() => {});
+
+    return res.json({ success: true, memory: current });
+  } catch (err: any) {
+    console.error('Error deleting business memory note:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Could not delete note' });
+  }
+});
+
+// ----------------------------------------------------
+// Authoritative Admin Digital Products & Direct Purchases
+// ----------------------------------------------------
+const DEFAULT_DIGITAL_PRODUCTS = [
+  {
+    id: 'dp_whatsapp_closing_masterclass',
+    title: 'WhatsApp Viral Closing & Broadcast Sales Masterclass',
+    description: 'Comprehensive video blueprints, swipe files, and direct closing scripts to turn WhatsApp status viewers into paying customers.',
+    long_description: 'Includes 12 video modules, 45 high-converting copy templates, automated follow-up sequences, and objection-handling scripts specifically crafted for the Nigerian market.',
+    price: 7500,
+    image_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1200&q=80',
+    digital_access_url: 'https://drive.google.com/drive/folders/ggd_whatsapp_masterclass_vip',
+    access_instructions: 'Click the VIP access button to access your private Notion portal, video downloads, and swipe files.',
+    payment_methods: 'both', // 'wallet_only' | 'paystack_only' | 'both'
+    is_active: true,
+    is_digital: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'dp_500_ad_copy_vault',
+    title: '500+ High-Converting Nigerian Ad Copy & Script Blueprints',
+    description: 'Ready-to-use advert copy, headline hooks, and video sales scripts tested across Facebook, Instagram, and TikTok ads.',
+    long_description: 'Categorized by industry: E-Commerce, Real Estate, Fashion, Digital Products, Health & Beauty, and Professional Services. Fill-in-the-blank templates with proven 4x ROAS.',
+    price: 5000,
+    image_url: 'https://images.unsplash.com/photo-1542744094-24638eff58bb?auto=format&fit=crop&w=1200&q=80',
+    digital_access_url: 'https://drive.google.com/drive/folders/ggd_500_ad_copy_vault',
+    access_instructions: 'Download the comprehensive PDF eBook and copy templates directly to your device.',
+    payment_methods: 'both',
+    is_active: true,
+    is_digital: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'dp_ecommerce_starter_system',
+    title: 'Ultimate 7-Figure E-Commerce & Dropshipping Starter Kit',
+    description: 'Complete supplier list, importation guides, pricing calculators, and conversion-optimized storefront templates.',
+    long_description: 'Direct contacts of trusted suppliers in Alaba, Lagos Island, and verified international sourcing channels. Includes delivery logistics handbook and cash-on-delivery risk management guide.',
+    price: 12000,
+    image_url: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=80',
+    digital_access_url: 'https://drive.google.com/drive/folders/ggd_ecommerce_starter_kit',
+    access_instructions: 'Your access package includes spreadsheet calculators, video walk-throughs, and contact directories.',
+    payment_methods: 'wallet_only', // Demonstrating wallet_only enforcement
+    is_active: true,
+    is_digital: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'dp_vixora_ai_prompts_suite',
+    title: 'Vixora Autonomous Video Ads & Prompt Engineering Suite',
+    description: 'Over 300 viral video prompts, sound effect libraries, and visual storyboarding templates for Vixora AI.',
+    long_description: 'Step-by-step masterclass on automating your short-form video creation for TikTok, YouTube Shorts, and Instagram Reels using Vixora Creator Studio.',
+    price: 10000,
+    image_url: 'https://images.unsplash.com/photo-1535378917042-10a22c95931a?auto=format&fit=crop&w=1200&q=80',
+    digital_access_url: 'https://drive.google.com/drive/folders/ggd_vixora_prompts_suite',
+    access_instructions: 'Instant download containing sound files, JSON prompt templates, and private video guide.',
+    payment_methods: 'paystack_only', // Demonstrating paystack_only enforcement
+    is_active: true,
+    is_digital: true,
+    created_at: new Date().toISOString()
+  }
+];
+
+// Load digital products with database fallback
+async function getAuthoritativeDigitalProducts(): Promise<any[]> {
+  if (digitalProductsCache && digitalProductsCache.length > 0) {
+    return digitalProductsCache;
+  }
+
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.admin_digital_products&select=value`, {
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].value) {
+        const parsed = JSON.parse(data[0].value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          digitalProductsCache = parsed;
+          return digitalProductsCache;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read admin_digital_products from DB:', err);
+  }
+
+  digitalProductsCache = [...DEFAULT_DIGITAL_PRODUCTS];
+  return digitalProductsCache;
+}
+
+async function saveAuthoritativeDigitalProducts(products: any[]) {
+  digitalProductsCache = products;
+  try {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: 'admin_digital_products',
+        value: JSON.stringify(products),
+        updated_at: new Date().toISOString()
+      })
+    });
+  } catch (err) {
+    console.warn('Could not persist admin_digital_products to DB:', err);
+  }
+}
+
+// Check admin privileges authoritatively on backend
+async function isAuthorizedAdmin(req: express.Request): Promise<boolean> {
+  const adminEmail = (req.headers['x-admin-email'] as string || req.body?.adminEmail || '').trim().toLowerCase();
+  if (
+    adminEmail === 'goodgiftdigital@gmail.com' ||
+    adminEmail === 'accessa787@gmail.com' ||
+    adminEmail === 'bethelincovibetv@gmail.com'
+  ) {
+    return true;
+  }
+  const userId = (req.headers['x-user-id'] as string || req.body?.userId || req.query.userId as string || '').trim();
+  if (userId) {
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+      const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+      const resp = await fetch(`${supabaseUrl}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=role`, {
+        headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+      });
+      if (resp.ok) {
+        const rows = await resp.json();
+        if (Array.isArray(rows) && rows.length > 0) return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+// GET all eligible digital products
+app.get('/api/digital-products', async (req, res) => {
+  try {
+    const products = await getAuthoritativeDigitalProducts();
+    const activeOnly = req.query.all !== 'true';
+    const list = activeOnly ? products.filter(p => p.is_active !== false) : products;
+    return res.json({ success: true, products: list });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET specific digital product by ID
+app.get('/api/digital-products/:id', async (req, res) => {
+  try {
+    const products = await getAuthoritativeDigitalProducts();
+    const found = products.find(p => p.id === req.params.id);
+    if (!found) {
+      return res.status(404).json({ success: false, error: 'Digital product not found' });
+    }
+    return res.json({ success: true, product: found });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST create/update digital product (Admins only!)
+app.post('/api/digital-products', async (req, res) => {
+  try {
+    const isAdmin = await isAuthorizedAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: 'Unauthorized: Only administrators can create or manage digital products' });
+    }
+
+    const {
+      id,
+      title,
+      description,
+      long_description,
+      price,
+      image_url,
+      digital_access_url,
+      access_instructions,
+      payment_methods,
+      is_active
+    } = req.body;
+
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ success: false, error: 'Title is required' });
+    }
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      return res.status(400).json({ success: false, error: 'Valid price (₦) is required' });
+    }
+
+    // Validate payment methods setting
+    const validMethods = ['wallet_only', 'paystack_only', 'both'];
+    const chosenMethod = validMethods.includes(payment_methods) ? payment_methods : 'both';
+
+    const products = await getAuthoritativeDigitalProducts();
+    let targetId = id;
+    let existingIndex = -1;
+
+    if (targetId) {
+      existingIndex = products.findIndex(p => p.id === targetId);
+    } else {
+      targetId = `dp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    const updatedProduct = {
+      id: targetId,
+      title: title.trim(),
+      description: description?.trim() || '',
+      long_description: long_description?.trim() || description?.trim() || '',
+      price: numPrice,
+      image_url: image_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop',
+      digital_access_url: digital_access_url?.trim() || 'https://ggdadnetwork.com',
+      access_instructions: access_instructions?.trim() || 'Your digital product access credentials and materials are unlocked.',
+      payment_methods: chosenMethod,
+      is_active: is_active !== false,
+      is_digital: true,
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+      products[existingIndex] = { ...products[existingIndex], ...updatedProduct };
+    } else {
+      updatedProduct.created_at = new Date().toISOString();
+      products.unshift(updatedProduct);
+    }
+
+    await saveAuthoritativeDigitalProducts(products);
+
+    return res.json({ success: true, product: updatedProduct });
+  } catch (err: any) {
+    console.error('Error saving digital product:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE digital product (Admins only!)
+app.delete('/api/digital-products/:id', async (req, res) => {
+  try {
+    const isAdmin = await isAuthorizedAdmin(req);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: 'Unauthorized: Only administrators can delete digital products' });
+    }
+
+    let products = await getAuthoritativeDigitalProducts();
+    products = products.filter(p => p.id !== req.params.id);
+    await saveAuthoritativeDigitalProducts(products);
+
+    return res.json({ success: true, message: 'Digital product deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DIRECT PURCHASE: 1. Customer purchases via Wallet Balance
+app.post('/api/digital-products/checkout/wallet', async (req, res) => {
+  try {
+    const { productId, userId, userEmail } = req.body;
+    if (!productId || !userId) {
+      return res.status(400).json({ success: false, error: 'Product ID and User ID are required' });
+    }
+
+    const products = await getAuthoritativeDigitalProducts();
+    const product = products.find(p => p.id === productId);
+
+    if (!product || product.is_active === false) {
+      return res.status(404).json({ success: false, error: 'Digital product is not available for purchase' });
+    }
+
+    // Backend enforcement of payment methods selected by administrator
+    if (product.payment_methods === 'paystack_only') {
+      return res.status(400).json({
+        success: false,
+        error: 'Wallet balance is disabled for this digital product by the administrator. Please checkout via Paystack.'
+      });
+    }
+
+    const authoritativePrice = Number(product.price);
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    // 1. Authoritative check of user's task_wallets balance
+    const walletResp = await fetch(`${supabaseUrl}/rest/v1/task_wallets?user_id=eq.${encodeURIComponent(userId)}&select=*`, {
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+
+    if (!walletResp.ok) {
+      return res.status(500).json({ success: false, error: 'Could not access user wallet balance' });
+    }
+
+    const wallets = await walletResp.json();
+    const userWallet = Array.isArray(wallets) && wallets.length > 0 ? wallets[0] : null;
+
+    if (!userWallet) {
+      return res.status(400).json({
+        success: false,
+        error: 'Wallet account not found. Please initialize your wallet in the Wallet Hub first.',
+        requiredBalance: authoritativePrice,
+        currentBalance: 0
+      });
+    }
+
+    const currentBalance = Number(userWallet.balance) || 0;
+    if (currentBalance < authoritativePrice) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient wallet balance. You have ₦${currentBalance.toLocaleString()} but this digital product requires ₦${authoritativePrice.toLocaleString()}.`,
+        requiredBalance: authoritativePrice,
+        currentBalance: currentBalance,
+        shortfall: authoritativePrice - currentBalance
+      });
+    }
+
+    // 2. Atomically deduct wallet balance
+    const newBalance = currentBalance - authoritativePrice;
+    const newTotalSpent = (Number(userWallet.total_spent) || 0) + authoritativePrice;
+
+    const updateWalletResp = await fetch(`${supabaseUrl}/rest/v1/task_wallets?user_id=eq.${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        balance: newBalance,
+        total_spent: newTotalSpent
+      })
+    });
+
+    if (!updateWalletResp.ok) {
+      return res.status(500).json({ success: false, error: 'Failed to securely deduct wallet balance' });
+    }
+
+    // 3. Prevent duplicate order & Record purchase receipt
+    const orderId = `ord_dgt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const purchaseRecord = {
+      orderId,
+      productId: product.id,
+      productTitle: product.title,
+      amount: authoritativePrice,
+      paymentMethod: 'wallet',
+      userId,
+      userEmail: userEmail || '',
+      purchasedAt: new Date().toISOString(),
+      digitalAccessUrl: product.digital_access_url,
+      accessInstructions: product.access_instructions,
+      status: 'completed'
+    };
+
+    // Record in database / orders store
+    await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `dgt_order_${orderId}`,
+        value: JSON.stringify(purchaseRecord),
+        updated_at: new Date().toISOString()
+      })
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      order: purchaseRecord,
+      newWalletBalance: newBalance,
+      digitalAccessUrl: product.digital_access_url,
+      accessInstructions: product.access_instructions,
+      message: 'Payment completed successfully via Wallet balance! Access granted.'
+    });
+  } catch (err: any) {
+    console.error('Error during wallet digital purchase:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DIRECT PURCHASE: 2. Customer verifies Paystack payment for digital product
+app.post('/api/digital-products/checkout/paystack/verify', async (req, res) => {
+  try {
+    const { reference, productId, userId, userEmail } = req.body;
+    if (!reference || !productId || !userId) {
+      return res.status(400).json({ success: false, error: 'Reference, Product ID, and User ID are required' });
+    }
+
+    // Prevent duplicate processing / replay attacks
+    if (processedPaystackRefs.has(reference)) {
+      return res.status(400).json({ success: false, error: 'This transaction reference has already been processed.' });
+    }
+
+    const products = await getAuthoritativeDigitalProducts();
+    const product = products.find(p => p.id === productId);
+
+    if (!product || product.is_active === false) {
+      return res.status(404).json({ success: false, error: 'Digital product not found or inactive' });
+    }
+
+    // Backend enforcement: ensure Paystack is permitted
+    if (product.payment_methods === 'wallet_only') {
+      return res.status(400).json({
+        success: false,
+        error: 'Paystack is disabled for this digital product by the administrator. Please use Wallet balance.'
+      });
+    }
+
+    const authoritativePrice = Number(product.price);
+    const expectedAmountKobo = authoritativePrice * 100;
+
+    // Resolve authoritative Paystack secret key on server
+    const secretKey = await getPaystackSecretKey();
+    if (!secretKey) {
+      return res.status(500).json({ success: false, error: 'Paystack secret key is not configured on the server' });
+    }
+
+    // Verify directly with Paystack API
+    const verifyResp = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: {
+        Authorization: `Bearer ${secretKey}`
+      }
+    });
+
+    if (!verifyResp.ok) {
+      return res.status(400).json({ success: false, error: 'Paystack verification request failed' });
+    }
+
+    const verifyData = await verifyResp.json();
+    if (!verifyData.status || !verifyData.data || verifyData.data.status !== 'success') {
+      return res.status(400).json({
+        success: false,
+        error: 'Paystack payment was not successful or could not be verified'
+      });
+    }
+
+    // Authoritative check on amount paid (never trust client)
+    const paidAmountKobo = Number(verifyData.data.amount);
+    if (paidAmountKobo < expectedAmountKobo) {
+      return res.status(400).json({
+        success: false,
+        error: `Underpaid: Expected ₦${authoritativePrice} but received ₦${paidAmountKobo / 100}`
+      });
+    }
+
+    // Mark reference processed to prevent duplicate executions
+    processedPaystackRefs.add(reference);
+
+    const purchaseRecord = {
+      orderId: `ord_dgt_paystack_${reference}`,
+      paystackReference: reference,
+      productId: product.id,
+      productTitle: product.title,
+      amount: authoritativePrice,
+      paymentMethod: 'paystack',
+      userId,
+      userEmail: userEmail || verifyData.data.customer?.email || '',
+      purchasedAt: new Date().toISOString(),
+      digitalAccessUrl: product.digital_access_url,
+      accessInstructions: product.access_instructions,
+      status: 'completed'
+    };
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `dgt_order_${reference}`,
+        value: JSON.stringify(purchaseRecord),
+        updated_at: new Date().toISOString()
+      })
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      order: purchaseRecord,
+      digitalAccessUrl: product.digital_access_url,
+      accessInstructions: product.access_instructions,
+      message: 'Paystack payment successfully verified! Access granted.'
+    });
+  } catch (err: any) {
+    console.error('Error verifying Paystack digital purchase:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET Customer's purchased digital products
+app.get('/api/digital-products/my-purchases', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string || '').trim();
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+    const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=like.dgt_order_%&select=value`, {
+      headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
+    });
+
+    const orders: any[] = [];
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data)) {
+        for (const row of data) {
+          try {
+            const parsed = JSON.parse(row.value);
+            if (parsed.userId === userId) {
+              orders.push(parsed);
+            }
+          } catch {}
+        }
+      }
+    }
+
+    return res.json({ success: true, purchases: orders });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
 // API Route: Pexels Image Search for Blog & Flyers
 // ----------------------------------------------------
 app.get('/api/search-pexels', async (req, res) => {
@@ -1806,6 +2517,195 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// ----------------------------------------------------
+// Open Graph Dynamic Image & Social Preview Middleware
+// ----------------------------------------------------
+function escapeXml(unsafe: string): string {
+  return (unsafe || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wrapText(text: string, maxCharsPerLine = 36, maxLines = 3): string[] {
+  const words = (text || '').trim().split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if ((currentLine + ' ' + word).trim().length <= maxCharsPerLine) {
+      currentLine = (currentLine + ' ' + word).trim();
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+      if (lines.length >= maxLines - 1) break;
+    }
+  }
+  if (currentLine && lines.length < maxLines) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+function generateServerOgSvg(options: {
+  title: string;
+  description?: string;
+  badge?: string;
+  theme?: string;
+}): string {
+  const {
+    title = 'GGD Ad Network',
+    description = 'Promote your business across WhatsApp, Telegram, TikTok & Facebook with verified local syndicates.',
+    badge = 'GGD DIRECT',
+    theme = 'orange',
+  } = options;
+
+  const titleLines = wrapText(title, 32, 3);
+  const descLines = wrapText(description || '', 55, 2);
+  const safeBadge = escapeXml(badge.toUpperCase().slice(0, 24));
+
+  const themeGradients: Record<string, { bg1: string; bg2: string; accent1: string; accent2: string; sphere1: string; sphere2: string }> = {
+    orange: { bg1: '#0f172a', bg2: '#1e1b4b', accent1: '#f97316', accent2: '#ef4444', sphere1: 'rgba(249, 115, 22, 0.28)', sphere2: 'rgba(239, 68, 68, 0.22)' },
+    emerald: { bg1: '#064e3b', bg2: '#022c22', accent1: '#10b981', accent2: '#059669', sphere1: 'rgba(16, 185, 129, 0.32)', sphere2: 'rgba(5, 150, 105, 0.25)' },
+    purple: { bg1: '#1e1b4b', bg2: '#0f172a', accent1: '#8b5cf6', accent2: '#ec4899', sphere1: 'rgba(139, 92, 246, 0.35)', sphere2: 'rgba(236, 72, 153, 0.25)' },
+  };
+
+  const cur = themeGradients[theme] || themeGradients.orange;
+
+  return `
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${cur.bg1}" />
+      <stop offset="100%" stop-color="${cur.bg2}" />
+    </linearGradient>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${cur.accent1}" />
+      <stop offset="100%" stop-color="${cur.accent2}" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="80" result="blur" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="1050" cy="150" r="320" fill="${cur.sphere1}" filter="url(#glow)" />
+  <circle cx="150" cy="500" r="280" fill="${cur.sphere2}" filter="url(#glow)" />
+
+  <rect x="70" y="60" width="1060" height="510" rx="28" fill="rgba(255, 255, 255, 0.03)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" />
+
+  <g transform="translate(120, 120)">
+    <rect x="0" y="0" width="${Math.max(140, safeBadge.length * 12 + 40)}" height="38" rx="19" fill="url(#brandGrad)" />
+    <text x="${Math.max(140, safeBadge.length * 12 + 40) / 2}" y="24" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" letter-spacing="1.5" text-anchor="middle">${safeBadge}</text>
+    <text x="960" y="26" fill="rgba(255, 255, 255, 0.75)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" letter-spacing="2" text-anchor="end">GGD AD NETWORK</text>
+  </g>
+
+  <g transform="translate(120, 220)">
+    ${titleLines.map((line, idx) => `
+      <text x="0" y="${idx * 62}" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="900" letter-spacing="-1">${escapeXml(line)}</text>
+    `).join('')}
+  </g>
+
+  <g transform="translate(120, ${220 + titleLines.length * 62 + 20})">
+    ${descLines.map((line, idx) => `
+      <text x="0" y="${idx * 30}" fill="rgba(255, 255, 255, 0.70)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="400">${escapeXml(line)}</text>
+    `).join('')}
+  </g>
+
+  <g transform="translate(120, 510)">
+    <circle cx="20" cy="0" r="16" fill="url(#brandGrad)" />
+    <text x="20" y="6" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="900" text-anchor="middle">⚡</text>
+    <text x="48" y="5" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700">Verified Platform &amp; Syndicate Network</text>
+    <text x="960" y="5" fill="rgba(255, 255, 255, 0.6)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600" text-anchor="end">WhatsApp • Telegram • Facebook • TikTok • Web</text>
+  </g>
+</svg>
+`.trim();
+}
+
+// GET /api/og - Returns high-resolution SVG card
+app.get('/api/og', (req, res) => {
+  const title = (req.query.title as string || 'GGD Ad Network').slice(0, 90);
+  const description = (req.query.description as string || 'Promote your business across WhatsApp, Telegram, TikTok & Facebook with verified local syndicates.').slice(0, 160);
+  const badge = (req.query.badge as string || 'GGD DIRECT').slice(0, 24);
+  const theme = (req.query.theme as string || 'orange');
+
+  const svg = generateServerOgSvg({ title, description, badge, theme });
+  res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  return res.send(svg);
+});
+
+// Crawler Detection Regex for Social Scrapers (WhatsApp, Facebook, Twitter, Telegram, LinkedIn, Discord)
+const BOT_UA_REGEX = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview/i;
+
+// Social Crawler HTML Interceptor Middleware
+app.use(async (req, res, next) => {
+  const userAgent = req.headers['user-agent'] || '';
+  if (!BOT_UA_REGEX.test(userAgent) || req.path.startsWith('/api') || req.method !== 'GET') {
+    return next();
+  }
+
+  const host = req.get('host') || 'ggdadnetwork.com';
+  const proto = req.protocol || 'https';
+  const origin = `${proto}://${host}`;
+  const fullUrl = `${origin}${req.originalUrl}`;
+
+  let title = 'GGD Ad Network — Digital Business-Growth & Marketing Platform';
+  let description = 'Promote your business across WhatsApp, Telegram, TikTok & Facebook with verified local syndicates, high-converting banner ads, and digital publishing.';
+  let imageUrl = `${origin}/api/og?title=${encodeURIComponent('GGD Ad Network')}&badge=GROWTH+PLATFORM`;
+
+  try {
+    if (req.path.startsWith('/product/')) {
+      const prodId = req.path.replace('/product/', '').trim();
+      const products = await getAuthoritativeDigitalProducts();
+      const found = products.find(p => p.id === prodId);
+      if (found) {
+        title = `${found.title} — Digital Product | GGD Ad Network`;
+        description = found.description || `Buy ${found.title} directly with wallet balance or Paystack on GGD Ad Network.`;
+        imageUrl = found.image_url || `${origin}/api/og?title=${encodeURIComponent(found.title)}&badge=DIGITAL+PRODUCT`;
+      }
+    } else if (req.path.startsWith('/s/')) {
+      const slug = req.path.replace('/s/', '').trim();
+      title = `Promoted Campaign [${slug}] — GGD Syndicate Network`;
+      description = `Earn cash rewards and drive viral distribution on WhatsApp and social media with GGD Ad Network.`;
+      imageUrl = `${origin}/api/og?title=${encodeURIComponent('Viral Campaign ' + slug)}&badge=SYNDICATE+OFFER`;
+    }
+  } catch {}
+
+  const safeTitle = escapeXml(title);
+  const safeDesc = escapeXml(description);
+  const safeImg = escapeXml(imageUrl);
+  const safeUrl = escapeXml(fullUrl);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${safeTitle}</title>
+  <meta name="description" content="${safeDesc}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${safeUrl}">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${safeDesc}">
+  <meta property="og:image" content="${safeImg}">
+  <meta property="og:site_name" content="GGD Ad Network">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${safeTitle}">
+  <meta name="twitter:description" content="${safeDesc}">
+  <meta name="twitter:image" content="${safeImg}">
+</head>
+<body>
+  <h1>${safeTitle}</h1>
+  <p>${safeDesc}</p>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
+});
+
 // Vite Middleware / Static Serve
 // ----------------------------------------------------
 function getDistPaths() {

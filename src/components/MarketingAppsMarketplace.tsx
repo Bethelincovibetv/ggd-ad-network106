@@ -10,6 +10,9 @@ import LinkShortener from "@/components/LinkShortener";
 import NaijaScriptWriter from "@/components/NaijaScriptWriter";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { VIXORA_TOOLS_REGISTRY, VixoraToolEntry } from "@/vixora/services/vixoraToolsRegistry";
+import { DigitalProduct, fetchDigitalProducts } from "@/services/digitalProductsService";
+import { DigitalProductCheckoutModal } from "@/components/orders/DigitalProductCheckoutModal";
+import { Package, Wallet, CreditCard } from "lucide-react";
 
 interface MarketingAppsMarketplaceProps {
   pagePlacement?: 'marketplace' | 'landing' | 'dashboard' | 'directory';
@@ -28,7 +31,10 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isEnabled } = useFeatureToggles();
-  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'naija_script' | 'vixora_tools' | 'link_shortener'>('apps');
+  const [activeMarketTab, setActiveMarketTab] = useState<'apps' | 'digital_products' | 'naija_script' | 'vixora_tools' | 'link_shortener'>('apps');
+  const [digitalProducts, setDigitalProducts] = useState<DigitalProduct[]>([]);
+  const [selectedDigitalProduct, setSelectedDigitalProduct] = useState<DigitalProduct | null>(null);
+  const [isDigitalCheckoutOpen, setIsDigitalCheckoutOpen] = useState(false);
   const [vixoraSearch, setVixoraSearch] = useState('');
   const [vixoraCategory, setVixoraCategory] = useState('all');
   const [apps, setApps] = useState<any[]>([]);
@@ -39,6 +45,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
 
   useEffect(() => {
     fetchData();
+    fetchDigitalProducts().then(list => setDigitalProducts(list));
   }, [pagePlacement]);
 
   const fetchData = async () => {
@@ -185,6 +192,18 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <span>Marketing Apps ({apps.length})</span>
           </button>
           <button
+            onClick={() => setActiveMarketTab('digital_products')}
+            className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeMarketTab === 'digital_products'
+                ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Package className="h-3.5 w-3.5 text-amber-200" />
+            <span>Digital Products ({digitalProducts.length})</span>
+            <Badge className="bg-white/20 text-white text-[9px] font-black px-1.5 py-0">DIRECT BUY</Badge>
+          </button>
+          <button
             onClick={() => setActiveMarketTab('naija_script')}
             className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeMarketTab === 'naija_script'
@@ -222,6 +241,95 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <span>Short Link & WhatsApp Generator</span>
             <Badge className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0">FREE</Badge>
           </button>
+        </div>
+      )}
+
+      {/* When Digital Products tab is active */}
+      {pagePlacement === 'marketplace' && activeMarketTab === 'digital_products' && (
+        <div className="space-y-4 pt-1">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-red-500/10 border border-orange-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                <Package className="h-5 w-5 text-orange-600" />
+                Verified Digital Products & Masterclasses
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Official blueprints, ad copy vaults, and courses created by platform administrators. Purchase directly with your wallet balance or Paystack.
+              </p>
+            </div>
+            <Badge className="bg-orange-600 text-white font-bold text-xs py-1 px-3">
+              Instant Delivery
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {digitalProducts.map(prod => {
+              const allowsWallet = prod.payment_methods === 'wallet_only' || prod.payment_methods === 'both';
+              const allowsPaystack = prod.payment_methods === 'paystack_only' || prod.payment_methods === 'both';
+
+              return (
+                <Card key={prod.id} className="rounded-2xl overflow-hidden border border-border/80 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+                  <div>
+                    <div className="h-44 w-full overflow-hidden bg-slate-900 relative">
+                      <img
+                        src={prod.image_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop'}
+                        alt={prod.title}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                      <Badge className="absolute top-3 right-3 bg-neutral-950/80 text-white font-black text-xs backdrop-blur-xs">
+                        ₦{Number(prod.price).toLocaleString()}
+                      </Badge>
+                      <Badge className="absolute bottom-3 left-3 bg-orange-600 text-white text-[10px] font-bold">
+                        Digital Delivery
+                      </Badge>
+                    </div>
+
+                    <CardContent className="p-4 space-y-2">
+                      <h4 className="font-black text-sm text-foreground line-clamp-1">{prod.title}</h4>
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {prod.description}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground">
+                        <span className="font-semibold text-foreground">Payments:</span>
+                        {allowsWallet && (
+                          <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30 text-[10px] font-bold">
+                            Wallet
+                          </Badge>
+                        )}
+                        {allowsPaystack && (
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] font-bold">
+                            Paystack
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </div>
+
+                  <div className="p-4 pt-0">
+                    <Button
+                      className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold text-xs h-10 rounded-xl gap-2 shadow cursor-pointer"
+                      onClick={() => {
+                        setSelectedDigitalProduct(prod);
+                        setIsDigitalCheckoutOpen(true);
+                      }}
+                    >
+                      <span>Buy Now (₦{Number(prod.price).toLocaleString()})</span>
+                      <ArrowRight className="h-3.5 w-3.5 ml-auto" />
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {digitalProducts.length === 0 && (
+            <div className="text-center py-12 border-2 border-dashed rounded-2xl">
+              <Package className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm font-bold text-foreground">No Digital Products Available</p>
+              <p className="text-xs text-muted-foreground mt-1">Check back soon for new digital masterclasses and blueprints.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -504,6 +612,16 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
           )}
         </>
       )}
+
+      {/* Direct Digital Product Checkout Modal */}
+      <DigitalProductCheckoutModal
+        open={isDigitalCheckoutOpen}
+        onOpenChange={setIsDigitalCheckoutOpen}
+        product={selectedDigitalProduct}
+        onSuccess={() => {
+          fetchDigitalProducts().then(list => setDigitalProducts(list));
+        }}
+      />
     </div>
   );
 };

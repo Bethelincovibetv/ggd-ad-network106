@@ -77,12 +77,27 @@ export interface BusinessOverviewContext {
 /**
  * Loads saved brand voice and learned memory for user
  */
+/**
+ * In-memory runtime cache for business agent memories
+ */
+const agentMemoryCache = new Map<string, BusinessAgentMemory>();
+
+/**
+ * Loads saved brand voice and learned memory for user
+ */
 export function getUserBusinessMemory(userId: string): BusinessAgentMemory {
+  if (agentMemoryCache.has(userId)) {
+    return agentMemoryCache.get(userId)!;
+  }
   try {
     const raw = localStorage.getItem(`vixora_biz_memory_${userId}`);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      agentMemoryCache.set(userId, parsed);
+      return parsed;
+    }
   } catch {}
-  return {
+  const fallback: BusinessAgentMemory = {
     brandVoice: 'naija_energetic',
     targetAudience: 'African shoppers, WhatsApp buyers, and wholesale clients',
     bankDetails: '',
@@ -92,11 +107,67 @@ export function getUserBusinessMemory(userId: string): BusinessAgentMemory {
     keySellingPoints: ['Verified authentic quality', 'Direct WhatsApp support', 'Best market value'],
     customLearnedNotes: []
   };
+  agentMemoryCache.set(userId, fallback);
+  return fallback;
 }
 
 /**
- * Saves or updates user business memory & brand voice preferences
+ * Fetches authoritative persistent business memory from backend server
  */
+export async function fetchUserBusinessMemoryFromServer(userId: string): Promise<BusinessAgentMemory> {
+  try {
+    const res = await fetch(`/api/ai/business-memories?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.memory) {
+        agentMemoryCache.set(userId, data.memory);
+        try {
+          localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(data.memory));
+        } catch {}
+        return data.memory;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch server business memory:', err);
+  }
+  return getUserBusinessMemory(userId);
+}
+
+/**
+ * Saves or updates user business memory & brand voice preferences to persistent backend storage
+ */
+export async function saveUserBusinessMemoryAsync(userId: string, update: Partial<BusinessAgentMemory>): Promise<BusinessAgentMemory> {
+  const current = getUserBusinessMemory(userId);
+  const updated: BusinessAgentMemory = {
+    ...current,
+    ...update,
+    lastUpdated: new Date().toISOString()
+  };
+  agentMemoryCache.set(userId, updated);
+  try {
+    localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
+  } catch {}
+
+  const res = await fetch('/api/ai/business-memories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, memory: updated })
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to save business memory to persistent storage');
+  }
+
+  const data = await res.json();
+  if (data.success && data.memory) {
+    agentMemoryCache.set(userId, data.memory);
+    return data.memory;
+  }
+
+  return updated;
+}
+
 export function saveUserBusinessMemory(userId: string, update: Partial<BusinessAgentMemory>): BusinessAgentMemory {
   const current = getUserBusinessMemory(userId);
   const updated: BusinessAgentMemory = {
@@ -104,9 +175,43 @@ export function saveUserBusinessMemory(userId: string, update: Partial<BusinessA
     ...update,
     lastUpdated: new Date().toISOString()
   };
+  agentMemoryCache.set(userId, updated);
   try {
     localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
   } catch {}
+
+  // Asynchronously synchronize to persistent database on backend
+  saveUserBusinessMemoryAsync(userId, update).catch(e => console.warn('Server memory sync notice:', e));
+
+  return updated;
+}
+
+/**
+ * Deletes a learned note from persistent memory
+ */
+export async function deleteUserBusinessMemoryNote(userId: string, noteText: string): Promise<BusinessAgentMemory> {
+  const current = getUserBusinessMemory(userId);
+  const notes = (current.customLearnedNotes || []).filter(n => n.trim() !== noteText.trim());
+  const updated: BusinessAgentMemory = {
+    ...current,
+    customLearnedNotes: notes,
+    lastUpdated: new Date().toISOString()
+  };
+  agentMemoryCache.set(userId, updated);
+  try {
+    localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
+  } catch {}
+
+  try {
+    await fetch('/api/ai/business-memories', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, noteText })
+    });
+  } catch (e) {
+    console.warn('Server memory delete notice:', e);
+  }
+
   return updated;
 }
 
@@ -190,7 +295,7 @@ export async function fetchUserBusinessContext(userId: string): Promise<Business
   const activeServices = listings.filter(l => l.listing_type === 'service' && l.is_active);
   const activeAds = ads.filter(a => a.is_active);
 
-  const memory = getUserBusinessMemory(userId);
+  const memory = await fetchUserBusinessMemoryFromServer(userId);
 
   return {
     userId,
@@ -1131,20 +1236,42 @@ export async function executeBusinessAgentTool(
     }
 
     case 'saveBrandMemory': {
-      const updatedNotes = args.learnedNote ? [...(memory.customLearnedNotes || []), args.learnedNote] : memory.customLearnedNotes;
-      saveUserBusinessMemory(userId, {
-        brandVoice: args.brandVoice || memory.brandVoice,
-        bankDetails: args.bankDetails || memory.bankDetails,
-        whatsappHotline: args.whatsappHotline || memory.whatsappHotline,
-        deliveryTerms: args.deliveryTerms || memory.deliveryTerms,
-        customLearnedNotes: updatedNotes
-      });
-      return {
-        toolName,
-        success: true,
-        message: `Saved rule permanently to Vixora AI memory.`,
-        badge: '🧠 Brand Memory Saved'
-      };
+      try {
+        const updatedNotes = args.learnedNote ? [...(memory.customLearnedNotes || [])] : (memory.customLearnedNotes || []);
+        if (args.learnedNote && !updatedNotes.includes(args.learnedNote)) {
+          updatedNotes.push(args.learnedNote);
+        }
+
+        const savedResult = await saveUserBusinessMemoryAsync(userId, {
+          brandVoice: args.brandVoice || memory.brandVoice,
+          bankDetails: args.bankDetails || memory.bankDetails,
+          whatsappHotline: args.whatsappHotline || memory.whatsappHotline,
+          deliveryTerms: args.deliveryTerms || memory.deliveryTerms,
+          targetAudience: args.targetAudience || memory.targetAudience,
+          customLearnedNotes: updatedNotes
+        });
+
+        // Update local memory in context
+        context.memory = savedResult;
+
+        const savedDetail = args.learnedNote 
+          ? args.learnedNote.replace(/^\[Saved Memory\]\s*/i, '')
+          : args.deliveryTerms || args.bankDetails || args.brandVoice || args.targetAudience || 'your business rule';
+
+        return {
+          toolName,
+          success: true,
+          message: `I have saved this information to your persistent business memory: "${savedDetail}". This is permanently stored in your account and will be retrieved across future conversations, sessions, and device visits!`,
+          badge: '🧠 Business Memory Saved'
+        };
+      } catch (err: any) {
+        return {
+          toolName,
+          success: false,
+          message: `Could not save memory to persistent storage: ${err?.message || 'Server error'}. Please try again.`,
+          badge: '⚠️ Memory Save Failed'
+        };
+      }
     }
 
     default:
@@ -1283,7 +1410,7 @@ export async function parseAndExecuteNaturalLanguageIntent(
     }
   }
 
-  // 8. REMEMBER & SAVE MEMORY DIRECTLY (ChatGPT-style memory learning)
+  // 8. REMEMBER & SAVE MEMORY DIRECTLY (ChatGPT-style persistent memory learning)
   if (
     lower.startsWith('save memory') ||
     lower.startsWith('save to memory') ||
@@ -1291,30 +1418,72 @@ export async function parseAndExecuteNaturalLanguageIntent(
     lower.startsWith('remember that') ||
     lower.startsWith('remember:') ||
     lower.startsWith('remember ') ||
+    lower.startsWith('remember my ') ||
+    lower.startsWith('save my ') ||
+    lower.startsWith('save the instructions') ||
+    lower.startsWith('save instructions') ||
+    lower.startsWith('save this ') ||
+    lower.startsWith('save these ') ||
+    lower.startsWith("don't forget") ||
+    lower.startsWith('dont forget') ||
+    lower.startsWith('keep in mind') ||
+    lower.startsWith('note that') ||
+    lower.includes('remember my business name') ||
+    lower.includes('save my business name') ||
+    lower.includes('save my preferred customer-response style') ||
+    lower.includes('preferred customer-response style') ||
+    lower.includes('remember that i offer delivery') ||
+    lower.includes('save the instructions i just gave you') ||
     lower.includes('save this to memory') ||
+    lower.includes('save this instruction') ||
     lower.includes('our brand voice is') ||
     lower.includes('my bank account is') ||
     lower.includes('our delivery policy is') ||
     lower.includes('save memory direct')
   ) {
     let note = query
-      .replace(/^(can you |please |vixora |save memory[:\s]+|save to memory[:\s]+|save in memory[:\s]+|remember that[:\s]+|remember[:\s]+|remember\s+|save this to memory[:\s]+)/i, '')
+      .replace(/^(can you |please |vixora |save memory[:\s]+|save to memory[:\s]+|save in memory[:\s]+|remember that[:\s]+|remember[:\s]+|remember\s+|remember my\s+|save my\s+|save the\s+|don't forget that\s+|dont forget that\s+|keep in mind that\s+|note that\s+|save this to memory[:\s]+)/i, '')
       .trim();
 
-    // Check if voice switch was requested
+    // Check specific business memory fields
     let brandVoice: any = undefined;
-    if (lower.includes('naija') || lower.includes('energetic')) brandVoice = 'naija_energetic';
-    if (lower.includes('luxury') || lower.includes('elite')) brandVoice = 'luxury_elite';
-    if (lower.includes('closer') || lower.includes('urgent')) brandVoice = 'urgent_closer';
-    if (lower.includes('corporate') || lower.includes('friendly')) brandVoice = 'corporate_friendly';
+    let bankDetails: string | undefined = undefined;
+    let deliveryTerms: string | undefined = undefined;
+    let targetAudience: string | undefined = undefined;
+
+    if (lower.includes('response style') || lower.includes('brand voice') || lower.includes('tone')) {
+      if (lower.includes('naija') || lower.includes('energetic')) brandVoice = 'naija_energetic';
+      else if (lower.includes('luxury') || lower.includes('elite')) brandVoice = 'luxury_elite';
+      else if (lower.includes('closer') || lower.includes('urgent')) brandVoice = 'urgent_closer';
+      else if (lower.includes('corporate') || lower.includes('friendly')) brandVoice = 'corporate_friendly';
+      else brandVoice = 'naija_energetic';
+    }
+
+    if (lower.includes('bank') || lower.includes('account number') || lower.includes('payment account')) {
+      bankDetails = note;
+    }
+
+    if (lower.includes('delivery') || lower.includes('waybill') || lower.includes('shipping')) {
+      deliveryTerms = note || 'Fast delivery offered nationwide';
+    }
+
+    if (lower.includes('audience') || lower.includes('target customer') || lower.includes('clients')) {
+      targetAudience = note;
+    }
 
     if (!note || note.length < 2) {
       note = query;
     }
 
+    const learnedNote = `[Saved Memory] ${note.replace(/^(remember|save)\s*/i, '').trim()}`;
+
+    // Execute saveBrandMemory tool which writes to persistent backend storage
     return executeBusinessAgentTool('saveBrandMemory', {
-      learnedNote: `[Saved Instruction] ${note}`,
-      brandVoice
+      learnedNote,
+      brandVoice,
+      bankDetails,
+      deliveryTerms,
+      targetAudience
     }, context);
   }
 

@@ -4,6 +4,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface Props {
   onNavigate: (tab: string) => void;
+  activeTab?: string;
 }
 
 const BUTTON_SIZE = 58;
@@ -33,11 +34,22 @@ const clampY = (y: number) => {
  * - Intelligently positions its Create options popup relative to button location
  *   so the full menu is always 100% visible inside the visible viewport.
  */
-const CreateFab: React.FC<Props> = ({ onNavigate }) => {
+const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
   const { isEnabled } = useFeatureToggles();
   const [open, setOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+
+  // Check if current view is an AI agent chat page or tab
+  const isAiActive = isAiChatOpen ||
+    Boolean(activeTab && ['vixora', 'vixora-creator', 'creator', 'vixora-studio', 'ai-chat', 'copilot', 'business-agent', 'vixora-agent'].includes(activeTab)) ||
+    (typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/vixora') ||
+      window.location.pathname.startsWith('/studio') ||
+      window.location.pathname.startsWith('/creator') ||
+      window.location.search.includes('vixora') ||
+      window.location.search.includes('agent')
+    ));
 
   // Listen for AI Agent Chat open/close events to avoid covering or affecting the AI chat page
   useEffect(() => {
@@ -47,13 +59,16 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
     window.addEventListener('ggd-ai-chat-open', handleAiOpen);
     window.addEventListener('ggd-ai-chat-close', handleAiClose);
 
-    // Also observe DOM for data-ai-modal-open
+    // Also observe DOM for data-ai-modal-open or active chat elements
     const checkAiOpen = () => {
-      const activeModal = document.querySelector('[data-ai-modal-open="true"]');
+      const activeModal = document.querySelector('[data-ai-modal-open="true"]') ||
+        document.querySelector('[data-ai-chat-active="true"]') ||
+        document.querySelector('.vixora-ai-modal');
       setIsAiChatOpen(!!activeModal);
     };
 
-    const interval = setInterval(checkAiOpen, 400);
+    checkAiOpen();
+    const interval = setInterval(checkAiOpen, 250);
 
     return () => {
       window.removeEventListener('ggd-ai-chat-open', handleAiOpen);
@@ -331,7 +346,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
       : []),
   ];
 
-  if (options.length === 0 || isAiChatOpen) return null;
+  if (options.length === 0 || isAiActive) return null;
 
   return (
     <>

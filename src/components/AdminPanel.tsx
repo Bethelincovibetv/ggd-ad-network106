@@ -30,9 +30,11 @@ import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminRealtimeSearchBar from "@/components/admin/AdminRealtimeSearchBar";
-import { MessageSquare, LayoutGrid } from "lucide-react";
+import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
+import { MessageSquare, LayoutGrid, Package } from "lucide-react";
 
 const ADMIN_MODULES = [
+  { id: 'digital-products', label: 'Digital Products', icon: Package, color: 'from-orange-500 via-amber-500 to-red-600', badge: 'Direct Buy' },
   { id: 'vixora-admin', label: 'Vixora AI & API', icon: Video, color: 'from-orange-500 via-purple-600 to-indigo-700', badge: 'AI Engine' },
   { id: 'business-agent', label: 'Business AI Agent', icon: Sparkles, color: 'from-violet-600 via-purple-600 to-fuchsia-600', badge: 'Copilot' },
   { id: 'syndicate', label: 'Syndicate Management', icon: Briefcase, color: 'from-purple-600 to-indigo-600', badge: 'Syndicate' },
@@ -99,6 +101,7 @@ const AdminPanel = () => {
 
       {/* Module Content Container */}
       <div className="w-full">
+        {activeModule === 'digital-products' && <AdminDigitalProductsManager />}
         {activeModule === 'vixora-admin' && <AdminVixoraManager />}
         {activeModule === 'business-agent' && <AdminBusinessAgentManager />}
         {activeModule === 'syndicate' && <AdminSyndicateManager />}

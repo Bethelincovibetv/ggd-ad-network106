@@ -1304,7 +1304,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
               isVisible={isNavVisible}
             />
           )}
-          <CreateFab onNavigate={handleTabChange} />
+          <CreateFab onNavigate={handleTabChange} activeTab={activeTab} />
 
           <ExtendAdvertModal
             ad={extendingAd}
