@@ -9,12 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { 
   Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, 
   MessageCircle, Globe, Shield, Sparkles, Package, Zap, LayoutTemplate, 
-  Palette, User, Award, Quote, CheckCircle2, Edit, X, Check, Eye, Play, Pause
+  Palette, User, Award, Quote, CheckCircle2, Edit, X, Check, Eye, EyeOff, Play, Pause
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { WEBSITE_TEMPLATES, getWebsiteTemplate } from "@/utils/websiteTemplates";
 import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -39,11 +41,32 @@ const AdminSettings = () => {
   useEffect(() => { fetchSettings(); fetchPromos(); }, []);
 
   const fetchSettings = async () => {
-    const { data } = await supabase.from('app_settings').select('*');
-    const map: Record<string, string> = {};
-    data?.forEach(s => { map[s.key] = s.value; });
-    setSettings(map);
-    setLoading(false);
+    try {
+      const { data } = await supabase.from('app_settings').select('*');
+      const map: Record<string, string> = {};
+      data?.forEach(s => { map[s.key] = s.value; });
+
+      // Also check Firestore admin_settings/about_page for about page config
+      try {
+        const fsDoc = await getDoc(doc(db, 'admin_settings', 'about_page'));
+        if (fsDoc.exists()) {
+          const fsData = fsDoc.data();
+          Object.entries(fsData).forEach(([k, v]) => {
+            if (map[k] === undefined && typeof v === 'string') {
+              map[k] = v;
+            }
+          });
+        }
+      } catch (e) {
+        // non-fatal
+      }
+
+      setSettings(map);
+    } catch (err) {
+      console.warn('Error fetching settings:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchPromos = async () => {
@@ -57,6 +80,19 @@ const AdminSettings = () => {
       console.error(`Failed to save setting ${key}:`, error);
       throw error;
     }
+
+    // Sync CEO & About page settings to Firestore for high durability
+    if (key.startsWith('ceo_') || key === 'show_ceo_on_about_page') {
+      try {
+        await setDoc(doc(db, 'admin_settings', 'about_page'), {
+          [key]: value,
+          updated_at: new Date().toISOString()
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn('Firestore about_page setting sync notice:', fsErr);
+      }
+    }
+
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
@@ -75,6 +111,7 @@ const AdminSettings = () => {
         'default_business_website_template',
         'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours',
         // Founder & CEO Profile Keys
+        'show_ceo_on_about_page',
         'ceo_name', 'ceo_role', 'ceo_location', 'ceo_background', 'ceo_focus',
         'ceo_bio_1', 'ceo_bio_2', 'ceo_speech', 'ceo_avatar_url', 'ceo_flyer_url',
         'ceo_whatsapp', 'ceo_email'
@@ -298,6 +335,69 @@ const AdminSettings = () => {
             Manage the official Founder & CEO profile displayed across the About Page, public executive address, and SEO Schema.org structured data indexing.
           </p>
 
+          {/* MASTER VISIBILITY TOGGLE SWITCH */}
+          <div className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+            settings.show_ceo_on_about_page === 'false'
+              ? 'bg-amber-500/10 border-amber-500/30'
+              : 'bg-orange-500/10 border-orange-500/30'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                    Public Visibility Control
+                  </span>
+                  {settings.show_ceo_on_about_page === 'false' ? (
+                    <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <EyeOff className="h-3 w-3" /> OFF • Hidden from About Page
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <Eye className="h-3 w-3" /> LIVE • Visible on About Page
+                    </span>
+                  )}
+                </div>
+                <h5 className="text-sm font-bold text-foreground">
+                  Display CEO Information & Executive Flyer on About Page
+                </h5>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Turn this switch <strong>OFF</strong> to completely conceal the Founder & CEO profile card, executive flyer banner, keynote message, and personal bio from the public About Page.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                <span className="text-xs font-bold text-muted-foreground">
+                  {settings.show_ceo_on_about_page === 'false' ? 'Disabled' : 'Enabled'}
+                </span>
+                <Switch
+                  checked={settings.show_ceo_on_about_page !== 'false'}
+                  onCheckedChange={async (checked) => {
+                    const val = checked ? 'true' : 'false';
+                    setSettings(p => ({ ...p, show_ceo_on_about_page: val }));
+                    try {
+                      await saveSetting('show_ceo_on_about_page', val);
+                      if (checked) {
+                        toast.success('CEO Information switched ON (Visible on About Page)');
+                      } else {
+                        toast.success('CEO Information switched OFF (Hidden from About Page)');
+                      }
+                    } catch (err: any) {
+                      toast.error('Failed to update CEO visibility: ' + (err.message || 'Error'));
+                    }
+                  }}
+                  className="data-[state=checked]:bg-orange-600 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {settings.show_ceo_on_about_page === 'false' && (
+              <div className="mt-3 pt-3 border-t border-amber-500/20 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                <span>Notice: CEO details are currently hidden from public visitors. You can still modify the profile below; your changes will be saved safely.</span>
+              </div>
+            )}
+          </div>
+
           {/* Photo & Flyer Upload Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-secondary/30 border border-border/60">
             {/* CEO Avatar Photo */}
@@ -456,6 +556,7 @@ const AdminSettings = () => {
               size="sm"
               disabled={savingAll}
               onClick={() => saveSection([
+                'show_ceo_on_about_page',
                 'ceo_name', 'ceo_role', 'ceo_location', 'ceo_background', 'ceo_focus',
                 'ceo_bio_1', 'ceo_bio_2', 'ceo_speech', 'ceo_avatar_url', 'ceo_flyer_url',
                 'ceo_whatsapp', 'ceo_email'

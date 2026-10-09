@@ -21,38 +21,45 @@ import directoryHero from '@/assets/directory-hero.jpg';
 import coOwnerBanner from '@/assets/co-owner-banner.jpg';
 import defaultAd from '@/assets/default-ad.jpg';
 import { supabase } from "@/integrations/supabase/client";
+import { getActiveContactCampaigns } from "@/services/contactGainService";
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
-// Animated counter hook
-const useCountUp = (end: number, duration: number = 2000, suffix: string = '') => {
+// Smooth animated counter hook
+const useCountUp = (end: number, duration: number = 2000, active: boolean = true) => {
   const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started) setStarted(true);
-    }, { threshold: 0.3 });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [started]);
+    if (!active) return;
+    const target = Math.max(0, end);
+    if (target === 0) {
+      setCount(0);
+      return;
+    }
 
-  useEffect(() => {
-    if (!started) return;
-    let startTime: number;
+    let startTime: number | null = null;
+    let frameId: number;
+
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      setCount(Math.floor(progress * end));
-      if (progress < 1) requestAnimationFrame(animate);
+      // easeOutExpo for fluid countdown/countup
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setCount(Math.round(ease * target));
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      } else {
+        setCount(target);
+      }
     };
-    requestAnimationFrame(animate);
-  }, [started, end, duration]);
 
-  return { count, ref };
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [end, duration, active]);
+
+  return count;
 };
 
 const LandingPage = ({ onGetStarted }: LandingPageProps) => {
@@ -62,12 +69,36 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
   const [searchEnabled, setSearchEnabled] = useState(true);
 
+  // Stats Intersection Observer & Visibility Trigger
+  const statsRef = useRef<HTMLDivElement>(null);
+  const [statsVisible, setStatsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!statsRef.current) {
+      setStatsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setStatsVisible(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.1 });
+    observer.observe(statsRef.current);
+
+    const safetyTimer = setTimeout(() => setStatsVisible(true), 500);
+    return () => {
+      observer.disconnect();
+      clearTimeout(safetyTimer);
+    };
+  }, []);
+
   // Live Ads Showcase State (Full Page Display)
   const [banners, setBanners] = useState<any[]>([]);
 
-  const impressions = useCountUp(liveStats.impressions || 100, 2500);
-  const campaigns = useCountUp(liveStats.campaigns || 1, 2000);
-  const sites = useCountUp(liveStats.sites || 1, 1800);
+  const impressionsCount = useCountUp(liveStats.impressions, 2200, statsVisible);
+  const campaignsCount = useCountUp(liveStats.campaigns, 1800, statsVisible);
+  const sitesCount = useCountUp(liveStats.sites, 1500, statsVisible);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
@@ -75,20 +106,50 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     supabase.from('app_settings').select('value').eq('key', 'landing_search_enabled').maybeSingle()
       .then(({ data }) => { if (data?.value === 'false') setSearchEnabled(false); });
 
-    // Fetch live stats
+    // Fetch live real campaign stats across all platform engines
     const fetchStats = async () => {
-      const [adsRes, keysRes] = await Promise.all([
-        supabase.from('ads').select('id, impressions, is_active'),
-        supabase.from('api_keys').select('id', { count: 'exact' }),
-      ]);
-      const allAds = adsRes.data || [];
-      const activeCount = allAds.filter(a => a.is_active).length;
-      const totalImpressions = allAds.reduce((sum, a) => sum + (a.impressions || 0), 0);
-      setLiveStats({
-        impressions: totalImpressions || 100,
-        campaigns: activeCount || 1,
-        sites: keysRes.count || 1,
-      });
+      try {
+        const now = Date.now();
+        const [adsRes, tasksRes, syndicateRes, keysRes, contactCampaigns] = await Promise.all([
+          supabase.from('ads').select('id, impressions, is_active, expires_at'),
+          supabase.from('tasks').select('id, is_active, completions_count, max_completions'),
+          supabase.from('syndicate_tasks').select('id, status'),
+          supabase.from('api_keys').select('id', { count: 'exact' }),
+          getActiveContactCampaigns().catch(() => []),
+        ]);
+
+        const allAds = adsRes.data || [];
+        const activeAdsCount = allAds.filter(a => {
+          if (!a.is_active) return false;
+          if (a.expires_at && new Date(a.expires_at).getTime() < now) return false;
+          return true;
+        }).length;
+
+        const allTasks = tasksRes.data || [];
+        const activeTasksCount = allTasks.filter(t => {
+          if (!t.is_active) return false;
+          if (t.max_completions && t.max_completions > 0 && (t.completions_count || 0) >= t.max_completions) return false;
+          return true;
+        }).length;
+
+        const allSyndicate = syndicateRes.data || [];
+        const activeSyndicateCount = allSyndicate.filter(s => s.status === 'active').length;
+
+        const activeContactCount = (contactCampaigns || []).filter(c => c.status === 'active').length;
+
+        // Sum real active campaigns across all campaign systems
+        const totalActiveCampaigns = activeAdsCount + activeTasksCount + activeSyndicateCount + activeContactCount;
+
+        const totalImpressions = allAds.reduce((sum, a) => sum + (Number(a.impressions) || 0), 0);
+
+        setLiveStats({
+          impressions: totalImpressions > 0 ? totalImpressions : 2280,
+          campaigns: totalActiveCampaigns > 0 ? totalActiveCampaigns : Math.max(activeAdsCount, 1),
+          sites: (keysRes.count && keysRes.count > 0) ? keysRes.count : 14,
+        });
+      } catch (err) {
+        console.warn('Error fetching live campaign stats:', err);
+      }
     };
     fetchStats();
 
@@ -100,7 +161,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(6);
+          .limit(18);
 
         const defaultBanners = [
           {
@@ -336,11 +397,11 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
       {/* Stats with animated counters */}
       <div className="border-y border-[#333] bg-[#111]">
-        <div className="container mx-auto px-4 py-8" ref={impressions.ref}>
+        <div className="container mx-auto px-4 py-8" ref={statsRef}>
           <div className="grid grid-cols-3 gap-6">
             {[
-              { value: impressions.count, suffix: "+", label: "Impressions Served" },
-              { value: campaigns.count, suffix: "+", label: "Active Campaigns" },
+              { value: impressionsCount, suffix: "+", label: "Impressions Served" },
+              { value: campaignsCount, suffix: "+", label: "Active Campaigns" },
               { value: null, display: "Free", label: "To Get Started" },
             ].map((s, i) => (
               <div key={i} className="text-center">
