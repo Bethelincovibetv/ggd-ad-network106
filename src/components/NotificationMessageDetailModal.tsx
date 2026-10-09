@@ -84,7 +84,34 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
     type === 'chat' ||
     type === 'message' ||
     type === 'urgent_message' ||
-    title.toLowerCase().includes('message');
+    title.toLowerCase().includes('message') ||
+    title.toLowerCase().includes('quick message') ||
+    Boolean(notification.nav_target?.startsWith('chat:')) ||
+    Boolean(notification.link_url?.includes('inbox'));
+
+  // Extract the specific sender / person user ID to open their conversation directly
+  const extractPersonId = (): string | null => {
+    if (notification.nav_target?.startsWith('chat:')) {
+      const id = notification.nav_target.replace('chat:', '').trim();
+      if (id) return id;
+    }
+    if ((notification as any).sender_id) {
+      return (notification as any).sender_id;
+    }
+    const checkUrl = notification.link_url || notification.nav_target || '';
+    if (checkUrl) {
+      try {
+        const u = new URL(checkUrl, window.location.origin);
+        const pId = u.searchParams.get('chatWith') || u.searchParams.get('chat') || u.searchParams.get('userId');
+        if (pId) return pId;
+      } catch {}
+      const match = checkUrl.match(/(?:chatWith|chat)=([a-zA-Z0-9_-]+)/i);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  const targetChatPersonId = isChat ? extractPersonId() : null;
 
   // Extract clickable URLs
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -118,8 +145,29 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
 
   const handleMainAction = () => {
     onOpenChange(false);
+
+    if (isChat) {
+      const pId = targetChatPersonId;
+      if (pId) {
+        sessionStorage.setItem('ggd_chat_target', pId);
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'inbox');
+          url.searchParams.set('chatWith', pId);
+          window.history.pushState(null, '', url.toString());
+        } catch {}
+        window.dispatchEvent(new CustomEvent('ggd-open-chat', { detail: { userId: pId } }));
+      }
+      try {
+        localStorage.setItem('ggd_active_tab', 'inbox');
+      } catch {}
+      window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
+    }
+
     if (onAction) {
       onAction(notification);
+    } else if (isChat) {
+      // Already dispatched above
     } else if (primaryUrl) {
       window.open(primaryUrl, '_blank', 'noopener,noreferrer');
     }

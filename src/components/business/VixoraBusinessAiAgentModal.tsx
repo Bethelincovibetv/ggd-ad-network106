@@ -292,7 +292,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
 
           const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
 
-          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
+          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager, marketing educator, and Google DeepMind Science specialist on GGD Ad Network.
 User Name: ${currentCtx.displayName}
 Business Name: ${currentCtx.profile?.business_name || 'Not set'}
 Active Products: ${currentCtx.activeProductsCount}
@@ -311,8 +311,10 @@ ${memoryList || 'None yet'}
 YOUR MANDATE:
 1. You have direct database authority to execute commands for the merchant using function calls/tools!
 2. When the user asks to add or create a product/service, update prices, update profile, post to community, audit their store, create a banner, or close an order, YOU MUST CALL THE APPROPRIATE TOOL! Do not merely give advice when action is requested.
-3. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
-4. Never output asterisks (no * or **). Keep typography clean and readable.`;
+3. TEACHING MARKETING: You can teach actionable marketing step-by-step! Break down copywriting (AIDA, PAS, BAB), viral hooks, WhatsApp sales closer funnels, voice notes psychology, and paid ad strategies.
+4. GOOGLE DEEPMIND SCIENCE SKILLS: You understand DeepMind science skills: AlphaFold DB (3D structure predictions, pLDDT confidence scores, PAE matrices), UniProtKB, RCSB PDB, genomics (ClinVar, gnomAD), drug discovery (PubChem, ChEMBL, Lipinski's Rule of 5), and biological pathways.
+5. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
+6. Never output asterisks (no * or **). Keep typography clean and readable.`;
 
           const historyTurns: any[] = messages
             .filter(m => !m.isThinking && m.id !== 'welcome')
@@ -341,7 +343,7 @@ YOUR MANDATE:
           ];
 
           const res = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3.8-flash',
             contents,
             config: {
               systemInstruction,
@@ -367,7 +369,7 @@ YOUR MANDATE:
               // 2nd pass with Gemini to provide natural confirming commentary
               try {
                 const secondPass = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
+                  model: 'gemini-3.8-flash',
                   contents: [
                     ...contents,
                     {

@@ -307,11 +307,13 @@ export async function triggerRealtimePush(payload: PushNotificationPayload): Pro
  */
 export async function sendQuickMessageNotification({
   recipientUserId,
+  senderUserId,
   senderName,
   messagePreview,
   chatUrl,
 }: {
   recipientUserId: string;
+  senderUserId?: string;
   senderName?: string;
   messagePreview: string;
   chatUrl?: string;
@@ -321,6 +323,8 @@ export async function sendQuickMessageNotification({
   const sender = senderName || 'GGD Member';
   const title = `💬 Quick Message from ${sender}`;
   const body = messagePreview.length > 100 ? `${messagePreview.slice(0, 97)}...` : messagePreview;
+  const targetChatUrl = chatUrl || (senderUserId ? `/inbox?chatWith=${encodeURIComponent(senderUserId)}` : '/inbox');
+  const targetNav = senderUserId ? `chat:${senderUserId}` : 'inbox';
 
   // Insert notification targeted strictly to recipient's database record
   try {
@@ -329,7 +333,8 @@ export async function sendQuickMessageNotification({
       title,
       message: body,
       type: 'chat',
-      link_url: chatUrl || '/inbox',
+      link_url: targetChatUrl,
+      nav_target: targetNav,
     });
   } catch (err) {
     console.warn('Could not insert message notification:', err);
@@ -340,10 +345,12 @@ export async function sendQuickMessageNotification({
     if (db) {
       await addDoc(collection(db, 'notifications'), {
         userId: recipientUserId,
+        senderId: senderUserId || null,
         title,
         body,
         icon: GGD_SITE_LOGO,
-        url: chatUrl || '/inbox',
+        url: targetChatUrl,
+        navTarget: targetNav,
         type: 'chat',
         isRead: false,
         createdAt: new Date().toISOString(),

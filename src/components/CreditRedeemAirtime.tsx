@@ -10,7 +10,7 @@ import {
   Smartphone, Wifi, Coins, Sparkles, ShieldCheck, ArrowRight, 
   ExternalLink, Copy, Check, Clock, Search, Lock, Unlock, 
   RefreshCw, CheckCircle2, AlertCircle, ArrowUpRight, Flame, Store,
-  AlertTriangle
+  AlertTriangle, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,10 +52,25 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
   const [userHistory, setUserHistory] = useState<UserRedemptionRecord[]>([]);
   const [globalRewardLogo, setGlobalRewardLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'store' | 'my-items'>('store');
+  const [activeTab, setActiveTab] = useState<'instant-vtu' | 'store' | 'my-items'>('instant-vtu');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterNetwork, setFilterNetwork] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Direct Sabuss VTU Airtime states
+  const [directNetwork, setDirectNetwork] = useState<NetworkProvider>('mtn');
+  const [directPhone, setDirectPhone] = useState<string>('');
+  const [directAmount, setDirectAmount] = useState<number>(100);
+  const [customAmount, setCustomAmount] = useState<string>('');
+  const [isDirectRecharging, setIsDirectRecharging] = useState<boolean>(false);
+  const [directHistory, setDirectHistory] = useState<any[]>([]);
+  const [directStatusResult, setDirectStatusResult] = useState<{
+    status: 'success' | 'pending' | 'failed' | 'reversed';
+    code: string;
+    message: string;
+    reference: string;
+    amount: number;
+  } | null>(null);
 
   // Confirmation modal state
   const [selectedOfferForRedeem, setSelectedOfferForRedeem] = useState<RedeemOffer | null>(null);
@@ -76,6 +91,18 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
   useEffect(() => {
     fetchMarketplaceData();
   }, []);
+
+  const fetchDirectHistory = async (uid: string) => {
+    try {
+      const res = await fetch(`/api/airtime/history?userId=${encodeURIComponent(uid)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.history)) {
+          setDirectHistory(data.history);
+        }
+      }
+    } catch {}
+  };
 
   const fetchMarketplaceData = async () => {
     setLoading(true);
@@ -109,11 +136,109 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
         ]);
         setRedeemedIds(ids);
         setUserHistory(history);
+        fetchDirectHistory(currentUser.id);
       }
     } catch (err) {
       console.error('Error fetching marketplace data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDirectSabussRecharge = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!user) {
+      toast.error('Please log in to recharge airtime with credits.');
+      return;
+    }
+
+    const cleanPhone = directPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error('Please enter a valid Nigerian mobile phone number (e.g. 08012345678).');
+      return;
+    }
+
+    const finalAmount = customAmount ? parseInt(customAmount, 10) : directAmount;
+    if (isNaN(finalAmount) || finalAmount < 100) {
+      toast.error('Minimum airtime recharge is ₦100 (100 credits).');
+      return;
+    }
+
+    if (credits < finalAmount) {
+      toast.error(`Insufficient credits! You need ${finalAmount} credits, but only have ${credits} credits.`);
+      return;
+    }
+
+    setIsDirectRecharging(true);
+    setDirectStatusResult(null);
+
+    try {
+      const planIdMap: Record<string, string> = {
+        mtn: '1',
+        glo: '2',
+        airtel: '3',
+        '9mobile': '4',
+      };
+
+      const res = await fetch('/api/airtime/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          userEmail: user.email,
+          network: directNetwork,
+          phoneNumber: cleanPhone,
+          amount: finalAmount,
+          planId: planIdMap[directNetwork] || '1',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Status code 200 (success) or 400 (pending)
+        const updatedCredits = typeof data.remainingCredits === 'number' ? data.remainingCredits : (credits - finalAmount);
+        setCredits(updatedCredits);
+        if (onCreditsUpdated) onCreditsUpdated(updatedCredits);
+
+        if (data.statusCode === '200' || data.status === 'success') {
+          playRedeemSound();
+          toast.success(`🎉 ₦${finalAmount.toLocaleString()} Airtime Recharged Successfully!`);
+        } else if (data.statusCode === '400' || data.status === 'pending') {
+          toast.info(`⏳ Recharge processing with carrier (Code 400). Reference: ${data.reference}`);
+        }
+
+        setDirectStatusResult({
+          status: data.status || 'success',
+          code: data.statusCode || '200',
+          message: data.message || 'Airtime transaction completed.',
+          reference: data.reference || '',
+          amount: finalAmount,
+        });
+
+        // Refresh user history
+        fetchDirectHistory(user.id);
+      } else {
+        // Status code 800 (failed) or 900 (reversed)
+        const errCode = data.statusCode || '800';
+        if (errCode === '900') {
+          toast.error(`Transaction Reversed (Code 900). Credits remain safe in your wallet.`);
+        } else {
+          toast.error(data.error || data.message || `Recharge failed from provider (Code ${errCode}).`);
+        }
+
+        setDirectStatusResult({
+          status: data.status === 'reversed' ? 'reversed' : 'failed',
+          code: errCode,
+          message: data.error || data.message || 'Transaction could not be completed by carrier.',
+          reference: data.reference || '',
+          amount: finalAmount,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Network error connecting to Sabuss gateway');
+    } finally {
+      setIsDirectRecharging(false);
     }
   };
 
@@ -354,59 +479,322 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
       {/* Tabs & Filters Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         {/* Main Tabs */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <Button
+            variant={activeTab === 'instant-vtu' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('instant-vtu')}
+            className={`h-9 px-3.5 rounded-xl font-bold text-xs gap-1.5 transition-all shrink-0 ${
+              activeTab === 'instant-vtu'
+                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Zap className="h-4 w-4" />
+            <span>⚡ Instant Airtime (Sabuss VTU)</span>
+          </Button>
+
           <Button
             variant={activeTab === 'store' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('store')}
-            className={`h-9 px-4 rounded-xl font-bold text-xs gap-1.5 transition-all ${
+            className={`h-9 px-3.5 rounded-xl font-bold text-xs gap-1.5 transition-all shrink-0 ${
               activeTab === 'store'
                 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Store className="h-4 w-4" />
-            <span>Browse Offers ({offers.length})</span>
+            <span>Browse Packages ({offers.length})</span>
           </Button>
 
           <Button
             variant={activeTab === 'my-items' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setActiveTab('my-items')}
-            className={`h-9 px-4 rounded-xl font-bold text-xs gap-1.5 transition-all ${
+            className={`h-9 px-3.5 rounded-xl font-bold text-xs gap-1.5 transition-all shrink-0 ${
               activeTab === 'my-items'
                 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Unlock className="h-4 w-4" />
-            <span>My Redeemed Offers ({redeemedIds.length})</span>
+            <span>My Redeemed ({redeemedIds.length})</span>
           </Button>
         </div>
 
-        {/* Search & Category Filter */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-56">
-            <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
-            <Input
-              placeholder="Search data or airtime..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 rounded-xl text-xs"
-            />
-          </div>
+        {/* Search & Category Filter (Only on store tab) */}
+        {activeTab === 'store' && (
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-56">
+              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
+              <Input
+                placeholder="Search data or airtime..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-8 h-9 rounded-xl text-xs"
+              />
+            </div>
 
-          <select
-            value={filterType}
-            onChange={e => setFilterType(e.target.value)}
-            className="h-9 px-2.5 rounded-xl border border-border bg-background text-xs font-bold text-foreground focus:outline-none"
-          >
-            <option value="all">All Types</option>
-            <option value="airtime">Airtime</option>
-            <option value="data">Data</option>
-          </select>
-        </div>
+            <select
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+              className="h-9 px-2.5 rounded-xl border border-border bg-background text-xs font-bold text-foreground focus:outline-none"
+            >
+              <option value="all">All Types</option>
+              <option value="airtime">Airtime</option>
+              <option value="data">Data</option>
+            </select>
+          </div>
+        )}
       </div>
+
+      {/* TAB 0: INSTANT SABUSS VTU AIRTIME RECHARGE */}
+      {activeTab === 'instant-vtu' && (
+        <div className="space-y-6">
+          <Card className="border border-border/80 shadow-lg overflow-hidden bg-card">
+            <CardHeader className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border-b border-border/60 pb-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-orange-500 text-white font-black text-[10px] px-2 py-0.5">
+                      ⚡ Sabuss VTU Gateway
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono">
+                      Cloud SQL Managed
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-lg sm:text-xl font-black text-foreground">
+                    Instant Mobile Airtime Top-Up
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Recharge any MTN, Airtel, Glo, or 9mobile phone number directly using your earned GGD credit balance (1 Credit = ₦1 Airtime).
+                  </CardDescription>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-muted-foreground">Wallet Balance</p>
+                  <p className="text-lg font-black text-orange-600 dark:text-orange-400">
+                    {credits.toLocaleString()} Credits
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-5 sm:p-6 space-y-6">
+              <form onSubmit={handleDirectSabussRecharge} className="space-y-5">
+                {/* 1. Network Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <span>1. Select Network Carrier</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {(['mtn', 'airtel', 'glo', '9mobile'] as NetworkProvider[]).map((net) => {
+                      const theme = NETWORK_THEMES[net];
+                      const isSelected = directNetwork === net;
+                      return (
+                        <button
+                          key={net}
+                          type="button"
+                          onClick={() => setDirectNetwork(net)}
+                          className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                            isSelected
+                              ? 'border-orange-500 bg-orange-500/10 shadow-md ring-2 ring-orange-500/30'
+                              : 'border-border/80 hover:border-orange-500/50 bg-muted/20'
+                          }`}
+                        >
+                          <NetworkLogo network={net} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-xs text-foreground truncate">{theme.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">Plan #{net === 'mtn' ? '1' : net === 'glo' ? '2' : net === 'airtel' ? '3' : '4'}</p>
+                          </div>
+                          {isSelected && <CheckCircle2 className="h-4 w-4 text-orange-500 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Phone Number Input */}
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>2. Recipient Phone Number</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">e.g. 08012345678, 090...</span>
+                  </label>
+                  <div className="relative">
+                    <Smartphone className="h-4 w-4 text-muted-foreground absolute left-3 top-3.5" />
+                    <Input
+                      type="tel"
+                      placeholder="Enter 11-digit mobile number"
+                      value={directPhone}
+                      onChange={(e) => setDirectPhone(e.target.value)}
+                      className="pl-9 h-11 rounded-xl text-sm font-mono font-bold"
+                      disabled={isDirectRecharging}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Recharge Amount */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    <span>3. Recharge Amount (₦)</span>
+                    <span className="text-orange-600 dark:text-orange-400 font-bold">1 Credit = ₦1 Airtime</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {[100, 200, 500, 1000, 2000].map((amt) => {
+                      const isSelected = directAmount === amt && !customAmount;
+                      const canAfford = credits >= amt;
+                      return (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => {
+                            setDirectAmount(amt);
+                            setCustomAmount('');
+                          }}
+                          className={`p-2.5 rounded-xl border text-center transition-all ${
+                            isSelected
+                              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black border-orange-500 shadow-md'
+                              : 'bg-muted/30 border-border/70 hover:bg-muted text-foreground font-bold'
+                          } ${!canAfford ? 'opacity-60' : ''}`}
+                        >
+                          <p className="text-xs sm:text-sm font-black">₦{amt.toLocaleString()}</p>
+                          <p className="text-[10px] opacity-80">{amt} credits</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2">
+                    <Input
+                      type="number"
+                      placeholder="Or enter custom amount (min ₦100)"
+                      value={customAmount}
+                      onChange={(e) => {
+                        setCustomAmount(e.target.value);
+                      }}
+                      min={100}
+                      max={10000}
+                      className="h-10 rounded-xl text-xs"
+                      disabled={isDirectRecharging}
+                    />
+                  </div>
+                </div>
+
+                {/* Status Result Banner */}
+                {directStatusResult && (
+                  <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+                    directStatusResult.status === 'success'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                      : directStatusResult.status === 'pending'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                      : directStatusResult.status === 'reversed'
+                      ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300'
+                      : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
+                  }`}>
+                    <div className="flex items-center gap-2 font-black text-sm">
+                      {directStatusResult.status === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                      {directStatusResult.status === 'pending' && <Clock className="h-4 w-4 text-amber-500" />}
+                      {directStatusResult.status === 'failed' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                      {directStatusResult.status === 'reversed' && <RefreshCw className="h-4 w-4 text-indigo-500" />}
+                      <span>Provider Status: {directStatusResult.status.toUpperCase()} (Code {directStatusResult.code})</span>
+                    </div>
+                    <p className="font-medium leading-relaxed">{directStatusResult.message}</p>
+                    {directStatusResult.reference && (
+                      <p className="font-mono text-[10px] opacity-80">Reference: {directStatusResult.reference}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Submit Recharge Button */}
+                <Button
+                  type="submit"
+                  disabled={isDirectRecharging || !directPhone.trim() || credits < (customAmount ? parseInt(customAmount, 10) : directAmount)}
+                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm shadow-lg shadow-orange-500/25 transition-all active:scale-98"
+                >
+                  {isDirectRecharging ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Dispatching Recharge via Sabuss Gateway...</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      <span>
+                        Recharge ₦{(customAmount ? parseInt(customAmount, 10) || directAmount : directAmount).toLocaleString()} Airtime ({customAmount ? parseInt(customAmount, 10) || directAmount : directAmount} Credits)
+                      </span>
+                    </span>
+                  )}
+                </Button>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 px-1">
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>200 Success · 400 Pending · 800 Failed · 900 Reversed</span>
+                  </span>
+                  <a
+                    href="/admin?tab=sabuss"
+                    className="font-bold text-orange-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Admin Key Manager</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Recent Direct VTU Transactions */}
+          {directHistory.length > 0 && (
+            <Card className="border border-border/70 rounded-2xl overflow-hidden">
+              <CardHeader className="p-4 border-b bg-muted/20">
+                <CardTitle className="text-sm font-black flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-orange-500" />
+                  <span>Recent Airtime Redemptions (Cloud SQL Stored)</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 divide-y text-xs">
+                {directHistory.slice(0, 5).map((item) => (
+                  <div key={item.id} className="p-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-xl bg-orange-500/10 grid place-items-center font-bold text-orange-600 text-xs">
+                        ₦
+                      </div>
+                      <div>
+                        <p className="font-black text-foreground">
+                          {item.network.toUpperCase()} · ₦{item.amountNgn.toLocaleString()} Airtime
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          {item.phoneNumber} · Ref: {item.reference}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <Badge className={`text-[9px] font-black uppercase ${
+                        item.status === 'success'
+                          ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                          : item.status === 'pending'
+                          ? 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+                          : item.status === 'reversed'
+                          ? 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30'
+                          : 'bg-red-500/15 text-red-600 border-red-500/30'
+                      }`}>
+                        {item.status} ({item.apiStatusCode || '200'})
+                      </Badge>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Network Filter Pills with Authentic Telecom Logos (When on store tab) */}
       {activeTab === 'store' && (

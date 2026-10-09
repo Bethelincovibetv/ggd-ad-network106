@@ -441,8 +441,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       return;
     }
 
-    // Direct Message / Chat notification navigation -> Open full message page!
-    if (
+    // Direct Message / Chat notification navigation -> Open full conversation with that specific person!
+    const isChatNotif =
       n.type === 'chat' ||
       n.type === 'message' ||
       n.type === 'urgent_message' ||
@@ -450,20 +450,50 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       n.title?.toLowerCase().includes('quick message') ||
       n.link_url?.includes('inbox') ||
       navTarget?.includes('inbox') ||
+      navTarget?.startsWith('chat:') ||
       navTarget === 'chat' ||
-      navTarget === 'inbox'
-    ) {
+      navTarget === 'inbox';
+
+    if (isChatNotif) {
+      let targetPersonId: string | null = null;
+      if (navTarget?.startsWith('chat:')) {
+        targetPersonId = navTarget.replace('chat:', '').trim();
+      } else if (n.sender_id) {
+        targetPersonId = n.sender_id;
+      }
+
+      if (!targetPersonId && (n.link_url || navTarget)) {
+        const uStr = n.link_url || navTarget || '';
+        try {
+          const u = new URL(uStr, window.location.origin);
+          targetPersonId = u.searchParams.get('chatWith') || u.searchParams.get('chat') || u.searchParams.get('userId');
+        } catch {}
+        if (!targetPersonId) {
+          const match = uStr.match(/(?:chatWith|chat)=([a-zA-Z0-9_-]+)/i);
+          if (match && match[1]) targetPersonId = match[1];
+        }
+      }
+
+      if (targetPersonId) {
+        sessionStorage.setItem('ggd_chat_target', targetPersonId);
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', 'inbox');
+          url.searchParams.set('chatWith', targetPersonId);
+          window.history.pushState(null, '', url.toString());
+        } catch {}
+        window.dispatchEvent(new CustomEvent('ggd-open-chat', { detail: { userId: targetPersonId } }));
+      }
+
+      try {
+        localStorage.setItem('ggd_active_tab', 'inbox');
+      } catch {}
+
       if (onNavigate) {
         onNavigate('inbox');
       } else {
         window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
       }
-      try {
-        localStorage.setItem('ggd_active_tab', 'inbox');
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', 'inbox');
-        window.history.pushState(null, '', url.toString());
-      } catch {}
       return;
     }
 

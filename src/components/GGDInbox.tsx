@@ -124,9 +124,14 @@ const GGDInbox: React.FC = () => {
     image_url?: string;
   } | null>(null);
 
-  // Parse search params for direct seller chat or product inquiry
+  // Parse search params & session targets for direct seller chat or product inquiry
   useEffect(() => {
-    const targetUid = searchParams.get("chatWith");
+    const sessionTarget = typeof window !== 'undefined' ? sessionStorage.getItem("ggd_chat_target") : null;
+    const targetUid = searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("to") || searchParams.get("user") || sessionTarget;
+    if (sessionTarget) {
+      sessionStorage.removeItem("ggd_chat_target");
+    }
+
     const tType = searchParams.get("tagType");
     const tTitle = searchParams.get("tagTitle");
     const tPrice = searchParams.get("tagPrice");
@@ -152,6 +157,19 @@ const GGDInbox: React.FC = () => {
       openThread(targetUid, null);
     }
   }, [searchParams, me]);
+
+  // Runtime event listener to immediately switch to a specific person's chat
+  useEffect(() => {
+    const handleOpenChatEvent = (e: any) => {
+      const targetUid = e?.detail?.userId || (typeof e?.detail === 'string' ? e.detail : null);
+      const targetTaskId = e?.detail?.taskId || null;
+      if (targetUid && targetUid !== me) {
+        openThread(targetUid, targetTaskId);
+      }
+    };
+    window.addEventListener("ggd-open-chat", handleOpenChatEvent);
+    return () => window.removeEventListener("ggd-open-chat", handleOpenChatEvent);
+  }, [me]);
 
   // ---- Init & load threads ----
   useEffect(() => {
@@ -494,9 +512,10 @@ const GGDInbox: React.FC = () => {
         // Dispatch quick message push notification & automated email to recipient
         sendQuickMessageNotification({
           recipientUserId: activeOther,
+          senderUserId: me,
           senderName: myProfile?.display_name || 'GGD Member',
           messagePreview: text,
-          chatUrl: `/inbox?chat=${me}`,
+          chatUrl: `/inbox?chatWith=${encodeURIComponent(me)}`,
         });
 
         // Trigger automated email notification for enquiry/message
@@ -630,9 +649,10 @@ const GGDInbox: React.FC = () => {
         
         sendQuickMessageNotification({
           recipientUserId: activeOther,
+          senderUserId: me,
           senderName: myProfile?.display_name || 'GGD Member',
           messagePreview: '🎙️ Voice note received',
-          chatUrl: `/inbox?chat=${me}`,
+          chatUrl: `/inbox?chatWith=${encodeURIComponent(me)}`,
         });
       }
     } catch (err) {
@@ -1076,19 +1096,21 @@ const GGDInbox: React.FC = () => {
                   disabled={isSending}
                 />
 
-                <Input
-                  value={input}
-                  disabled={isSending}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
-                  placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-                  className="flex-1"
-                />
+                <div className="flex-1 relative group p-[1.5px] rounded-xl bg-gradient-to-r from-orange-500/30 via-rose-500/20 to-amber-500/30 focus-within:from-orange-500 focus-within:via-rose-500 focus-within:to-amber-500 transition-all duration-300">
+                  <Input
+                    value={input}
+                    disabled={isSending}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
+                    placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
+                    className="w-full bg-card rounded-[10px] border-0 h-10 px-3 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
+                  />
+                </div>
                 <Button
                   onClick={send}
                   disabled={isSending || !input.trim()}
                   size="icon"
-                  className="bg-orange-500 hover:bg-orange-600 shrink-0"
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl h-10 w-10 shadow-md shadow-orange-500/30 shrink-0 active:scale-95 transition-all"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -1166,15 +1188,75 @@ const GGDInbox: React.FC = () => {
         />
       ) : (
         <div className="space-y-3">
-          {/* Global Network Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search Global Network by member, business, or recent message…"
-              className="pl-9 h-11 rounded-xl"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          {/* Colorful 3D Community-Style Chat & Network Search Bar */}
+          <div className="space-y-2.5">
+            <div className="relative group p-[2px] rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 via-purple-600 to-amber-400 shadow-md hover:shadow-xl transition-all duration-300">
+              <div className="bg-card/95 backdrop-blur-md rounded-[14px] p-1.5 sm:p-2 flex items-center gap-2 sm:gap-2.5">
+                {/* 3D Colorful Icon Badge */}
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-orange-500/30 shrink-0 group-hover:scale-105 transition-transform">
+                  <MessageCircle className="h-4 w-4 sm:h-4.5 sm:w-4.5 drop-shadow" />
+                </div>
+
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-0">
+                  <Input
+                    placeholder="Search Global Network by member, business, or recent message…"
+                    className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* Clear and Action buttons */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="h-7 w-7 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors"
+                      title="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Search</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Trending Chat Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1 shrink-0 mr-0.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                Quick Filter:
+              </span>
+              {[
+                { label: '💬 All Chats', query: '' },
+                { label: '🏢 Verified Businesses', query: 'biz' },
+                { label: '🤝 Syndicates', query: 'syndicate' },
+                { label: '🛍️ Storefronts', query: 'store' },
+              ].map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSearch(chip.query)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                    (chip.query === '' && !search) || (chip.query !== '' && search === chip.query)
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-xs'
+                      : 'bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground border-border/60'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {search && (
