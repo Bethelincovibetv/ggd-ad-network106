@@ -16,6 +16,7 @@ import {
   Share2,
   Store,
   Sparkles,
+  Bot,
   CheckCircle2,
   Building2,
   PlusCircle,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import VixoraBusinessAiAgentModal from "./business/VixoraBusinessAiAgentModal";
 
 interface Props {
   onNavigate?: (tab: string) => void;
@@ -61,6 +63,7 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
     hasDesc: false,
     hasContact: false,
   });
+  const [agentModalOpen, setAgentModalOpen] = useState(false);
 
   useEffect(() => {
     load();
@@ -309,6 +312,36 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
         </CardContent>
       </Card>
 
+      {/* Vixora AI Business Copilot Card */}
+      {isEnabled('vixora_business_agent') && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-950 via-slate-900 to-purple-950 border border-violet-500/30 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white grid place-items-center shrink-0 shadow-md ring-2 ring-violet-400/30">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-black text-white">Vixora AI Business Copilot</p>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] py-0 px-1.5 font-bold">
+                  ACTIVE
+                </Badge>
+              </div>
+              <p className="text-[11px] text-violet-200/80 mt-0.5 leading-relaxed">
+                Need to create products or update pricing? Let the AI agent manage your store catalog automatically.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setAgentModalOpen(true)}
+            size="sm"
+            className="bg-white text-slate-900 hover:bg-violet-100 font-black text-xs h-9 px-4 rounded-xl shadow-xs shrink-0 cursor-pointer w-full sm:w-auto"
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 text-violet-600" />
+            Launch AI Copilot
+          </Button>
+        </div>
+      )}
+
       {/* Live Traffic & Performance Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <Stat icon={Activity} label="Campaign Health" value={`${health}%`} tone="from-blue-500 to-indigo-600" />
@@ -382,6 +415,13 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Vixora AI Business Copilot Modal */}
+      <VixoraBusinessAiAgentModal
+        isOpen={agentModalOpen}
+        onClose={() => setAgentModalOpen(false)}
+        onRefreshData={load}
+      />
     </div>
   );
 };

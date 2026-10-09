@@ -18,6 +18,7 @@ import {
   Crown,
   Share2,
   Sparkles,
+  Bot,
   Layers,
   ArrowRight,
   BarChart3,
@@ -38,6 +39,7 @@ import { AdvertisingSection } from "./business/AdvertisingSection";
 import { PerformanceSection } from "./business/PerformanceSection";
 import { BusinessVerificationBadge } from "./business/BusinessVerificationBadge";
 import { BusinessVerificationModal } from "./business/BusinessVerificationModal";
+import VixoraBusinessAiAgentModal from "./business/VixoraBusinessAiAgentModal";
 import { getUserVerificationRecord, subscribeToUserVerification } from "@/services/businessVerificationEngine";
 import { VerificationSubmissionRecord } from "@/types/verification";
 
@@ -74,6 +76,15 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [verificationRecord, setVerificationRecord] = useState<VerificationSubmissionRecord | null>(null);
+
+  // Vixora AI Business Agent Modal
+  const [agentModalOpen, setAgentModalOpen] = useState(false);
+  const [agentInitialPrompt, setAgentInitialPrompt] = useState('');
+
+  const openAgentWithPrompt = (prompt: string = '') => {
+    setAgentInitialPrompt(prompt);
+    setAgentModalOpen(true);
+  };
 
   // Load All Workspace Data
   const fetchWorkspaceData = async () => {
@@ -304,8 +315,19 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
               </div>
             </div>
 
-            {/* Primary Action Button: Add Listing */}
+            {/* Primary Action Buttons */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
+              {isEnabled('vixora_business_agent') && (
+                <Button
+                  onClick={() => openAgentWithPrompt('')}
+                  className="flex-1 sm:flex-initial h-11 px-4 text-xs font-black bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-500/25 rounded-2xl transition-all cursor-pointer flex items-center gap-1.5 border border-white/20"
+                >
+                  <Bot className="h-4 w-4" />
+                  <span>Ask AI Agent</span>
+                  <Sparkles className="h-3 w-3 text-amber-300 animate-pulse" />
+                </Button>
+              )}
+
               <Button
                 onClick={handleOpenChoiceModal}
                 className="flex-1 sm:flex-initial h-11 px-5 text-xs font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg shadow-orange-500/20 rounded-2xl transition-all"
@@ -370,6 +392,62 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 1: OVERVIEW / WORKSPACE HUB                                           */}
         {/* ========================================================================= */}
         <TabsContent value="overview" className="space-y-4">
+          {/* Vixora AI Business Copilot Card */}
+          {isEnabled('vixora_business_agent') && (
+            <Card className="border-0 shadow-xl rounded-3xl overflow-hidden bg-gradient-to-br from-violet-950 via-slate-900 to-purple-950 text-white">
+              <CardContent className="p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-fuchsia-500 text-white grid place-items-center shrink-0 shadow-lg ring-2 ring-violet-400/30">
+                      <Bot className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-black text-white">
+                          Vixora AI Business Copilot
+                        </h3>
+                        <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
+                          AUTONOMOUS AGENT
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-violet-200/80 mt-0.5 leading-relaxed max-w-xl">
+                        Your intelligent store manager. Ask Vixora AI to create products, publish professional services, adjust prices, edit descriptions, update your WhatsApp contact, or design promotional flyers.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => openAgentWithPrompt('')}
+                    className="bg-white text-slate-900 hover:bg-violet-100 font-black text-xs h-10 px-4 rounded-xl shadow-md shrink-0 w-full sm:w-auto cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-violet-600" />
+                    Open AI Copilot
+                  </Button>
+                </div>
+
+                {/* Quick Action Prompt Chips */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
+                  <span className="text-[11px] font-bold text-violet-300 shrink-0">Quick Actions:</span>
+                  {[
+                    { label: "Add product with price", prompt: "Create a new product for my store with price ₦" },
+                    { label: "Update product pricing", prompt: "Update the price of my product" },
+                    { label: "Publish a service", prompt: "Add a new professional service to my storefront" },
+                    { label: "Update store phone & address", prompt: "Update my business phone and store address" },
+                    { label: "Design promo flyer", prompt: "Generate a marketing flyer for my products" },
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => openAgentWithPrompt(chip.prompt)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-medium text-violet-100 border border-white/15 transition-all text-left cursor-pointer"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Business Verification Prompt Banner if not verified */}
           {verificationRecord?.status !== 'VERIFIED' && (
             <Card className="border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent shadow-sm overflow-hidden">
@@ -593,13 +671,25 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
               </p>
             </div>
 
-            <Button
-              onClick={handleAddDirectProduct}
-              className="h-10 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Product
-            </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {isEnabled('vixora_business_agent') && (
+                <Button
+                  onClick={() => openAgentWithPrompt('Create a new product with price')}
+                  variant="outline"
+                  className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
+                >
+                  <Bot className="h-4 w-4 text-violet-600" />
+                  <span>Add with AI</span>
+                </Button>
+              )}
+              <Button
+                onClick={handleAddDirectProduct}
+                className="h-10 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md cursor-pointer"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Product
+              </Button>
+            </div>
           </div>
 
           {/* Search & Filter Toolbar */}
@@ -698,13 +788,25 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
               </p>
             </div>
 
-            <Button
-              onClick={handleAddDirectService}
-              className="h-10 px-4 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-md"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Service
-            </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {isEnabled('vixora_business_agent') && (
+                <Button
+                  onClick={() => openAgentWithPrompt('Add a new professional service with price')}
+                  variant="outline"
+                  className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
+                >
+                  <Bot className="h-4 w-4 text-violet-600" />
+                  <span>Add with AI</span>
+                </Button>
+              )}
+              <Button
+                onClick={handleAddDirectService}
+                className="h-10 px-4 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-md cursor-pointer"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Service
+              </Button>
+            </div>
           </div>
 
           {/* Search & Filter Toolbar */}
@@ -969,6 +1071,14 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
           onVerificationComplete={fetchWorkspaceData}
         />
       )}
+
+      {/* Vixora AI Business Copilot Modal */}
+      <VixoraBusinessAiAgentModal
+        isOpen={agentModalOpen}
+        onClose={() => setAgentModalOpen(false)}
+        onRefreshData={fetchWorkspaceData}
+        initialPrompt={agentInitialPrompt}
+      />
     </div>
   );
 };

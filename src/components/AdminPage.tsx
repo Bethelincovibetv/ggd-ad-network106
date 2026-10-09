@@ -29,6 +29,8 @@ import AdminContactGainManager from "@/components/AdminContactGainManager";
 import { AdminVerificationManager } from "@/components/admin/AdminVerificationManager";
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
+import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
+import AdminRealtimeSearchBar from "@/components/admin/AdminRealtimeSearchBar";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
@@ -64,6 +66,7 @@ const navGroups: NavGroup[] = [
     title: 'ADVERTISING & CAMPAIGNS',
     items: [
       { id: 'vixora-admin', icon: Video, label: 'Vixora AI Studio & API', sublabel: 'AI video engine, keys & render jobs', color: 'text-white', gradient: 'from-orange-500 via-purple-600 to-indigo-700' },
+      { id: 'business-agent', icon: Sparkles, label: 'Vixora Business AI Agent', sublabel: 'Storefront copilot & permissions', color: 'text-white', gradient: 'from-violet-600 via-purple-600 to-fuchsia-600' },
       { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
       { id: 'email-studio', icon: Mail, label: 'Email & Ad Studio', sublabel: 'Modern templates & sponsor ads', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
@@ -205,6 +208,9 @@ const AdminPage = () => {
           onNavigateSyndicate={(ad) => navigateToSection('syndicate', { initialCampaignId: ad.id, initialTab: 'campaigns' })} 
         />
       );
+      case 'business-agent':
+      case 'vixora-agent':
+        return <AdminBusinessAgentManager />;
       case 'vixora-admin':
       case 'vixora':
         return <AdminVixoraManager />;
@@ -321,7 +327,7 @@ const AdminPage = () => {
       </header>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[86vw] max-w-[320px] border-r border-border bg-card p-0">
+        <SheetContent side="left" className="w-[86vw] max-w-[340px] border-r border-border bg-card p-0">
           <div className="flex h-full flex-col">
             <SheetHeader className="border-b border-border px-4 py-4 text-left">
               <SheetTitle className="flex items-center gap-3 text-sm font-bold">
@@ -329,6 +335,17 @@ const AdminPage = () => {
                 <span>GGD Admin Navigation</span>
               </SheetTitle>
             </SheetHeader>
+
+            {/* Mobile Real-time Search Bar */}
+            <div className="p-3 border-b border-border bg-muted/20">
+              <AdminRealtimeSearchBar
+                onNavigate={(sec, extra) => {
+                  setMobileMenuOpen(false);
+                  navigateToSection(sec, extra);
+                }}
+                className="max-w-none w-full"
+              />
+            </div>
 
             <ScrollArea className="flex-1 px-3 py-3">
               <div className="space-y-4">
@@ -367,6 +384,19 @@ const AdminPage = () => {
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
         <div className="w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-5">
+          {/* Top Real-time Navigation Command Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs">
+            <div className="flex-1 min-w-0">
+              <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-none w-full" />
+            </div>
+            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground font-medium shrink-0 px-2">
+              <span className="inline-flex items-center gap-1 bg-secondary/80 px-2 py-1 rounded-md text-[11px] font-mono border border-border">
+                <kbd className="font-sans">⌘</kbd>K
+              </span>
+              <span>Quick jump anywhere in portal</span>
+            </div>
+          </div>
+
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
             <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3`}>
