@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Bot, Sparkles, Send, Loader2, Store, Package, Briefcase, Plus, 
   TrendingUp, RefreshCw, CheckCircle2, ShieldCheck, Download, 
-  ExternalLink, MessageCircle, AlertCircle, Trash2, Edit3, X
+  ExternalLink, MessageCircle, AlertCircle, Trash2, Edit3, X,
+  Image as ImageIcon, Upload, Brain, Megaphone, Share2, FileText,
+  CreditCard, Phone, MapPin, ArrowRight, Check, Zap, ShoppingBag
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,8 +21,17 @@ import {
   updateProductOrService, 
   updateBusinessProfileDetails,
   generateProductPromoCanvas,
+  publishCommunityPostOnBehalf,
+  createAdCampaignOnBehalf,
+  generateBusinessGrowthStrategy,
+  generateCustomerSupportClosingReply,
+  generateOrderClosingInvoice,
+  uploadAgentMedia,
+  getUserBusinessMemory,
+  saveUserBusinessMemory,
   BusinessOverviewContext,
   BusinessListingItem,
+  BusinessAgentMemory,
   BUSINESS_AGENT_TOOL_DEFINITIONS
 } from "@/services/vixoraBusinessAgentService";
 import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
@@ -31,9 +43,14 @@ export interface BusinessChatMessage {
   text: string;
   timestamp: string;
   actionBadge?: string;
+  imageUrl?: string;
   productResult?: BusinessListingItem;
   profileResult?: any;
   flyerUrl?: string;
+  bannerAdResult?: any;
+  communityPostResult?: any;
+  strategyResult?: any;
+  accountOverviewResult?: any;
   isThinking?: boolean;
 }
 
@@ -50,6 +67,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
   onRefreshData,
   initialPrompt = ''
 }) => {
+  const [activeTab, setActiveTab] = useState<'chat' | 'memory' | 'account'>('chat');
   const [messages, setMessages] = useState<BusinessChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem('vixora_business_agent_history');
@@ -59,7 +77,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       {
         id: 'welcome',
         sender: 'agent',
-        text: "Hello! I am Vixora AI Business Copilot! I am your autonomous store manager on GGD Ad Network.\n\nTell me what you need done:\n• Add new products or services (e.g., 'Add a product: Luxury Leather Shoes for ₦35,000')\n• Update existing prices or descriptions\n• Update your business profile, WhatsApp contact, or store address\n• Generate promotional marketing flyers for your catalog\n\nHow can I help grow your business today?",
+        text: "Hello! I am Vixora AI Business Copilot! I am your autonomous store manager, advertising strategist, and WhatsApp sales closer on GGD Ad Network.\n\nTell me what you need done:\n• Add new products/services with photos (upload or describe them)\n• Update pricing, store details, WhatsApp phone, or address\n• Generate marketing flyers & banner adverts\n• Post directly to Community Feed on your behalf\n• Diagnose store strategy & give a 7-day revenue sprint plan\n• Close customer WhatsApp chats & prepare instant invoices\n\nHow can I help grow your business today?",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionBadge: "Vixora Autonomous Business Engine"
       }
@@ -69,7 +87,22 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
   const [input, setInput] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [businessContext, setBusinessContext] = useState<BusinessOverviewContext | null>(null);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedImageFile, setAttachedImageFile] = useState<File | null>(null);
+  const [userMemory, setUserMemory] = useState<BusinessAgentMemory>({
+    brandVoice: 'naija_energetic',
+    targetAudience: 'African shoppers, wholesale buyers, and WhatsApp customers',
+    bankDetails: '',
+    whatsappHotline: '',
+    deliveryTerms: 'Fast nationwide doorstep delivery',
+    returnPolicy: '7-day inspection and exchange guarantee',
+    keySellingPoints: ['Verified quality', 'Direct WhatsApp support', 'Fair pricing'],
+    customLearnedNotes: []
+  });
+  const [newMemoryNote, setNewMemoryNote] = useState('');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialPrompt) {
@@ -98,16 +131,36 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       if (!user) return;
       const ctx = await fetchUserBusinessContext(user.id);
       setBusinessContext(ctx);
+      const mem = getUserBusinessMemory(user.id);
+      setUserMemory(mem);
     } catch (e) {
       console.warn("Could not load business context:", e);
     }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file must be under 10MB");
+      return;
+    }
+
+    setAttachedImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachedImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    toast.success("Image attached! You can now ask Vixora to analyze it or create a product.");
   };
 
   const clearChat = () => {
     const welcome: BusinessChatMessage = {
       id: `w_${Date.now()}`,
       sender: 'agent',
-      text: "Chat cleared! I am ready to manage your products, services, pricing, and business profile. What would you like to update?",
+      text: "Chat refreshed! I am ready to manage your products, post to community, run strategic growth plans, and close WhatsApp sales. What would you like to do next?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actionBadge: "Ready for Instructions"
     };
@@ -117,9 +170,25 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
     } catch {}
   };
 
+  const handleSaveMemoryField = (field: keyof BusinessAgentMemory, val: any) => {
+    if (!businessContext?.userId) return;
+    const updated = saveUserBusinessMemory(businessContext.userId, { [field]: val });
+    setUserMemory(updated);
+    toast.success("AI Memory & Brand Voice updated!");
+  };
+
+  const handleAddMemoryNote = () => {
+    if (!newMemoryNote.trim() || !businessContext?.userId) return;
+    const notes = [...(userMemory.customLearnedNotes || []), newMemoryNote.trim()];
+    const updated = saveUserBusinessMemory(businessContext.userId, { customLearnedNotes: notes });
+    setUserMemory(updated);
+    setNewMemoryNote('');
+    toast.success("Saved note to Vixora AI permanent memory!");
+  };
+
   const handleSendMessage = async (promptText?: string) => {
     const query = (promptText || input).trim();
-    if (!query || loading) return;
+    if ((!query && !attachedImage) || loading) return;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -127,10 +196,19 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       return;
     }
 
+    const currentImg = attachedImage;
+    const currentFile = attachedImageFile;
+
+    // Reset attachments immediately
+    setAttachedImage(null);
+    setAttachedImageFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
     const userMsg: BusinessChatMessage = {
       id: `usr_${Date.now()}`,
       sender: 'user',
-      text: query,
+      text: query || (currentImg ? "Uploaded an image for analysis & store action" : ''),
+      imageUrl: currentImg || undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -148,22 +226,145 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
 
     try {
       const currentCtx = businessContext || await fetchUserBusinessContext(user.id);
+      const activeMemory = getUserBusinessMemory(user.id);
       const lower = query.toLowerCase();
 
       let actionBadge = '';
       let productResult: BusinessListingItem | undefined;
       let profileResult: any;
       let flyerUrl: string | undefined;
+      let bannerAdResult: any;
+      let communityPostResult: any;
+      let strategyResult: any;
+      let accountOverviewResult: any;
       let responseText = '';
 
-      // Direct Pattern & Intent Extraction (Zero latency, 100% resilient)
-      // 1. CREATE PRODUCT OR SERVICE INTENT
-      const isCreateIntent = lower.includes('create') || lower.includes('add') || lower.includes('new product') || lower.includes('new service') || lower.includes('publish');
-      const isServiceIntent = lower.includes('service');
-      const isProductIntent = lower.includes('product') || lower.includes('item') || (!isServiceIntent && isCreateIntent);
+      // Upload image to Supabase/Cloud SQL storage if present
+      let uploadedPublicUrl = '';
+      if (currentFile) {
+        try {
+          uploadedPublicUrl = await uploadAgentMedia(currentFile, user.id);
+        } catch (e) {
+          console.warn("Storage upload notice:", e);
+        }
+      }
 
-      if (isCreateIntent && (isProductIntent || isServiceIntent)) {
-        // Extract Price (e.g. ₦35,000, 35000 naira, 50k, etc.)
+      // Memory learning check: user says "remember that..." or "our policy is..."
+      if (lower.startsWith('remember that') || lower.startsWith('remember:') || lower.includes('our brand voice is') || lower.includes('my bank account is')) {
+        const learned = query.replace(/^remember(?:\s+that|:)?/i, '').trim();
+        if (learned.length > 2) {
+          const notes = [...(activeMemory.customLearnedNotes || []), learned];
+          saveUserBusinessMemory(user.id, { customLearnedNotes: notes });
+          setUserMemory(prev => ({ ...prev, customLearnedNotes: notes }));
+          actionBadge = "🧠 Brand Memory Saved";
+          responseText = `Got it! I have saved this permanently to my memory:\n\n"${learned}"\n\nI will remember and apply this rule across all customer replies, marketing copy, and catalog management for ${currentCtx.profile?.business_name || currentCtx.displayName}!`;
+        }
+      }
+
+      // 1. STRATEGY PLANNING & BUSINESS DIAGNOSTIC INTENT
+      else if (lower.includes('strategy') || lower.includes('plan') || lower.includes('diagnostic') || lower.includes('what is working') || lower.includes('growth plan') || lower.includes('audit my store')) {
+        const diag = generateBusinessGrowthStrategy(currentCtx, activeMemory);
+        strategyResult = diag;
+        actionBadge = "📈 7-Day Business Growth Strategy Generated";
+        responseText = `Here is your custom 7-Day Growth Strategy & Store Health Diagnostic for ${currentCtx.profile?.business_name || currentCtx.displayName}!\n\n• Store Health Score: ${diag.healthScore}%\n• Active Products: ${currentCtx.activeProductsCount}\n• Active Ads: ${currentCtx.activeAdsCount}\n\nReview the strengths, fix the bottlenecks, and execute the 7-day tactical action steps below to maximize sales this week!`;
+      }
+
+      // 2. ACCOUNT OVERVIEW & METRICS INTENT
+      else if (lower.includes('account overview') || lower.includes('my balance') || lower.includes('my credits') || lower.includes('store stats') || lower.includes('my stats') || lower.includes('account status')) {
+        accountOverviewResult = {
+          displayName: currentCtx.displayName,
+          credits: currentCtx.credits,
+          walletBalance: currentCtx.walletBalance,
+          activeProducts: currentCtx.activeProductsCount,
+          activeServices: currentCtx.activeServicesCount,
+          activeAds: currentCtx.activeAdsCount,
+          recentPosts: currentCtx.recentPostsCount,
+          businessName: currentCtx.profile?.business_name || 'Not set',
+          phone: currentCtx.profile?.phone_number || 'Not set',
+          address: currentCtx.profile?.address || 'Not set'
+        };
+        actionBadge = "📊 Account & Wallet Overview";
+        responseText = `Here is your live account status on GGD Ad Network:\n\n• Store: ${currentCtx.profile?.business_name || currentCtx.displayName}\n• Credits: ${currentCtx.credits.toLocaleString()} GGD Credits\n• Wallet: ₦${currentCtx.walletBalance.toLocaleString()}\n• Active Listings: ${currentCtx.activeProductsCount} products, ${currentCtx.activeServicesCount} services\n• Running Banner Ads: ${currentCtx.activeAdsCount}\n• Community Posts: ${currentCtx.recentPostsCount}\n\nYour account is in good standing and ready for expansion!`;
+      }
+
+      // 3. POST TO COMMUNITY ON BEHALF OF USER INTENT
+      else if (lower.includes('post on community') || lower.includes('post to community') || lower.includes('publish post') || lower.includes('share on community') || lower.includes('community post')) {
+        const targetTitle = currentCtx.listings[0]?.title || currentCtx.profile?.business_name || 'Exclusive Offer';
+        const targetPrice = currentCtx.listings[0]?.price ? `₦${currentCtx.listings[0].price.toLocaleString()}` : '';
+        const phone = currentCtx.profile?.phone_number || activeMemory.whatsappHotline || '';
+        const storeName = currentCtx.profile?.business_name || currentCtx.displayName;
+
+        let postContent = query
+          .replace(/^(can you |please |vixora |post on community |post to community |publish post |share on community )+/i, '')
+          .trim();
+
+        if (!postContent || postContent.length < 10) {
+          postContent = `🔥 Special showcase from ${storeName}! Check out "${targetTitle}" ${targetPrice ? `available now at ${targetPrice}` : ''}. Verified quality guaranteed! Order or inquire directly on WhatsApp: ${phone} #deals #verified #${targetTitle.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        }
+
+        const postImage = uploadedPublicUrl || currentImg || currentCtx.listings[0]?.image_url || undefined;
+        const res = await publishCommunityPostOnBehalf(user.id, {
+          content: postContent,
+          imageUrl: postImage,
+          tags: ['storefront', 'deals', 'verified']
+        });
+
+        if (res.success && res.post) {
+          communityPostResult = res.post;
+          actionBadge = "🚀 Post Published to Community Feed";
+          responseText = `Super sharp! I have published your showcase post directly to the GGD Community Feed!\n\nAll members across Nigeria and the network can now see it, like, comment, and connect with your business directly.`;
+          toast.success("Published post to Community Feed!");
+          if (onRefreshData) onRefreshData();
+          loadContext();
+        } else {
+          responseText = `I encountered an issue publishing to the community: ${res.message}. Please try again!`;
+        }
+      }
+
+      // 4. CREATE BANNER ADVERT INTENT
+      else if (lower.includes('banner advert') || lower.includes('create banner') || lower.includes('ad banner') || lower.includes('display ad')) {
+        const targetTitle = currentCtx.listings[0]?.title || currentCtx.profile?.business_name || 'Exclusive Special Offer';
+        const targetPrice = currentCtx.listings[0]?.price || 15000;
+        const storeName = currentCtx.profile?.business_name || currentCtx.displayName;
+
+        const bannerDataUrl = generateProductPromoCanvas({
+          title: targetTitle,
+          price: targetPrice,
+          businessName: storeName,
+          format: lower.includes('square') ? 'banner_square' : 'banner_landscape',
+          themeColor: lower.includes('emerald') ? 'emerald' : lower.includes('purple') ? 'purple' : lower.includes('gold') ? 'gold' : 'orange',
+          ctaText: 'ORDER NOW VIA WHATSAPP →'
+        });
+
+        flyerUrl = bannerDataUrl;
+        actionBadge = "🎨 High-Converting Banner Advert Created";
+        responseText = `Here is your high-impact 1200x628 Display Banner Advert for "${targetTitle}"!\n\nThis format is fully optimized for GGD Ad Network banners, sponsored placements, and WhatsApp Status ads. You can download it directly below!`;
+      }
+
+      // 5. CUSTOMER SUPPORT REPLY & ORDER CLOSER INTENT
+      else if (lower.includes('customer said') || lower.includes('reply customer') || lower.includes('how to reply') || lower.includes('close sale') || lower.includes('order invoice') || lower.includes('customer inquiry') || lower.includes('receive order')) {
+        const isOrder = lower.includes('order') || lower.includes('wants') || lower.includes('buying');
+        if (isOrder) {
+          const invoice = generateOrderClosingInvoice({
+            orderText: query,
+            context: currentCtx,
+            memory: activeMemory
+          });
+          actionBadge = "🧾 Order Confirmation & WhatsApp Invoice";
+          responseText = `Here is the professional WhatsApp order breakdown and invoice closing text ready to send:\n\n${invoice}`;
+        } else {
+          const reply = generateCustomerSupportClosingReply({
+            customerMessage: query,
+            context: currentCtx,
+            memory: activeMemory
+          });
+          actionBadge = "💬 High-Converting Customer Closing Reply";
+          responseText = `Here is an empathetic, high-converting customer support reply tailored to your brand voice:\n\n"${reply}"\n\nYou can copy and paste this directly to your WhatsApp chat with the customer!`;
+        }
+      }
+
+      // 6. CREATE PRODUCT OR SERVICE INTENT
+      else if ((lower.includes('create') || lower.includes('add') || lower.includes('new product') || lower.includes('new service') || lower.includes('publish')) && (lower.includes('product') || lower.includes('service') || lower.includes('item') || currentImg)) {
         let price = 5000;
         const priceMatch = query.match(/(?:₦|naira|ngn|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
         if (priceMatch) {
@@ -173,31 +374,32 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
           if (!isNaN(num) && num > 0) price = num;
         }
 
-        // Extract Title
+        let isService = lower.includes('service');
         let title = query
           .replace(/^(can you |please |vixora |add |create |publish |new |a |an |product |service |called |named )+/i, '')
           .replace(/(?:for|at|price|worth|costing)\s*(?:₦|naira|\$)?[0-9,k]+/i, '')
           .replace(/(?:with description|description:).*/i, '')
           .trim();
-        
-        if (!title || title.length < 2) {
-          title = isServiceIntent ? 'Professional Service' : 'Exclusive Product Offer';
-        }
 
-        // Clean quotes if present
+        if (!title || title.length < 2) {
+          title = isService ? 'Professional Service Package' : 'Exclusive Product Item';
+        }
         title = title.replace(/^["']|["']$/g, '').trim();
+
+        const itemImage = uploadedPublicUrl || currentImg || undefined;
 
         const res = await createProductOrService(user.id, {
           title,
           price,
-          description: `Verified ${isServiceIntent ? 'service' : 'product'} offered by ${currentCtx.profile?.business_name || currentCtx.displayName}. Order or book directly via WhatsApp.`,
-          listing_type: isServiceIntent ? 'service' : 'product'
+          description: `Verified ${isService ? 'service' : 'product'} offered by ${currentCtx.profile?.business_name || currentCtx.displayName}. Order or book directly via WhatsApp.`,
+          listing_type: isService ? 'service' : 'product',
+          image_url: itemImage
         });
 
         if (res.success && res.item) {
           productResult = res.item;
-          actionBadge = `⚡ New ${isServiceIntent ? 'Service' : 'Product'} Published to Storefront`;
-          responseText = `Super sharp! I have created and published "${res.item.title}" to your GGD business storefront at ₦${res.item.price.toLocaleString()}!\n\nYour customers can now discover it in the directory and place direct orders via WhatsApp.`;
+          actionBadge = `⚡ New ${isService ? 'Service' : 'Product'} Published to Storefront`;
+          responseText = `Super sharp! I have published "${res.item.title}" to your GGD business storefront at ₦${res.item.price.toLocaleString()}!\n\nYour customers can now find it in the public directory and place direct orders via WhatsApp.`;
           toast.success(`Published "${res.item.title}" to storefront!`);
           if (onRefreshData) onRefreshData();
           loadContext();
@@ -206,7 +408,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
         }
       }
 
-      // 2. UPDATE PRODUCT OR SERVICE (PRICE / NAME / DESCRIPTION)
+      // 7. UPDATE PRODUCT OR SERVICE INTENT
       else if ((lower.includes('update') || lower.includes('change') || lower.includes('edit')) && (lower.includes('price') || lower.includes('cost') || lower.includes('product') || lower.includes('service'))) {
         let price: number | undefined;
         const priceMatch = query.match(/(?:to|for|at|new price)?\s*(?:₦|naira|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
@@ -217,7 +419,6 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
           if (!isNaN(num) && num > 0) price = num;
         }
 
-        // Identify product from catalog or query
         let matchedProduct = currentCtx.listings[0];
         for (const item of currentCtx.listings) {
           if (lower.includes(item.title.toLowerCase())) {
@@ -241,27 +442,25 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
             loadContext();
           }
         } else {
-          responseText = `I hear you! To update a product or service, tell me the item name and the new price or details. For example: "Update price of ${currentCtx.listings[0]?.title || 'Sneakers'} to ₦20,000".`;
+          responseText = `I hear you! To update a product or service, tell me the item name and the new price. For example: "Update price of ${currentCtx.listings[0]?.title || 'Sneakers'} to ₦20,000".`;
         }
       }
 
-      // 3. UPDATE BUSINESS PROFILE (NAME / WHATSAPP / ADDRESS / BIO)
+      // 8. UPDATE BUSINESS PROFILE (NAME / WHATSAPP / ADDRESS / BIO)
       else if (lower.includes('business name') || lower.includes('store name') || lower.includes('whatsapp') || lower.includes('phone') || lower.includes('address') || lower.includes('update profile')) {
         const updatePayload: any = {};
 
-        // Phone / WhatsApp match
         const phoneMatch = query.match(/(?:\+?234|0)[0-9]{10}/);
         if (phoneMatch) {
           updatePayload.phone_number = phoneMatch[0];
+          saveUserBusinessMemory(user.id, { whatsappHotline: phoneMatch[0] });
         }
 
-        // Business Name match
         const nameMatch = query.match(/(?:name to|called|store name:?)\s*([a-zA-Z0-9\s&'-]{3,40})/i);
         if (nameMatch) {
           updatePayload.business_name = nameMatch[1].trim();
         }
 
-        // Address match
         if (lower.includes('address to')) {
           const addr = query.split(/address to\s*/i)[1]?.trim();
           if (addr) updatePayload.address = addr;
@@ -282,44 +481,49 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
         }
       }
 
-      // 4. GENERATE PROMOTIONAL FLYER
-      else if (lower.includes('flyer') || lower.includes('banner') || lower.includes('poster') || lower.includes('ad creative')) {
-        const targetTitle = currentCtx.listings[0]?.title || currentCtx.profile?.business_name || 'Exclusive Special Offer';
-        const targetPrice = currentCtx.listings[0]?.price || 15000;
-
-        flyerUrl = generateProductPromoCanvas({
-          title: targetTitle,
-          price: targetPrice,
-          businessName: currentCtx.profile?.business_name || currentCtx.displayName,
-          themeColor: lower.includes('purple') ? 'purple' : lower.includes('emerald') || lower.includes('green') ? 'emerald' : lower.includes('gold') ? 'gold' : 'orange'
-        });
-
-        actionBadge = "⚡ High-Converting Flyer Generated";
-        responseText = `Here is your high-impact Instagram & WhatsApp marketing flyer for "${targetTitle}"!\n\nYou can download it directly below or share it to your WhatsApp status to drive instant customer inquiries!`;
-      }
-
-      // 5. GENERAL INTELLIGENT AI MODEL CALL WITH TOOLS
+      // 9. GENERAL INTELLIGENT AI MODEL CALL WITH TOOLS & MULTIMODAL VISION
       else {
         try {
           const apiKey = await resolveAdminAiApiKey();
           if (apiKey && apiKey.length > 10) {
             const ai = new GoogleGenAI({ apiKey });
+
+            const brandVoicePrompt = 
+              activeMemory.brandVoice === 'luxury_elite' ? 'Tone: High-end luxury, exclusive, ultra-refined, premium aesthetics.' :
+              activeMemory.brandVoice === 'urgent_closer' ? 'Tone: High-urgency sales closer, fast-paced, action-oriented, clear calls-to-action.' :
+              activeMemory.brandVoice === 'corporate_friendly' ? 'Tone: Corporate, trustworthy, professional, precise.' :
+              'Tone: Warm, enthusiastic, highly knowledgeable, street-smart Nigerian business energy ("No wahala at all!", "Oya let\'s scale this business!", "Super sharp!").';
+
+            const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
+
             const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
 User Name: ${currentCtx.displayName}
 Business Name: ${currentCtx.profile?.business_name || 'Not set'}
 Active Products: ${currentCtx.activeProductsCount}
 Active Services: ${currentCtx.activeServicesCount}
 Credits: ${currentCtx.credits}
+Running Ads: ${currentCtx.activeAdsCount}
+Brand Voice: ${brandVoicePrompt}
+Bank Details: ${activeMemory.bankDetails || 'Not set'}
+WhatsApp Hotline: ${activeMemory.whatsappHotline || currentCtx.profile?.phone_number || 'Not set'}
+Delivery Terms: ${activeMemory.deliveryTerms}
+Return Policy: ${activeMemory.returnPolicy}
+
+SAVED BRAND MEMORY & LEARNED RULES:
+${memoryList || 'None yet'}
 
 YOUR POWERS:
-1. You can create products and services for the user.
+1. You can create products and services for the user, with attached images.
 2. You can update existing product prices, titles, or descriptions.
 3. You can update business profile details (business name, phone, address).
-4. You give smart, realistic Nigerian and African commerce advice (pricing psychology, WhatsApp closing scripts, syndicate promotions).
-5. Always speak with warm, enthusiastic, highly knowledgeable, and encouraging Nigerian business energy ("No wahala at all!", "Oya let's scale this business!", "Super sharp!").
-6. Never output asterisks (no * or **). Keep typography clean and readable.`;
+4. You can draft and publish promotional community posts on behalf of the user.
+5. You can diagnose growth bottlenecks and plan 7-day revenue strategy.
+6. You can create 3D banner adverts and flyers.
+7. You can reply to customer support queries and close WhatsApp sales with instant invoices.
+8. If user provides an image, analyze the image thoroughly (product type, condition, suggested selling price, marketing hooks).
+9. Never output asterisks (no * or **). Keep typography clean and readable.`;
 
-            const historyTurns = messages
+            const historyTurns: any[] = messages
               .filter(m => !m.isThinking && m.id !== 'welcome')
               .slice(-6)
               .map(m => ({
@@ -327,9 +531,22 @@ YOUR POWERS:
                 parts: [{ text: m.text }]
               }));
 
+            const userParts: any[] = [{ text: query || 'Please analyze this attached item and recommend the next action.' }];
+            if (currentImg) {
+              const match = currentImg.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                userParts.push({
+                  inlineData: {
+                    mimeType: match[1],
+                    data: match[2]
+                  }
+                });
+              }
+            }
+
             const contents = [
               ...historyTurns,
-              { role: 'user', parts: [{ text: query }] }
+              { role: 'user', parts: userParts }
             ];
 
             const res = await ai.models.generateContent({
@@ -347,7 +564,7 @@ YOUR POWERS:
         }
 
         if (!responseText) {
-          responseText = `I hear you crystal clear, ${currentCtx.displayName}! As your Vixora Business Copilot, I am here to help you manage your store, add high-yield products and services, set optimal prices, and drive WhatsApp customer inquiries.\n\nWhat would you like us to work on next?`;
+          responseText = `I hear you crystal clear, ${currentCtx.displayName}! As your Vixora Business Copilot, I am here to help you manage your store, add high-yield products with photos, set optimal prices, post to the community, and drive WhatsApp customer sales.\n\nWhat would you like us to work on next?`;
         }
       }
 
@@ -359,7 +576,11 @@ YOUR POWERS:
         actionBadge: actionBadge || undefined,
         productResult,
         profileResult,
-        flyerUrl
+        flyerUrl,
+        bannerAdResult,
+        communityPostResult,
+        strategyResult,
+        accountOverviewResult
       };
 
       setMessages(prev => [...prev.filter(m => !m.isThinking), agentResponse]);
@@ -382,9 +603,9 @@ YOUR POWERS:
 
   return (
     <Dialog open={isOpen} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl w-[95vw] h-[85vh] max-h-[780px] p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl flex flex-col rounded-3xl">
+      <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[820px] p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl flex flex-col rounded-3xl">
         {/* Header */}
-        <DialogHeader className="p-4 sm:px-6 bg-gradient-to-r from-violet-900/90 via-purple-900/80 to-slate-900 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
+        <DialogHeader className="p-3.5 sm:px-6 bg-gradient-to-r from-violet-900/90 via-purple-900/80 to-slate-900 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
               <img
@@ -400,194 +621,612 @@ YOUR POWERS:
                   Vixora Business Copilot <Sparkles className="h-4 w-4 text-amber-300" />
                 </DialogTitle>
                 <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold py-0">
-                  Online Agent
+                  Online Copilot
                 </Badge>
               </div>
               <p className="text-[11px] text-violet-200/80">
-                Autonomous Store & Product Manager • Independent Module
+                Autonomous Store & Product Manager • Social Marketing • Sales Closer
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center bg-white/10 p-1 rounded-xl text-xs font-bold border border-white/10">
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${activeTab === 'chat' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('memory')}
+                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${activeTab === 'memory' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+              >
+                <Brain className="h-3 w-3" /> Voice & Memory
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('account')}
+                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${activeTab === 'account' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+              >
+                <Store className="h-3 w-3" /> Store Hub
+              </button>
+            </div>
+
             <Button
               size="sm"
               variant="ghost"
               onClick={clearChat}
-              className="h-8 text-xs text-white/70 hover:text-white hover:bg-white/10 rounded-xl px-2.5"
+              className="h-8 text-xs text-white/70 hover:text-white hover:bg-white/10 rounded-xl px-2"
               title="Reset conversation"
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Clear
+              <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </div>
         </DialogHeader>
 
-        {/* Quick Action Badges */}
-        <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
-            Quick Actions:
-          </span>
-          <button
-            onClick={() => handleSendMessage("Create a new product: Premium Fashion Item for ₦25,000")}
-            className="text-[11px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0"
-          >
-            + Add Product
-          </button>
-          <button
-            onClick={() => handleSendMessage("Create a new service: Professional Consulting for ₦50,000")}
-            className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0"
-          >
-            + Add Service
-          </button>
-          <button
-            onClick={() => handleSendMessage("Update product price to ₦20,000")}
-            className="text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0"
-          >
-            Update Price
-          </button>
-          <button
-            onClick={() => handleSendMessage("Generate a marketing flyer for my products")}
-            className="text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0"
-          >
-            🎨 Marketing Flyer
-          </button>
-        </div>
+        {/* TAB 1: MAIN CONVERSATIONAL COPILOT */}
+        {activeTab === 'chat' && (
+          <>
+            {/* Quick Autonomous Routines / Action Chips */}
+            <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1">
+                <Zap className="h-3 w-3 text-amber-500" /> Auto Routines:
+              </span>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[11px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0 flex items-center gap-1"
+              >
+                <ImageIcon className="h-3 w-3" /> Upload Photo & Add
+              </button>
+              <button
+                onClick={() => handleSendMessage("Publish a promotional showcase post to the community on my behalf")}
+                className="text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/20 shrink-0 flex items-center gap-1"
+              >
+                <Megaphone className="h-3 w-3" /> Auto-Post to Community
+              </button>
+              <button
+                onClick={() => handleSendMessage("Perform an audit and plan business growth strategy for my store")}
+                className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0 flex items-center gap-1"
+              >
+                <TrendingUp className="h-3 w-3" /> Plan Growth Strategy
+              </button>
+              <button
+                onClick={() => handleSendMessage("Generate a 1200x628 banner advert for my store")}
+                className="text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0 flex items-center gap-1"
+              >
+                🎨 Create Banner Ad
+              </button>
+              <button
+                onClick={() => handleSendMessage("Customer wants to buy: 2 pairs of Sneakers. Prepare order invoice and WhatsApp closing script")}
+                className="text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0 flex items-center gap-1"
+              >
+                💬 Close Order in WhatsApp
+              </button>
+            </div>
 
-        {/* Messages Stream */}
-        <ScrollArea className="flex-1 p-4 sm:p-5">
-          <div className="space-y-4 max-w-xl mx-auto">
-            {messages.map(msg => {
-              const isUser = msg.sender === 'user';
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
-                >
-                  {!isUser && (
-                    <img
-                      src={vixoraAgentAvatar}
-                      alt="Vixora"
-                      className="h-8 w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/20 shadow-xs"
-                    />
-                  )}
-
-                  <div className={`space-y-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
-                    {msg.actionBadge && (
-                      <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                        <Sparkles className="h-3 w-3 text-amber-500" />
-                        {msg.actionBadge}
-                      </div>
-                    )}
-
+            {/* Messages Stream */}
+            <ScrollArea className="flex-1 p-4 sm:p-5">
+              <div className="space-y-4 max-w-2xl mx-auto">
+                {messages.map(msg => {
+                  const isUser = msg.sender === 'user';
+                  return (
                     <div
-                      className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap shadow-xs ${
-                        isUser
-                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs'
-                          : 'bg-card border border-border text-foreground rounded-tl-xs'
-                      }`}
+                      key={msg.id}
+                      className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
-                      {msg.isThinking ? (
-                        <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>{msg.text}</span>
-                        </div>
-                      ) : (
-                        msg.text
+                      {!isUser && (
+                        <img
+                          src={vixoraAgentAvatar}
+                          alt="Vixora"
+                          className="h-8 w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/20 shadow-xs"
+                        />
                       )}
-                    </div>
 
-                    {/* Rich Interactive Cards */}
-                    {msg.productResult && (
-                      <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-500/10 via-background to-purple-500/10 border-2 border-violet-500/30 space-y-2 shadow-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-wider">
-                              Verified {msg.productResult.listing_type === 'service' ? 'Service' : 'Product'}
-                            </span>
-                            <h4 className="text-sm font-bold text-foreground">
-                              {msg.productResult.title}
-                            </h4>
+                      <div className={`space-y-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
+                        {msg.actionBadge && (
+                          <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                            <Sparkles className="h-3 w-3 text-amber-500" />
+                            {msg.actionBadge}
                           </div>
-                          <Badge className="bg-emerald-600 text-white font-bold text-xs">
-                            ₦{msg.productResult.price.toLocaleString()}
-                          </Badge>
+                        )}
+
+                        {/* Image Preview in Message Bubble */}
+                        {msg.imageUrl && (
+                          <div className="rounded-2xl overflow-hidden border border-border shadow-xs max-w-xs">
+                            <img
+                              src={msg.imageUrl}
+                              alt="Attached visual"
+                              className="w-full h-auto max-h-56 object-cover"
+                            />
+                          </div>
+                        )}
+
+                        <div
+                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap shadow-xs ${
+                            isUser
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs'
+                              : 'bg-card border border-border text-foreground rounded-tl-xs'
+                          }`}
+                        >
+                          {msg.isThinking ? (
+                            <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>{msg.text}</span>
+                            </div>
+                          ) : (
+                            msg.text
+                          )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">
-                          {msg.productResult.description}
-                        </p>
-                        <div className="pt-1 flex items-center justify-between border-t border-border/40 text-[11px]">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Live on Storefront
-                          </span>
-                          <span className="text-muted-foreground">ID: {msg.productResult.id.slice(0, 8)}...</span>
+
+                        {/* Rich Product Result Card */}
+                        {msg.productResult && (
+                          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-500/10 via-background to-purple-500/10 border-2 border-violet-500/30 space-y-2 shadow-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-wider">
+                                  Verified {msg.productResult.listing_type === 'service' ? 'Service' : 'Product'}
+                                </span>
+                                <h4 className="text-sm font-bold text-foreground">
+                                  {msg.productResult.title}
+                                </h4>
+                              </div>
+                              <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                                ₦{msg.productResult.price.toLocaleString()}
+                              </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2">
+                              {msg.productResult.description}
+                            </p>
+                            <div className="pt-1 flex items-center justify-between border-t border-border/40 text-[11px]">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Live on Storefront
+                              </span>
+                              <span className="text-muted-foreground">ID: {msg.productResult.id.slice(0, 8)}...</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rich Community Post Card */}
+                        {msg.communityPostResult && (
+                          <div className="p-3.5 rounded-2xl bg-blue-500/10 border-2 border-blue-500/30 space-y-2 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider flex items-center gap-1">
+                                <Share2 className="h-3.5 w-3.5" /> Published to Community Feed
+                              </span>
+                              <Badge className="bg-blue-600 text-white font-bold text-[10px]">
+                                Active Post
+                              </Badge>
+                            </div>
+                            <p className="text-xs font-semibold text-foreground/90 bg-card p-2.5 rounded-xl border border-border">
+                              "{msg.communityPostResult.content}"
+                            </p>
+                            <div className="flex items-center justify-between pt-1 text-[11px]">
+                              <span className="text-blue-600 dark:text-blue-400 font-bold">
+                                Visible to entire GGD Network
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  onClose();
+                                  window.location.hash = '#community';
+                                }}
+                                className="h-7 text-[11px] rounded-lg"
+                              >
+                                View in Community <ArrowRight className="h-3 w-3 ml-1" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rich 7-Day Strategy Card */}
+                        {msg.strategyResult && (
+                          <div className="p-4 rounded-2xl bg-card border-2 border-emerald-500/30 space-y-3 shadow-md">
+                            <div className="flex items-center justify-between pb-2 border-b border-border">
+                              <div>
+                                <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
+                                  Growth Diagnostic
+                                </span>
+                                <h4 className="text-sm font-bold text-foreground">
+                                  Store Health & 7-Day Revenue Sprint
+                                </h4>
+                              </div>
+                              <Badge className="bg-emerald-600 text-white font-extrabold text-sm px-3 py-1">
+                                {msg.strategyResult.healthScore}% Health
+                              </Badge>
+                            </div>
+
+                            {/* What is Working */}
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-black uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <Check className="h-3 w-3" /> What is Working:
+                              </p>
+                              {msg.strategyResult.wins.map((w: string, idx: number) => (
+                                <p key={idx} className="text-xs text-foreground/90 pl-3">
+                                  ✓ {w}
+                                </p>
+                              ))}
+                            </div>
+
+                            {/* Bottlenecks */}
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-black uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" /> Bottlenecks to Fix:
+                              </p>
+                              {msg.strategyResult.bottlenecks.map((b: string, idx: number) => (
+                                <p key={idx} className="text-xs text-foreground/90 pl-3">
+                                  • {b}
+                                </p>
+                              ))}
+                            </div>
+
+                            {/* Sprint Table */}
+                            <div className="pt-2 border-t border-border space-y-1.5">
+                              <p className="text-[11px] font-black uppercase text-foreground">
+                                7-Day Action Checklist:
+                              </p>
+                              <div className="space-y-1 text-xs">
+                                {msg.strategyResult.sevenDaySprint.slice(0, 4).map((s: any, idx: number) => (
+                                  <div key={idx} className="flex items-start justify-between bg-muted/40 p-2 rounded-xl">
+                                    <span className="font-bold text-violet-600 dark:text-violet-400 mr-2 shrink-0">{s.day}:</span>
+                                    <span className="flex-1 text-foreground">{s.task}</span>
+                                    <Badge variant="outline" className="text-[9px] shrink-0 ml-1">{s.impact}</Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rich Banner Ad & Flyer Card */}
+                        {msg.flyerUrl && (
+                          <div className="p-3 rounded-2xl bg-card border border-border space-y-2 shadow-md">
+                            <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+                              <img
+                                src={msg.flyerUrl}
+                                alt="Generated Marketing Creative"
+                                className="w-full h-auto object-cover max-h-72"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={msg.flyerUrl}
+                                download="ggd_marketing_banner.jpg"
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-xs"
+                              >
+                                <Download className="h-3.5 w-3.5" /> Download Creative
+                              </a>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSendMessage("Publish this banner advert to the community feed")}
+                                className="text-xs font-bold rounded-xl"
+                              >
+                                Post to Community
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-[9px] text-muted-foreground px-1">
+                          {msg.timestamp}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
 
-                    {msg.flyerUrl && (
-                      <div className="p-3 rounded-2xl bg-card border border-border space-y-2 shadow-md">
-                        <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-slate-900 border border-white/10">
-                          <img
-                            src={msg.flyerUrl}
-                            alt="Generated Marketing Flyer"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={msg.flyerUrl}
-                            download="ggd_product_flyer.jpg"
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-xs"
-                          >
-                            <Download className="h-3.5 w-3.5" /> Download Flyer
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="text-[9px] text-muted-foreground px-1">
-                      {msg.timestamp}
+            {/* Input Footer */}
+            <div className="p-3 sm:p-4 bg-card border-t border-border shrink-0">
+              {/* Attachment Preview Dock */}
+              {attachedImage && (
+                <div className="mb-2 p-2 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-between max-w-2xl mx-auto">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={attachedImage}
+                      alt="Attachment"
+                      className="h-10 w-10 rounded-xl object-cover border border-violet-500/30"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Attached Photo</p>
+                      <p className="text-[10px] text-muted-foreground">Ready for AI visual analysis or store publishing</p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedImage(null);
+                      setAttachedImageFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                    className="h-7 w-7 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 flex items-center justify-center text-xs"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
-
-        {/* Input Footer */}
-        <div className="p-3 sm:p-4 bg-card border-t border-border shrink-0">
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              handleSendMessage();
-            }}
-            className="flex items-center gap-2 max-w-xl mx-auto"
-          >
-            <Input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Ask Vixora to add products, change prices, update profile..."
-              disabled={loading}
-              className="h-11 rounded-2xl bg-secondary/40 border-border text-xs sm:text-sm font-medium focus-visible:ring-violet-500"
-            />
-            <Button
-              type="submit"
-              disabled={!input.trim() || loading}
-              className="h-11 w-11 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shrink-0 cursor-pointer"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
               )}
-            </Button>
-          </form>
-          <p className="text-[10px] text-center text-muted-foreground mt-2">
-            Vixora Business Copilot directly modifies your GGD storefront database • Safe, real-time & reversible
-          </p>
-        </div>
+
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleSendMessage();
+                }}
+                className="flex items-center gap-2 max-w-2xl mx-auto"
+              >
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-11 w-11 rounded-2xl shrink-0 p-0 hover:bg-violet-500/10 hover:border-violet-500/40 text-violet-600 dark:text-violet-400"
+                  title="Upload product or banner photo"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </Button>
+
+                <Input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  placeholder={attachedImage ? "Describe this item or tell Vixora the price..." : "Ask Vixora to add products, post to community, plan strategy, close orders..."}
+                  disabled={loading}
+                  className="h-11 rounded-2xl bg-secondary/40 border-border text-xs sm:text-sm font-medium focus-visible:ring-violet-500"
+                />
+
+                <Button
+                  type="submit"
+                  disabled={(!input.trim() && !attachedImage) || loading}
+                  className="h-11 w-11 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shrink-0 cursor-pointer"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </form>
+              <p className="text-[10px] text-center text-muted-foreground mt-2">
+                Vixora AI modifies your storefront catalog, community posts & ads in real time • Connected to Cloud SQL
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* TAB 2: BRAND VOICE & MEMORY SYSTEM */}
+        {activeTab === 'memory' && (
+          <ScrollArea className="flex-1 p-4 sm:p-6">
+            <div className="max-w-xl mx-auto space-y-6">
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-violet-600" />
+                  Brand Voice & Permanent Memory
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Teach Vixora your store voice, payment bank details, delivery terms, and custom business rules. The AI remembers them across all interactions.
+                </p>
+              </div>
+
+              {/* Brand Voice Style Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                  Select Brand Voice Tone:
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[
+                    { id: 'naija_energetic', label: '🇳🇬 Naija Warm & Energetic', desc: 'Street-smart, enthusiastic, warm Pidgin/English energy' },
+                    { id: 'luxury_elite', label: '💎 Luxury & Exclusive', desc: 'Refined, high-end, premium vocabulary, elite vibe' },
+                    { id: 'urgent_closer', label: '⚡ Urgent WhatsApp Closer', desc: 'Fast-paced, action-oriented, quick checkout closing' },
+                    { id: 'corporate_friendly', label: '💼 Corporate & Trustworthy', desc: 'Professional, structured, high credibility' },
+                  ].map(v => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => handleSaveMemoryField('brandVoice', v.id)}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        userMemory.brandVoice === v.id
+                          ? 'border-violet-600 bg-violet-500/10 shadow-sm'
+                          : 'border-border bg-card hover:bg-muted/50'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-foreground">{v.label}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{v.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bank Details for Instant Invoices */}
+              <div className="space-y-2 bg-card p-4 rounded-2xl border border-border">
+                <label className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <CreditCard className="h-4 w-4 text-violet-600" /> Bank Details for Closing Sales:
+                </label>
+                <Input
+                  value={userMemory.bankDetails || ''}
+                  onChange={e => handleSaveMemoryField('bankDetails', e.target.value)}
+                  placeholder="e.g. GTBank 0123456789 (Emeka Enterprise)"
+                  className="rounded-xl"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Used by Vixora when drafting WhatsApp order invoices and checkout confirmation texts.
+                </p>
+              </div>
+
+              {/* Delivery Terms */}
+              <div className="space-y-2 bg-card p-4 rounded-2xl border border-border">
+                <label className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-emerald-600" /> Delivery Policy & Terms:
+                </label>
+                <Input
+                  value={userMemory.deliveryTerms || ''}
+                  onChange={e => handleSaveMemoryField('deliveryTerms', e.target.value)}
+                  placeholder="e.g. Fast 24h delivery within Lagos, 48h nationwide waybill"
+                  className="rounded-xl"
+                />
+              </div>
+
+              {/* Custom Learned Notes */}
+              <div className="space-y-3 bg-card p-4 rounded-2xl border border-border">
+                <label className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-amber-500" /> Learned Facts & Custom Rules:
+                </label>
+                <div className="space-y-1.5">
+                  {(userMemory.customLearnedNotes || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No custom notes saved yet. Tell Vixora what to remember below!</p>
+                  ) : (
+                    userMemory.customLearnedNotes.map((note, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-xl text-xs">
+                        <span>• {note}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = userMemory.customLearnedNotes.filter((_, i) => i !== idx);
+                            handleSaveMemoryField('customLearnedNotes', updated);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Input
+                    value={newMemoryNote}
+                    onChange={e => setNewMemoryNote(e.target.value)}
+                    placeholder="e.g. Give 5% discount for orders above 3 items..."
+                    className="rounded-xl text-xs"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddMemoryNote();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddMemoryNote}
+                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs px-3"
+                  >
+                    Save Note
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+
+        {/* TAB 3: STORE HUB & ACCOUNT OVERVIEW */}
+        {activeTab === 'account' && (
+          <ScrollArea className="flex-1 p-4 sm:p-6">
+            <div className="max-w-xl mx-auto space-y-5">
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                  <Store className="h-5 w-5 text-violet-600" />
+                  Store Hub & Account Activities
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Overview of your live products, advertising reach, and business credentials on GGD Network.
+                </p>
+              </div>
+
+              {/* Statistics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-card p-3 rounded-2xl border border-border text-center">
+                  <p className="text-lg font-black text-violet-600">{businessContext?.activeProductsCount || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Products</p>
+                </div>
+                <div className="bg-card p-3 rounded-2xl border border-border text-center">
+                  <p className="text-lg font-black text-emerald-600">{businessContext?.activeServicesCount || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Services</p>
+                </div>
+                <div className="bg-card p-3 rounded-2xl border border-border text-center">
+                  <p className="text-lg font-black text-amber-600">{businessContext?.credits.toLocaleString() || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Credits</p>
+                </div>
+                <div className="bg-card p-3 rounded-2xl border border-border text-center">
+                  <p className="text-lg font-black text-blue-600">{businessContext?.activeAdsCount || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Active Ads</p>
+                </div>
+              </div>
+
+              {/* Storefront Details */}
+              <div className="bg-card p-4 rounded-2xl border border-border space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                  Storefront Profile
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between border-b border-border/40 pb-1.5">
+                    <span className="text-muted-foreground">Business Name:</span>
+                    <span className="font-bold text-foreground">{businessContext?.profile?.business_name || 'Not set'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-border/40 pb-1.5">
+                    <span className="text-muted-foreground">WhatsApp Phone:</span>
+                    <span className="font-bold text-foreground">{businessContext?.profile?.phone_number || 'Not set'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-border/40 pb-1.5">
+                    <span className="text-muted-foreground">Store Address:</span>
+                    <span className="font-bold text-foreground">{businessContext?.profile?.address || 'Not set'}</span>
+                  </div>
+                  <div className="flex justify-between pb-1">
+                    <span className="text-muted-foreground">Merchant Status:</span>
+                    <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
+                      {businessContext?.isVerified ? 'Verified Merchant' : 'Registered Merchant'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Products List */}
+              <div className="bg-card p-4 rounded-2xl border border-border space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Current Catalog Items ({(businessContext?.listings || []).length})</span>
+                  <button
+                    onClick={() => {
+                      setActiveTab('chat');
+                      fileInputRef.current?.click();
+                    }}
+                    className="text-violet-600 hover:underline flex items-center gap-1 font-bold text-[11px]"
+                  >
+                    <Plus className="h-3 w-3" /> Add with Photo
+                  </button>
+                </h4>
+                <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar">
+                  {(businessContext?.listings || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No products yet. Ask Vixora in chat to add your first product!</p>
+                  ) : (
+                    (businessContext?.listings || []).slice(0, 8).map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded-xl bg-muted/40 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-violet-500 shrink-0" />
+                          <span className="font-bold text-foreground truncate max-w-[200px]">{item.title}</span>
+                        </div>
+                        <Badge variant="outline" className="font-bold text-[11px]">
+                          ₦{item.price.toLocaleString()}
+                        </Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
       </DialogContent>
     </Dialog>
   );

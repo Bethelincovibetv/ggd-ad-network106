@@ -547,23 +547,97 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={filterQuery}
-          onChange={e => setFilterQuery(e.target.value)}
-          placeholder="Search posts, people, businesses, products, #hashtags…"
-          className="pl-9 h-10 rounded-full bg-muted/40 border-0"
-        />
-        {activeTag && (
-          <button
-            onClick={() => setActiveTag(null)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-full"
-          >
-            #{activeTag} <X className="h-3 w-3" />
-          </button>
-        )}
+      {/* Colorful 3D Community Search Bar */}
+      <div className="space-y-2">
+        <div className="relative group p-[2px] rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 via-purple-600 to-amber-400 shadow-md hover:shadow-xl transition-all duration-300">
+          <div className="bg-card/95 backdrop-blur-md rounded-[14px] p-1.5 sm:p-2 flex items-center gap-2 sm:gap-2.5">
+            {/* 3D Colorful Icon Badge */}
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-orange-500/30 shrink-0 group-hover:scale-105 transition-transform">
+              <Search className="h-4 w-4 sm:h-4.5 sm:w-4.5 drop-shadow" />
+            </div>
+
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-0">
+              <Input
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                placeholder="Search community posts, merchants, products, #deals, #lagos…"
+                className="h-9 sm:h-10 border-0 bg-transparent text-xs sm:text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 px-1"
+              />
+            </div>
+
+            {/* Active Tag or Clear or Search Trigger */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {activeTag && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTag(null)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-950/60 dark:text-orange-400 border border-orange-300 dark:border-orange-800 px-2 py-1 rounded-full shadow-xs hover:bg-orange-200 transition-colors"
+                >
+                  #{activeTag} <X className="h-3 w-3" />
+                </button>
+              )}
+
+              {filterQuery && (
+                <button
+                  type="button"
+                  onClick={() => setFilterQuery('')}
+                  className="h-7 w-7 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Search</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Colorful Trending Search Chips / Topic Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1 shrink-0 mr-0.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+            Trending:
+          </span>
+
+          {[
+            { label: '🔥 All Deals', query: 'deal' },
+            { label: '🛍️ Storefronts', query: 'product' },
+            { label: '💼 Services', query: 'service' },
+            { label: '🇳🇬 #Lagos', tag: 'lagos' },
+            { label: '💰 Credit Tasks', filter: 'tasks' as FeedFilter },
+            { label: '💎 Verified', query: 'verified' },
+            { label: '📰 Blog Articles', filter: 'blogs' as FeedFilter }
+          ].map((chip, chipIdx) => (
+            <button
+              key={chipIdx}
+              type="button"
+              onClick={() => {
+                if (chip.tag) {
+                  setActiveTag(chip.tag);
+                  setFilterQuery('');
+                } else if (chip.filter) {
+                  setFeedFilter(chip.filter);
+                  setFilterQuery('');
+                  setActiveTag(null);
+                } else if (chip.query) {
+                  setFilterQuery(chip.query);
+                  setActiveTag(null);
+                }
+              }}
+              className="shrink-0 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-muted/50 hover:bg-gradient-to-r hover:from-orange-500/15 hover:to-amber-500/15 hover:text-orange-600 border border-border/60 hover:border-orange-500/40 text-foreground/80 transition-all active:scale-95"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <CommunitySearchResults query={filterQuery} />
