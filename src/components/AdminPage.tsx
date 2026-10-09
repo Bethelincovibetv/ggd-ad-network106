@@ -350,6 +350,7 @@ const AdminPage = () => {
                   navigateToSection(sec, extra);
                 }}
                 className="max-w-none w-full"
+                inDrawer={true}
               />
             </div>
 
