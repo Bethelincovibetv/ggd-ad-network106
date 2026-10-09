@@ -29,6 +29,8 @@ import {
   uploadAgentMedia,
   getUserBusinessMemory,
   saveUserBusinessMemory,
+  executeBusinessAgentTool,
+  parseAndExecuteNaturalLanguageIntent,
   BusinessOverviewContext,
   BusinessListingItem,
   BusinessAgentMemory,
@@ -249,254 +251,23 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
         }
       }
 
-      // Memory learning check: user says "remember that..." or "our policy is..."
-      if (lower.startsWith('remember that') || lower.startsWith('remember:') || lower.includes('our brand voice is') || lower.includes('my bank account is')) {
-        const learned = query.replace(/^remember(?:\s+that|:)?/i, '').trim();
-        if (learned.length > 2) {
-          const notes = [...(activeMemory.customLearnedNotes || []), learned];
-          saveUserBusinessMemory(user.id, { customLearnedNotes: notes });
-          setUserMemory(prev => ({ ...prev, customLearnedNotes: notes }));
-          actionBadge = "🧠 Brand Memory Saved";
-          responseText = `Got it! I have saved this permanently to my memory:\n\n"${learned}"\n\nI will remember and apply this rule across all customer replies, marketing copy, and catalog management for ${currentCtx.profile?.business_name || currentCtx.displayName}!`;
-        }
-      }
+      // Step 1: AI-First Execution with Gemini Function Calling & Tool Invocation
+      let toolExecuted = false;
+      const apiKey = await resolveAdminAiApiKey();
 
-      // 1. STRATEGY PLANNING & BUSINESS DIAGNOSTIC INTENT
-      else if (lower.includes('strategy') || lower.includes('plan') || lower.includes('diagnostic') || lower.includes('what is working') || lower.includes('growth plan') || lower.includes('audit my store')) {
-        const diag = generateBusinessGrowthStrategy(currentCtx, activeMemory);
-        strategyResult = diag;
-        actionBadge = "📈 7-Day Business Growth Strategy Generated";
-        responseText = `Here is your custom 7-Day Growth Strategy & Store Health Diagnostic for ${currentCtx.profile?.business_name || currentCtx.displayName}!\n\n• Store Health Score: ${diag.healthScore}%\n• Active Products: ${currentCtx.activeProductsCount}\n• Active Ads: ${currentCtx.activeAdsCount}\n\nReview the strengths, fix the bottlenecks, and execute the 7-day tactical action steps below to maximize sales this week!`;
-      }
-
-      // 2. ACCOUNT OVERVIEW & METRICS INTENT
-      else if (lower.includes('account overview') || lower.includes('my balance') || lower.includes('my credits') || lower.includes('store stats') || lower.includes('my stats') || lower.includes('account status')) {
-        accountOverviewResult = {
-          displayName: currentCtx.displayName,
-          credits: currentCtx.credits,
-          walletBalance: currentCtx.walletBalance,
-          activeProducts: currentCtx.activeProductsCount,
-          activeServices: currentCtx.activeServicesCount,
-          activeAds: currentCtx.activeAdsCount,
-          recentPosts: currentCtx.recentPostsCount,
-          businessName: currentCtx.profile?.business_name || 'Not set',
-          phone: currentCtx.profile?.phone_number || 'Not set',
-          address: currentCtx.profile?.address || 'Not set'
-        };
-        actionBadge = "📊 Account & Wallet Overview";
-        responseText = `Here is your live account status on GGD Ad Network:\n\n• Store: ${currentCtx.profile?.business_name || currentCtx.displayName}\n• Credits: ${currentCtx.credits.toLocaleString()} GGD Credits\n• Wallet: ₦${currentCtx.walletBalance.toLocaleString()}\n• Active Listings: ${currentCtx.activeProductsCount} products, ${currentCtx.activeServicesCount} services\n• Running Banner Ads: ${currentCtx.activeAdsCount}\n• Community Posts: ${currentCtx.recentPostsCount}\n\nYour account is in good standing and ready for expansion!`;
-      }
-
-      // 3. POST TO COMMUNITY ON BEHALF OF USER INTENT
-      else if (lower.includes('post on community') || lower.includes('post to community') || lower.includes('publish post') || lower.includes('share on community') || lower.includes('community post')) {
-        const targetTitle = currentCtx.listings[0]?.title || currentCtx.profile?.business_name || 'Exclusive Offer';
-        const targetPrice = currentCtx.listings[0]?.price ? `₦${currentCtx.listings[0].price.toLocaleString()}` : '';
-        const phone = currentCtx.profile?.phone_number || activeMemory.whatsappHotline || '';
-        const storeName = currentCtx.profile?.business_name || currentCtx.displayName;
-
-        let postContent = query
-          .replace(/^(can you |please |vixora |post on community |post to community |publish post |share on community )+/i, '')
-          .trim();
-
-        if (!postContent || postContent.length < 10) {
-          postContent = `🔥 Special showcase from ${storeName}! Check out "${targetTitle}" ${targetPrice ? `available now at ${targetPrice}` : ''}. Verified quality guaranteed! Order or inquire directly on WhatsApp: ${phone} #deals #verified #${targetTitle.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        }
-
-        const postImage = uploadedPublicUrl || currentImg || currentCtx.listings[0]?.image_url || undefined;
-        const res = await publishCommunityPostOnBehalf(user.id, {
-          content: postContent,
-          imageUrl: postImage,
-          tags: ['storefront', 'deals', 'verified']
-        });
-
-        if (res.success && res.post) {
-          communityPostResult = res.post;
-          actionBadge = "🚀 Post Published to Community Feed";
-          responseText = `Super sharp! I have published your showcase post directly to the GGD Community Feed!\n\nAll members across Nigeria and the network can now see it, like, comment, and connect with your business directly.`;
-          toast.success("Published post to Community Feed!");
-          if (onRefreshData) onRefreshData();
-          loadContext();
-        } else {
-          responseText = `I encountered an issue publishing to the community: ${res.message}. Please try again!`;
-        }
-      }
-
-      // 4. CREATE BANNER ADVERT INTENT
-      else if (lower.includes('banner advert') || lower.includes('create banner') || lower.includes('ad banner') || lower.includes('display ad')) {
-        const targetTitle = currentCtx.listings[0]?.title || currentCtx.profile?.business_name || 'Exclusive Special Offer';
-        const targetPrice = currentCtx.listings[0]?.price || 15000;
-        const storeName = currentCtx.profile?.business_name || currentCtx.displayName;
-
-        const bannerDataUrl = generateProductPromoCanvas({
-          title: targetTitle,
-          price: targetPrice,
-          businessName: storeName,
-          format: lower.includes('square') ? 'banner_square' : 'banner_landscape',
-          themeColor: lower.includes('emerald') ? 'emerald' : lower.includes('purple') ? 'purple' : lower.includes('gold') ? 'gold' : 'orange',
-          ctaText: 'ORDER NOW VIA WHATSAPP →'
-        });
-
-        flyerUrl = bannerDataUrl;
-        actionBadge = "🎨 High-Converting Banner Advert Created";
-        responseText = `Here is your high-impact 1200x628 Display Banner Advert for "${targetTitle}"!\n\nThis format is fully optimized for GGD Ad Network banners, sponsored placements, and WhatsApp Status ads. You can download it directly below!`;
-      }
-
-      // 5. CUSTOMER SUPPORT REPLY & ORDER CLOSER INTENT
-      else if (lower.includes('customer said') || lower.includes('reply customer') || lower.includes('how to reply') || lower.includes('close sale') || lower.includes('order invoice') || lower.includes('customer inquiry') || lower.includes('receive order')) {
-        const isOrder = lower.includes('order') || lower.includes('wants') || lower.includes('buying');
-        if (isOrder) {
-          const invoice = generateOrderClosingInvoice({
-            orderText: query,
-            context: currentCtx,
-            memory: activeMemory
-          });
-          actionBadge = "🧾 Order Confirmation & WhatsApp Invoice";
-          responseText = `Here is the professional WhatsApp order breakdown and invoice closing text ready to send:\n\n${invoice}`;
-        } else {
-          const reply = generateCustomerSupportClosingReply({
-            customerMessage: query,
-            context: currentCtx,
-            memory: activeMemory
-          });
-          actionBadge = "💬 High-Converting Customer Closing Reply";
-          responseText = `Here is an empathetic, high-converting customer support reply tailored to your brand voice:\n\n"${reply}"\n\nYou can copy and paste this directly to your WhatsApp chat with the customer!`;
-        }
-      }
-
-      // 6. CREATE PRODUCT OR SERVICE INTENT
-      else if ((lower.includes('create') || lower.includes('add') || lower.includes('new product') || lower.includes('new service') || lower.includes('publish')) && (lower.includes('product') || lower.includes('service') || lower.includes('item') || currentImg)) {
-        let price = 5000;
-        const priceMatch = query.match(/(?:₦|naira|ngn|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
-        if (priceMatch) {
-          const rawNum = priceMatch[1].replace(/,/g, '');
-          let num = parseFloat(rawNum);
-          if (query.toLowerCase().includes(`${rawNum}k`)) num *= 1000;
-          if (!isNaN(num) && num > 0) price = num;
-        }
-
-        let isService = lower.includes('service');
-        let title = query
-          .replace(/^(can you |please |vixora |add |create |publish |new |a |an |product |service |called |named )+/i, '')
-          .replace(/(?:for|at|price|worth|costing)\s*(?:₦|naira|\$)?[0-9,k]+/i, '')
-          .replace(/(?:with description|description:).*/i, '')
-          .trim();
-
-        if (!title || title.length < 2) {
-          title = isService ? 'Professional Service Package' : 'Exclusive Product Item';
-        }
-        title = title.replace(/^["']|["']$/g, '').trim();
-
-        const itemImage = uploadedPublicUrl || currentImg || undefined;
-
-        const res = await createProductOrService(user.id, {
-          title,
-          price,
-          description: `Verified ${isService ? 'service' : 'product'} offered by ${currentCtx.profile?.business_name || currentCtx.displayName}. Order or book directly via WhatsApp.`,
-          listing_type: isService ? 'service' : 'product',
-          image_url: itemImage
-        });
-
-        if (res.success && res.item) {
-          productResult = res.item;
-          actionBadge = `⚡ New ${isService ? 'Service' : 'Product'} Published to Storefront`;
-          responseText = `Super sharp! I have published "${res.item.title}" to your GGD business storefront at ₦${res.item.price.toLocaleString()}!\n\nYour customers can now find it in the public directory and place direct orders via WhatsApp.`;
-          toast.success(`Published "${res.item.title}" to storefront!`);
-          if (onRefreshData) onRefreshData();
-          loadContext();
-        } else {
-          responseText = `I couldn't finish adding that item: ${res.message}. Please try again with the title and price.`;
-        }
-      }
-
-      // 7. UPDATE PRODUCT OR SERVICE INTENT
-      else if ((lower.includes('update') || lower.includes('change') || lower.includes('edit')) && (lower.includes('price') || lower.includes('cost') || lower.includes('product') || lower.includes('service'))) {
-        let price: number | undefined;
-        const priceMatch = query.match(/(?:to|for|at|new price)?\s*(?:₦|naira|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
-        if (priceMatch) {
-          const rawNum = priceMatch[1].replace(/,/g, '');
-          let num = parseFloat(rawNum);
-          if (query.toLowerCase().includes(`${rawNum}k`)) num *= 1000;
-          if (!isNaN(num) && num > 0) price = num;
-        }
-
-        let matchedProduct = currentCtx.listings[0];
-        for (const item of currentCtx.listings) {
-          if (lower.includes(item.title.toLowerCase())) {
-            matchedProduct = item;
-            break;
-          }
-        }
-
-        if (matchedProduct && price !== undefined) {
-          const res = await updateProductOrService(user.id, {
-            id: matchedProduct.id,
-            price
-          });
-
-          if (res.success && res.item) {
-            productResult = res.item;
-            actionBadge = `⚡ Product Price Updated in Database`;
-            responseText = `Done! I have updated the price of "${res.item.title}" to ₦${res.item.price.toLocaleString()} on your live storefront!\n\nAll public catalog views and checkout totals now reflect this new price immediately.`;
-            toast.success(`Updated price of "${res.item.title}" to ₦${res.item.price.toLocaleString()}`);
-            if (onRefreshData) onRefreshData();
-            loadContext();
-          }
-        } else {
-          responseText = `I hear you! To update a product or service, tell me the item name and the new price. For example: "Update price of ${currentCtx.listings[0]?.title || 'Sneakers'} to ₦20,000".`;
-        }
-      }
-
-      // 8. UPDATE BUSINESS PROFILE (NAME / WHATSAPP / ADDRESS / BIO)
-      else if (lower.includes('business name') || lower.includes('store name') || lower.includes('whatsapp') || lower.includes('phone') || lower.includes('address') || lower.includes('update profile')) {
-        const updatePayload: any = {};
-
-        const phoneMatch = query.match(/(?:\+?234|0)[0-9]{10}/);
-        if (phoneMatch) {
-          updatePayload.phone_number = phoneMatch[0];
-          saveUserBusinessMemory(user.id, { whatsappHotline: phoneMatch[0] });
-        }
-
-        const nameMatch = query.match(/(?:name to|called|store name:?)\s*([a-zA-Z0-9\s&'-]{3,40})/i);
-        if (nameMatch) {
-          updatePayload.business_name = nameMatch[1].trim();
-        }
-
-        if (lower.includes('address to')) {
-          const addr = query.split(/address to\s*/i)[1]?.trim();
-          if (addr) updatePayload.address = addr;
-        }
-
-        if (Object.keys(updatePayload).length > 0) {
-          const res = await updateBusinessProfileDetails(user.id, updatePayload);
-          if (res.success && res.profile) {
-            profileResult = res.profile;
-            actionBadge = "⚡ Business Profile Synchronized";
-            responseText = `Great news! I have updated your official storefront details:\n• Business Name: ${res.profile.business_name}\n• Phone/WhatsApp: ${res.profile.phone_number || 'Updated'}\n• Address: ${res.profile.address || 'Updated'}\n\nYour public business profile is now live with these details!`;
-            toast.success("Business profile updated!");
-            if (onRefreshData) onRefreshData();
-            loadContext();
-          }
-        } else {
-          responseText = "I can update your business profile right away! Tell me your new business name, phone number, or address. E.g., 'Update my business name to Apex Digital Hub and phone to 08012345678'.";
-        }
-      }
-
-      // 9. GENERAL INTELLIGENT AI MODEL CALL WITH TOOLS & MULTIMODAL VISION
-      else {
+      if (apiKey && apiKey.length > 10) {
         try {
-          const apiKey = await resolveAdminAiApiKey();
-          if (apiKey && apiKey.length > 10) {
-            const ai = new GoogleGenAI({ apiKey });
+          const ai = new GoogleGenAI({ apiKey });
 
-            const brandVoicePrompt = 
-              activeMemory.brandVoice === 'luxury_elite' ? 'Tone: High-end luxury, exclusive, ultra-refined, premium aesthetics.' :
-              activeMemory.brandVoice === 'urgent_closer' ? 'Tone: High-urgency sales closer, fast-paced, action-oriented, clear calls-to-action.' :
-              activeMemory.brandVoice === 'corporate_friendly' ? 'Tone: Corporate, trustworthy, professional, precise.' :
-              'Tone: Warm, enthusiastic, highly knowledgeable, street-smart Nigerian business energy ("No wahala at all!", "Oya let\'s scale this business!", "Super sharp!").';
+          const brandVoicePrompt = 
+            activeMemory.brandVoice === 'luxury_elite' ? 'Tone: High-end luxury, exclusive, ultra-refined, premium aesthetics.' :
+            activeMemory.brandVoice === 'urgent_closer' ? 'Tone: High-urgency sales closer, fast-paced, action-oriented, clear calls-to-action.' :
+            activeMemory.brandVoice === 'corporate_friendly' ? 'Tone: Corporate, trustworthy, professional, precise.' :
+            'Tone: Warm, enthusiastic, highly knowledgeable, street-smart Nigerian business energy ("No wahala at all!", "Oya let\'s scale this business!", "Super sharp!").';
 
-            const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
+          const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
 
-            const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
+          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
 User Name: ${currentCtx.displayName}
 Business Name: ${currentCtx.profile?.business_name || 'Not set'}
 Active Products: ${currentCtx.activeProductsCount}
@@ -512,60 +283,134 @@ Return Policy: ${activeMemory.returnPolicy}
 SAVED BRAND MEMORY & LEARNED RULES:
 ${memoryList || 'None yet'}
 
-YOUR POWERS:
-1. You can create products and services for the user, with attached images.
-2. You can update existing product prices, titles, or descriptions.
-3. You can update business profile details (business name, phone, address).
-4. You can draft and publish promotional community posts on behalf of the user.
-5. You can diagnose growth bottlenecks and plan 7-day revenue strategy.
-6. You can create 3D banner adverts and flyers.
-7. You can reply to customer support queries and close WhatsApp sales with instant invoices.
-8. If user provides an image, analyze the image thoroughly (product type, condition, suggested selling price, marketing hooks).
-9. Never output asterisks (no * or **). Keep typography clean and readable.`;
+YOUR MANDATE:
+1. You have direct database authority to execute commands for the merchant using function calls/tools!
+2. When the user asks to add or create a product/service, update prices, update profile, post to community, audit their store, create a banner, or close an order, YOU MUST CALL THE APPROPRIATE TOOL! Do not merely give advice when action is requested.
+3. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
+4. Never output asterisks (no * or **). Keep typography clean and readable.`;
 
-            const historyTurns: any[] = messages
-              .filter(m => !m.isThinking && m.id !== 'welcome')
-              .slice(-6)
-              .map(m => ({
-                role: m.sender === 'user' ? 'user' : 'model',
-                parts: [{ text: m.text }]
-              }));
+          const historyTurns: any[] = messages
+            .filter(m => !m.isThinking && m.id !== 'welcome')
+            .slice(-6)
+            .map(m => ({
+              role: m.sender === 'user' ? 'user' : 'model',
+              parts: [{ text: m.text }]
+            }));
 
-            const userParts: any[] = [{ text: query || 'Please analyze this attached item and recommend the next action.' }];
-            if (currentImg) {
-              const match = currentImg.match(/^data:([^;]+);base64,(.+)$/);
-              if (match) {
-                userParts.push({
-                  inlineData: {
-                    mimeType: match[1],
-                    data: match[2]
-                  }
-                });
-              }
-            }
-
-            const contents = [
-              ...historyTurns,
-              { role: 'user', parts: userParts }
-            ];
-
-            const res = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents,
-              config: { systemInstruction }
-            });
-
-            if (res.text) {
-              responseText = res.text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+          const userParts: any[] = [{ text: query || 'Please analyze this attached photo and execute appropriate store action.' }];
+          if (currentImg) {
+            const match = currentImg.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              userParts.push({
+                inlineData: {
+                  mimeType: match[1],
+                  data: match[2]
+                }
+              });
             }
           }
-        } catch (genErr) {
-          console.warn("Gemini model call notice:", genErr);
-        }
 
-        if (!responseText) {
-          responseText = `I hear you crystal clear, ${currentCtx.displayName}! As your Vixora Business Copilot, I am here to help you manage your store, add high-yield products with photos, set optimal prices, post to the community, and drive WhatsApp customer sales.\n\nWhat would you like us to work on next?`;
+          const contents = [
+            ...historyTurns,
+            { role: 'user', parts: userParts }
+          ];
+
+          const res = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents,
+            config: {
+              systemInstruction,
+              tools: [{
+                functionDeclarations: BUSINESS_AGENT_TOOL_DEFINITIONS
+              }]
+            }
+          });
+
+          // Check if Gemini invoked any function calls
+          if (res.functionCalls && res.functionCalls.length > 0) {
+            for (const fc of res.functionCalls) {
+              const execRes = await executeBusinessAgentTool(fc.name, fc.args, currentCtx, uploadedPublicUrl);
+              toolExecuted = true;
+              if (execRes.badge) actionBadge = execRes.badge;
+              if (execRes.data?.productResult) productResult = execRes.data.productResult;
+              if (execRes.data?.profileResult) profileResult = execRes.data.profileResult;
+              if (execRes.data?.flyerUrl) flyerUrl = execRes.data.flyerUrl;
+              if (execRes.data?.communityPostResult) communityPostResult = execRes.data.communityPostResult;
+              if (execRes.data?.strategyResult) strategyResult = execRes.data.strategyResult;
+              if (execRes.data?.accountOverviewResult) accountOverviewResult = execRes.data.accountOverviewResult;
+
+              // 2nd pass with Gemini to provide natural confirming commentary
+              try {
+                const secondPass = await ai.models.generateContent({
+                  model: 'gemini-2.5-flash',
+                  contents: [
+                    ...contents,
+                    {
+                      role: 'model',
+                      parts: [{ functionCall: { name: fc.name, args: fc.args } }]
+                    },
+                    {
+                      role: 'user',
+                      parts: [{
+                        functionResponse: {
+                          name: fc.name,
+                          response: { result: execRes.message }
+                        }
+                      }]
+                    }
+                  ],
+                  config: { systemInstruction }
+                });
+                if (secondPass.text) {
+                  responseText = secondPass.text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+                }
+              } catch {
+                responseText = execRes.message;
+              }
+
+              if (!responseText) {
+                responseText = execRes.message;
+              }
+            }
+          } else if (res.text) {
+            responseText = res.text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+          }
+        } catch (aiErr) {
+          console.warn("Gemini execution notice, running resilient intent parser:", aiErr);
         }
+      }
+
+      // Step 2: Resilient Natural Language Execution (if no tool was called by Gemini or if Gemini errored)
+      if (!toolExecuted) {
+        const nlpRes = await parseAndExecuteNaturalLanguageIntent(query, currentCtx, uploadedPublicUrl);
+        if (nlpRes) {
+          toolExecuted = true;
+          if (nlpRes.badge) actionBadge = nlpRes.badge;
+          if (nlpRes.data?.productResult) productResult = nlpRes.data.productResult;
+          if (nlpRes.data?.profileResult) profileResult = nlpRes.data.profileResult;
+          if (nlpRes.data?.flyerUrl) flyerUrl = nlpRes.data.flyerUrl;
+          if (nlpRes.data?.communityPostResult) communityPostResult = nlpRes.data.communityPostResult;
+          if (nlpRes.data?.strategyResult) strategyResult = nlpRes.data.strategyResult;
+          if (nlpRes.data?.accountOverviewResult) accountOverviewResult = nlpRes.data.accountOverviewResult;
+          
+          if (!responseText) {
+            responseText = nlpRes.message;
+          }
+        }
+      }
+
+      // Step 3: Proactive, action-oriented response if no text was generated
+      if (!responseText) {
+        if (currentCtx.listings.length > 0) {
+          responseText = `Ready for your next business command! Your catalog currently has ${currentCtx.activeProductsCount} products and ${currentCtx.activeServicesCount} services.\n\nTell me what to execute:\n• "Add product: [Name] for [₦Price]"\n• "Update price of ${currentCtx.listings[0]?.title} to [₦Price]"\n• "Post on community about our latest products"\n• "Plan strategy and audit my store"\n• "Create a 1200x628 banner advert"`;
+        } else {
+          responseText = `Welcome! I am ready to build and scale your storefront catalog right now.\n\nTry sending:\n• "Add product: Luxury Wristwatch for ₦25,000"\n• "Post our new arrival announcement on the community feed"\n• "Run growth strategy for my business"\n• "Create a banner advert for my store"`;
+        }
+      }
+
+      if (toolExecuted) {
+        if (onRefreshData) onRefreshData();
+        loadContext();
       }
 
       const agentResponse: BusinessChatMessage = {

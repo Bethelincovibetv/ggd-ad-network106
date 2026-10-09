@@ -971,3 +971,327 @@ export const BUSINESS_AGENT_TOOL_DEFINITIONS = [
   }
 ];
 
+export interface BusinessToolExecutionResult {
+  toolName: string;
+  success: boolean;
+  message: string;
+  badge?: string;
+  data?: {
+    productResult?: BusinessListingItem;
+    profileResult?: any;
+    flyerUrl?: string;
+    bannerAdResult?: any;
+    communityPostResult?: any;
+    strategyResult?: any;
+    accountOverviewResult?: any;
+  };
+}
+
+/**
+ * Executes a tool function directly on the user's business catalog and database
+ */
+export async function executeBusinessAgentTool(
+  toolName: string,
+  args: any,
+  context: BusinessOverviewContext,
+  uploadedMediaUrl?: string
+): Promise<BusinessToolExecutionResult> {
+  const userId = context.userId;
+  const memory = context.memory || getUserBusinessMemory(userId);
+
+  switch (toolName) {
+    case 'createProductOrService': {
+      const listingType = args.listing_type === 'service' ? 'service' : 'product';
+      const img = args.imageUrl || uploadedMediaUrl || undefined;
+      const res = await createProductOrService(userId, {
+        title: args.title || 'Exclusive Item',
+        price: Number(args.price) || 5000,
+        description: args.description,
+        listing_type: listingType,
+        image_url: img
+      });
+      return {
+        toolName,
+        success: res.success,
+        message: res.message,
+        badge: res.success ? `⚡ New ${listingType === 'service' ? 'Service' : 'Product'} Published` : 'Notice',
+        data: { productResult: res.item }
+      };
+    }
+
+    case 'updateProductOrService': {
+      const res = await updateProductOrService(userId, {
+        titleMatch: args.titleMatch,
+        newTitle: args.newTitle,
+        price: args.price !== undefined ? Number(args.price) : undefined,
+        description: args.description,
+        is_active: args.is_active,
+        image_url: args.imageUrl || uploadedMediaUrl
+      });
+      return {
+        toolName,
+        success: res.success,
+        message: res.message,
+        badge: res.success ? '⚡ Product Updated' : 'Notice',
+        data: { productResult: res.item }
+      };
+    }
+
+    case 'updateBusinessProfile': {
+      const res = await updateBusinessProfileDetails(userId, {
+        business_name: args.business_name,
+        phone_number: args.phone_number,
+        address: args.address,
+        description: args.description,
+        website_link: args.website_link
+      });
+      return {
+        toolName,
+        success: res.success,
+        message: res.message,
+        badge: res.success ? '⚡ Business Profile Updated' : 'Notice',
+        data: { profileResult: res.profile }
+      };
+    }
+
+    case 'publishCommunityPost': {
+      const postImg = args.imageUrl || uploadedMediaUrl || context.listings[0]?.image_url || undefined;
+      const res = await publishCommunityPostOnBehalf(userId, {
+        content: args.content,
+        imageUrl: postImg,
+        linkUrl: args.linkUrl,
+        tags: args.tags || ['storefront', 'deals', 'verified']
+      });
+      return {
+        toolName,
+        success: res.success,
+        message: res.message,
+        badge: res.success ? '🚀 Post Published to Community Feed' : 'Notice',
+        data: { communityPostResult: res.post }
+      };
+    }
+
+    case 'planBusinessStrategy': {
+      const diag = generateBusinessGrowthStrategy(context, memory);
+      return {
+        toolName,
+        success: true,
+        message: `Analyzed store metrics and generated 7-day revenue sprint plan. Health Score: ${diag.healthScore}%.`,
+        badge: '📈 7-Day Strategy Plan Generated',
+        data: { strategyResult: diag }
+      };
+    }
+
+    case 'createBannerAdvert': {
+      const targetTitle = args.title || context.listings[0]?.title || context.profile?.business_name || 'Exclusive Offer';
+      const targetPrice = Number(args.price) || context.listings[0]?.price || 15000;
+      const bannerUrl = generateProductPromoCanvas({
+        title: targetTitle,
+        price: targetPrice,
+        businessName: context.profile?.business_name || context.displayName,
+        themeColor: args.themeColor || 'orange',
+        format: args.format || 'banner_landscape'
+      });
+      return {
+        toolName,
+        success: true,
+        message: `High-converting banner creative generated for "${targetTitle}".`,
+        badge: '🎨 Banner Advert Created',
+        data: { flyerUrl: bannerUrl }
+      };
+    }
+
+    case 'replyCustomerSupportOrOrder': {
+      const isOrder = args.intent === 'close_order' || (args.customerMessage && (args.customerMessage.toLowerCase().includes('order') || args.customerMessage.toLowerCase().includes('want') || args.customerMessage.toLowerCase().includes('buying')));
+      if (isOrder) {
+        const invoice = generateOrderClosingInvoice({
+          orderText: args.customerMessage,
+          context,
+          memory
+        });
+        return {
+          toolName,
+          success: true,
+          message: invoice,
+          badge: '🧾 Order Confirmation & Invoice'
+        };
+      } else {
+        const reply = generateCustomerSupportClosingReply({
+          customerMessage: args.customerMessage,
+          context,
+          memory
+        });
+        return {
+          toolName,
+          success: true,
+          message: reply,
+          badge: '💬 Customer Closing Reply'
+        };
+      }
+    }
+
+    case 'saveBrandMemory': {
+      const updatedNotes = args.learnedNote ? [...(memory.customLearnedNotes || []), args.learnedNote] : memory.customLearnedNotes;
+      saveUserBusinessMemory(userId, {
+        brandVoice: args.brandVoice || memory.brandVoice,
+        bankDetails: args.bankDetails || memory.bankDetails,
+        whatsappHotline: args.whatsappHotline || memory.whatsappHotline,
+        deliveryTerms: args.deliveryTerms || memory.deliveryTerms,
+        customLearnedNotes: updatedNotes
+      });
+      return {
+        toolName,
+        success: true,
+        message: `Saved rule permanently to Vixora AI memory.`,
+        badge: '🧠 Brand Memory Saved'
+      };
+    }
+
+    default:
+      return {
+        toolName,
+        success: false,
+        message: `Execution completed.`
+      };
+  }
+}
+
+/**
+ * Intelligent natural language intent analyzer:
+ * Parses conversational commands flexibly and maps them directly to tool executions
+ */
+export async function parseAndExecuteNaturalLanguageIntent(
+  query: string,
+  context: BusinessOverviewContext,
+  uploadedMediaUrl?: string
+): Promise<BusinessToolExecutionResult | null> {
+  const lower = query.toLowerCase().trim();
+
+  // 1. COMMUNITY POST
+  if (lower.startsWith('post on community') || lower.startsWith('post to community') || lower.startsWith('publish post') || lower.startsWith('tell community') || lower.includes('share on community') || lower.includes('community post')) {
+    const cleanContent = query
+      .replace(/^(can you |please |vixora |post on community |post to community |publish post |tell community |share on community )+/i, '')
+      .trim();
+    const finalContent = cleanContent || `🔥 Special showcase from ${context.profile?.business_name || context.displayName}! Check out our verified collection. DM or WhatsApp us to order now! #deals #verified #store`;
+    return executeBusinessAgentTool('publishCommunityPost', { content: finalContent }, context, uploadedMediaUrl);
+  }
+
+  // 2. STRATEGY / AUDIT
+  if (lower.includes('strategy') || lower.includes('plan') || lower.includes('audit') || lower.includes('what is working') || lower.includes('what should be done') || lower.includes('how to grow') || lower.includes('diagnostic')) {
+    return executeBusinessAgentTool('planBusinessStrategy', {}, context);
+  }
+
+  // 3. BANNER ADVERT / FLYER
+  if (lower.includes('banner') || lower.includes('flyer') || lower.includes('poster') || lower.includes('ad creative') || lower.includes('display ad')) {
+    let title = query
+      .replace(/^(can you |please |vixora |create |make |generate |banner |flyer |ad |for )+/i, '')
+      .trim();
+    if (!title || title.length < 2) {
+      title = context.listings[0]?.title || context.profile?.business_name || 'Exclusive Offer';
+    }
+    const format = lower.includes('square') ? 'banner_square' : 'banner_landscape';
+    const themeColor = lower.includes('purple') ? 'purple' : lower.includes('emerald') ? 'emerald' : lower.includes('gold') ? 'gold' : 'orange';
+    return executeBusinessAgentTool('createBannerAdvert', { title, format, themeColor }, context);
+  }
+
+  // 4. CUSTOMER SUPPORT / ORDER
+  if (lower.includes('customer said') || lower.includes('reply customer') || lower.includes('how to reply') || lower.includes('order invoice') || lower.includes('close sale') || lower.includes('receive order') || lower.includes('customer wants') || lower.includes('customer inquiry')) {
+    const isOrder = lower.includes('order') || lower.includes('wants') || lower.includes('buying');
+    return executeBusinessAgentTool('replyCustomerSupportOrOrder', {
+      customerMessage: query,
+      intent: isOrder ? 'close_order' : 'support_faq'
+    }, context);
+  }
+
+  // 5. UPDATE PRICE OR ITEM
+  if ((lower.includes('update') || lower.includes('change') || lower.includes('edit') || lower.includes('set price')) && (lower.includes('price') || lower.includes('cost') || lower.includes('item') || lower.includes('product'))) {
+    const priceMatch = query.match(/(?:to|for|at|new price)?\s*(?:₦|naira|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
+    let price: number | undefined;
+    if (priceMatch) {
+      const rawNum = priceMatch[1].replace(/,/g, '');
+      let num = parseFloat(rawNum);
+      if (query.toLowerCase().includes(`${rawNum}k`)) num *= 1000;
+      if (!isNaN(num) && num > 0) price = num;
+    }
+
+    let targetTitle = '';
+    for (const item of context.listings) {
+      if (lower.includes(item.title.toLowerCase())) {
+        targetTitle = item.title;
+        break;
+      }
+    }
+    if (!targetTitle && context.listings[0]) {
+      targetTitle = context.listings[0].title;
+    }
+
+    if (price !== undefined) {
+      return executeBusinessAgentTool('updateProductOrService', {
+        titleMatch: targetTitle,
+        price
+      }, context);
+    }
+  }
+
+  // 6. CREATE PRODUCT / SERVICE
+  if (lower.startsWith('add') || lower.startsWith('create') || lower.startsWith('publish') || lower.startsWith('sell') || lower.includes('new product') || lower.includes('new service') || (uploadedMediaUrl && (lower.includes('product') || lower.includes('price')))) {
+    const isService = lower.includes('service');
+    let price = 5000;
+    const priceMatch = query.match(/(?:₦|naira|ngn|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(?:\s*(?:k|thousand))?/i);
+    if (priceMatch) {
+      const rawNum = priceMatch[1].replace(/,/g, '');
+      let num = parseFloat(rawNum);
+      if (query.toLowerCase().includes(`${rawNum}k`)) num *= 1000;
+      if (!isNaN(num) && num > 0) price = num;
+    }
+
+    let title = query
+      .replace(/^(can you |please |vixora |add |create |publish |sell |new |a |an |product |service |called |named )+/i, '')
+      .replace(/(?:for|at|price|worth|costing)\s*(?:₦|naira|\$)?[0-9,k]+/i, '')
+      .replace(/(?:with description|description:).*/i, '')
+      .trim();
+
+    if (!title || title.length < 2) {
+      title = isService ? 'Professional Service' : 'Exclusive Product';
+    }
+    title = title.replace(/^["']|["']$/g, '').trim();
+
+    return executeBusinessAgentTool('createProductOrService', {
+      title,
+      price,
+      listing_type: isService ? 'service' : 'product',
+      imageUrl: uploadedMediaUrl
+    }, context, uploadedMediaUrl);
+  }
+
+  // 7. UPDATE PROFILE
+  if (lower.includes('business name') || lower.includes('store name') || lower.includes('whatsapp') || lower.includes('phone') || lower.includes('address to')) {
+    const updateArgs: any = {};
+    const phoneMatch = query.match(/(?:\+?234|0)[0-9]{10}/);
+    if (phoneMatch) updateArgs.phone_number = phoneMatch[0];
+
+    const nameMatch = query.match(/(?:name to|called|store name:?)\s*([a-zA-Z0-9\s&'-]{3,40})/i);
+    if (nameMatch) updateArgs.business_name = nameMatch[1].trim();
+
+    if (lower.includes('address to')) {
+      const addr = query.split(/address to\s*/i)[1]?.trim();
+      if (addr) updateArgs.address = addr;
+    }
+
+    if (Object.keys(updateArgs).length > 0) {
+      return executeBusinessAgentTool('updateBusinessProfile', updateArgs, context);
+    }
+  }
+
+  // 8. REMEMBER MEMORY
+  if (lower.startsWith('remember that') || lower.startsWith('remember:') || lower.includes('our brand voice is') || lower.includes('my bank account is')) {
+    const note = query.replace(/^remember(?:\s+that|:)?/i, '').trim();
+    if (note.length > 2) {
+      return executeBusinessAgentTool('saveBrandMemory', { learnedNote: note }, context);
+    }
+  }
+
+  return null;
+}
+
+
