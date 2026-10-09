@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import defaultAdImg from "@/assets/default-ad.jpg";
+import { safeImageUrl, handleImageError } from "@/services/imageUploadService";
 import { Sparkles, MousePointerClick, Megaphone, ExternalLink, ArrowRight } from "lucide-react";
 
 export interface AdRecord {
@@ -66,6 +67,7 @@ const AdDisplayPreview: React.FC = () => {
   }, [ads.length]);
 
   const ad = ads[currentIndex] || DEFAULT_AD;
+  const currentImageUrl = safeImageUrl(ad.image_url, defaultAdImg);
 
   // Log impression once per ad per session
   useEffect(() => {
@@ -115,16 +117,15 @@ const AdDisplayPreview: React.FC = () => {
             </div>
 
             {/* FULL BANNER ADVERT - Never cropped, fits all standard and custom dimensions */}
-            {ad.image_url && (
-              <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
-                <img
-                  loading="lazy"
-                  src={ad.image_url}
-                  alt={ad.title || 'Sponsored Banner Advert'}
-                  className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform duration-300"
-                />
-              </div>
-            )}
+            <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
+              <img
+                loading="lazy"
+                src={currentImageUrl}
+                alt={ad.title || 'Sponsored Banner Advert'}
+                onError={handleImageError(defaultAdImg)}
+                className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform duration-300"
+              />
+            </div>
 
             {/* Content & Action Bar */}
             <div className="p-3.5 sm:p-4 bg-gradient-to-b from-transparent to-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/50">
@@ -175,16 +176,15 @@ const AdDisplayPreview: React.FC = () => {
             </div>
 
             {/* FULL BANNER ADVERT - Never cropped */}
-            {ad.image_url && (
-              <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
-                <img
-                  loading="lazy"
-                  src={ad.image_url}
-                  alt={ad.title || 'Sponsored Banner'}
-                  className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform duration-500"
-                />
-              </div>
-            )}
+            <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
+              <img
+                loading="lazy"
+                src={currentImageUrl}
+                alt={ad.title || 'Sponsored Banner'}
+                onError={handleImageError(defaultAdImg)}
+                className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform duration-500"
+              />
+            </div>
 
             <div className="p-3 bg-gradient-to-r from-orange-50/50 to-red-50/50 dark:from-orange-950/20 dark:to-red-950/20 border-t border-border/50">
               <h3 className="font-black text-xs sm:text-sm text-foreground truncate">{ad.title}</h3>
@@ -219,16 +219,15 @@ const AdDisplayPreview: React.FC = () => {
           </div>
 
           {/* FULL BANNER ADVERT - Never cropped, complete aspect ratio displayed cleanly */}
-          {ad.image_url && (
-            <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
-              <img
-                loading="lazy"
-                src={ad.image_url}
-                alt={ad.title || 'Sponsored Banner Advert'}
-                className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform"
-              />
-            </div>
-          )}
+          <div className="w-full bg-slate-950/[0.03] dark:bg-black/30 flex items-center justify-center p-2 sm:p-3 overflow-hidden">
+            <img
+              loading="lazy"
+              src={currentImageUrl}
+              alt={ad.title || 'Sponsored Banner Advert'}
+              onError={handleImageError(defaultAdImg)}
+              className="w-full h-auto max-h-[480px] object-contain block mx-auto rounded-lg group-hover:scale-[1.01] transition-transform"
+            />
+          </div>
 
           <div className="p-3 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="min-w-0 flex-1">

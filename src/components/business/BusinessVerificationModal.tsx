@@ -724,7 +724,7 @@ export const BusinessVerificationModal: React.FC<BusinessVerificationModalProps>
                     /* Uploaded File Preview Card */
                     <div className="p-3.5 rounded-2xl bg-card border-2 border-emerald-500/50 shadow-sm flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        {uploadedFileType === 'image' || documentFileUrl.startsWith('data:image') || documentFileUrl.includes('avatars') ? (
+                        {uploadedFileType === 'image' || documentFileUrl.startsWith('data:image') || documentFileUrl.includes('avatars') || documentFileUrl.includes('uploads') || documentFileUrl.startsWith('/') ? (
                           <div 
                             onClick={() => setPreviewLightboxImg(documentFileUrl)}
                             className="h-12 w-12 rounded-xl overflow-hidden border border-border/80 shrink-0 cursor-pointer group relative bg-black/10"

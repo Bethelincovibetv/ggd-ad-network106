@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Megaphone, ExternalLink, Share2 } from 'lucide-react';
+import defaultAdImg from '@/assets/default-ad.jpg';
+import { safeImageUrl, handleImageError } from '@/services/imageUploadService';
 
 interface Props { ad: any; currentUserId?: string | null }
 
@@ -51,11 +53,15 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
         {ad.description && (
           <p className="px-3 pb-2 text-[14px] leading-snug whitespace-pre-wrap break-words">{ad.description}</p>
         )}
-        {ad.image_url && (
-          <button onClick={open} className="block w-full bg-slate-950/[0.03] dark:bg-black/20 p-1 sm:p-2 overflow-hidden focus:outline-none">
-            <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-full h-auto max-h-[460px] object-contain block mx-auto rounded-lg hover:scale-[1.01] transition-transform duration-300" />
-          </button>
-        )}
+        <button onClick={open} className="block w-full bg-slate-950/[0.03] dark:bg-black/20 p-1 sm:p-2 overflow-hidden focus:outline-none">
+          <img
+            loading="lazy"
+            src={safeImageUrl(ad.image_url, defaultAdImg)}
+            alt={ad.title}
+            onError={handleImageError(defaultAdImg)}
+            className="w-full h-auto max-h-[460px] object-contain block mx-auto rounded-lg hover:scale-[1.01] transition-transform duration-300"
+          />
+        </button>
         <div className="p-3 grid grid-cols-2 gap-2">
           <Button onClick={open} className="h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-bold text-xs">
             <ExternalLink className="h-4 w-4 mr-1.5" /> Learn more

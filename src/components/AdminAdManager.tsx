@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import defaultAdImg from "@/assets/default-ad.jpg";
+import { safeImageUrl, handleImageError } from "@/services/imageUploadService";
 
 export interface Ad {
   id: string;
@@ -359,8 +361,9 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
                     {ad.image_url ? (
                       <img 
                         loading="lazy" 
-                        src={ad.image_url} 
+                        src={safeImageUrl(ad.image_url, defaultAdImg)} 
                         alt="" 
+                        onError={handleImageError(defaultAdImg)}
                         className="h-16 w-16 rounded-xl object-cover border border-border shrink-0 bg-muted"
                       />
                     ) : (
@@ -484,8 +487,9 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
                           {ad.image_url ? (
                             <img 
                               loading="lazy" 
-                              src={ad.image_url} 
+                              src={safeImageUrl(ad.image_url, defaultAdImg)} 
                               alt="" 
+                              onError={handleImageError(defaultAdImg)}
                               className="h-11 w-11 rounded-xl object-cover border border-border shrink-0 bg-muted"
                             />
                           ) : (
@@ -579,8 +583,9 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
               {selectedAd.image_url && (
                 <img 
                   loading="lazy" 
-                  src={selectedAd.image_url} 
+                  src={safeImageUrl(selectedAd.image_url, defaultAdImg)} 
                   alt={selectedAd.title} 
+                  onError={handleImageError(defaultAdImg)}
                   className="w-full h-44 sm:h-52 object-cover rounded-2xl border border-border shadow-sm bg-muted" 
                 />
               )}

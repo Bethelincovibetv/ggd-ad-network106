@@ -40,6 +40,7 @@ import { BusinessVerificationBadge } from "./BusinessVerificationBadge";
 import { BusinessVerificationModal } from "./BusinessVerificationModal";
 import { getUserVerificationRecord, subscribeToUserVerification } from "@/services/businessVerificationEngine";
 import { VerificationSubmissionRecord } from "@/types/verification";
+import { getCurrentUser } from "@/services/authService";
 
 interface BusinessProfileSectionProps {
   profile: any;
@@ -125,7 +126,8 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
 
     setUploadingLogo(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const sbUser = (await supabase.auth.getUser()).data?.user;
+      const user = sbUser || (await getCurrentUser());
       if (!user) {
         toast.error("Please sign in to upload photos");
         return;
@@ -178,7 +180,8 @@ export const BusinessProfileSection: React.FC<BusinessProfileSectionProps> = ({
 
     setUploadingHero(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const sbUser = (await supabase.auth.getUser()).data?.user;
+      const user = sbUser || (await getCurrentUser());
       if (!user) return;
 
       const ext = file.name.split('.').pop();

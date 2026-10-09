@@ -2605,6 +2605,92 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// Unified High-Performance Image Upload Endpoint
+// Supports banners, slides, avatars, flyers, logos, and attachments
+// ----------------------------------------------------
+app.post('/api/upload', async (req, res) => {
+  try {
+    const { image, fileData, fileName, folder = 'images' } = req.body;
+    const rawImage = image || fileData;
+    if (!rawImage || typeof rawImage !== 'string') {
+      return res.status(400).json({ error: 'Image data is required as base64 or data URL' });
+    }
+
+    const safeFolder = String(folder).replace(/[^a-zA-Z0-9_-]/g, '') || 'images';
+    const targetDir = path.resolve(process.cwd(), 'uploads', safeFolder);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    let buffer: Buffer;
+    let ext = 'jpg';
+
+    if (rawImage.startsWith('data:')) {
+      const matches = rawImage.match(/^data:([A-Za-z-+/_0-9]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mime = matches[1].toLowerCase();
+        if (mime.includes('png')) ext = 'png';
+        else if (mime.includes('webp')) ext = 'webp';
+        else if (mime.includes('gif')) ext = 'gif';
+        else if (mime.includes('svg')) ext = 'svg';
+        else ext = 'jpg';
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        const base64Data = rawImage.split(',')[1] || rawImage;
+        buffer = Buffer.from(base64Data, 'base64');
+      }
+    } else {
+      buffer = Buffer.from(rawImage, 'base64');
+    }
+
+    if (fileName && typeof fileName === 'string') {
+      const origExt = fileName.split('.').pop()?.toLowerCase();
+      if (origExt && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(origExt)) {
+        ext = origExt === 'jpeg' ? 'jpg' : origExt;
+      }
+    }
+
+    const uniqueId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const outputFileName = `${uniqueId}.${ext}`;
+    const filePath = path.join(targetDir, outputFileName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    // Also write to sanitized relative path if fileName was provided (e.g. userId/avatar-123.jpg or flyer.png)
+    // so any component calling getPublicUrl(path) finds the file directly on disk even after reload
+    if (fileName && typeof fileName === 'string') {
+      const sanitized = fileName.replace(/\.\./g, '').replace(/^\/+/, '');
+      if (sanitized) {
+        const directPath = path.join(targetDir, sanitized);
+        const directDir = path.dirname(directPath);
+        if (!fs.existsSync(directDir)) {
+          fs.mkdirSync(directDir, { recursive: true });
+        }
+        try {
+          fs.writeFileSync(directPath, buffer);
+        } catch (e) {
+          console.warn('Note writing direct relative path:', e);
+        }
+      }
+    }
+
+    const publicUrl = `/uploads/${safeFolder}/${outputFileName}`;
+    console.log(`[Image Upload Engine] Successfully stored ${outputFileName} in /uploads/${safeFolder} (${buffer.length} bytes)`);
+
+    return res.json({
+      success: true,
+      url: publicUrl,
+      publicUrl,
+      fileName: outputFileName,
+      size: buffer.length,
+    });
+  } catch (err: any) {
+    console.error('[Image Upload Engine] Upload error:', err);
+    return res.status(500).json({ error: err.message || 'Image upload failed' });
+  }
+});
+
+// ----------------------------------------------------
 // Cloud SQL Chat & Image Sharing Routes
 // ----------------------------------------------------
 app.post('/api/chat/upload-image', async (req, res) => {

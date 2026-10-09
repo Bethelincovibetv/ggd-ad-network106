@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Coins, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { CREDIT_TASK_GOALS, findGoal } from './creditTaskGoals';
+import { getCurrentUser } from '@/services/authService';
 
 export interface CreditTaskPrefill {
   title?: string;
@@ -101,7 +102,8 @@ const CreditTaskComposer: React.FC<Props> = ({ open, onClose, credits, onCreated
       toast.error(`Insufficient credits! You need ${totalCost} but have ${credits}.`);
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
+    const sbUser = (await supabase.auth.getUser()).data?.user;
+    const user = sbUser || (await getCurrentUser());
     if (!user) { toast.error('Please sign in'); return; }
 
     setSaving(true);

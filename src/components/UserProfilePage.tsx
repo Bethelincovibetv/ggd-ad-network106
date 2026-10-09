@@ -11,6 +11,7 @@ import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wal
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import { getCurrentUser } from '@/services/authService';
 
 const UserProfilePage = () => {
   const { isEnabled } = useFeatureToggles();
@@ -46,7 +47,8 @@ const UserProfilePage = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const sbUser = (await supabase.auth.getUser()).data?.user;
+    const user = sbUser || (await getCurrentUser());
     if (!user) { setLoading(false); return; }
     setAuthUser(user);
 
@@ -134,6 +136,14 @@ const UserProfilePage = () => {
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
     if (error) { toast.error('Upload failed'); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+
+    // Update local UI immediately so avatar changes visibly in real time
+    setProfile((prev: any) => ({
+      ...prev,
+      avatar_url: publicUrl,
+      business_logo_url: publicUrl,
+    }));
+
     // Unified: profile picture == business logo everywhere
     const { error: upErr } = await supabase.from('profiles').upsert({
       user_id: authUser.id,
