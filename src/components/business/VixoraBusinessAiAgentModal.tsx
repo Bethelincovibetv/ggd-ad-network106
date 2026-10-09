@@ -120,11 +120,18 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
 
   useEffect(() => {
     if (isOpen) {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-open'));
       loadContext();
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 150);
+    } else {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-close'));
     }
+
+    return () => {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-close'));
+    };
   }, [isOpen]);
 
   const loadContext = async () => {
@@ -448,9 +455,12 @@ YOUR MANDATE:
 
   return (
     <Dialog open={isOpen} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[820px] p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl flex flex-col rounded-3xl">
+      <DialogContent 
+        data-ai-modal-open="true"
+        className="w-full max-w-5xl h-[95vh] sm:h-[92vh] max-h-[900px] p-0 gap-0 overflow-hidden bg-background border-border shadow-2xl flex flex-col rounded-2xl sm:rounded-3xl"
+      >
         {/* Header */}
-        <DialogHeader className="p-3.5 sm:px-6 bg-gradient-to-r from-violet-900/90 via-purple-900/80 to-slate-900 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
+        <DialogHeader className="p-3 sm:px-5 bg-gradient-to-r from-violet-950 via-purple-900 to-slate-950 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
               <img
@@ -517,63 +527,69 @@ YOUR MANDATE:
         {activeTab === 'chat' && (
           <>
             {/* Quick Autonomous Routines / Action Chips */}
-            <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            <div className="bg-muted/40 border-b border-border px-3 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1">
-                <Zap className="h-3 w-3 text-amber-500" /> Auto Routines:
+                <Zap className="h-3 w-3 text-amber-500" /> Actions:
               </span>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-[11px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0 flex items-center gap-1"
+                className="text-[11px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <ImageIcon className="h-3 w-3" /> Upload Photo & Add
               </button>
               <button
                 onClick={() => handleSendMessage("Publish a promotional showcase post to the community on my behalf")}
-                className="text-[11px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/20 shrink-0 flex items-center gap-1"
+                className="text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <Megaphone className="h-3 w-3" /> Auto-Post to Community
               </button>
               <button
+                onClick={() => handleSendMessage("Save memory: Remember that we deliver within 24-48 hours nationwide with free return within 7 days")}
+                className="text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 px-2.5 py-1 rounded-xl transition border border-purple-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+              >
+                <Brain className="h-3 w-3" /> Save Memory Direct
+              </button>
+              <button
                 onClick={() => handleSendMessage("Perform an audit and plan business growth strategy for my store")}
-                className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0 flex items-center gap-1"
+                className="text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <TrendingUp className="h-3 w-3" /> Plan Growth Strategy
               </button>
               <button
                 onClick={() => handleSendMessage("Generate a 1200x628 banner advert for my store")}
-                className="text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0 flex items-center gap-1"
+                className="text-[11px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 🎨 Create Banner Ad
               </button>
               <button
                 onClick={() => handleSendMessage("Customer wants to buy: 2 pairs of Sneakers. Prepare order invoice and WhatsApp closing script")}
-                className="text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0 flex items-center gap-1"
+                className="text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 💬 Close Order in WhatsApp
               </button>
             </div>
 
             {/* Messages Stream */}
-            <ScrollArea className="flex-1 p-4 sm:p-5">
-              <div className="space-y-4 max-w-2xl mx-auto">
+            <ScrollArea className="flex-1 p-3 sm:p-4">
+              <div className="space-y-3.5 max-w-4xl mx-auto w-full">
                 {messages.map(msg => {
                   const isUser = msg.sender === 'user';
                   return (
                     <div
                       key={msg.id}
-                      className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
                       {!isUser && (
                         <img
                           src={vixoraAgentAvatar}
                           alt="Vixora"
-                          className="h-8 w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/20 shadow-xs"
+                          className="h-8 w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/30 shadow-xs"
                         />
                       )}
 
-                      <div className={`space-y-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
+                      <div className={`space-y-1.5 max-w-[92%] sm:max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
                         {msg.actionBadge && (
-                          <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                          <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
                             <Sparkles className="h-3 w-3 text-amber-500" />
                             {msg.actionBadge}
                           </div>
@@ -581,24 +597,24 @@ YOUR MANDATE:
 
                         {/* Image Preview in Message Bubble */}
                         {msg.imageUrl && (
-                          <div className="rounded-2xl overflow-hidden border border-border shadow-xs max-w-xs">
+                          <div className="rounded-2xl overflow-hidden border border-border shadow-xs max-w-sm">
                             <img
                               src={msg.imageUrl}
                               alt="Attached visual"
-                              className="w-full h-auto max-h-56 object-cover"
+                              className="w-full h-auto max-h-64 object-cover"
                             />
                           </div>
                         )}
 
                         <div
-                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap shadow-xs ${
+                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed tracking-normal whitespace-pre-wrap shadow-xs ${
                             isUser
-                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs'
-                              : 'bg-card border border-border text-foreground rounded-tl-xs'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs font-semibold'
+                              : 'bg-card border-2 border-border/80 text-foreground dark:text-slate-100 rounded-tl-xs font-bold'
                           }`}
                         >
                           {msg.isThinking ? (
-                            <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-bold">
+                            <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 font-black">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               <span>{msg.text}</span>
                             </div>
@@ -803,7 +819,7 @@ YOUR MANDATE:
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="flex items-center gap-2 max-w-2xl mx-auto"
+                className="flex items-center gap-2 max-w-4xl mx-auto w-full"
               >
                 {/* Hidden File Input */}
                 <input

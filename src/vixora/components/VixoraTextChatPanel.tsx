@@ -216,8 +216,15 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
 
   useEffect(() => {
     if (isOpen || isFullTab) {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-open'));
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-close'));
     }
+
+    return () => {
+      window.dispatchEvent(new CustomEvent('ggd-ai-chat-close'));
+    };
   }, [isOpen, isFullTab, messages]);
 
   useEffect(() => {
@@ -816,6 +823,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
 
   return (
     <div 
+      data-ai-modal-open="true"
       className={
         isFullTab 
           ? "w-full h-[calc(100vh-120px)] flex flex-col relative animate-fade-in"
@@ -831,7 +839,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                   ? 'bg-slate-50 border-slate-200 text-slate-900' 
                   : 'bg-slate-900/90 border-white/10 text-white'
               }`
-            : `w-full max-w-lg h-full flex flex-col shadow-2xl border-l transition-all duration-300 relative ${
+            : `w-full max-w-xl sm:max-w-2xl lg:max-w-3xl h-full flex flex-col shadow-2xl border-l transition-all duration-300 relative ${
                 themeMode === 'light' 
                   ? 'bg-slate-50 border-slate-200 text-slate-900' 
                   : 'bg-slate-900 border-white/10 text-white'

@@ -1283,12 +1283,39 @@ export async function parseAndExecuteNaturalLanguageIntent(
     }
   }
 
-  // 8. REMEMBER MEMORY
-  if (lower.startsWith('remember that') || lower.startsWith('remember:') || lower.includes('our brand voice is') || lower.includes('my bank account is')) {
-    const note = query.replace(/^remember(?:\s+that|:)?/i, '').trim();
-    if (note.length > 2) {
-      return executeBusinessAgentTool('saveBrandMemory', { learnedNote: note }, context);
+  // 8. REMEMBER & SAVE MEMORY DIRECTLY (ChatGPT-style memory learning)
+  if (
+    lower.startsWith('save memory') ||
+    lower.startsWith('save to memory') ||
+    lower.startsWith('save in memory') ||
+    lower.startsWith('remember that') ||
+    lower.startsWith('remember:') ||
+    lower.startsWith('remember ') ||
+    lower.includes('save this to memory') ||
+    lower.includes('our brand voice is') ||
+    lower.includes('my bank account is') ||
+    lower.includes('our delivery policy is') ||
+    lower.includes('save memory direct')
+  ) {
+    let note = query
+      .replace(/^(can you |please |vixora |save memory[:\s]+|save to memory[:\s]+|save in memory[:\s]+|remember that[:\s]+|remember[:\s]+|remember\s+|save this to memory[:\s]+)/i, '')
+      .trim();
+
+    // Check if voice switch was requested
+    let brandVoice: any = undefined;
+    if (lower.includes('naija') || lower.includes('energetic')) brandVoice = 'naija_energetic';
+    if (lower.includes('luxury') || lower.includes('elite')) brandVoice = 'luxury_elite';
+    if (lower.includes('closer') || lower.includes('urgent')) brandVoice = 'urgent_closer';
+    if (lower.includes('corporate') || lower.includes('friendly')) brandVoice = 'corporate_friendly';
+
+    if (!note || note.length < 2) {
+      note = query;
     }
+
+    return executeBusinessAgentTool('saveBrandMemory', {
+      learnedNote: `[Saved Instruction] ${note}`,
+      brandVoice
+    }, context);
   }
 
   return null;

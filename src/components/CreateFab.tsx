@@ -37,6 +37,30 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
   const { isEnabled } = useFeatureToggles();
   const [open, setOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+
+  // Listen for AI Agent Chat open/close events to avoid covering or affecting the AI chat page
+  useEffect(() => {
+    const handleAiOpen = () => setIsAiChatOpen(true);
+    const handleAiClose = () => setIsAiChatOpen(false);
+
+    window.addEventListener('ggd-ai-chat-open', handleAiOpen);
+    window.addEventListener('ggd-ai-chat-close', handleAiClose);
+
+    // Also observe DOM for data-ai-modal-open
+    const checkAiOpen = () => {
+      const activeModal = document.querySelector('[data-ai-modal-open="true"]');
+      setIsAiChatOpen(!!activeModal);
+    };
+
+    const interval = setInterval(checkAiOpen, 400);
+
+    return () => {
+      window.removeEventListener('ggd-ai-chat-open', handleAiOpen);
+      window.removeEventListener('ggd-ai-chat-close', handleAiClose);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Position state (defaults to lower-right above bottom navigation)
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -307,7 +331,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate }) => {
       : []),
   ];
 
-  if (options.length === 0) return null;
+  if (options.length === 0 || isAiChatOpen) return null;
 
   return (
     <>
