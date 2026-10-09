@@ -438,7 +438,7 @@ export async function updateRedeemOffer(
   if (Object.keys(marketingUpdates).length > 0) {
     const { error } = await supabase
       .from('marketing_apps')
-      .update(marketingUpdates)
+      .update(marketingUpdates as any)
       .eq('id', id);
     if (error) throw new Error(error.message);
   }

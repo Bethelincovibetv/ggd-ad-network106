@@ -46,6 +46,7 @@ import {
   FeatureAnnouncement 
 } from './services/firebaseService';
 import { LearnedSkill } from './types';
+import { generateBannerAdvertCanvas } from './services/vixoraBannerEngine';
 import vixoraLogo from '@/assets/images/vixora_logo_1786107851312.jpg';
 import vixoraAgentAvatar from '@/assets/images/vixora_agent_avatar_1786108775324.jpg';
 import viralGrowthBanner from '@/assets/images/viral_growth_banner_1786110948420.jpg';
@@ -932,11 +933,11 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
       try {
         const fishResult = await synthesizeFishAudio({
           text: text.slice(0, 400),
-          voiceModel: chosenVoice,
+          voiceName: chosenVoice,
           format: 'mp3'
         });
         if (fishResult.audioUrl) {
-          return { audioUrl: fishResult.audioUrl, duration: fishResult.duration || 15 };
+          return { audioUrl: fishResult.audioUrl, duration: fishResult.durationSeconds || 15 };
         }
       } catch (e) {}
       return { audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', duration: 15 };
@@ -989,15 +990,15 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
 
         if (currentUserId) {
           const [profRes, adsRes, tasksRes, prodsRes, notifRes, wallRes] = await Promise.all([
-            supabase.from('profiles').select('credits, full_name, email').eq('id', currentUserId).maybeSingle(),
+            supabase.from('profiles').select('credits, display_name, email').eq('user_id', currentUserId).maybeSingle(),
             supabase.from('ads').select('id', { count: 'exact' }).eq('user_id', currentUserId),
             supabase.from('tasks').select('id', { count: 'exact' }).eq('creator_id', currentUserId),
-            supabase.from('listings').select('id', { count: 'exact' }).eq('user_id', currentUserId),
+            (supabase.from('business_listings' as any) as any).select('id', { count: 'exact' }).eq('user_id', currentUserId),
             supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', currentUserId).eq('is_read', false),
             supabase.from('task_wallets').select('balance').eq('user_id', currentUserId).maybeSingle()
           ]);
 
-          if (profRes.data) profileCredits = profRes.data.credits || 0;
+          if (profRes.data) profileCredits = (profRes.data as any).credits || 0;
           if (wallRes.data) walletNaira = wallRes.data.balance || 0;
           adsCount = adsRes.count || 0;
           tasksCount = tasksRes.count || 0;
@@ -1034,7 +1035,10 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const { data } = await supabase.from('listings').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false });
+          const { data } = await (supabase.from('business_listings' as any) as any)
+            .select('*')
+            .eq('user_id', authUser.id)
+            .order('created_at', { ascending: false });
           if (data && data.length > 0) return data;
         }
       } catch (e) {}
@@ -1043,11 +1047,11 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
         { id: '2', title: 'E-Commerce Growth Masterclass', price: 25000, category: 'Education', status: 'active', imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop' }
       ];
     },
-    createUserProduct: async (productData) => {
+    createUserProduct: async (productData: any) => {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const { data, error } = await supabase.from('listings').insert({
+          const { data, error } = await (supabase.from('business_listings' as any) as any).insert({
             user_id: authUser.id,
             title: productData.title,
             price: productData.price,
