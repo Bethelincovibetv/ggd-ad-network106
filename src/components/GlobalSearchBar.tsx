@@ -100,28 +100,32 @@ const GlobalSearchBar: React.FC = () => {
       </div>
 
       {open && q.trim().length >= 2 && (
-        <div className="absolute left-0 right-0 mt-2 z-50 max-h-[70vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl">
+        <div className="absolute left-0 right-0 mt-2 z-50 max-h-[70vh] overflow-y-auto rounded-2xl border-2 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#18191a] text-neutral-900 dark:text-neutral-100 shadow-2xl">
           {loading && (
-            <div className="p-4 flex items-center justify-center text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />Searching…
+            <div className="p-5 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+              <Loader2 className="h-4 w-4 animate-spin mr-2 text-orange-500" />Searching directory…
             </div>
           )}
           {!loading && results.length === 0 && (
-            <div className="p-4 text-center text-sm text-muted-foreground">No results for "{q}"</div>
+            <div className="p-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
+              No matching records for &ldquo;{q}&rdquo;
+            </div>
           )}
           {!loading && Object.entries(grouped).map(([group, items]) => (
-            <div key={group} className="border-b last:border-0">
-              <div className="px-3 py-1.5 bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{group}</div>
+            <div key={group} className="border-b border-neutral-200 dark:border-neutral-800 last:border-0">
+              <div className="px-3.5 py-1.5 bg-neutral-100 dark:bg-[#242526] text-[10px] font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                {group} ({items.length})
+              </div>
               {items.map(r => (
                 <button
                   key={r.id}
                   onClick={() => { r.onClick(); setOpen(false); setQ(''); }}
-                  className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-muted/60 text-left"
+                  className="w-full flex items-start gap-3 px-3.5 py-2.5 hover:bg-neutral-100 dark:hover:bg-[#282a2d] text-left transition-colors"
                 >
-                  <r.icon className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <r.icon className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-foreground truncate">{r.title}</p>
-                    {r.subtitle && <p className="text-[11px] text-muted-foreground truncate">{r.subtitle}</p>}
+                    <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">{r.title}</p>
+                    {r.subtitle && <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">{r.subtitle}</p>}
                   </div>
                 </button>
               ))}

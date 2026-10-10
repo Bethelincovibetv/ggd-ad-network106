@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CommunityBlogPostData, parseBlogPost, serializeBlogPost, BlogSection } from '@/types/blog';
 import GifPickerPopover from '@/components/chat/GifPickerPopover';
 import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
+import EmbeddedVideoPlayer from '@/components/feed/EmbeddedVideoPlayer';
 
 export interface Template {
   id: string;
@@ -546,7 +547,13 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                 </div>
               </div>
 
-              {linkUrl.trim().length > 3 && (
+              {videoUrl.trim().length > 3 && (
+                <div className="my-2">
+                  <EmbeddedVideoPlayer url={videoUrl.trim()} className="border border-red-500/30" />
+                </div>
+              )}
+
+              {linkUrl.trim().length > 3 && !videoUrl.trim() && (
                 <FeedLinkPreview url={linkUrl.trim()} isInteractive={false} className="my-1 border border-blue-500/30" />
               )}
 

@@ -107,3 +107,10 @@ export const chatImages = pgTable('chat_images', {
   fileSize: integer('file_size'),
   createdAt: text('created_at').notNull(),
 });
+
+export const postViews = pgTable('post_views', {
+  postId: text('post_id').primaryKey(),
+  viewsCount: integer('views_count').notNull().default(0),
+  uniqueViewers: text('unique_viewers'),
+  lastViewedAt: text('last_viewed_at').notNull(),
+});

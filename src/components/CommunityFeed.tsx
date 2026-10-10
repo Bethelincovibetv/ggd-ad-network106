@@ -33,9 +33,17 @@ import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
 import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
+import EmbeddedVideoPlayer from '@/components/feed/EmbeddedVideoPlayer';
+import { scanTextForMediaUrls, classifyVideoUrl } from '@/utils/urlParser';
 import { uploadImageFile } from '@/services/imageUploadService';
 import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
-import { recordPostView, formatViewsCount } from '@/lib/postViews';
+import {
+  recordPostViewRealtime,
+  fetchPostViewsBatch,
+  formatViewsCount,
+  subscribeToViewUpdates,
+  getCachedPostViews,
+} from '@/services/realtimeViewsService';
 import SendGiftModal from '@/components/feed/SendGiftModal';
 import SupportersModal from '@/components/feed/SupportersModal';
 import { getPostGifts, PostGiftRecord } from '@/services/postGiftService';
@@ -126,12 +134,27 @@ const FEED_SHARE_PLATFORMS = [
   { key: 'twitter', label: 'X / Twitter', build: (text: string, url: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}` },
 ];
 
-// Render content with hashtags as clickable chips.
+// Render content with active hyperlinks and clickable hashtags.
 const RichContent: React.FC<{ text: string; onTagClick: (tag: string) => void; className?: string }> = ({ text, onTagClick, className }) => {
-  const parts = text.split(/(#[\p{L}0-9_]{2,40})/gu);
+  const parts = text.split(/(https?:\/\/[^\s<>'"]+|#[\p{L}0-9_]{2,40})/gu);
   return (
     <span className={className}>
       {parts.map((p, i) => {
+        if (p.startsWith('http://') || p.startsWith('https://')) {
+          return (
+            <a
+              key={i}
+              href={p}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-blue-600 dark:text-blue-400 font-semibold underline underline-offset-2 break-all inline-flex items-center gap-0.5 mx-0.5 hover:opacity-80 transition-opacity"
+            >
+              <span>{p}</span>
+              <ExternalLink className="h-3 w-3 inline shrink-0 opacity-70" />
+            </a>
+          );
+        }
         if (p.startsWith('#')) {
           const tag = p.slice(1);
           return (
@@ -388,6 +411,9 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
     setPosts(enriched);
     setLoading(false);
+    if (ids.length > 0) {
+      fetchPostViewsBatch(ids);
+    }
   };
 
   const onPickImage = (f: File | null) => {
@@ -416,12 +442,17 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         image_url = imagePreview;
       }
       const tags = extractHashtags(text);
+      // Automatic Link & Video URL Detection
+      const mediaScan = scanTextForMediaUrls(text);
+      const effectiveVideoUrl = videoUrl.trim() || mediaScan.videoUrl || null;
+      const effectiveLinkUrl = linkUrl.trim() || (!effectiveVideoUrl ? mediaScan.linkUrl : null) || null;
+
       const { error } = await supabase.from('community_posts').insert({
         user_id: me.id,
         content: text || null,
         image_url,
-        link_url: linkUrl.trim() || null,
-        video_url: videoUrl.trim() || null,
+        link_url: effectiveLinkUrl,
+        video_url: effectiveVideoUrl,
         background_template: image_url ? null : templateId,
         tags,
       });
@@ -1231,11 +1262,56 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const commentInputRef = useRef<HTMLInputElement>(null);
   const inlineInputRef = useRef<HTMLInputElement>(null);
+  const postCardRef = useRef<HTMLDivElement>(null);
 
+  // Auto-detect video or link URLs embedded in the post content
+  const detectedMedia = useMemo(() => {
+    return scanTextForMediaUrls(post.content || '');
+  }, [post.content]);
+
+  const activeVideoUrl = post.video_url || detectedMedia.videoUrl;
+  const activeLinkUrl = !activeVideoUrl ? (post.link_url || detectedMedia.linkUrl) : post.link_url;
+
+  // Real-time View Counter: tracks genuine viewport visibility and updates live
   useEffect(() => {
-    const v = recordPostView(post);
-    setViewsCount(v);
-  }, [post.id]);
+    const cached = getCachedPostViews(post.id);
+    if (cached > 0) setViewsCount(cached);
+
+    const unsubscribe = subscribeToViewUpdates((id, count) => {
+      if (id === post.id) {
+        setViewsCount(count);
+      }
+    });
+
+    let viewTimer: NodeJS.Timeout | null = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            viewTimer = setTimeout(() => {
+              recordPostViewRealtime(post.id, currentUserId).then((v) => {
+                setViewsCount(v);
+              });
+            }, 1000); // 1.0 second visible in viewport registers real view
+          } else if (viewTimer) {
+            clearTimeout(viewTimer);
+            viewTimer = null;
+          }
+        });
+      },
+      { threshold: 0.35 }
+    );
+
+    if (postCardRef.current) {
+      observer.observe(postCardRef.current);
+    }
+
+    return () => {
+      if (viewTimer) clearTimeout(viewTimer);
+      observer.disconnect();
+      unsubscribe();
+    };
+  }, [post.id, currentUserId]);
 
   // Load gifts on mount
   useEffect(() => {
@@ -1402,7 +1478,7 @@ const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
+    <Card ref={postCardRef} className="border border-border/80 shadow-xs overflow-hidden rounded-xl bg-card">
       <CardContent className="p-0">
         {/* Header */}
         <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2.5">
@@ -1530,23 +1606,21 @@ const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {embed && (
-          <div className="aspect-video bg-black">
-            <iframe src={embed} className="w-full h-full" allowFullScreen title="video" />
+        {/* Embedded Video Player for YouTube and all video providers */}
+        {activeVideoUrl && (
+          <div className="mx-3 mb-3">
+            <EmbeddedVideoPlayer
+              url={activeVideoUrl}
+              title={post.content ? (post.content.length > 80 ? post.content.slice(0, 80) + '...' : post.content) : null}
+            />
           </div>
         )}
 
-        {post.video_url && !embed && (
-          <a href={post.video_url} target="_blank" rel="noopener noreferrer"
-             className="block px-3 py-2 text-xs text-blue-600 hover:underline truncate">
-            <Video className="h-3.5 w-3.5 inline mr-1" />{post.video_url}
-          </a>
-        )}
-
-        {post.link_url && (
+        {/* Rich Link Preview Card for general web links */}
+        {activeLinkUrl && !activeVideoUrl && (
           <div className="mx-3 mb-3">
             <FeedLinkPreview
-              url={post.link_url}
+              url={activeLinkUrl}
               title={post.content ? (post.content.length > 80 ? post.content.slice(0, 80) + '...' : post.content) : null}
             />
           </div>

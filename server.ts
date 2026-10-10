@@ -2779,6 +2779,220 @@ app.post(['/api/upload', '/api/upload/image'], async (req, res) => {
 });
 
 // ----------------------------------------------------
+// Automatic Link Preview Scraping API
+// ----------------------------------------------------
+const linkPreviewCache = new Map<string, { title: string; description: string; image: string | null; domain: string; url: string; cachedAt: number }>();
+
+app.get('/api/link-preview', async (req, res) => {
+  try {
+    const rawUrl = String(req.query.url || '').trim();
+    if (!rawUrl) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+
+    const targetUrl = rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+      ? rawUrl
+      : `https://${rawUrl}`;
+
+    // Cache hit (valid for 1 hour)
+    const cached = linkPreviewCache.get(targetUrl);
+    if (cached && Date.now() - cached.cachedAt < 3600000) {
+      return res.json({ success: true, ...cached });
+    }
+
+    let parsedDomain = '';
+    try {
+      parsedDomain = new URL(targetUrl).hostname.replace(/^www\./, '');
+    } catch {
+      parsedDomain = targetUrl;
+    }
+
+    // Abort controller with 3.5s timeout to keep UI snappy
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+
+    let html = '';
+    try {
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 GGD-LinkBot/1.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+      clearTimeout(timeout);
+      if (response.ok) {
+        html = await response.text();
+      }
+    } catch {
+      clearTimeout(timeout);
+    }
+
+    let ogTitle = '';
+    let ogDesc = '';
+    let ogImage = '';
+
+    if (html) {
+      const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch) ogTitle = titleMatch[1].trim();
+
+      const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']+)["']/i);
+      if (descMatch) ogDesc = descMatch[1].trim();
+
+      const imgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
+      if (imgMatch) {
+        let rawImg = imgMatch[1].trim();
+        if (rawImg.startsWith('//')) rawImg = `https:${rawImg}`;
+        else if (rawImg.startsWith('/')) {
+          try {
+            const u = new URL(targetUrl);
+            rawImg = `${u.origin}${rawImg}`;
+          } catch {}
+        }
+        ogImage = rawImg;
+      }
+    }
+
+    const payload = {
+      title: ogTitle || `Visit ${parsedDomain}`,
+      description: ogDesc || `Explore content on ${parsedDomain}`,
+      image: ogImage || null,
+      domain: parsedDomain,
+      url: targetUrl,
+      cachedAt: Date.now(),
+    };
+
+    linkPreviewCache.set(targetUrl, payload);
+    return res.json({ success: true, ...payload });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to parse link preview' });
+  }
+});
+
+// ----------------------------------------------------
+// Real-Time View Counter API
+// ----------------------------------------------------
+const inMemoryPostViews = new Map<string, number>();
+
+app.post('/api/posts/:id/view', async (req, res) => {
+  try {
+    const postId = String(req.params.id);
+    const { viewerId, sessionToken } = req.body || {};
+    const viewerIdentifier = String(viewerId || sessionToken || req.ip || 'anonymous');
+
+    let currentViews = (inMemoryPostViews.get(postId) || 0) + 1;
+    inMemoryPostViews.set(postId, currentViews);
+
+    // Persist to Cloud SQL post_views table
+    try {
+      const { db, isCloudSqlConfigured } = await import('./src/db/index.ts');
+      const { postViews } = await import('./src/db/schema.ts');
+      const { eq, sql } = await import('drizzle-orm');
+
+      if (db && isCloudSqlConfigured()) {
+        const now = new Date().toISOString();
+        const existing = await db
+          .select()
+          .from(postViews)
+          .where(eq(postViews.postId, postId))
+          .limit(1);
+
+        if (existing.length > 0) {
+          const row = existing[0];
+          const updated = (row.viewsCount || 0) + 1;
+          await db
+            .update(postViews)
+            .set({
+              viewsCount: updated,
+              lastViewedAt: now,
+            })
+            .where(eq(postViews.postId, postId));
+          currentViews = updated;
+          inMemoryPostViews.set(postId, updated);
+        } else {
+          await db.insert(postViews).values({
+            postId,
+            viewsCount: 1,
+            uniqueViewers: JSON.stringify([viewerIdentifier]),
+            lastViewedAt: now,
+          });
+          currentViews = 1;
+          inMemoryPostViews.set(postId, 1);
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[Post Views] Cloud SQL recording notice:', dbErr);
+    }
+
+    return res.json({
+      success: true,
+      postId,
+      viewsCount: currentViews,
+    });
+  } catch (err: any) {
+    console.error('Error recording post view:', err);
+    return res.status(500).json({ error: err.message || 'Failed to record post view' });
+  }
+});
+
+app.get('/api/posts/views', async (req, res) => {
+  try {
+    const idsParam = String(req.query.ids || '');
+    const ids = idsParam ? idsParam.split(',').filter(Boolean) : [];
+
+    const viewsMap: Record<string, number> = {};
+
+    // First populate from in-memory cache
+    for (const id of ids) {
+      if (inMemoryPostViews.has(id)) {
+        viewsMap[id] = inMemoryPostViews.get(id)!;
+      }
+    }
+
+    // Try reading from Cloud SQL
+    try {
+      const { db, isCloudSqlConfigured } = await import('./src/db/index.ts');
+      const { postViews } = await import('./src/db/schema.ts');
+      const { inArray } = await import('drizzle-orm');
+
+      if (db && isCloudSqlConfigured() && ids.length > 0) {
+        const rows = await db
+          .select()
+          .from(postViews)
+          .where(inArray(postViews.postId, ids));
+
+        for (const row of rows) {
+          viewsMap[row.postId] = row.viewsCount;
+          inMemoryPostViews.set(row.postId, row.viewsCount);
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[Post Views] Cloud SQL fetch notice:', dbErr);
+    }
+
+    // Fallback: any id not in DB has baseline 0
+    for (const id of ids) {
+      if (viewsMap[id] === undefined) {
+        viewsMap[id] = inMemoryPostViews.get(id) || 0;
+      }
+    }
+
+    return res.json({
+      success: true,
+      views: viewsMap,
+    });
+  } catch (err: any) {
+    console.error('Error fetching post views:', err);
+    return res.status(500).json({ error: err.message || 'Failed to fetch post views' });
+  }
+});
+
+// ----------------------------------------------------
 // ----------------------------------------------------
 // Open Graph Dynamic Image & Social Preview Middleware
 // ----------------------------------------------------
