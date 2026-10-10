@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, ExternalLink, MailOpen, Trash2, Volume2, ArrowRight,
-  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail, MessageSquare,
+  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -198,69 +198,12 @@ const NotificationBell = () => {
     setReceiptModalOpen(true);
   };
 
-  const extractTargetPersonId = (n: any): string | null => {
-    if (n.nav_target?.startsWith('chat:')) {
-      const id = n.nav_target.replace('chat:', '').trim();
-      if (id) return id;
-    }
-    if (n.sender_id) return n.sender_id;
-    const uStr = n.link_url || n.nav_target || '';
-    if (uStr) {
-      try {
-        const u = new URL(uStr, window.location.origin);
-        const pId = u.searchParams.get('chatWith') || u.searchParams.get('chat') || u.searchParams.get('userId');
-        if (pId) return pId;
-      } catch {}
-      const match = uStr.match(/(?:chatWith|chat)=([a-zA-Z0-9_-]+)/i);
-      if (match && match[1]) return match[1];
-    }
-    return null;
-  };
-
-  const handleOpenChatDirect = (n: any) => {
-    markAsRead(n.id);
-    setOpen(false);
-    const targetPersonId = extractTargetPersonId(n);
-
-    if (targetPersonId) {
-      sessionStorage.setItem('ggd_chat_target', targetPersonId);
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', 'inbox');
-        url.searchParams.set('chatWith', targetPersonId);
-        window.history.pushState(null, '', url.toString());
-      } catch {}
-      window.dispatchEvent(new CustomEvent('ggd-open-chat', { detail: { userId: targetPersonId } }));
-    }
-
-    try {
-      localStorage.setItem('ggd_active_tab', 'inbox');
-    } catch {}
-    window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
-  };
-
   const handleClick = (n: any) => {
     markAsRead(n.id);
     const link: string | null = n.link_url || extractLink(n.message);
     let navTarget: string | null = n.nav_target || null;
 
     setOpen(false);
-
-    // Direct message / chat notification handling -> Open straight to that specific person's chat!
-    const isChat =
-      n.type === 'chat' ||
-      n.type === 'message' ||
-      n.type === 'urgent_message' ||
-      n.title?.toLowerCase().includes('message') ||
-      n.title?.toLowerCase().includes('quick message') ||
-      navTarget?.startsWith('chat:') ||
-      n.link_url?.includes('inbox') ||
-      navTarget?.includes('inbox');
-
-    if (isChat) {
-      handleOpenChatDirect(n);
-      return;
-    }
 
     // Transfer receipt handling
     if (
@@ -397,17 +340,7 @@ const NotificationBell = () => {
                     n.title?.toLowerCase().includes('guide') ||
                     n.nav_target?.toLowerCase().includes('guide');
 
-                  const isChat =
-                    n.type === 'chat' ||
-                    n.type === 'message' ||
-                    n.type === 'urgent_message' ||
-                    n.title?.toLowerCase().includes('message') ||
-                    n.title?.toLowerCase().includes('quick message') ||
-                    n.nav_target?.startsWith('chat:') ||
-                    n.link_url?.includes('inbox') ||
-                    n.nav_target?.includes('inbox');
-
-                  const hasAction = !!(n.nav_target || link || isTransfer || isGuide || isChat);
+                  const hasAction = !!(n.nav_target || link || isTransfer || isGuide);
 
                   return (
                     <div
@@ -468,11 +401,6 @@ const NotificationBell = () => {
                                 📘 Guide
                               </Badge>
                             )}
-                            {isChat && (
-                              <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-300 border-none text-[9px] font-black px-1.5 py-0">
-                                💬 Direct Message
-                              </Badge>
-                            )}
                           </div>
 
                           {n.message && (
@@ -503,20 +431,7 @@ const NotificationBell = () => {
                               </span>
                             )}
 
-                            {isChat && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenChatDirect(n);
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-black text-sky-600 dark:text-sky-400 hover:underline cursor-pointer bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-md"
-                              >
-                                <MessageSquare className="h-3 w-3" /> Open Chat →
-                              </button>
-                            )}
-
-                            {!isTransfer && !isGuide && !isChat && (
+                            {!isTransfer && !isGuide && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:underline">
                                 Read full message <ArrowRight className="h-3 w-3" />
                               </span>

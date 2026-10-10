@@ -256,12 +256,13 @@ export async function fetchCompiledContacts(filterDate?: string): Promise<Contac
 
     // 4. Fetch real businesses registered on directory
     try {
-      const { data: businesses } = await (supabase.from('businesses' as any) as any)
+      const { data: businesses } = await supabase
+        .from('businesses')
         .select('id, name, phone, whatsapp, category, address, state, created_at')
         .limit(300);
 
       if (businesses && businesses.length > 0) {
-        for (const b of (businesses as any[])) {
+        for (const b of businesses) {
           const phone = sanitizePhoneNumber(b.whatsapp || b.phone || '');
           if (!phone || phone.length < 7) continue;
 
@@ -499,7 +500,7 @@ export async function downloadDailyVCFFile(
             .eq('user_id', userId);
 
           try {
-            await (supabase.from('credit_transactions' as any) as any).insert({
+            await supabase.from('credit_transactions').insert({
               user_id: userId,
               amount: creditsAwarded,
               type: 'contact_gain_reward',
@@ -855,7 +856,7 @@ export async function reviewContactProof(
               .eq('user_id', proofData.userId);
 
             try {
-              await (supabase.from('credit_transactions' as any) as any).insert({
+              await supabase.from('credit_transactions').insert({
                 user_id: proofData.userId,
                 amount: proofData.rewardCredits,
                 type: 'contact_save_reward',

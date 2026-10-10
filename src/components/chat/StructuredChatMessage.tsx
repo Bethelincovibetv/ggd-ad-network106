@@ -97,9 +97,9 @@ export const StructuredChatMessage: React.FC<StructuredChatMessageProps> = ({
   const primaryDomain = primaryUrl ? getDomainName(primaryUrl) : '';
 
   return (
-    <div dir="ltr" className={`space-y-1.5 text-left [direction:ltr] ${className}`}>
+    <div className={`space-y-1.5 ${className}`}>
       {/* Formatted Text with Clickable Links */}
-      <p dir="ltr" className="whitespace-pre-wrap break-words leading-relaxed text-left [direction:ltr]">
+      <p className="whitespace-pre-wrap break-words leading-relaxed">
         {parts.map((part, idx) => {
           if (part.type === 'link' && part.url) {
             return (

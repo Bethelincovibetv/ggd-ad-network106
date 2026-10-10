@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bell, CheckCircle2, Check, Mail, MailOpen, Trash2, Volume2, Search, ArrowRight,
   ExternalLink, ArrowDownLeft, ArrowUpRight, BookOpen, Sparkles, Filter,
-  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck, MessageSquare,
+  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
@@ -441,8 +441,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       return;
     }
 
-    // Direct Message / Chat notification navigation -> Open full conversation with that specific person!
-    const isChatNotif =
+    // Direct Message / Chat notification navigation -> Open full message page!
+    if (
       n.type === 'chat' ||
       n.type === 'message' ||
       n.type === 'urgent_message' ||
@@ -450,50 +450,20 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       n.title?.toLowerCase().includes('quick message') ||
       n.link_url?.includes('inbox') ||
       navTarget?.includes('inbox') ||
-      navTarget?.startsWith('chat:') ||
       navTarget === 'chat' ||
-      navTarget === 'inbox';
-
-    if (isChatNotif) {
-      let targetPersonId: string | null = null;
-      if (navTarget?.startsWith('chat:')) {
-        targetPersonId = navTarget.replace('chat:', '').trim();
-      } else if (n.sender_id) {
-        targetPersonId = n.sender_id;
-      }
-
-      if (!targetPersonId && (n.link_url || navTarget)) {
-        const uStr = n.link_url || navTarget || '';
-        try {
-          const u = new URL(uStr, window.location.origin);
-          targetPersonId = u.searchParams.get('chatWith') || u.searchParams.get('chat') || u.searchParams.get('userId');
-        } catch {}
-        if (!targetPersonId) {
-          const match = uStr.match(/(?:chatWith|chat)=([a-zA-Z0-9_-]+)/i);
-          if (match && match[1]) targetPersonId = match[1];
-        }
-      }
-
-      if (targetPersonId) {
-        sessionStorage.setItem('ggd_chat_target', targetPersonId);
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.set('tab', 'inbox');
-          url.searchParams.set('chatWith', targetPersonId);
-          window.history.pushState(null, '', url.toString());
-        } catch {}
-        window.dispatchEvent(new CustomEvent('ggd-open-chat', { detail: { userId: targetPersonId } }));
-      }
-
-      try {
-        localStorage.setItem('ggd_active_tab', 'inbox');
-      } catch {}
-
+      navTarget === 'inbox'
+    ) {
       if (onNavigate) {
         onNavigate('inbox');
       } else {
         window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'inbox' }));
       }
+      try {
+        localStorage.setItem('ggd_active_tab', 'inbox');
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', 'inbox');
+        window.history.pushState(null, '', url.toString());
+      } catch {}
       return;
     }
 
@@ -907,16 +877,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               n.title?.toLowerCase().includes('guide') ||
               n.nav_target?.toLowerCase().includes('guide');
 
-            const isChat =
-              n.type === 'chat' ||
-              n.type === 'message' ||
-              n.type === 'urgent_message' ||
-              n.title?.toLowerCase().includes('message') ||
-              n.title?.toLowerCase().includes('quick message') ||
-              n.nav_target?.startsWith('chat:') ||
-              n.link_url?.includes('inbox') ||
-              n.nav_target?.includes('inbox');
-
             const isRead = Boolean(n.is_read);
 
             return (
@@ -1073,17 +1033,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             </Button>
                           )}
 
-                          {isChat && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleAction(n)}
-                              className="h-8 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 px-3 shadow-xs"
-                            >
-                              <MessageSquare className="h-3.5 w-3.5" /> Open Chat <ArrowRight className="h-3 w-3" />
-                            </Button>
-                          )}
-
-                          {!isTransfer && !isGuide && !isChat && (n.nav_target || n.link_url) && (
+                          {!isTransfer && !isGuide && (n.nav_target || n.link_url) && (
                             <Button
                               size="sm"
                               variant="outline"

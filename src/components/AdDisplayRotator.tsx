@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Eye } from "lucide-react";
 import { AdRotatorAd } from "@/types/advert";
 import defaultAdImg from "@/assets/default-ad.jpg";
-import { safeImageUrl, handleImageError } from "@/services/imageUploadService";
 
 interface AdDisplayRotatorProps {
   ads: AdRotatorAd[];
@@ -99,18 +98,18 @@ const AdDisplayRotator: React.FC<AdDisplayRotatorProps> = ({ ads, onAdClick, slo
         className="overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 bg-white"
         onClick={() => handleAdClick(currentAd)}
       >
-        <div className="relative bg-neutral-900/5 dark:bg-black/20">
-          <img
-            loading="lazy" 
-            src={safeImageUrl(currentAd.imageUrl, defaultAdImg)} 
-            alt={currentAd.title}
-            onError={handleImageError(defaultAdImg)}
-            className="w-full max-h-72 h-auto object-contain"
-          />
-          <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-[10px] font-black shadow-sm">
-            HOT!
+        {currentAd.imageUrl && (
+          <div className="relative bg-neutral-900/5 dark:bg-black/20">
+            <img loading="lazy" 
+              src={currentAd.imageUrl} 
+              alt={currentAd.title}
+              className="w-full max-h-72 h-auto object-contain"
+            />
+            <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-2 py-1 rounded-full text-[10px] font-black shadow-sm">
+              HOT!
+            </div>
           </div>
-        </div>
+        )}
         
         <div className="p-4 space-y-3">
           <h3 className="font-bold text-lg text-gray-800 line-clamp-2">

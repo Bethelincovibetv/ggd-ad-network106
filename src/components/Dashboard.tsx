@@ -14,7 +14,6 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
 import { getCurrentUser } from "@/services/authService";
-import { uploadImage, handleImageError, safeImageUrl, defaultAdImg } from "@/services/imageUploadService";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -464,13 +463,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const uploadAdImage = async (file: File): Promise<string | null> => {
     try {
       setUploadingImage(true);
-      const url = await uploadImage(file, { folder: 'ad-images' });
-      if (url) {
-        toast.success("Banner image uploaded successfully!");
-        return url;
-      }
-      toast.error("Failed to upload image");
-      return null;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const ext = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('ad-images').upload(fileName, file, { upsert: true });
+      if (error) { toast.error("Failed to upload image"); return null; }
+      const { data: { publicUrl } } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+      return publicUrl;
     } catch {
       toast.error("Image upload failed");
       return null;
@@ -503,12 +503,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     }
     if (!isAdmin && credits < adCostCredits) { toast.error(`Not enough credits. Need ${adCostCredits}, have ${credits}`); return; }
 
-    const sbUser = (await supabase.auth.getUser()).data?.user;
-    const user = sbUser || (await getCurrentUser());
-    if (!user) {
-      toast.error("Please sign in to publish your ad campaign");
-      return;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + duration);
 
@@ -796,13 +792,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                     </Button>
                     {newAd.image_url && (
                       <div className="relative">
-                        <img
-                          loading="lazy"
-                          src={newAd.image_url}
-                          alt="Banner preview"
-                          onError={handleImageError(defaultAdImg)}
-                          className="w-full rounded-lg object-contain max-h-48 bg-muted/20"
-                        />
+                        <img loading="lazy" src={newAd.image_url} alt="Banner preview" className="w-full rounded-lg" />
                         <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setNewAd({ ...newAd, image_url: '' })}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -838,13 +828,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   </Button>
                   {editingAd.image_url && (
                     <div className="relative">
-                      <img
-                        loading="lazy"
-                        src={editingAd.image_url}
-                        alt="Banner"
-                        onError={handleImageError(defaultAdImg)}
-                        className="w-full rounded-lg object-contain max-h-48 bg-muted/20"
-                      />
+                      <img loading="lazy" src={editingAd.image_url} alt="Banner" className="w-full rounded-lg" />
                       <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setEditingAd({ ...editingAd, image_url: null })}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -880,13 +864,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                       <div className="flex gap-3 items-center">
                         <div className="h-14 w-14 rounded-xl overflow-hidden bg-gradient-to-br from-orange-100 to-yellow-100 flex-shrink-0 flex items-center justify-center">
                           {ad.image_url ? (
-                            <img
-                              loading="lazy"
-                              src={safeImageUrl(ad.image_url, defaultAdImg)}
-                              alt={ad.title}
-                              onError={handleImageError(defaultAdImg)}
-                              className="h-full w-full object-cover"
-                            />
+                            <img loading="lazy" src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
                           ) : (
                             <Megaphone className="h-6 w-6 text-orange-400" />
                           )}

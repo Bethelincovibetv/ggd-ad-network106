@@ -232,7 +232,7 @@ const ProductDetailPage: React.FC = () => {
   const IndustryIcon = industryMeta.icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50/40 dark:from-background dark:via-background dark:to-background pb-36 sm:pb-28">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-orange-50/40 dark:from-background dark:via-background dark:to-background pb-16">
       <MetaTags
         type={isService ? 'website' : 'product'}
         title={`${listing.title} — ${isService ? 'Service' : 'Product'} by ${bizName} | GGD`}

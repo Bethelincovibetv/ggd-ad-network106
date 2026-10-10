@@ -7,7 +7,7 @@ import {
   Search, ChevronDown, Megaphone, Building2, Store, Users,
   Sparkles, Wallet, BarChart3, MessageCircle, CreditCard, BookOpen,
   CheckCircle2, Circle, Image as ImageIcon, ArrowRight, Loader2,
-  Download, ExternalLink, Play, Eye, BellRing, Share2, Smartphone, Video, Package, UserCheck, HeartHandshake, ShieldCheck
+  Download, ExternalLink, Play, Eye, BellRing, Share2
 } from 'lucide-react';
 import guideHero from '@/assets/guide-hero.jpg';
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
@@ -341,104 +341,6 @@ const sections: GuideSection[] = [
           <li>Use CTR and other campaign information where available.</li>
           <li>Review relevant promotion/content activity and results.</li>
           <li>Use what you learn to improve the next campaign or piece of content.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    title: 'Redeem Airtime & Data Marketplace — Instant Credit Conversion',
-    badge: 'Airtime & Data',
-    icon: <Smartphone className="h-5 w-5 text-orange-500" />,
-    keywords: 'airtime data recharge mtn airtel glo 9mobile redeem credits wallet convert cash sabuss topup instant',
-    actionTab: 'redeem-airtime',
-    actionLabel: 'Redeem Airtime & Data',
-    flyerUrl: flyerGuideTasks,
-    flyerCaption: 'Official GGD Airtime & Data Direct Credit Exchange Flyer',
-    content: (
-      <div className="space-y-3.5">
-        <p>The <strong>Airtime & Data Marketplace</strong> empowers you to convert your earned GGD Credits into direct mobile recharge vouchers and high-speed data bundles across all Nigerian telecom networks.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Supported Networks:</strong> MTN, Airtel Nigeria, Globacom (Glo), and 9mobile.</li>
-          <li><strong>Automated Instant Vending:</strong> Powered by direct telco API integration with Sabuss Engine, recharge happens in seconds.</li>
-          <li><strong>Real-time Receipt Generation:</strong> Download a verified digital transaction receipt for every completed recharge.</li>
-          <li><strong>Automatic Refund Protection:</strong> If any telco network experiences a temporary downtime, your credits are immediately refunded back to your wallet.</li>
-        </ul>
-        <div className="rounded-xl bg-orange-500/10 border border-orange-500/30 p-3.5 text-xs text-foreground/90">
-          💡 <strong>Pro Tip:</strong> Complete daily tasks, refer colleagues, or promote campaigns to accumulate credits, then recharge your phone for free anytime!
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: 'Contact Gain Hub & Save My Contact Campaigns — WhatsApp Growth',
-    badge: 'WhatsApp Reach',
-    icon: <Users className="h-5 w-5 text-emerald-500" />,
-    keywords: 'contact gain save my contact whatsapp status views entrepreneur directory phonebook subscribers credits vcf',
-    actionTab: 'contact-gain',
-    actionLabel: 'Open Contact Gain Hub',
-    flyerUrl: flyerGuideGrowth,
-    flyerCaption: 'GGD Contact Gain & WhatsApp Status Multiplication Flyer',
-    content: (
-      <div className="space-y-3.5">
-        <p>The <strong>Contact Gain Hub</strong> is GGD's premier WhatsApp status audience multiplier for entrepreneurs, digital marketers, and merchants across Nigeria.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Compiled Verified Entrepreneur Phonebook:</strong> Download verified contact lists (.vcf format) of real business owners in 1 click.</li>
-          <li><strong>Launch "Save My Contact" Campaigns:</strong> Allocate credits to have hundreds of active members save your WhatsApp number and view your daily catalog updates.</li>
-          <li><strong>Save & Earn Credits:</strong> Save other verified merchants to your phone, submit screenshot proof, and receive instant credit rewards.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    title: '1-Click Matchmaker & Contact Saver in Chat — Instant Connection',
-    badge: 'Matchmaker',
-    icon: <UserCheck className="h-5 w-5 text-teal-500" />,
-    keywords: 'matchmaker chat save contact p2p connect phonebook direct download vcf buyer seller business',
-    actionTab: 'inbox',
-    actionLabel: 'Open GGD Inbox',
-    content: (
-      <div className="space-y-3.5">
-        <p>The <strong>1-Click Matchmaker</strong> is an automated mutual contact connector built directly into GGD Inbox and Business Chat modals.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Instant Phonebook Download:</strong> When chatting with a customer or merchant, click <strong>"Save Contact"</strong> to automatically download their verified .vcf card straight into your phonebook.</li>
-          <li><strong>Persistent Connected Status:</strong> Once saved, the chat header permanently updates to show <strong>"✓ Connected"</strong> with 1-tap WhatsApp and call shortcuts, preventing redundant prompts.</li>
-          <li><strong>Privacy & Assurance:</strong> Seamlessly bridges business deals and long-term client relationships.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    title: 'Digital Products Marketplace — Buy & Sell Digital Assets',
-    badge: 'Digital Products',
-    icon: <Package className="h-5 w-5 text-indigo-500" />,
-    keywords: 'digital products marketplace buy sell ebooks software scripts templates courses downloads credits',
-    actionTab: 'marketplace',
-    actionLabel: 'Browse Digital Products',
-    content: (
-      <div className="space-y-3.5">
-        <p>The <strong>Digital Products Marketplace</strong> is where authors, creators, and developers sell high-value downloadable resources, marketing funnels, and business scripts.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Direct 1-Click Purchase:</strong> Pay seamlessly with your GGD Credits balance or secure Naira gateway.</li>
-          <li><strong>Instant File Access:</strong> Receive secure, direct download links immediately upon purchase.</li>
-          <li><strong>Merchant Uploads:</strong> Approved businesses can list and monetize their own digital tools and training materials.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    title: 'Vixora AI Creator Studio — Viral Video Generation & Autonomous Copilot',
-    badge: 'AI Creator',
-    icon: <Video className="h-5 w-5 text-rose-500" />,
-    keywords: 'vixora ai video creator studio reels tiktok voice avatar viral scripts copilot marketing generate',
-    actionTab: 'vixora-creator',
-    actionLabel: 'Launch Vixora AI Studio',
-    content: (
-      <div className="space-y-3.5">
-        <p><strong>Vixora AI Creator Studio</strong> is an autonomous AI-driven creative suite engineered to produce captivating video advertisements, TikTok clips, and Instagram Reels.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Script & Hook Generation:</strong> Generates high-converting 3-second viral hooks and narrative frameworks tailored for commercial products.</li>
-          <li><strong>Synthetic Voice & Avatars:</strong> Natural AI voiceovers and customizable presenter personas (e.g., Fenrir) to explain your offerings.</li>
-          <li><strong>Live Copilot:</strong> Real-time marketing assistant to automate inquiries, suggest promotional strategies, and draft social posts.</li>
         </ul>
       </div>
     ),

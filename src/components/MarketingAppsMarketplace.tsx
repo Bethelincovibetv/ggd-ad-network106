@@ -35,56 +35,13 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
   const [digitalProducts, setDigitalProducts] = useState<DigitalProduct[]>([]);
   const [selectedDigitalProduct, setSelectedDigitalProduct] = useState<DigitalProduct | null>(null);
   const [isDigitalCheckoutOpen, setIsDigitalCheckoutOpen] = useState(false);
-  const [marketplaceSearch, setMarketplaceSearch] = useState('');
   const [vixoraSearch, setVixoraSearch] = useState('');
   const [vixoraCategory, setVixoraCategory] = useState('all');
-  const [freeOnlyFilter, setFreeOnlyFilter] = useState(false);
   const [apps, setApps] = useState<any[]>([]);
   const [redeemed, setRedeemed] = useState<string[]>([]);
   const [credits, setCredits] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  // Cross-tab real-time search filtering
-  const filteredAppsBySearch = useMemo(() => {
-    const q = marketplaceSearch.trim().toLowerCase();
-    let res = apps;
-    if (freeOnlyFilter) {
-      res = res.filter(a => a.is_free);
-    }
-    if (!q) return res;
-    return res.filter(a => 
-      (a.title || '').toLowerCase().includes(q) ||
-      (a.description || '').toLowerCase().includes(q)
-    );
-  }, [apps, marketplaceSearch, freeOnlyFilter]);
-
-  const filteredDigitalProductsBySearch = useMemo(() => {
-    const q = marketplaceSearch.trim().toLowerCase();
-    if (!q) return digitalProducts;
-    return digitalProducts.filter(p =>
-      (p.title || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q)
-    );
-  }, [digitalProducts, marketplaceSearch]);
-
-  const filteredVixoraToolsBySearch = useMemo(() => {
-    const q = (marketplaceSearch || vixoraSearch).trim().toLowerCase();
-    return VIXORA_TOOLS_REGISTRY.filter(tool => {
-      const matchesCat = vixoraCategory === 'all' || tool.category === vixoraCategory;
-      if (!q) return matchesCat;
-      return matchesCat && (
-        tool.name.toLowerCase().includes(q) ||
-        tool.shortDescription.toLowerCase().includes(q) ||
-        tool.keywords.some(k => k.toLowerCase().includes(q))
-      );
-    });
-  }, [vixoraCategory, vixoraSearch, marketplaceSearch]);
-
-  const totalMatches = useMemo(() => {
-    if (!marketplaceSearch.trim()) return 0;
-    return filteredAppsBySearch.length + filteredDigitalProductsBySearch.length + filteredVixoraToolsBySearch.length;
-  }, [marketplaceSearch, filteredAppsBySearch, filteredDigitalProductsBySearch, filteredVixoraToolsBySearch]);
 
   useEffect(() => {
     fetchData();
@@ -220,104 +177,6 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
         )}
       </div>
 
-      {/* Enhanced 3D Colorful Marketplace Search Bar */}
-      <div className="relative w-full max-w-4xl mx-auto space-y-2.5">
-        <div className="relative group p-[2px] rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 via-purple-600 to-amber-400 shadow-md hover:shadow-xl transition-all duration-300">
-          <div className="bg-card/95 backdrop-blur-md rounded-[14px] p-1.5 sm:p-2 flex items-center gap-2 sm:gap-2.5">
-            {/* 3D Colorful Icon Badge */}
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-orange-500/30 shrink-0 group-hover:scale-105 transition-transform">
-              <Search className="h-4 w-4 drop-shadow" />
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="text"
-                value={marketplaceSearch}
-                onChange={e => setMarketplaceSearch(e.target.value)}
-                placeholder="Search marketing apps, digital products, AI tools & growth scripts…"
-                className="w-full h-8 sm:h-9 border-0 bg-transparent text-xs sm:text-sm font-medium focus:outline-none placeholder:text-muted-foreground/70 px-1 text-foreground"
-              />
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {marketplaceSearch && (
-                <button
-                  type="button"
-                  onClick={() => { setMarketplaceSearch(''); setFreeOnlyFilter(false); }}
-                  className="h-7 w-7 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  title="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {}}
-                className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs px-3 py-1.5 sm:py-2 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Search</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Suggested Quick Exploration Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-1 py-0.5 text-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1 shrink-0 mr-0.5">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
-            Explore:
-          </span>
-          {[
-            { label: "⚡ All Apps", tab: 'apps' as const, free: false },
-            { label: "🎁 Free Tools Only", tab: 'apps' as const, free: true },
-            { label: "🛍️ Digital Products", tab: 'digital_products' as const, free: false },
-            { label: "🤖 Vixora AI Video", tab: 'vixora_tools' as const, free: false },
-            { label: "🇳🇬 Naija Scripts", tab: 'naija_script' as const, free: false },
-            { label: "🔗 Short Link & WhatsApp", tab: 'link_shortener' as const, free: false },
-          ].map((chip, idx) => {
-            const isChipActive = activeMarketTab === chip.tab && (!chip.free || freeOnlyFilter);
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setActiveMarketTab(chip.tab);
-                  setFreeOnlyFilter(chip.free);
-                }}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border cursor-pointer ${
-                  isChipActive
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-transparent shadow-xs'
-                    : 'bg-muted/50 hover:bg-orange-500/10 hover:text-orange-600 border-border/60 text-muted-foreground'
-                }`}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Live Search Results Summary & Feedback Banner */}
-        {marketplaceSearch.trim().length > 0 && (
-          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/25 text-xs">
-            <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
-              <Search className="h-3.5 w-3.5 text-orange-600 shrink-0" />
-              <span>Found {totalMatches} matching items for "{marketplaceSearch}" across categories</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => { setMarketplaceSearch(''); setFreeOnlyFilter(false); }}
-              className="text-orange-600 font-bold hover:underline shrink-0 text-xs cursor-pointer"
-            >
-              Clear Filter ✕
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Tabs navigation for Marketplace Page */}
       {pagePlacement === 'marketplace' && (
         <div className="flex flex-wrap items-center gap-2 p-1 bg-muted/60 rounded-xl border border-border/60">
@@ -404,7 +263,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredDigitalProductsBySearch.map(prod => {
+            {digitalProducts.map(prod => {
               const allowsWallet = prod.payment_methods === 'wallet_only' || prod.payment_methods === 'both';
               const allowsPaystack = prod.payment_methods === 'paystack_only' || prod.payment_methods === 'both';
 
@@ -463,22 +322,6 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
               );
             })}
           </div>
-
-          {filteredDigitalProductsBySearch.length === 0 && digitalProducts.length > 0 && (
-            <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-muted/20">
-              <Search className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm font-bold text-foreground">No digital products match "{marketplaceSearch}"</p>
-              <p className="text-xs text-muted-foreground mt-1">Try another search keyword or clear the filter.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 rounded-xl text-xs font-bold"
-                onClick={() => setMarketplaceSearch('')}
-              >
-                Clear Search
-              </Button>
-            </div>
-          )}
 
           {digitalProducts.length === 0 && (
             <div className="text-center py-12 border-2 border-dashed rounded-2xl">
@@ -687,7 +530,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAppsBySearch.map(app => {
+            {apps.map(app => {
               const isRedeemed = redeemed.includes(app.id);
               return (
                 <Card
@@ -759,24 +602,6 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
               );
             })}
           </div>
-
-          {filteredAppsBySearch.length === 0 && apps.length > 0 && (
-            <div className="text-center py-12 border-2 border-dashed rounded-2xl bg-muted/20">
-              <Search className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm font-bold text-foreground">No marketing apps match your search</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {freeOnlyFilter ? "No free tools match the filter." : `No applications match "${marketplaceSearch}".`}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 rounded-xl text-xs font-bold"
-                onClick={() => { setMarketplaceSearch(''); setFreeOnlyFilter(false); }}
-              >
-                Reset Search Filters
-              </Button>
-            </div>
-          )}
 
           {apps.length === 0 && pagePlacement === 'marketplace' && (
             <div className="text-center py-16 border-2 border-dashed rounded-2xl">

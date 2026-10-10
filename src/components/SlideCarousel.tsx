@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import defaultSlide from '@/assets/default-slider.jpg';
-import { safeImageUrl, handleImageError } from "@/services/imageUploadService";
 
 const SlideCarousel = () => {
   const [slides, setSlides] = useState<any[]>([]);
@@ -73,9 +72,8 @@ const SlideCarousel = () => {
               >
                 <img
                   loading="lazy"
-                  src={safeImageUrl(slide.image_url, defaultSlide)}
+                  src={slide.image_url}
                   alt={slide.title || 'Slide advertisement'}
-                  onError={handleImageError(defaultSlide)}
                   className="w-full max-h-[190px] sm:max-h-[230px] md:max-h-[270px] h-auto object-contain mx-auto rounded-xl"
                 />
                 {slide.title && slide.title !== 'GGD Ad Network' && (

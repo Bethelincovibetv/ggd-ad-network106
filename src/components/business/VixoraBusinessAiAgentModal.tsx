@@ -11,7 +11,7 @@ import {
   TrendingUp, RefreshCw, CheckCircle2, ShieldCheck, Download, 
   ExternalLink, MessageCircle, AlertCircle, Trash2, Edit3, X,
   Image as ImageIcon, Upload, Brain, Megaphone, Share2, FileText,
-  CreditCard, Phone, MapPin, ArrowRight, Check, Zap, ShoppingBag, BookOpen
+  CreditCard, Phone, MapPin, ArrowRight, Check, Zap, ShoppingBag
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,7 +54,6 @@ export interface BusinessChatMessage {
   flyerUrl?: string;
   bannerAdResult?: any;
   communityPostResult?: any;
-  blogPostResult?: any;
   strategyResult?: any;
   accountOverviewResult?: any;
   isThinking?: boolean;
@@ -263,7 +262,6 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       let flyerUrl: string | undefined;
       let bannerAdResult: any;
       let communityPostResult: any;
-      let blogPostResult: any;
       let strategyResult: any;
       let accountOverviewResult: any;
       let responseText = '';
@@ -294,7 +292,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
 
           const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
 
-          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager, marketing educator, and Google DeepMind Science specialist on GGD Ad Network.
+          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
 User Name: ${currentCtx.displayName}
 Business Name: ${currentCtx.profile?.business_name || 'Not set'}
 Active Products: ${currentCtx.activeProductsCount}
@@ -313,10 +311,8 @@ ${memoryList || 'None yet'}
 YOUR MANDATE:
 1. You have direct database authority to execute commands for the merchant using function calls/tools!
 2. When the user asks to add or create a product/service, update prices, update profile, post to community, audit their store, create a banner, or close an order, YOU MUST CALL THE APPROPRIATE TOOL! Do not merely give advice when action is requested.
-3. TEACHING MARKETING: You can teach actionable marketing step-by-step! Break down copywriting (AIDA, PAS, BAB), viral hooks, WhatsApp sales closer funnels, voice notes psychology, and paid ad strategies.
-4. GOOGLE DEEPMIND SCIENCE SKILLS: You understand DeepMind science skills: AlphaFold DB (3D structure predictions, pLDDT confidence scores, PAE matrices), UniProtKB, RCSB PDB, genomics (ClinVar, gnomAD), drug discovery (PubChem, ChEMBL, Lipinski's Rule of 5), and biological pathways.
-5. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
-6. Never output asterisks (no * or **). Keep typography clean and readable.`;
+3. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
+4. Never output asterisks (no * or **). Keep typography clean and readable.`;
 
           const historyTurns: any[] = messages
             .filter(m => !m.isThinking && m.id !== 'welcome')
@@ -345,7 +341,7 @@ YOUR MANDATE:
           ];
 
           const res = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
+            model: 'gemini-2.5-flash',
             contents,
             config: {
               systemInstruction,
@@ -365,14 +361,13 @@ YOUR MANDATE:
               if (execRes.data?.profileResult) profileResult = execRes.data.profileResult;
               if (execRes.data?.flyerUrl) flyerUrl = execRes.data.flyerUrl;
               if (execRes.data?.communityPostResult) communityPostResult = execRes.data.communityPostResult;
-              if (execRes.data?.blogPostResult) blogPostResult = execRes.data.blogPostResult;
               if (execRes.data?.strategyResult) strategyResult = execRes.data.strategyResult;
               if (execRes.data?.accountOverviewResult) accountOverviewResult = execRes.data.accountOverviewResult;
 
               // 2nd pass with Gemini to provide natural confirming commentary
               try {
                 const secondPass = await ai.models.generateContent({
-                  model: 'gemini-3.8-flash',
+                  model: 'gemini-2.5-flash',
                   contents: [
                     ...contents,
                     {
@@ -420,7 +415,6 @@ YOUR MANDATE:
           if (nlpRes.data?.profileResult) profileResult = nlpRes.data.profileResult;
           if (nlpRes.data?.flyerUrl) flyerUrl = nlpRes.data.flyerUrl;
           if (nlpRes.data?.communityPostResult) communityPostResult = nlpRes.data.communityPostResult;
-          if (nlpRes.data?.blogPostResult) blogPostResult = nlpRes.data.blogPostResult;
           if (nlpRes.data?.strategyResult) strategyResult = nlpRes.data.strategyResult;
           if (nlpRes.data?.accountOverviewResult) accountOverviewResult = nlpRes.data.accountOverviewResult;
           
@@ -433,9 +427,9 @@ YOUR MANDATE:
       // Step 3: Proactive, action-oriented response if no text was generated
       if (!responseText) {
         if (currentCtx.listings.length > 0) {
-          responseText = `Ready for your next business command! Your catalog currently has ${currentCtx.activeProductsCount} products and ${currentCtx.activeServicesCount} services.\n\nTell me what to execute:\n• "Add product: [Name] for [₦Price]"\n• "Write a blog post about our business growth"\n• "Update price of ${currentCtx.listings[0]?.title} to [₦Price]"\n• "Post on community about our latest products"\n• "Plan strategy and audit my store"\n• "Create a 1200x628 banner advert"`;
+          responseText = `Ready for your next business command! Your catalog currently has ${currentCtx.activeProductsCount} products and ${currentCtx.activeServicesCount} services.\n\nTell me what to execute:\n• "Add product: [Name] for [₦Price]"\n• "Update price of ${currentCtx.listings[0]?.title} to [₦Price]"\n• "Post on community about our latest products"\n• "Plan strategy and audit my store"\n• "Create a 1200x628 banner advert"`;
         } else {
-          responseText = `Welcome! I am ready to build and scale your storefront catalog right now.\n\nTry sending:\n• "Add product: Luxury Wristwatch for ₦25,000"\n• "Write a blog post on how to grow an e-commerce business in Nigeria"\n• "Post our new arrival announcement on the community feed"\n• "Run growth strategy for my business"\n• "Create a banner advert for my store"`;
+          responseText = `Welcome! I am ready to build and scale your storefront catalog right now.\n\nTry sending:\n• "Add product: Luxury Wristwatch for ₦25,000"\n• "Post our new arrival announcement on the community feed"\n• "Run growth strategy for my business"\n• "Create a banner advert for my store"`;
         }
       }
 
@@ -455,7 +449,6 @@ YOUR MANDATE:
         flyerUrl,
         bannerAdResult,
         communityPostResult,
-        blogPostResult,
         strategyResult,
         accountOverviewResult
       };
@@ -769,43 +762,6 @@ YOUR MANDATE:
                           </div>
                         )}
 
-                        {/* Rich Blog Post Result Card */}
-                        {msg.blogPostResult && (
-                          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-card to-orange-500/10 border-2 border-amber-500/30 space-y-2.5 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 tracking-wider flex items-center gap-1">
-                                <BookOpen className="h-3.5 w-3.5 text-amber-600" /> Published Editorial Blog
-                              </span>
-                              <Badge className="bg-amber-600 text-white font-bold text-[10px]">
-                                {msg.blogPostResult.category || 'Business Growth'}
-                              </Badge>
-                            </div>
-                            <h4 className="text-sm font-black text-foreground">
-                              {msg.blogPostResult.title}
-                            </h4>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {msg.blogPostResult.sections?.[0]?.content || 'Full editorial blog article with structured insights, key takeaways, and action plan.'}
-                            </p>
-                            <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
-                              <span className="text-emerald-600 font-bold flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Live on Community Feed
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    onClose();
-                                    window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'feed' }));
-                                  }}
-                                  className="h-7 text-[11px] bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg px-2.5"
-                                >
-                                  Read in Feed <ArrowRight className="h-3 w-3 ml-1" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Rich 7-Day Strategy Card */}
                         {msg.strategyResult && (
                           <div className="p-4 rounded-2xl bg-card border-2 border-emerald-500/30 space-y-3 shadow-md">
@@ -935,31 +891,6 @@ YOUR MANDATE:
                   </button>
                 </div>
               )}
-
-              {/* Quick AI Skill & Action Prompt Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 max-w-4xl mx-auto w-full">
-                <span className="text-[10px] font-black uppercase tracking-wider text-violet-600 dark:text-violet-400 shrink-0">
-                  ⚡ Skills:
-                </span>
-                {[
-                  { label: "📝 Write Blog Post", prompt: "Write and publish a high-impact blog post on 'How to Scale E-Commerce Sales in Nigeria with WhatsApp Closing'" },
-                  { label: "📈 Teach Me Marketing", prompt: "Teach me how to use the AIDA marketing framework and viral hooks to sell my products" },
-                  { label: "🧬 DeepMind Science", prompt: "Explain Google DeepMind's AlphaFold DB and how per-residue pLDDT confidence scores predict 3D protein structures" },
-                  { label: "🛍️ Add Product", prompt: "Add product: Premium Leather Office Bag for ₦28,000" },
-                  { label: "📊 Store Strategy Sprint", prompt: "Run a 7-day revenue strategy sprint and audit my store" }
-                ].map((chip, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setInput(chip.prompt);
-                    }}
-                    className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold bg-muted hover:bg-violet-500/10 hover:text-violet-600 border border-border/80 transition-all text-muted-foreground active:scale-95 cursor-pointer"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
 
               <form
                 onSubmit={e => {

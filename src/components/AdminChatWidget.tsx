@@ -21,7 +21,7 @@ const AdminChatWidget = () => {
       });
     });
 
-    // Only open support chat when explicitly requested by user actions
+    // Listen for custom trigger to open support chat from any part of the app
     const openHandler = (e: any) => {
       setIsOpen(true);
       if (e?.detail?.message) {
@@ -29,6 +29,18 @@ const AdminChatWidget = () => {
       }
     };
     window.addEventListener('ggd-open-support-chat', openHandler);
+
+    // Show contextual recommendation notification once per session if not dismissed
+    const isDismissed = localStorage.getItem('ggd_chat_recommendation_dismissed') || sessionStorage.getItem('ggd_chat_recommendation_dismissed');
+    if (!isDismissed) {
+      const timer = setTimeout(() => {
+        setShowRecommendation(true);
+      }, 7000);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('ggd-open-support-chat', openHandler);
+      };
+    }
 
     return () => {
       window.removeEventListener('ggd-open-support-chat', openHandler);

@@ -289,31 +289,20 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
 interface AdminRealtimeSearchBarProps {
   onNavigate: (sectionId: string, extraProps?: any) => void;
   className?: string;
-  inDrawer?: boolean;
 }
 
 export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
   onNavigate,
-  className = '',
-  inDrawer = false
+  className = ''
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [liveEntities, setLiveEntities] = useState<SearchEntry[]>([]);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleExitSearch = () => {
-    setQuery('');
-    setIsOpen(false);
-    setIsFocused(false);
-    setLiveEntities([]);
-    inputRef.current?.blur();
-  };
 
   // Global Keyboard Shortcut: ⌘K or Ctrl+K
   useEffect(() => {
@@ -323,7 +312,8 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
         inputRef.current?.focus();
         setIsOpen(true);
       } else if (e.key === 'Escape') {
-        handleExitSearch();
+        setIsOpen(false);
+        inputRef.current?.blur();
       }
     };
 
@@ -336,7 +326,6 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
-        setIsFocused(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -428,10 +417,10 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Filter static entries: Only compute when query exists
+  // Filter static entries
   const filteredEntries = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return [];
+    if (!trimmed) return STATIC_ADMIN_ENTRIES.slice(0, 8);
 
     return STATIC_ADMIN_ENTRIES.filter(item => {
       if (item.title.toLowerCase().includes(trimmed)) return true;
@@ -448,7 +437,9 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
 
   const handleSelect = (entry: SearchEntry) => {
     onNavigate(entry.sectionId, entry.extraProps);
-    handleExitSearch();
+    setQuery('');
+    setIsOpen(false);
+    inputRef.current?.blur();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -463,27 +454,13 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
       if (allResults[selectedIndex]) {
         handleSelect(allResults[selectedIndex]);
       }
-    } else if (e.key === 'Escape') {
-      handleExitSearch();
     }
   };
 
-  const hasQuery = query.trim().length > 0;
-  const shouldShowDropdown = isOpen && hasQuery;
-
   return (
     <div ref={containerRef} className={`relative w-full max-w-xl ${className}`}>
-      {/* Click-away backdrop overlay when dropdown is floating */}
-      {shouldShowDropdown && !inDrawer && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-xs transition-opacity" 
-          onClick={handleExitSearch}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Search Input Bar */}
-      <div className="relative z-50 flex items-center">
+      <div className="relative flex items-center">
         <div className="absolute left-3.5 flex items-center pointer-events-none text-muted-foreground">
           <Search className="h-4 w-4" />
         </div>
@@ -491,32 +468,29 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
           ref={inputRef}
           type="text"
           value={query}
-          onFocus={() => {
-            setIsFocused(true);
-            if (query.trim().length > 0) setIsOpen(true);
-          }}
+          onFocus={() => setIsOpen(true)}
           onChange={e => {
-            const val = e.target.value;
-            setQuery(val);
-            setIsOpen(val.trim().length > 0);
+            setQuery(e.target.value);
+            setIsOpen(true);
             setSelectedIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Search admin portal... (type to search sections, users, ads) ⌘K"
-          className="w-full h-10 sm:h-11 pl-10 pr-24 text-xs sm:text-sm font-medium rounded-2xl bg-secondary/60 hover:bg-secondary/80 focus:bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none placeholder:text-muted-foreground/80 shadow-xs"
+          placeholder="Navigate admin portal... (e.g. settings, ads, syndicate, users, vixora) ⌘K"
+          className="w-full h-10 sm:h-11 pl-10 pr-20 text-xs sm:text-sm font-medium rounded-2xl bg-secondary/60 hover:bg-secondary/80 focus:bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none placeholder:text-muted-foreground/80 shadow-xs"
         />
 
-        <div className="absolute right-2 flex items-center gap-1">
-          {/* Explicit Exit / Clear Button */}
-          {(hasQuery || isFocused || shouldShowDropdown) ? (
+        <div className="absolute right-3 flex items-center gap-1.5 pointer-events-none">
+          {query ? (
             <button
               type="button"
-              onClick={handleExitSearch}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 transition-all cursor-pointer shadow-2xs"
-              title="Exit search and view menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                setQuery('');
+                setIsOpen(false);
+              }}
+              className="pointer-events-auto p-1 rounded-md text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
-              <span>Exit</span>
             </button>
           ) : (
             <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-muted text-[10px] font-mono font-bold text-muted-foreground border border-border/80">
@@ -526,49 +500,29 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
         </div>
       </div>
 
-      {/* Real-time Results Dropdown (Only appears when user types search query) */}
-      {shouldShowDropdown && (
-        <div className={`z-50 rounded-2xl bg-card border border-border shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 absolute left-0 right-0 top-full mt-2 ${
-          inDrawer ? 'max-h-[50vh]' : 'max-h-[380px]'
-        }`}>
-          <div className="p-2 border-b border-border/60 bg-muted/40 flex items-center justify-between text-[11px] text-muted-foreground px-3">
+      {/* Real-time Results Popover Dropdown */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl bg-card border border-border shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="p-2 border-b border-border/60 bg-muted/30 flex items-center justify-between text-[11px] text-muted-foreground px-3">
             <span className="font-semibold flex items-center gap-1.5">
               <Flame className="h-3.5 w-3.5 text-orange-500" />
-              Search results for "{query}"
+              {query ? `Search results for "${query}"` : 'Quick Navigation Shortcuts'}
             </span>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px]">
-                {allResults.length} {allResults.length === 1 ? 'match' : 'matches'}
-              </span>
-              <button
-                type="button"
-                onClick={handleExitSearch}
-                className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
-              >
-                Close ✕
-              </button>
-            </div>
+            <span className="text-[10px]">
+              {allResults.length} {allResults.length === 1 ? 'destination' : 'destinations'} found
+            </span>
           </div>
 
-          <div className="max-h-[340px] overflow-y-auto p-2 space-y-1">
+          <div className="max-h-[380px] overflow-y-auto p-2 space-y-1">
             {allResults.length === 0 ? (
-              <div className="py-6 text-center space-y-1.5 px-3">
-                <Search className="h-6 w-6 text-muted-foreground/40 mx-auto" />
+              <div className="py-8 text-center space-y-2">
+                <Search className="h-8 w-8 text-muted-foreground/40 mx-auto" />
                 <p className="text-xs font-semibold text-muted-foreground">
-                  No matching destination for "{query}"
+                  No matching admin destination for "{query}"
                 </p>
                 <p className="text-[11px] text-muted-foreground/70">
-                  Try searching "syndicate", "ads", "settings", "verification", or "users"
+                  Try searching "syndicate", "ads", "settings", "ceo", "verification", or "users"
                 </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleExitSearch}
-                    className="text-xs font-bold text-primary hover:underline cursor-pointer"
-                  >
-                    ← Back to main menu
-                  </button>
-                </div>
               </div>
             ) : (
               allResults.map((item, idx) => {
@@ -614,10 +568,8 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
           </div>
 
           <div className="p-2 border-t border-border/60 bg-muted/20 flex items-center justify-between text-[10px] text-muted-foreground px-3">
-            <span>↑↓ arrows to navigate • Enter to select</span>
-            <button onClick={handleExitSearch} className="hover:underline font-bold">
-              Esc to close
-            </button>
+            <span>Use ↑↓ arrows to select • Press Enter to navigate</span>
+            <span>Esc to close</span>
           </div>
         </div>
       )}

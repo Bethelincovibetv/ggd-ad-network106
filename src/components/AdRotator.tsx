@@ -11,8 +11,6 @@ import { supabase, SUPABASE_URL, SUPABASE_PROJECT_ID } from "@/integrations/supa
 import AdCreationForm from "./AdCreationForm";
 import AdDisplayPreview from "./AdDisplayPreview";
 import { MarketingLinkGeneratorModal } from "./MarketingLinkGeneratorModal";
-import { uploadImage, handleImageError, safeImageUrl, defaultAdImg } from "@/services/imageUploadService";
-import { getCurrentUser } from "@/services/authService";
 
 const AdRotator = () => {
   const [ads, setAds] = useState<any[]>([]);
@@ -24,20 +22,15 @@ const AdRotator = () => {
   useEffect(() => { fetchAds(); }, []);
 
   const fetchAds = async () => {
-    const sbUser = (await supabase.auth.getUser()).data?.user;
-    const user = sbUser || (await getCurrentUser());
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     setAds(data || []);
   };
 
   const handlePayment = async (adData: any) => {
-    const sbUser = (await supabase.auth.getUser()).data?.user;
-    const user = sbUser || (await getCurrentUser());
-    if (!user) {
-      toast.error("Please sign in to publish your ad campaign");
-      return;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     const amount = adData.durationDays * 1.00;
     const startDate = new Date();
@@ -47,10 +40,13 @@ const AdRotator = () => {
     // Upload image if it's a data URL
     let imageUrl = adData.imageUrl || null;
     if (imageUrl && imageUrl.startsWith('data:')) {
-      try {
-        imageUrl = await uploadImage(imageUrl, { folder: 'ad-images' });
-      } catch (e) {
-        console.warn('Ad image upload fallback:', e);
+      const base64 = imageUrl.split(',')[1];
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const fileName = `${user.id}/${Date.now()}.jpg`;
+      const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, bytes, { contentType: 'image/jpeg' });
+      if (uploadData) {
+        const { data: urlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+        imageUrl = urlData.publicUrl;
       }
     }
 
@@ -76,11 +72,11 @@ const AdRotator = () => {
     const { error } = await supabase.from('ads').insert(insertPayload);
 
     if (error) {
-      console.warn("Notice in remote ad insert:", error);
-      // Even if remote insert warns, display feedback and refresh local state
+      toast.error("Failed to create ad");
+      return;
     }
 
-    toast.success(isWatch ? 'Watch ad submitted for admin approval!' : `Ad submitted for review. Payment of ₦${(amount * 1600).toLocaleString()} processed.`);
+    toast.success(isWatch ? 'Watch ad submitted for admin approval!' : `Ad submitted for review. Payment of $${amount.toFixed(2)} processed.`);
     setIsCreating(false);
     fetchAds();
   };
@@ -91,18 +87,14 @@ const AdRotator = () => {
     fetchAds();
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && editingAd) {
-      try {
-        const url = await uploadImage(file, { folder: 'ad-images' });
-        if (url) {
-          setEditingAd({ ...editingAd, image_url: url });
-          toast.success("Image uploaded!");
-        }
-      } catch {
-        toast.error("Failed to upload image");
-      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setEditingAd({ ...editingAd, image_url: e.target?.result as string });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -115,10 +107,16 @@ const AdRotator = () => {
 
     let imageUrl = editingAd.image_url;
     if (imageUrl && imageUrl.startsWith('data:')) {
-      try {
-        imageUrl = await uploadImage(imageUrl, { folder: 'ad-images' });
-      } catch (e) {
-        console.warn('Ad update image upload note:', e);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const base64 = imageUrl.split(',')[1];
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const fileName = `${user.id}/${Date.now()}.jpg`;
+        const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, bytes, { contentType: 'image/jpeg' });
+        if (uploadData) {
+          const { data: urlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+          imageUrl = urlData.publicUrl;
+        }
       }
     }
 
@@ -305,13 +303,9 @@ const AdRotator = () => {
                       )}
                     </div>
                   </div>
-                  <img
-                    loading="lazy"
-                    src={safeImageUrl(ad.image_url, defaultAdImg)}
-                    alt={ad.title}
-                    onError={handleImageError(defaultAdImg)}
-                    className="w-16 h-16 object-cover rounded-xl ml-4 border border-border/50 shrink-0 bg-muted"
-                  />
+                  {ad.image_url && (
+                    <img loading="lazy" src={ad.image_url} alt={ad.title} className="w-16 h-16 object-cover rounded ml-4" />
+                  )}
                   <div className="flex gap-2 ml-4">
                     <Button onClick={() => setEditingAd(ad)} variant="outline" size="sm">
                       <Edit className="h-4 w-4" />
@@ -365,15 +359,7 @@ const AdRotator = () => {
               <Button variant="outline" onClick={() => document.getElementById('editAdImage')?.click()} className="w-full mt-1">
                 <Upload className="mr-2 h-4 w-4" />{editingAd.image_url ? 'Change Image' : 'Upload Image'}
               </Button>
-              {editingAd.image_url && (
-                <img
-                  loading="lazy"
-                  src={safeImageUrl(editingAd.image_url, defaultAdImg)}
-                  alt="Preview"
-                  onError={handleImageError(defaultAdImg)}
-                  className="max-w-32 h-32 object-cover rounded-xl mx-auto mt-3 border border-border/40 shadow-xs"
-                />
-              )}
+              {editingAd.image_url && <img loading="lazy" src={editingAd.image_url} alt="Preview" className="max-w-32 h-32 object-cover rounded mx-auto mt-3" />}
             </div>
             <div className="flex items-center space-x-2">
               <Switch checked={editingAd.is_active} onCheckedChange={(checked) => setEditingAd({ ...editingAd, is_active: checked })} />

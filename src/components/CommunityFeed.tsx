@@ -33,6 +33,7 @@ import BlogFeedCard from '@/components/feed/BlogFeedCard';
 import BlogArticleComposer from '@/components/feed/BlogArticleComposer';
 import EditPostModal from '@/components/feed/EditPostModal';
 import FeedLinkPreview from '@/components/feed/FeedLinkPreview';
+import { uploadImageFile } from '@/services/imageUploadService';
 import ContactGainFeedCard from '@/components/feed/ContactGainFeedCard';
 import { recordPostView, formatViewsCount } from '@/lib/postViews';
 import SendGiftModal from '@/components/feed/SendGiftModal';
@@ -410,13 +411,8 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
     try {
       let image_url: string | null = null;
       if (imageFile) {
-        const ext = imageFile.name.split('.').pop() || 'jpg';
-        const path = `${me.id}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from('community-posts').upload(path, imageFile, { upsert: false });
-        if (upErr) throw upErr;
-        image_url = supabase.storage.from('community-posts').getPublicUrl(path).data.publicUrl;
-      } else if (imagePreview && (imagePreview.startsWith('http://') || imagePreview.startsWith('https://') || imagePreview.startsWith('data:'))) {
+        image_url = await uploadImageFile(imageFile, 'community');
+      } else if (imagePreview && (imagePreview.startsWith('http://') || imagePreview.startsWith('https://') || imagePreview.startsWith('data:') || imagePreview.startsWith('/uploads/'))) {
         image_url = imagePreview;
       }
       const tags = extractHashtags(text);

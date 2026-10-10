@@ -11,7 +11,7 @@ import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wal
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
-import { getCurrentUser } from '@/services/authService';
+import { uploadImageFile } from '@/services/imageUploadService';
 
 const UserProfilePage = () => {
   const { isEnabled } = useFeatureToggles();
@@ -47,8 +47,7 @@ const UserProfilePage = () => {
 
   const load = async () => {
     setLoading(true);
-    const sbUser = (await supabase.auth.getUser()).data?.user;
-    const user = sbUser || (await getCurrentUser());
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
     setAuthUser(user);
 
@@ -129,53 +128,66 @@ const UserProfilePage = () => {
 
   const handleAvatarUpload = async (file: File) => {
     if (!authUser) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Image must be under 10MB'); return; }
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `${authUser.id}/avatar-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-    if (error) { toast.error('Upload failed'); setUploading(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-
-    // Update local UI immediately so avatar changes visibly in real time
-    setProfile((prev: any) => ({
-      ...prev,
-      avatar_url: publicUrl,
-      business_logo_url: publicUrl,
-    }));
-
-    // Unified: profile picture == business logo everywhere
-    const { error: upErr } = await supabase.from('profiles').upsert({
-      user_id: authUser.id,
-      email: authUser.email,
-      avatar_url: publicUrl,
-      business_logo_url: publicUrl,
-    }, { onConflict: 'user_id' });
-    if (upErr) { toast.error('Failed to save photo: ' + upErr.message); setUploading(false); return; }
-
-    // Mirror to business_profiles (insert if missing)
-    const { data: existingBP } = await (supabase.from('business_profiles') as any)
-      .select('id').eq('user_id', authUser.id).maybeSingle();
-    if (existingBP?.id) {
-      await (supabase.from('business_profiles') as any).update({ logo_url: publicUrl }).eq('id', existingBP.id);
-    } else {
-      await (supabase.from('business_profiles') as any).insert({
-        user_id: authUser.id,
-        business_name: profile?.business_name || profile?.display_name || authUser.email?.split('@')[0] || 'My Business',
-        logo_url: publicUrl,
-      });
-    }
-
-    // Mirror to syndicate_profiles for single unified identity across the platform
     try {
-      await supabase.from('syndicate_profiles').update({ avatar_url: publicUrl }).eq('user_id', authUser.id);
-    } catch {
-      // Ignore if user has no syndicate profile
-    }
+      const publicUrl = await uploadImageFile(file, 'avatars');
+      if (!publicUrl) {
+        toast.error('Upload failed. Please try again.');
+        setUploading(false);
+        return;
+      }
 
-    toast.success('Profile picture updated!');
-    setUploading(false);
-    load();
+      // Unified: profile picture == business logo everywhere
+      const { error: upErr } = await supabase.from('profiles').upsert({
+        user_id: authUser.id,
+        email: authUser.email,
+        avatar_url: publicUrl,
+        business_logo_url: publicUrl,
+      }, { onConflict: 'user_id' });
+
+      if (upErr) {
+        console.warn('Notice saving photo to profiles:', upErr);
+      }
+
+      // Mirror to business_profiles (insert if missing)
+      try {
+        const { data: existingBP } = await (supabase.from('business_profiles') as any)
+          .select('id').eq('user_id', authUser.id).maybeSingle();
+        if (existingBP?.id) {
+          await (supabase.from('business_profiles') as any).update({ logo_url: publicUrl }).eq('id', existingBP.id);
+        } else {
+          await (supabase.from('business_profiles') as any).insert({
+            user_id: authUser.id,
+            business_name: profile?.business_name || profile?.display_name || authUser.email?.split('@')[0] || 'My Business',
+            logo_url: publicUrl,
+          });
+        }
+      } catch (bpErr) {
+        console.warn('Notice mirroring to business_profiles:', bpErr);
+      }
+
+      // Mirror to syndicate_profiles for single unified identity across the platform
+      try {
+        await supabase.from('syndicate_profiles').update({ avatar_url: publicUrl }).eq('user_id', authUser.id);
+      } catch {
+        // Ignore if user has no syndicate profile
+      }
+
+      setProfile((prev: any) => ({
+        ...prev,
+        avatar_url: publicUrl,
+        business_logo_url: publicUrl,
+      }));
+
+      toast.success('Profile picture updated successfully!');
+      load();
+    } catch (err: any) {
+      console.error('Avatar upload error:', err);
+      toast.error('Failed to update photo: ' + (err.message || 'Upload error'));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60);

@@ -17,7 +17,6 @@ import { WEBSITE_TEMPLATES, getWebsiteTemplate } from "@/utils/websiteTemplates"
 import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { uploadImage, handleImageError, defaultAdImg } from "@/services/imageUploadService";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -164,31 +163,28 @@ const AdminSettings = () => {
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setUploading(true);
-    try {
-      const publicUrl = await uploadImage(file, { folder: 'business-logos' });
-      if (publicUrl) {
-        await saveSetting('admin_logo_url', publicUrl);
-        toast.success('Logo uploaded!');
-      } else {
-        toast.error('Logo upload failed');
-      }
-    } catch (err: any) {
-      toast.error('Logo upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
+    const fileName = `admin/logo_${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('business-logos').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(fileName);
+      await saveSetting('admin_logo_url', publicUrl);
+      toast.success('Logo uploaded!');
     }
+    setUploading(false);
   };
 
   const uploadCeoAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setUploadingCeoAvatar(true);
     try {
-      const publicUrl = await uploadImage(file, { folder: 'business-logos' });
-      if (publicUrl) {
+      const fileName = `admin/ceo_avatar_${Date.now()}.${file.name.split('.').pop()}`;
+      const { error } = await supabase.storage.from('business-logos').upload(fileName, file, { upsert: true });
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(fileName);
         await saveSetting('ceo_avatar_url', publicUrl);
         toast.success('CEO Photo uploaded successfully!');
       } else {
-        toast.error('Upload failed');
+        toast.error('Upload failed: ' + error.message);
       }
     } catch (err: any) {
       toast.error('Failed to upload image: ' + err.message);
@@ -201,12 +197,14 @@ const AdminSettings = () => {
     const file = e.target.files?.[0]; if (!file) return;
     setUploadingCeoFlyer(true);
     try {
-      const publicUrl = await uploadImage(file, { folder: 'slide-images' });
-      if (publicUrl) {
+      const fileName = `admin/ceo_flyer_${Date.now()}.${file.name.split('.').pop()}`;
+      const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
         await saveSetting('ceo_flyer_url', publicUrl);
         toast.success('Executive Flyer uploaded successfully!');
       } else {
-        toast.error('Upload failed');
+        toast.error('Upload failed: ' + error.message);
       }
     } catch (err: any) {
       toast.error('Failed to upload flyer: ' + err.message);
@@ -217,14 +215,11 @@ const AdminSettings = () => {
 
   const uploadPromoImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
-    try {
-      const publicUrl = await uploadImage(file, { folder: 'slide-images' });
-      if (publicUrl) {
-        setNewPromo(prev => ({ ...prev, image_url: publicUrl }));
-        toast.success('Promotional image ready!');
-      }
-    } catch {
-      toast.error('Failed to process image');
+    const fileName = `promos/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+      setNewPromo(prev => ({ ...prev, image_url: publicUrl }));
     }
   };
 

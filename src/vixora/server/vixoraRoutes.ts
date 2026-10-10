@@ -935,8 +935,7 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
 
   const handleAIGenerate = async (req: express.Request, res: express.Response) => {
     try {
-      const { contents, systemInstruction, temperature = 0.7, model = 'gemini-3.8-flash', responseMimeType, apiKey } = req.body || {};
-      const targetModel = (model && model !== 'gemini-2.5-flash' && model !== 'gemini-1.5-flash') ? model : 'gemini-3.8-flash';
+      const { contents, systemInstruction, temperature = 0.7, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
       const isInvalidKey = (k?: string) => {
         if (!k) return true;
         const clean = k.trim();
@@ -962,7 +961,7 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
           });
 
           const aiResponse = await ai.models.generateContent({
-            model: targetModel,
+            model: model || 'gemini-2.5-flash',
             contents,
             config
           });

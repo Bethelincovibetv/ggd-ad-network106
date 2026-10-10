@@ -29,13 +29,12 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         )}
       </div>
       
-      <div className={`flex-1 max-w-[75%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex-1 max-w-[70%] ${isUser ? 'text-right' : 'text-left'}`}>
         <div
-          dir="ltr"
-          className={`inline-block p-3 rounded-2xl break-words text-left [direction:ltr] ${
+          className={`inline-block p-3 rounded-2xl break-words ${
             isUser
-              ? 'bg-blue-600 text-white rounded-br-sm'
-              : 'bg-white text-gray-900 shadow-sm border border-border/70 rounded-bl-sm'
+              ? 'bg-blue-500 text-white rounded-br-sm'
+              : 'bg-white text-gray-800 shadow-sm border rounded-bl-sm'
           }`}
         >
           <StructuredChatMessage text={message.text} isMine={isUser} />

@@ -300,9 +300,9 @@ export async function fetchUserBusinessContext(userId: string): Promise<Business
   return {
     userId,
     userEmail: userProfileRes.data?.email || '',
-    displayName: userProfileRes.data?.display_name || 'Business Owner',
+    displayName: userProfileRes.data?.display_name || userProfileRes.data?.full_name || 'Business Owner',
     credits: Number(userProfileRes.data?.credits) || 0,
-    walletBalance: Number((userProfileRes.data as any)?.wallet_balance) || 0,
+    walletBalance: Number(userProfileRes.data?.wallet_balance) || 0,
     referralCode: userProfileRes.data?.referral_code || undefined,
     isVerified: !!userProfileRes.data?.is_verified || !!profile?.is_verified,
     profile,
@@ -334,14 +334,14 @@ export async function createProductOrService(userId: string, data: {
       .maybeSingle();
 
     if (!bizProfile) {
-      const { data: userProfile } = await supabase.from('profiles').select('display_name, whatsapp_number').eq('user_id', userId).maybeSingle();
+      const { data: userProfile } = await supabase.from('profiles').select('display_name, phone_number').eq('user_id', userId).maybeSingle();
       const newBizName = userProfile?.display_name ? `${userProfile.display_name}'s Store` : 'My GGD Business';
       
       const { data: createdBiz, error: createBizErr } = await (supabase.from('business_profiles') as any)
         .insert({
           user_id: userId,
           business_name: newBizName,
-          phone_number: userProfile?.whatsapp_number || null,
+          phone_number: userProfile?.phone_number || null,
           verification_status: 'unverified'
         })
         .select('id')
@@ -545,7 +545,7 @@ export async function updateBusinessProfileDetails(userId: string, data: {
     }
 
     if (data.phone_number) {
-      await supabase.from('profiles').update({ whatsapp_number: data.phone_number }).eq('user_id', userId);
+      await supabase.from('profiles').update({ phone_number: data.phone_number }).eq('user_id', userId);
     }
 
     return {
@@ -1073,32 +1073,6 @@ export const BUSINESS_AGENT_TOOL_DEFINITIONS = [
         learnedNote: { type: Type.STRING, description: 'Any key business fact or custom rule to remember permanently' }
       }
     }
-  },
-  {
-    name: 'createBlogPost',
-    description: 'Writes and publishes a structured editorial blog article on the Community Feed on behalf of the user, complete with title, structured sections, category, and read time.',
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        title: { type: Type.STRING, description: 'Compelling headline/title of the blog article' },
-        subtitle: { type: Type.STRING, description: 'Optional subtitle or summary hook' },
-        category: { type: Type.STRING, enum: ['Business Growth', 'Marketing & Ads', 'Tips & Guides', 'Technology & AI', 'Product Spotlight', 'Finance & Wealth', 'Success Story', 'Industry News'], description: 'Primary blog category' },
-        sections: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              heading: { type: Type.STRING, description: 'Section heading or sub-topic' },
-              content: { type: Type.STRING, description: 'Detailed paragraphs for this section' }
-            },
-            required: ['heading', 'content']
-          },
-          description: 'Structured sections of the article'
-        },
-        coverImageUrl: { type: Type.STRING, description: 'Optional cover image URL for the article' }
-      },
-      required: ['title']
-    }
   }
 ];
 
@@ -1113,7 +1087,6 @@ export interface BusinessToolExecutionResult {
     flyerUrl?: string;
     bannerAdResult?: any;
     communityPostResult?: any;
-    blogPostResult?: any;
     strategyResult?: any;
     accountOverviewResult?: any;
   };
@@ -1301,85 +1274,6 @@ export async function executeBusinessAgentTool(
       }
     }
 
-    case 'createBlogPost': {
-      try {
-        const blogTitle = (args.title || 'Mastering Business & Marketing Growth').trim();
-        const blogCategory = args.category || 'Business Growth';
-        const blogSubtitle = args.subtitle || `Key strategic insights and action points for business success.`;
-        
-        let sections = args.sections;
-        if (!Array.isArray(sections) || sections.length === 0) {
-          sections = [
-            {
-              heading: '1. Executive Overview & Core Challenge',
-              content: `To build lasting business traction, focus first on identifying customer pain points and providing high-leverage solutions that produce measurable value quickly.`
-            },
-            {
-              heading: '2. Tactical Strategy & Implementation',
-              content: `Implement systematic testing: refine your direct-response messaging, optimize your sales closing conversation flow on WhatsApp, and leverage viral syndication loops.`
-            },
-            {
-              heading: '3. Key Takeaways & Action Plan',
-              content: `Start today with simple, verifiable steps. Measure conversion rates daily and double down on the specific channels that generate highest customer lifetime value.`
-            }
-          ];
-        }
-
-        const coverImage = args.coverImageUrl || uploadedMediaUrl || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80';
-        
-        const blogData = {
-          is_blog: true,
-          title: blogTitle,
-          subtitle: blogSubtitle,
-          category: blogCategory,
-          read_time: 4,
-          cover_image: coverImage,
-          sections: sections.map((s: any) => ({
-            heading: s.heading || 'Insight',
-            content: s.content || '',
-            imageUrl: null,
-            imageAlt: s.heading || ''
-          })),
-          tags: ['blog', 'article', blogCategory.toLowerCase().replace(/[^a-z0-9]/g, '')]
-        };
-
-        const { data: newPost, error } = await supabase.from('community_posts').insert({
-          user_id: userId,
-          content: JSON.stringify(blogData),
-          image_url: coverImage,
-          link_url: null,
-          video_url: null,
-          tags: ['blog', 'article', blogCategory.toLowerCase().replace(/[^a-z0-9]/g, '')]
-        }).select().maybeSingle();
-
-        if (error) throw error;
-
-        return {
-          toolName,
-          success: true,
-          message: `🎉 Success! I have written and published your blog article "${blogTitle}" directly to the Community Feed under category "${blogCategory}". It is now live for all members to read!`,
-          badge: '📝 Blog Article Published',
-          data: {
-            blogPostResult: {
-              id: newPost?.id,
-              title: blogTitle,
-              category: blogCategory,
-              read_time: 4,
-              cover_image: coverImage,
-              sections
-            }
-          }
-        };
-      } catch (err: any) {
-        return {
-          toolName,
-          success: false,
-          message: `Could not publish blog post: ${err?.message || 'Database error'}. Please try again.`,
-          badge: '⚠️ Blog Publishing Failed'
-        };
-      }
-    }
-
     default:
       return {
         toolName,
@@ -1399,17 +1293,6 @@ export async function parseAndExecuteNaturalLanguageIntent(
   uploadedMediaUrl?: string
 ): Promise<BusinessToolExecutionResult | null> {
   const lower = query.toLowerCase().trim();
-
-  // 0. BLOG CREATION
-  if (lower.includes('write blog') || lower.includes('create blog') || lower.includes('publish blog') || lower.includes('make blog') || lower.includes('blog post') || lower.includes('write an article') || lower.includes('create an article') || lower.includes('write article')) {
-    const topic = query
-      .replace(/^(can you |please |vixora |write |create |publish |make |a |an |blog |post |article |on |about |for )+/i, '')
-      .trim() || 'Modern Digital Marketing & Business Scale in Nigeria';
-    return executeBusinessAgentTool('createBlogPost', {
-      title: topic.length > 5 ? topic : `How to Scale Your Business: The Complete Guide`,
-      category: lower.includes('tech') || lower.includes('ai') ? 'Technology & AI' : lower.includes('market') ? 'Marketing & Ads' : 'Business Growth'
-    }, context, uploadedMediaUrl);
-  }
 
   // 1. COMMUNITY POST
   if (lower.startsWith('post on community') || lower.startsWith('post to community') || lower.startsWith('publish post') || lower.startsWith('tell community') || lower.includes('share on community') || lower.includes('community post')) {

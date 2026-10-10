@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BookOpen, ChevronDown, Users, Briefcase, CreditCard, ClipboardList, 
   Store, Settings, TrendingUp, Shield, Image, Megaphone, Key, ToggleLeft,
-  Wallet, Star, Globe, Bell, Smartphone, Video, Package, UserCheck
+  Wallet, Star, Globe, Bell
 } from "lucide-react";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 
@@ -87,36 +87,6 @@ const sections = [
     title: "Withdrawals",
     badge: "Payouts",
     content: `Syndicates can request withdrawals from their task wallet:\n\n• They provide bank details (bank name, account number, account name)\n• Withdrawal request is created with "pending" status\n• Admin reviews and processes withdrawals manually\n• Once processed, admin marks it as "approved" or "rejected"\n\n**Flow:** Syndicate earns ₦ → Requests withdrawal → Admin processes payout via bank transfer → Marks as done`
-  },
-  {
-    icon: <Smartphone className="h-4 w-4 text-orange-500" />,
-    title: "Airtime & Data Redemption Hub (Sabuss Engine)",
-    badge: "Airtime Ops",
-    content: `Oversee automated mobile airtime and data subscriptions across Nigeria:\n\n• **Direct Telco Vending** – Monitor live transactions via Sabuss API (MTN, Airtel, Glo, 9mobile)\n• **Exchange Rate Config** – Set how many credits correspond to ₦100 airtime or 1GB data in Settings\n• **Transaction Audit Trail** – View real-time status (Success, Pending, Failed, Reversed)\n• **Auto-Refund Safety** – Automated credit reversal if telco carrier fails delivery.`
-  },
-  {
-    icon: <Users className="h-4 w-4 text-emerald-500" />,
-    title: "Contact Gain Manager & Verification",
-    badge: "Contact Hub",
-    content: `Manage compiled entrepreneur phonebooks and viral WhatsApp status campaigns:\n\n• **Compiled Phonebooks** – Audit and export verified Nigerian merchant .vcf files\n• **Proof Review Desk** – Inspect screenshot submissions from users who saved contacts\n• **1-Click Approvals** – Approve valid screenshot proofs to instantly credit user wallets\n• **Campaign Moderation** – Pause or adjust reward payouts per saved contact.`
-  },
-  {
-    icon: <UserCheck className="h-4 w-4 text-teal-500" />,
-    title: "1-Click Matchmaker & Unified Inbox",
-    badge: "Chat System",
-    content: `Bridge buyers and sellers with persistent reciprocal connections:\n\n• **1-Click Matchmaker** – Users can instantly download the counterparty's contact card (.vcf) into their phonebook with one tap\n• **Persistent Connected Badge** – Once saved, users see "✓ Connected" permanently\n• **P2P Ephemeral Media** – Self-destructing photo sharing with peer-to-peer WebRTC data channels\n• **WebRTC Voice & Video Calls** – Encrypted in-browser direct calls without revealing phone numbers.`
-  },
-  {
-    icon: <Package className="h-4 w-4 text-indigo-500" />,
-    title: "Digital Products Marketplace Manager",
-    badge: "Products",
-    content: `Control high-margin digital downloads across the network:\n\n• **Product Listings** – Add, edit, or remove downloadable e-books, scripts, funnels, and marketing guides\n• **Dual Currency** – Support purchases with either GGD Credits or Naira\n• **Automated Delivery** – Customers receive secure digital download access immediately upon purchase.`
-  },
-  {
-    icon: <Video className="h-4 w-4 text-rose-500" />,
-    title: "Vixora AI Creator & Business Copilot",
-    badge: "AI Suite",
-    content: `Configure autonomous marketing video generation and AI sales agents:\n\n• **Vixora Video Engine** – Autonomous short-form scriptwriter and video hook generator\n• **AI Avatars & Voiceovers** – Synthetic voice synthesis and presenter personas for viral social media ads\n• **Business Copilot** – Configurable customer support copilot to answer inquiries and recommend products 24/7.`
   },
   {
     icon: <Bell className="h-4 w-4 text-yellow-600" />,

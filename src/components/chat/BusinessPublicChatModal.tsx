@@ -19,7 +19,7 @@ import WhatsAppSlideMessage from '@/components/chat/WhatsAppSlideMessage';
 import BusinessConnectMargin from '@/components/chat/BusinessConnectMargin';
 import MessageStatusIndicator from '@/components/chat/MessageStatusIndicator';
 import { StructuredChatMessage } from '@/components/chat/StructuredChatMessage';
-import { ChatContactMatchmaker } from '@/components/chat/ChatContactMatchmaker';
+import { CloudSqlImageSenderModal, SharedChatMessageImage } from '@/components/chat/CloudSqlImageSenderModal';
 
 interface BusinessPublicChatModalProps {
 
@@ -36,6 +36,7 @@ interface ChatMsg {
   sender_id: string;
   receiver_id: string;
   message: string;
+  image_url?: string | null;
   kind?: string;
   is_read?: boolean;
   created_at: string;
@@ -339,21 +340,6 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
           </div>
         </div>
 
-        {/* 1-Click Matchmaker Contact Saver */}
-        {currentUserId && businessUserId && (
-          <div className="px-3 py-1.5 border-b border-border/50 bg-muted/30">
-            <ChatContactMatchmaker
-              currentUserId={currentUserId}
-              contact={{
-                userId: businessUserId,
-                name: businessName,
-                businessName: businessName,
-                avatarUrl: businessLogo,
-              }}
-            />
-          </div>
-        )}
-
         {/* Smart Business Connect Margin */}
         <div className="px-3 pt-2.5 pb-1 border-b border-border/50 bg-muted/20">
           <BusinessConnectMargin
@@ -419,6 +405,13 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                             : 'bg-muted/80 text-foreground border border-border/70 rounded-bl-none'
                         }`}
                       >
+                        {m.image_url && (
+                          <div className="mb-2 overflow-hidden rounded-xl">
+                            <a href={m.image_url} target="_blank" rel="noreferrer" className="block">
+                              <img src={m.image_url} alt="Shared" className="rounded-xl max-h-56 object-cover border border-white/20 hover:opacity-95 transition-opacity" />
+                            </a>
+                          </div>
+                        )}
                         {m.kind === 'voice' ? (
                           <div className="min-w-[200px]">
                             <VoiceNotePlayer
@@ -427,9 +420,9 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
                               isMine={isMe}
                             />
                           </div>
-                        ) : (
+                        ) : m.message ? (
                           <StructuredChatMessage text={m.message} isMine={isMe} />
-                        )}
+                        ) : null}
                       </div>
                     </WhatsAppSlideMessage>
                     <div className="flex items-center gap-1 mt-1 px-1">
@@ -458,13 +451,33 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
         <div className="p-3 bg-card border-t border-border/70 space-y-2">
           <div className="flex items-center gap-2">
             <VoiceNoteRecorder onSendVoice={handleSendVoiceNote} disabled={sending} />
+            {currentUserId && businessUserId && (
+              <CloudSqlImageSenderModal
+                currentUserId={currentUserId}
+                recipientUserId={businessUserId}
+                recipientUserName={businessName}
+                onImageSent={(rec: SharedChatMessageImage) => {
+                  const newMsg: ChatMsg = {
+                    id: rec.id,
+                    sender_id: currentUserId,
+                    receiver_id: businessUserId,
+                    message: rec.caption || '',
+                    image_url: rec.imageUrl,
+                    kind: 'image',
+                    is_read: false,
+                    created_at: rec.createdAt,
+                  };
+                  setMessages((prev) => [...prev, newMsg]);
+                }}
+                disabled={sending}
+              />
+            )}
             <Input
-              dir="ltr"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Message ${businessName}...`}
-              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500 flex-1 text-left [direction:ltr]"
+              className="text-xs sm:text-sm h-10 rounded-xl bg-muted/40 border-border/80 focus-visible:ring-orange-500 flex-1"
               disabled={sending}
             />
             <Button

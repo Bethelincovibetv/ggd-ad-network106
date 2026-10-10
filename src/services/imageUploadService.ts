@@ -1,132 +1,76 @@
-import defaultAdImg from '@/assets/default-ad.jpg';
-import defaultSlideImg from '@/assets/default-slider.jpg';
+/**
+ * Universal Image Upload Service
+ * Uploads images reliably to the backend /api/upload endpoint,
+ * storing them locally in /uploads/... without depending on third-party cloud storage buckets.
+ * Includes intelligent base64 fallback so uploads never fail.
+ */
 
-export interface ImageUploadOptions {
-  folder?: string;
-  maxWidth?: number;
-  maxHeight?: number;
-  quality?: number;
-  fileName?: string;
+export type UploadFolder = 'avatars' | 'community' | 'products' | 'chat-images' | 'general';
+
+/**
+ * Converts a File or Blob into a base64 Data URL string
+ */
+export function fileToBase64(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to convert file to base64 string'));
+      }
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
- * Optimizes an image File or Blob client-side before upload using HTML5 Canvas.
- * Resizes large dimensions (e.g. 4000x3000 down to maxWidth/maxHeight) and compresses
- * to crisp, lightweight JPEG/WEBP data URLs (~100KB-250KB instead of 5MB-10MB).
+ * Compresses an image if it's too large, returning an optimized Data URL
  */
-export async function optimizeImageFile(
-  file: File | Blob,
-  options: ImageUploadOptions = {}
+export async function compressImageToDataUrl(
+  file: File,
+  maxWidth = 1920,
+  maxHeight = 1920,
+  quality = 0.85
 ): Promise<string> {
-  const {
-    maxWidth = 1400,
-    maxHeight = 1400,
-    quality = 0.85,
-  } = options;
-
-  // Read SVG or tiny files directly as Data URL
-  if ('type' in file && (file.type === 'image/svg+xml' || file.size < 50 * 1024)) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string) || '');
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
-    });
-  }
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (val: string) => {
-      if (settled) return;
-      settled = true;
-      resolve(val);
-    };
-
-    // Safety timeout: if Image.onload takes too long or fails on special mobile codecs, fallback cleanly
-    const timer = setTimeout(() => {
-      const reader = new FileReader();
-      reader.onload = () => finish((reader.result as string) || '');
-      reader.onerror = () => finish('');
-      reader.readAsDataURL(file);
-    }, 4000);
-
-    let objectUrl = '';
-    try {
-      objectUrl = URL.createObjectURL(file);
-    } catch {
-      clearTimeout(timer);
-      const reader = new FileReader();
-      reader.onload = () => finish((reader.result as string) || '');
-      reader.onerror = () => finish('');
-      reader.readAsDataURL(file);
-      return;
-    }
-
+  return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
-      clearTimeout(timer);
-      try {
-        URL.revokeObjectURL(objectUrl);
-      } catch {}
-
+      URL.revokeObjectURL(objectUrl);
       let { width, height } = img;
-      if (width <= 0 || height <= 0) {
-        const reader = new FileReader();
-        reader.onload = () => finish((reader.result as string) || '');
-        reader.onerror = () => finish('');
-        reader.readAsDataURL(file);
-        return;
-      }
 
-      // Scale down proportionally if larger than maximum constraints
       if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
+        if (width > height) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxHeight) / height);
+          maxHeight = height;
+        }
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(width, 1);
-      canvas.height = Math.max(height, 1);
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
-
       if (!ctx) {
-        const reader = new FileReader();
-        reader.onload = () => finish((reader.result as string) || '');
-        reader.onerror = () => finish('');
-        reader.readAsDataURL(file);
+        fileToBase64(file).then(resolve).catch(reject);
         return;
       }
 
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
-
-      try {
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        finish(dataUrl);
-      } catch {
-        try {
-          finish(canvas.toDataURL('image/png'));
-        } catch {
-          const reader = new FileReader();
-          reader.onload = () => finish((reader.result as string) || '');
-          reader.onerror = () => finish('');
-          reader.readAsDataURL(file);
-        }
-      }
+      const isPng = file.type === 'image/png';
+      const outputType = isPng ? 'image/png' : 'image/jpeg';
+      const dataUrl = canvas.toDataURL(outputType, quality);
+      resolve(dataUrl);
     };
 
     img.onerror = () => {
-      clearTimeout(timer);
-      try {
-        URL.revokeObjectURL(objectUrl);
-      } catch {}
-      const reader = new FileReader();
-      reader.onload = () => finish((reader.result as string) || '');
-      reader.onerror = () => finish('');
-      reader.readAsDataURL(file);
+      URL.revokeObjectURL(objectUrl);
+      fileToBase64(file).then(resolve).catch(reject);
     };
 
     img.src = objectUrl;
@@ -134,100 +78,46 @@ export async function optimizeImageFile(
 }
 
 /**
- * Uploads an image (File, Blob, or base64 Data URL) to the application's backend
- * `/api/upload` endpoint and returns a permanent public URL (e.g. `/uploads/ad-images/...`).
- * 
- * If the server endpoint is temporarily unavailable, it automatically falls back
- * to the optimized compact Data URL so that the user's action is never blocked.
+ * Uploads an image file to the application backend
+ * @param file The file to upload
+ * @param folder Destination folder ('avatars' | 'community' | 'products' | 'general')
+ * @returns The resolved accessible URL for the image
  */
-export async function uploadImage(
-  input: File | Blob | string,
-  options: ImageUploadOptions = {}
+export async function uploadImageFile(
+  file: File,
+  folder: UploadFolder = 'general'
 ): Promise<string> {
-  const { folder = 'images' } = options;
-
-  let dataUrl: string;
-  let fileName = options.fileName;
-
-  if (typeof input === 'string') {
-    // If it's already an uploaded path or remote HTTP URL, return as-is
-    if (input.startsWith('/uploads/') || (input.startsWith('http') && !input.startsWith('data:'))) {
-      return input;
-    }
-    dataUrl = input;
-  } else {
-    fileName = fileName || (input instanceof File ? input.name : 'upload.jpg');
-    dataUrl = await optimizeImageFile(input, options);
-  }
-
-  if (!dataUrl || !dataUrl.startsWith('data:')) {
-    return dataUrl || '';
-  }
-
   try {
-    const res = await fetch('/api/upload', {
+    // 1. Compress / convert to base64 Data URL
+    const dataUrl = file.size > 2 * 1024 * 1024
+      ? await compressImageToDataUrl(file)
+      : await fileToBase64(file);
+
+    // 2. Upload to server API endpoint
+    const response = await fetch('/api/upload', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: dataUrl,
-        fileName: fileName || `img_${Date.now()}.jpg`,
+        imageData: dataUrl,
+        fileName: file.name,
         folder,
       }),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.url || data.publicUrl) {
-        return data.url || data.publicUrl;
+    if (response.ok) {
+      const result = await response.json();
+      if (result.url || result.publicUrl) {
+        return result.url || result.publicUrl;
       }
     }
+
+    // If server upload failed, fallback to the data URL so user doesn't lose their upload
+    console.warn('Server upload returned non-OK status, falling back to data URL');
+    return dataUrl;
   } catch (err) {
-    console.warn('[Image Upload Service] Notice uploading to backend /api/upload, using optimized fallback:', err);
+    console.warn('Upload image network error, falling back to data URL:', err);
+    return await fileToBase64(file);
   }
-
-  // Graceful fallback to the optimized data URL so images never break
-  return dataUrl;
 }
-
-/**
- * Resolves a safe image URL, ensuring broken or null URLs fall back to a branded asset.
- */
-export function safeImageUrl(
-  url?: string | null,
-  fallback: string = defaultAdImg
-): string {
-  if (!url || typeof url !== 'string') return fallback;
-  const clean = url.trim();
-  if (
-    clean === '' ||
-    clean === 'null' ||
-    clean === 'undefined' ||
-    clean === 'placeholder' ||
-    clean.includes('placeholder.svg')
-  ) {
-    return fallback;
-  }
-  // Ensure relative upload paths have leading slash
-  if (clean.startsWith('uploads/')) {
-    return `/${clean}`;
-  }
-  return clean;
-}
-
-/**
- * Creates an onError handler for <img> elements to gracefully swap broken images
- * with a reliable fallback asset instead of showing broken icon boxes.
- */
-export function handleImageError(fallback: string = defaultAdImg) {
-  return (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const target = e.currentTarget;
-    if (target.src !== fallback) {
-      target.onerror = null; // Prevent infinite error loops
-      target.src = fallback;
-    }
-  };
-}
-
-export { defaultAdImg, defaultSlideImg };

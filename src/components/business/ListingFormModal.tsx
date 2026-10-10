@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Package, Zap, Upload, Loader2, Save, X, ImagePlus, Video, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadImage, safeImageUrl, handleImageError, defaultAdImg } from "@/services/imageUploadService";
+import { uploadImageFile } from "@/services/imageUploadService";
 
 interface ListingFormModalProps {
   open: boolean;
@@ -70,10 +70,12 @@ export const ListingFormModal: React.FC<ListingFormModalProps> = ({
 
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      const url = await uploadImage(file, { folder: 'products' });
-      if (url) return url;
-      toast.error("Could not process photo");
-      return null;
+      const url = await uploadImageFile(file, 'products');
+      if (!url) {
+        toast.error("Upload failed: Could not process image");
+        return null;
+      }
+      return url;
     } catch (err: any) {
       toast.error("Upload error: " + (err?.message || "Could not upload file"));
       return null;
@@ -262,12 +264,7 @@ export const ListingFormModal: React.FC<ListingFormModalProps> = ({
             </Label>
             {imageUrl ? (
               <div className="relative rounded-2xl overflow-hidden border border-border group bg-muted/30">
-                <img
-                  src={safeImageUrl(imageUrl, defaultAdImg)}
-                  alt="Listing preview"
-                  onError={handleImageError(defaultAdImg)}
-                  className="w-full h-40 object-cover"
-                />
+                <img src={imageUrl} alt="Listing preview" className="w-full h-40 object-cover" />
                 <button
                   type="button"
                   onClick={() => setImageUrl('')}
@@ -313,12 +310,7 @@ export const ListingFormModal: React.FC<ListingFormModalProps> = ({
             <div className="grid grid-cols-4 gap-2">
               {extraImages.map((img, idx) => (
                 <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-border group">
-                  <img
-                    src={safeImageUrl(img, defaultAdImg)}
-                    alt={`Gallery ${idx + 1}`}
-                    onError={handleImageError(defaultAdImg)}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={img} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removeExtraImage(idx)}

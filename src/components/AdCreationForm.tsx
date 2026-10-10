@@ -6,13 +6,12 @@ import AICampaignAssistant from "@/components/AICampaignAssistant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins, Users, MessageCircle, Store, Loader2 } from "lucide-react";
+import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins, Users, MessageCircle, Store } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
-import { uploadImage, handleImageError, defaultAdImg } from "@/services/imageUploadService";
 
 interface AdCreationFormProps {
   onAdCreated: (adData: any) => void;
@@ -37,7 +36,6 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
   const [step, setStep] = useState(1);
   const [linkGenOpen, setLinkGenOpen] = useState(false);
   const [myBusiness, setMyBusiness] = useState<any>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -57,25 +55,15 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
 
   const getPriceForDuration = (days: number) => days * 1.00;
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingImage(true);
-    try {
-      const publicUrl = await uploadImage(file, { folder: 'ad-images' });
-      if (publicUrl) {
-        setNewAd(prev => ({ ...prev, imageUrl: publicUrl }));
-        toast.success("Image uploaded successfully!");
-      } else {
-        toast.error("Failed to process image");
-      }
-    } catch (err: any) {
-      console.error('Image upload failed:', err);
-      toast.error("Failed to upload image");
-    } finally {
-      setIsUploadingImage(false);
-      event.target.value = '';
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        setNewAd({ ...newAd, imageUrl });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -91,7 +79,10 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
       toast.error("Please fill in all required fields");
       return;
     }
-    onAdCreated(newAd);
+    const amount = getPriceForDuration(newAd.durationDays);
+    if (confirm(`Create ad for ${newAd.durationDays} days at ₦${(amount * 1600).toLocaleString()}? This will redirect you to payment.`)) {
+      onAdCreated(newAd);
+    }
   };
 
   const canProceed = step === 1
@@ -409,21 +400,9 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
                 <ImagePlus className="h-3 w-3" /> Ad Creative
               </Label>
               <input type="file" id="newAdImage" accept="image/*" onChange={handleImageUpload} className="hidden" />
-              {isUploadingImage ? (
-                <div className="w-full h-36 rounded-2xl border-2 border-orange-500/30 bg-orange-500/5 flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="h-7 w-7 text-orange-500 animate-spin" />
-                  <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">Optimizing & uploading creative...</span>
-                  <span className="text-[10px] text-muted-foreground">Compressing to high quality</span>
-                </div>
-              ) : newAd.imageUrl ? (
-                <div className="relative rounded-2xl overflow-hidden border border-border/30 shadow-sm bg-black/5 dark:bg-black/30">
-                  <img
-                    loading="lazy"
-                    src={newAd.imageUrl}
-                    alt="Preview"
-                    onError={handleImageError(defaultAdImg)}
-                    className="w-full h-40 object-cover"
-                  />
+              {newAd.imageUrl ? (
+                <div className="relative rounded-2xl overflow-hidden border border-border/30 shadow-sm">
+                  <img loading="lazy" src={newAd.imageUrl} alt="Preview" className="w-full h-40 object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                   <Button
                     variant="ghost"
@@ -433,9 +412,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
-                  <p className="absolute bottom-2 left-3 text-[10px] text-white/90 font-bold flex items-center gap-1 drop-shadow">
-                    ✓ Creative ready & uploaded
-                  </p>
+                  <p className="absolute bottom-2 left-3 text-[10px] text-white/80 font-medium">✓ Image uploaded</p>
                 </div>
               ) : (
                 <Button
@@ -447,7 +424,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
                     <Upload className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <span className="text-xs text-muted-foreground font-medium">Tap to upload image</span>
-                  <span className="text-[10px] text-muted-foreground/60">JPG, PNG, WEBP (Auto-optimized)</span>
+                  <span className="text-[10px] text-muted-foreground/60">JPG, PNG up to 5MB</span>
                 </Button>
               )}
             </div>

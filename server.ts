@@ -24,16 +24,20 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Ensure upload directory exists for chat images and serve statically
-const CHAT_UPLOADS_DIR = path.resolve(process.cwd(), 'uploads', 'chat-images');
+// Ensure upload directories exist and serve statically
+const UPLOADS_BASE_DIR = path.resolve(process.cwd(), 'uploads');
+const CHAT_UPLOADS_DIR = path.join(UPLOADS_BASE_DIR, 'chat-images');
 try {
-  if (!fs.existsSync(CHAT_UPLOADS_DIR)) {
-    fs.mkdirSync(CHAT_UPLOADS_DIR, { recursive: true });
+  for (const folder of ['chat-images', 'community', 'avatars', 'products', 'general']) {
+    const dir = path.join(UPLOADS_BASE_DIR, folder);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
   }
 } catch (e) {
-  console.warn('Notice creating uploads directory:', e);
+  console.warn('Notice creating upload directories:', e);
 }
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(UPLOADS_BASE_DIR));
 
 // Permissive CORS middleware for web previews and embed widgets
 app.use((req, res, next) => {
@@ -102,7 +106,6 @@ async function getGeminiApiKey(explicitKey?: string): Promise<string> {
 function generateSmartAiFallback(contents: any, responseMimeType?: string): string {
   const rawText = typeof contents === 'string' ? contents : JSON.stringify(contents);
   const isJson = responseMimeType === 'application/json' || rawText.includes('JSON') || rawText.includes('json');
-  const lower = rawText.toLowerCase();
 
   if (isJson) {
     if (rawText.includes('scene') || rawText.includes('script') || rawText.includes('video')) {
@@ -136,20 +139,6 @@ function generateSmartAiFallback(contents: any, responseMimeType?: string): stri
       });
     }
 
-    if (lower.includes('science') || lower.includes('alphafold') || lower.includes('protein') || lower.includes('gene')) {
-      return JSON.stringify({
-        database: "Google DeepMind AlphaFold & UniProt",
-        plddt_summary: "High confidence (pLDDT > 85)",
-        pae_quality: "Well-defined inter-domain packing",
-        pathway: "Cellular signal transduction & metabolic regulation",
-        recommendations: [
-          "Cross-reference active site residues against UniProtKB annotations",
-          "Inspect PAE matrix for flexible linker regions between structural domains",
-          "Check PubChem/ChEMBL for co-crystallized or known small-molecule bioactivities"
-        ]
-      });
-    }
-
     return JSON.stringify({
       success: true,
       message: "Action completed successfully.",
@@ -157,51 +146,7 @@ function generateSmartAiFallback(contents: any, responseMimeType?: string): stri
     });
   }
 
-  // Marketing Masterclass Queries
-  if (lower.includes('marketing') || lower.includes('aida') || lower.includes('hook') || lower.includes('funnel') || lower.includes('whatsapp') || lower.includes('ad campaign') || lower.includes('copywriting')) {
-    return `🎯 **GGD AI Marketing Masterclass: Strategic Blueprint**\n\n` +
-      `Here is your actionable framework to scale sales, leads, and conversion rates:\n\n` +
-      `### 1. The High-Converting Copy Formula (AIDA Framework)\n` +
-      `• **Attention (First 3 Seconds):** Pattern interrupt with a shocking statistic or direct question ("Still struggling to get repeat customers in Lagos?").\n` +
-      `• **Interest:** Agitate the core pain point and demonstrate empathy ("Posting 10 times a day without enquiries drains your energy and money").\n` +
-      `• **Desire:** Paint the transformation ("Imagine waking up to 15 qualified WhatsApp enquiries every morning with automated broadcast pipelines").\n` +
-      `• **Action (Frictionless CTA):** Single, unambiguous call to action ("Click the link below to get instant access with bonus credits").\n\n` +
-      `### 2. High-Converting WhatsApp Sales Funnel\n` +
-      `1. **Traffic Entry:** Run targeted GGD ad banners or Syndicate Promoters leading straight to your WhatsApp link with a pre-filled greeting message.\n` +
-      `2. **Instant Warm Welcome (under 60s):** Send a personalized greeting asking their specific need or shoe/clothing/service size.\n` +
-      `3. **Voice Note Closer:** Send a 20-30 second warm, enthusiastic voice note. Voice notes generate up to 3x higher closing rates than plain text because they establish instant human trust.\n` +
-      `4. **Urgency & Delivery Guarantee:** State delivery timeframe, bank details or GGD Credit escrow, and 7-day inspection guarantee.\n\n` +
-      `### 3. GGD Ad Network Scaling Strategy\n` +
-      `• Rotate 3 different banner creatives across the Ad Rotator.\n` +
-      `• Activate Syndicate Promoters to share your verified deals to targeted WhatsApp status feeds.\n` +
-      `• Redeem your earned credit wallet balances directly for mobile airtime or reinvest in top-tier banner placements.`;
-  }
-
-  // Google DeepMind Science Skills Queries
-  if (lower.includes('science') || lower.includes('alphafold') || lower.includes('protein') || lower.includes('pdb') || lower.includes('uniprot') || lower.includes('genom') || lower.includes('variant') || lower.includes('pubchem') || lower.includes('chembl') || lower.includes('lipinski')) {
-    return `🧬 **Google DeepMind Science Specialist: Analysis & Intelligence**\n\n` +
-      `### 1. Structural Biology & AlphaFold DB Predictions\n` +
-      `• **AlphaFold 3D Coordinates:** DeepMind's AlphaFold predicts atomic coordinates from primary amino acid sequences with unprecedented accuracy.\n` +
-      `• **Per-Residue pLDDT Confidence:**\n` +
-      `  - **>90 (Dark Blue):** Very high confidence; suitable for side-chain rotamer analysis and drug pocket docking.\n` +
-      `  - **70–90 (Cyan):** Confident backbone prediction; reliable secondary structures (alpha-helices and beta-sheets).\n` +
-      `  - **50–70 (Yellow):** Low confidence; often loop regions or flexible conformations.\n` +
-      `  - **<50 (Orange):** Very low confidence; strongly correlates with intrinsically disordered regions (IDRs).\n` +
-      `• **Predicted Aligned Error (PAE):** Essential for determining domain-domain orientations. Low PAE between two domains indicates a rigid, well-defined inter-domain interface.\n\n` +
-      `### 2. Genomics, Variants & Population Constraints\n` +
-      `• **AlphaGenome & ClinVar:** Map genomic variants to ACMG clinical classifications (Pathogenic, Likely Pathogenic, Benign, VUS).\n` +
-      `• **gnomAD Metrics:** Evaluate gene tolerance to loss-of-function using **pLI** (pLI ≥ 0.9 indicates extreme constraint/intolerance) and **LOEUF** (lower upper bound reflects stronger selective constraint).\n\n` +
-      `### 3. Chemistry & Drug Discovery (Lipinski & Veber Guidelines)\n` +
-      `• **Lipinski's Rule of 5 for Oral Bioavailability:**\n` +
-      `  - Molecular Weight ≤ 500 Da\n` +
-      `  - LogP (Lipophilicity / XLogP3) ≤ 5\n` +
-      `  - Hydrogen Bond Donors (OH + NH) ≤ 5\n` +
-      `  - Hydrogen Bond Acceptors (O + N) ≤ 10\n` +
-      `• **Veber Rules:** Rotatable bonds ≤ 10 and Polar Surface Area (TPSA) ≤ 140 Å² ensure adequate intestinal absorption.\n` +
-      `• **Cross-Database Integration:** Connect UniProtKB targets to ChEMBL bioactivity assays (IC50 / Ki) and PubChem compound structures.`;
-  }
-
-  return "Here is your high-impact strategic response! Focus on clarity, strong execution, and verifiable results across business growth, marketing, and scientific analysis.";
+  return "Here is your high-impact creative blueprint! Focus on strong retention in the first 3 seconds, deliver high value through clear actionable steps, and conclude with an engaging viral call to action.";
 }
 
 // ----------------------------------------------------
@@ -241,34 +186,16 @@ app.post('/api/admin/config', (req, res) => {
 
 // ----------------------------------------------------
 // API Route: Generic AI Content Generation (Vixora & Applet AI Proxy)
-// Equipped with Digital Marketing Master & DeepMind Science Skills
 // ----------------------------------------------------
 app.post('/api/ai/generate', async (req, res) => {
   try {
-    const { contents, systemInstruction, temperature = 0.7, model = 'gemini-3.8-flash', responseMimeType, apiKey } = req.body || {};
+    const { contents, systemInstruction, temperature = 0.7, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
     const candidateKeys = await getCandidateGeminiKeys(apiKey);
 
-    // Standard base system instruction enriching marketing pedagogy and DeepMind science
-    const enhancedSystemInstruction = [
-      systemInstruction || '',
-      `You are GGD AI Copilot — an elite, highly intelligent AI specializing in Digital Marketing Mastery, Autonomous E-Commerce Growth, and Google DeepMind Science Skills.`,
-      `Core Competencies:`,
-      `1. TEACHING MARKETING: You teach actionable digital marketing step-by-step. Break down copywriting frameworks (AIDA, PAS, BAB), viral hooks, WhatsApp closing scripts, voice note selling psychology, Facebook/Instagram paid ads, TikTok Spark ads, SEO keyword architecture, and conversion rate optimization (CRO). Give real, highly practical examples.`,
-      `2. GOOGLE DEEPMIND SCIENCE SKILLS: You understand structural biology and scientific databases: AlphaFold DB (3D structure predictions, per-residue pLDDT confidence scores, PAE matrices, mmCIF/PDB downloads), UniProtKB, RCSB PDB, InterPro domains, Foldseek, sequence alignment (Clustal Omega/BLAST), genomics & variant effects (AlphaGenome Atlas, ClinVar, gnomAD pLI and LOEUF metrics, dbSNP), chemistry & drug discovery (PubChem, ChEMBL bioactivities, Lipinski's Rule of 5, Veber rules, SMILES), Reactome biological pathways, and biomedical literature (PubMed, Europe PMC).`,
-      `3. GGD AD NETWORK PLATFORM: You know the Ad Rotator, Community Feed, P2P Chat & Calls, Syndicate Promoters, Credit Wallet, Airtime Redemption, and Storefronts.`,
-      `4. STYLE: Be articulate, encouraging, authoritative, and structured. Never use asterisks for bolding if clean formatting is preferred.`
-    ].filter(Boolean).join('\n\n');
-
-    const config: any = {
-      systemInstruction: enhancedSystemInstruction,
-    };
+    const config: any = {};
+    if (systemInstruction) config.systemInstruction = systemInstruction;
     if (typeof temperature === 'number') config.temperature = temperature;
     if (responseMimeType) config.responseMimeType = responseMimeType;
-
-    // Preferred modern model: gemini-3.8-flash for general, or gemini-3.1-pro-preview for complex reasoning
-    const targetModel = (model && model !== 'gemini-2.5-flash' && model !== 'gemini-1.5-flash') 
-      ? model 
-      : 'gemini-3.8-flash';
 
     // Try candidate keys sequentially
     for (const key of candidateKeys) {
@@ -279,7 +206,7 @@ app.post('/api/ai/generate', async (req, res) => {
         });
 
         const response = await client.models.generateContent({
-          model: targetModel,
+          model: model || 'gemini-2.5-flash',
           contents,
           config: Object.keys(config).length > 0 ? config : undefined,
         });
@@ -2605,92 +2532,6 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
 });
 
 // ----------------------------------------------------
-// Unified High-Performance Image Upload Endpoint
-// Supports banners, slides, avatars, flyers, logos, and attachments
-// ----------------------------------------------------
-app.post('/api/upload', async (req, res) => {
-  try {
-    const { image, fileData, fileName, folder = 'images' } = req.body;
-    const rawImage = image || fileData;
-    if (!rawImage || typeof rawImage !== 'string') {
-      return res.status(400).json({ error: 'Image data is required as base64 or data URL' });
-    }
-
-    const safeFolder = String(folder).replace(/[^a-zA-Z0-9_-]/g, '') || 'images';
-    const targetDir = path.resolve(process.cwd(), 'uploads', safeFolder);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-
-    let buffer: Buffer;
-    let ext = 'jpg';
-
-    if (rawImage.startsWith('data:')) {
-      const matches = rawImage.match(/^data:([A-Za-z-+/_0-9]+);base64,(.+)$/);
-      if (matches && matches.length === 3) {
-        const mime = matches[1].toLowerCase();
-        if (mime.includes('png')) ext = 'png';
-        else if (mime.includes('webp')) ext = 'webp';
-        else if (mime.includes('gif')) ext = 'gif';
-        else if (mime.includes('svg')) ext = 'svg';
-        else ext = 'jpg';
-        buffer = Buffer.from(matches[2], 'base64');
-      } else {
-        const base64Data = rawImage.split(',')[1] || rawImage;
-        buffer = Buffer.from(base64Data, 'base64');
-      }
-    } else {
-      buffer = Buffer.from(rawImage, 'base64');
-    }
-
-    if (fileName && typeof fileName === 'string') {
-      const origExt = fileName.split('.').pop()?.toLowerCase();
-      if (origExt && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(origExt)) {
-        ext = origExt === 'jpeg' ? 'jpg' : origExt;
-      }
-    }
-
-    const uniqueId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const outputFileName = `${uniqueId}.${ext}`;
-    const filePath = path.join(targetDir, outputFileName);
-
-    fs.writeFileSync(filePath, buffer);
-
-    // Also write to sanitized relative path if fileName was provided (e.g. userId/avatar-123.jpg or flyer.png)
-    // so any component calling getPublicUrl(path) finds the file directly on disk even after reload
-    if (fileName && typeof fileName === 'string') {
-      const sanitized = fileName.replace(/\.\./g, '').replace(/^\/+/, '');
-      if (sanitized) {
-        const directPath = path.join(targetDir, sanitized);
-        const directDir = path.dirname(directPath);
-        if (!fs.existsSync(directDir)) {
-          fs.mkdirSync(directDir, { recursive: true });
-        }
-        try {
-          fs.writeFileSync(directPath, buffer);
-        } catch (e) {
-          console.warn('Note writing direct relative path:', e);
-        }
-      }
-    }
-
-    const publicUrl = `/uploads/${safeFolder}/${outputFileName}`;
-    console.log(`[Image Upload Engine] Successfully stored ${outputFileName} in /uploads/${safeFolder} (${buffer.length} bytes)`);
-
-    return res.json({
-      success: true,
-      url: publicUrl,
-      publicUrl,
-      fileName: outputFileName,
-      size: buffer.length,
-    });
-  } catch (err: any) {
-    console.error('[Image Upload Engine] Upload error:', err);
-    return res.status(500).json({ error: err.message || 'Image upload failed' });
-  }
-});
-
-// ----------------------------------------------------
 // Cloud SQL Chat & Image Sharing Routes
 // ----------------------------------------------------
 app.post('/api/chat/upload-image', async (req, res) => {
@@ -2703,7 +2544,7 @@ app.post('/api/chat/upload-image', async (req, res) => {
     let buffer: Buffer;
     let ext = 'jpg';
     if (typeof imageData === 'string' && imageData.startsWith('data:')) {
-      const matches = imageData.match(/^data:([A-Za-z-+/_]+);base64,(.+)$/);
+      const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
         const mime = matches[1];
         if (mime.includes('png')) ext = 'png';
@@ -2838,6 +2679,102 @@ app.get('/api/chat/images', async (req, res) => {
   } catch (err: any) {
     console.error('Error fetching chat images:', err);
     return res.status(500).json({ error: err.message || 'Failed to fetch chat images' });
+  }
+});
+
+app.get('/api/chat/messages', async (req, res) => {
+  try {
+    const { user1, user2, taskId } = req.query;
+    if (!user1 || !user2) {
+      return res.status(400).json({ error: 'user1 and user2 query parameters required' });
+    }
+
+    try {
+      const { db, isCloudSqlConfigured } = await import('./src/db/index.ts');
+      const { chatMessages } = await import('./src/db/schema.ts');
+      const { or, and, eq, asc } = await import('drizzle-orm');
+
+      if (db && isCloudSqlConfigured()) {
+        const baseCondition = or(
+          and(eq(chatMessages.senderId, String(user1)), eq(chatMessages.receiverId, String(user2))),
+          and(eq(chatMessages.senderId, String(user2)), eq(chatMessages.receiverId, String(user1)))
+        );
+
+        const whereCondition = taskId
+          ? and(baseCondition, eq(chatMessages.taskId, String(taskId)))
+          : baseCondition;
+
+        const rows = await db
+          .select()
+          .from(chatMessages)
+          .where(whereCondition)
+          .orderBy(asc(chatMessages.createdAt));
+
+        return res.json({ success: true, messages: rows });
+      }
+    } catch (sqlErr) {
+      console.warn('[Cloud SQL Chat] Notice reading messages from Cloud SQL:', sqlErr);
+    }
+
+    return res.json({ success: true, messages: [] });
+  } catch (err: any) {
+    console.error('Error fetching chat messages from Cloud SQL:', err);
+    return res.status(500).json({ error: err.message || 'Failed to fetch chat messages' });
+  }
+});
+
+// Universal Image Upload Endpoint
+app.post(['/api/upload', '/api/upload/image'], async (req, res) => {
+  try {
+    const { imageData, fileName, folder = 'general' } = req.body;
+    if (!imageData) {
+      return res.status(400).json({ error: 'Missing imageData payload' });
+    }
+
+    const safeFolder = ['avatars', 'community', 'products', 'chat-images', 'general'].includes(folder)
+      ? folder
+      : 'general';
+    const targetDir = path.join(UPLOADS_BASE_DIR, safeFolder);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    let buffer: Buffer;
+    let ext = 'jpg';
+    if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+      const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mime = matches[1];
+        if (mime.includes('png')) ext = 'png';
+        else if (mime.includes('webp')) ext = 'webp';
+        else if (mime.includes('gif')) ext = 'gif';
+        else if (mime.includes('svg')) ext = 'svg';
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        buffer = Buffer.from(imageData, 'base64');
+      }
+    } else {
+      buffer = Buffer.from(imageData, 'base64');
+    }
+
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const safeFileName = `${uniqueId}.${ext}`;
+    const filePath = path.join(targetDir, safeFileName);
+    fs.writeFileSync(filePath, buffer);
+
+    const publicUrl = `/uploads/${safeFolder}/${safeFileName}`;
+    console.log(`[Upload API] Saved image: ${publicUrl} (${buffer.length} bytes)`);
+
+    return res.json({
+      success: true,
+      url: publicUrl,
+      publicUrl,
+      fileName: safeFileName,
+      size: buffer.length,
+    });
+  } catch (err: any) {
+    console.error('Error in /api/upload:', err);
+    return res.status(500).json({ error: err.message || 'Failed to upload image' });
   }
 });
 

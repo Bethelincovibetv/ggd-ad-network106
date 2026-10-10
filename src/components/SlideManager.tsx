@@ -6,7 +6,6 @@ import { Switch } from "@/components/ui/switch";
 import { Image, Plus, Trash2, Upload, Loader2, Edit, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadImage, handleImageError, safeImageUrl, defaultSlideImg } from "@/services/imageUploadService";
 
 const SlideManager = () => {
   const [slides, setSlides] = useState<any[]>([]);
@@ -23,22 +22,15 @@ const SlideManager = () => {
     setLoading(false);
   };
 
-  const uploadImageHandler = async (file: File, target: 'new' | 'edit') => {
+  const uploadImage = async (file: File, target: 'new' | 'edit') => {
     setUploading(true);
-    try {
-      const publicUrl = await uploadImage(file, { folder: 'slide-images' });
-      if (publicUrl) {
-        if (target === 'new') setNewSlide(prev => ({ ...prev, image_url: publicUrl }));
-        else setEditing((p: any) => ({ ...p, image_url: publicUrl }));
-        toast.success("Slide image uploaded!");
-      } else {
-        toast.error("Upload failed");
-      }
-    } catch {
-      toast.error("Upload failed");
-    } finally {
-      setUploading(false);
-    }
+    const fileName = `slides/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error } = await supabase.storage.from('slide-images').upload(fileName, file);
+    if (error) { toast.error("Upload failed"); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from('slide-images').getPublicUrl(fileName);
+    if (target === 'new') setNewSlide(prev => ({ ...prev, image_url: publicUrl }));
+    else setEditing((p: any) => ({ ...p, image_url: publicUrl }));
+    setUploading(false);
   };
 
   const createSlide = async () => {
@@ -88,21 +80,13 @@ const SlideManager = () => {
       <Card className="border-purple-200">
         <CardContent className="p-4 space-y-3">
           <input type="file" id="slideImageUpload" accept="image/*" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) uploadImageHandler(f, 'new'); }} />
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, 'new'); }} />
           <Button variant="outline" className="w-full h-9 text-xs" disabled={uploading}
             onClick={() => document.getElementById('slideImageUpload')?.click()}>
             {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
             {uploading ? 'Uploading...' : 'Upload Slide Image'}
           </Button>
-          {newSlide.image_url && (
-            <img
-              loading="lazy"
-              src={safeImageUrl(newSlide.image_url, defaultSlideImg)}
-              alt="Preview"
-              onError={handleImageError(defaultSlideImg)}
-              className="w-full h-24 object-cover rounded-lg"
-            />
-          )}
+          {newSlide.image_url && <img loading="lazy" src={newSlide.image_url} alt="Preview" className="w-full h-24 object-cover rounded-lg" />}
           <Input placeholder="Title (optional)" value={newSlide.title} onChange={e => setNewSlide({ ...newSlide, title: e.target.value })} className="h-8 text-xs" />
           <div className="space-y-1">
             <Input placeholder="Destination URL (e.g. https://..., /u/slug, /listing/id, or 'directory')" value={newSlide.link_url} onChange={e => setNewSlide({ ...newSlide, link_url: e.target.value })} className="h-8 text-xs" />
@@ -118,15 +102,9 @@ const SlideManager = () => {
             <CardContent className="p-2">
               {editing?.id === slide.id ? (
                 <div className="space-y-2">
-                  <img
-                    loading="lazy"
-                    src={safeImageUrl(editing.image_url, defaultSlideImg)}
-                    alt=""
-                    onError={handleImageError(defaultSlideImg)}
-                    className="w-full h-20 object-cover rounded"
-                  />
+                  <img loading="lazy" src={editing.image_url} alt="" className="w-full h-20 object-cover rounded" />
                   <input type="file" id={`edit-${slide.id}`} accept="image/*" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImageHandler(f, 'edit'); }} />
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, 'edit'); }} />
                   <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" onClick={() => document.getElementById(`edit-${slide.id}`)?.click()}>
                     <Upload className="h-3 w-3 mr-1" />Replace image
                   </Button>
@@ -143,13 +121,7 @@ const SlideManager = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <img
-                    loading="lazy"
-                    src={safeImageUrl(slide.image_url, defaultSlideImg)}
-                    alt={slide.title || 'Slide'}
-                    onError={handleImageError(defaultSlideImg)}
-                    className="w-20 h-12 object-cover rounded"
-                  />
+                  <img loading="lazy" src={slide.image_url} alt={slide.title || 'Slide'} className="w-20 h-12 object-cover rounded" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{slide.title || 'No title'}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{slide.link_url || 'No link'}</p>
