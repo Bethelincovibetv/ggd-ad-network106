@@ -667,7 +667,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <CommunitySearchResults query={filterQuery} />
+      <CommunitySearchResults query={filterQuery} onClose={() => setFilterQuery('')} />
 
       {/* Composer (Facebook-style Default Open Box with Top Action Bar) */}
       {me ? (

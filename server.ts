@@ -2757,6 +2757,11 @@ app.post(['/api/upload', '/api/upload/image'], async (req, res) => {
       buffer = Buffer.from(imageData, 'base64');
     }
 
+    // Limit maximum upload size to 10MB
+    if (buffer.length > 10 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Image exceeds maximum 10MB limit' });
+    }
+
     const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const safeFileName = `${uniqueId}.${ext}`;
     const filePath = path.join(targetDir, safeFileName);
@@ -2794,18 +2799,26 @@ app.get('/api/link-preview', async (req, res) => {
       ? rawUrl
       : `https://${rawUrl}`;
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(targetUrl);
+    } catch {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    const host = parsedUrl.hostname.toLowerCase();
+    // Protect against SSRF to private/internal addresses
+    if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|0\.0\.0\.0|::1)/.test(host)) {
+      return res.status(400).json({ error: 'Restricted host address' });
+    }
+
     // Cache hit (valid for 1 hour)
     const cached = linkPreviewCache.get(targetUrl);
     if (cached && Date.now() - cached.cachedAt < 3600000) {
       return res.json({ success: true, ...cached });
     }
 
-    let parsedDomain = '';
-    try {
-      parsedDomain = new URL(targetUrl).hostname.replace(/^www\./, '');
-    } catch {
-      parsedDomain = targetUrl;
-    }
+    const parsedDomain = host.replace(/^www\./, '');
 
     // Abort controller with 3.5s timeout to keep UI snappy
     const controller = new AbortController();

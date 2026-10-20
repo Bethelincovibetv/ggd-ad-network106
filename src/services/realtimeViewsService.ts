@@ -8,25 +8,44 @@ const SESSION_VIEWED_KEY = 'ggd_realtime_viewed_session_v2';
 const viewsCache = new Map<string, number>();
 const listeners = new Set<(postId: string, viewsCount: number) => void>();
 
+const inMemorySessionViewed = new Set<string>();
+
 function getSessionViewedSet(): Set<string> {
+  if (typeof window === 'undefined') return inMemorySessionViewed;
   try {
-    const raw = sessionStorage.getItem(SESSION_VIEWED_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const raw = window.sessionStorage?.getItem(SESSION_VIEWED_KEY);
+    return raw ? new Set(JSON.parse(raw)) : inMemorySessionViewed;
   } catch {
-    return new Set();
+    return inMemorySessionViewed;
   }
 }
 
 function markPostViewedInSession(postId: string) {
+  inMemorySessionViewed.add(postId);
+  if (typeof window === 'undefined') return;
   try {
     const set = getSessionViewedSet();
     set.add(postId);
-    sessionStorage.setItem(SESSION_VIEWED_KEY, JSON.stringify(Array.from(set)));
+    window.sessionStorage?.setItem(SESSION_VIEWED_KEY, JSON.stringify(Array.from(set)));
   } catch {}
 }
 
 export function isPostViewedInSession(postId: string): boolean {
   return getSessionViewedSet().has(postId);
+}
+
+function getSafeSessionToken(): string {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      let token = window.sessionStorage.getItem('ggd_session_id');
+      if (!token) {
+        token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        window.sessionStorage.setItem('ggd_session_id', token);
+      }
+      return token;
+    }
+  } catch {}
+  return 'sess_' + Math.random().toString(36).substring(2);
 }
 
 /**
@@ -55,7 +74,7 @@ export async function recordPostViewRealtime(
       },
       body: JSON.stringify({
         viewerId,
-        sessionToken: sessionStorage.getItem('ggd_session_id') || Math.random().toString(36).substring(2),
+        sessionToken: getSafeSessionToken(),
       }),
     });
 

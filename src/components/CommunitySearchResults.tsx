@@ -71,6 +71,16 @@ export const CommunitySearchResults: React.FC<Props> = ({ query, onClose }) => {
   const [pages, setPages] = useState<PageHit[]>([]);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
       setPosts([]);
