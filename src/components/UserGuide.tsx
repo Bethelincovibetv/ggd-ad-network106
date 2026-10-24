@@ -21,6 +21,7 @@ import { playRewardSound } from '@/lib/soundEffects';
 import { toast } from 'sonner';
 import YouTubeEmbed from '@/components/YouTubeEmbed';
 import { YouTubeLogo } from '@/components/icons/YouTubeLogo';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 interface GuideSection {
   title: string;
@@ -35,15 +36,18 @@ interface GuideSection {
   content: React.ReactNode;
 }
 
-const sections: GuideSection[] = [
-  {
+const getSections = (isEnabled: (key: string) => boolean): GuideSection[] => {
+  const list: GuideSection[] = [];
+
+  // 1. Getting Started
+  list.push({
     title: 'Start Here — How GGD Helps You Grow',
     badge: 'Getting Started',
     icon: <Sparkles className="h-5 w-5" />,
     keywords: 'welcome ggd ad network business growth marketing customers visibility discover get started',
     videoSection: 'guide_getting_started',
-    actionTab: 'directory',
-    actionLabel: 'Explore Business Directory',
+    actionTab: isEnabled('business_directory') ? 'directory' : 'syndicate',
+    actionLabel: isEnabled('business_directory') ? 'Explore Business Directory' : 'Explore Syndicate Hub',
     flyerUrl: flyerGuideGrowth,
     flyerCaption: 'Official GGD Business Growth & Multi-Channel Discovery Flyer',
     content: (
@@ -51,13 +55,30 @@ const sections: GuideSection[] = [
         <p><strong>GGD Ad Network</strong> is a digital business-growth and marketing platform that helps businesses get discovered, reach more customers, promote their products and services, and grow.</p>
         <p>The platform brings several growth channels together:</p>
         <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Get discovered:</strong> create a business presence in the Business Directory.</li>
-          <li><strong>Sell:</strong> showcase products and services.</li>
-          <li><strong>Get visibility:</strong> use GGD Banner Ads and eligible featured placements.</li>
-          <li><strong>Promote:</strong> use Credit Tasks for community promotion or verified Syndicate promoters for paid promotion.</li>
-          <li><strong>Boost Video:</strong> boost YouTube views, watch time hours, and channel subscribers.</li>
-          <li><strong>Create:</strong> use marketing tools such as BlogMate AI.</li>
-          <li><strong>Connect:</strong> use Community to build awareness and relationships.</li>
+          {isEnabled('business_directory') && (
+            <li><strong>Get discovered:</strong> create a business presence in the Business Directory.</li>
+          )}
+          {isEnabled('products_services') && (
+            <li><strong>Sell:</strong> showcase products and services.</li>
+          )}
+          {isEnabled('banner_ads') && (
+            <li><strong>Get visibility:</strong> use GGD Banner Ads and eligible featured placements.</li>
+          )}
+          <li>
+            <strong>Promote:</strong>{' '}
+            {isEnabled('credit_tasks')
+              ? 'use Credit Tasks for community promotion or verified Syndicate promoters for paid promotion.'
+              : 'work with verified Syndicate promoters for paid high-engagement audience promotion.'}
+          </li>
+          {isEnabled('youtube_boost') && (
+            <li><strong>Boost Video:</strong> boost YouTube views, watch time hours, and channel subscribers.</li>
+          )}
+          {isEnabled('blogmate_ai') && (
+            <li><strong>Create:</strong> use marketing tools such as BlogMate AI.</li>
+          )}
+          {isEnabled('community_feed') && (
+            <li><strong>Connect:</strong> use Community to build awareness and relationships.</li>
+          )}
           <li><strong>Measure:</strong> use available analytics to understand results.</li>
         </ul>
         <div className="rounded-xl bg-orange-50 p-4 dark:bg-orange-950/20">
@@ -66,178 +87,205 @@ const sections: GuideSection[] = [
         </div>
       </div>
     ),
-  },
-  {
-    title: 'Boost YouTube Views, Watch Hours & Subscribers — Video Growth Engine',
-    badge: 'YouTube Boost',
-    icon: <YouTubeLogo className="h-5 w-5" />,
-    keywords: 'youtube boost video views watch hour watch hours subscribe subscribers channel monetization follow comment likes credits earn',
-    videoSection: 'guide_youtube_boost',
-    actionTab: 'tasks',
-    actionLabel: 'Create YouTube Boost Task',
-    flyerUrl: flyerYtBoost,
-    flyerCaption: 'Official YouTube Boost & Watch Time Monetization Flyer',
-    content: (
-      <div className="space-y-3.5">
-        <div className="rounded-xl bg-red-500/10 border border-red-500/25 p-3.5 space-y-2">
-          <div className="flex items-center gap-2">
-            <YouTubeLogo className="h-5 w-5" />
-            <h4 className="font-black text-sm text-foreground">Accelerate Your Channel Monetization & Watch Time</h4>
+  });
+  // 2. YouTube Boost
+  if (isEnabled('youtube_boost')) {
+    list.push({
+      title: 'Boost YouTube Views, Watch Hours & Subscribers — Video Growth Engine',
+      badge: 'YouTube Boost',
+      icon: <YouTubeLogo className="h-5 w-5" />,
+      keywords: 'youtube boost video views watch hour watch hours subscribe subscribers channel monetization follow comment likes credits earn',
+      videoSection: 'guide_youtube_boost',
+      actionTab: 'tasks',
+      actionLabel: 'Create YouTube Boost Task',
+      flyerUrl: flyerYtBoost,
+      flyerCaption: 'Official YouTube Boost & Watch Time Monetization Flyer',
+      content: (
+        <div className="space-y-3.5">
+          <div className="rounded-xl bg-red-500/10 border border-red-500/25 p-3.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <YouTubeLogo className="h-5 w-5" />
+              <h4 className="font-black text-sm text-foreground">Accelerate Your Channel Monetization & Watch Time</h4>
+            </div>
+            <p className="text-xs text-foreground/90 leading-relaxed">
+              Need <strong>4,000 Watch Hours</strong> and <strong>1,000 Subscribers</strong> for YouTube Partner monetization? GGD Ad Network connects you with real, active community members who watch, subscribe, like, and comment on your videos in exchange for promotional credits.
+            </p>
           </div>
-          <p className="text-xs text-foreground/90 leading-relaxed">
-            Need <strong>4,000 Watch Hours</strong> and <strong>1,000 Subscribers</strong> for YouTube Partner monetization? GGD Ad Network connects you with real, active community members who watch, subscribe, like, and comment on your videos in exchange for promotional credits.
-          </p>
-        </div>
 
-        <h4 className="font-bold text-sm text-foreground">How YouTube Video Boost Works:</h4>
-        <ol className="list-decimal space-y-2.5 pl-5 text-xs sm:text-sm">
-          <li>
-            <strong>Fund with GGD Credits:</strong> Allocate your desired reward credits (e.g. 5–20 credits per person) and paste your YouTube Video or Channel link.
-          </li>
-          <li>
-            <strong>Real In-Feed Watch Player:</strong> Promoters watch your video directly in the GGD Community Feed. The embedded player precisely tracks real elapsed playback seconds.
-          </li>
-          <li>
-            <strong>Direct Channel Subscription Verification:</strong> When creators set a subscription goal, promoters 1-click the official <em>Subscribe to Channel</em> button, triggering YouTube's subscription confirmation dialog.
-          </li>
-          <li>
-            <strong>Engagement Triggers:</strong> Real human views, long watch retention, likes, and genuine comments trigger YouTube's algorithmic recommendation feed (Suggested Videos & Browse features).
-          </li>
-        </ol>
+          <h4 className="font-bold text-sm text-foreground">How YouTube Video Boost Works:</h4>
+          <ol className="list-decimal space-y-2.5 pl-5 text-xs sm:text-sm">
+            <li>
+              <strong>Fund with GGD Credits:</strong> Allocate your desired reward credits (e.g. 5–20 credits per person) and paste your YouTube Video or Channel link.
+            </li>
+            <li>
+              <strong>Real In-Feed Watch Player:</strong> Promoters watch your video directly in the GGD Community Feed. The embedded player precisely tracks real elapsed playback seconds.
+            </li>
+            <li>
+              <strong>Direct Channel Subscription Verification:</strong> When creators set a subscription goal, promoters 1-click the official <em>Subscribe to Channel</em> button, triggering YouTube's subscription confirmation dialog.
+            </li>
+            <li>
+              <strong>Engagement Triggers:</strong> Real human views, long watch retention, likes, and genuine comments trigger YouTube's algorithmic recommendation feed (Suggested Videos & Browse features).
+            </li>
+          </ol>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
-            <Eye className="h-5 w-5 text-red-500 mx-auto mb-1" />
-            <p className="font-bold text-xs text-foreground">Organic Views</p>
-            <p className="text-[10.5px] text-muted-foreground mt-0.5">Real retention views tracked by YouTube</p>
-          </div>
-          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
-            <Play className="h-5 w-5 text-orange-500 mx-auto mb-1" />
-            <p className="font-bold text-xs text-foreground">Watch Hours</p>
-            <p className="text-[10.5px] text-muted-foreground mt-0.5">Reach the 4K public watch hours milestone</p>
-          </div>
-          <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
-            <BellRing className="h-5 w-5 text-green-500 mx-auto mb-1" />
-            <p className="font-bold text-xs text-foreground">Active Subscribers</p>
-            <p className="text-[10.5px] text-muted-foreground mt-0.5">1-click direct subscribe action trigger</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+            <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+              <Eye className="h-5 w-5 text-red-500 mx-auto mb-1" />
+              <p className="font-bold text-xs text-foreground">Organic Views</p>
+              <p className="text-[10.5px] text-muted-foreground mt-0.5">Real retention views tracked by YouTube</p>
+            </div>
+            <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+              <Play className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+              <p className="font-bold text-xs text-foreground">Watch Hours</p>
+              <p className="text-[10.5px] text-muted-foreground mt-0.5">Reach the 4K public watch hours milestone</p>
+            </div>
+            <div className="bg-muted/40 p-3 rounded-xl border border-border/50 text-center">
+              <BellRing className="h-5 w-5 text-green-500 mx-auto mb-1" />
+              <p className="font-bold text-xs text-foreground">Active Subscribers</p>
+              <p className="text-[10.5px] text-muted-foreground mt-0.5">1-click direct subscribe action trigger</p>
+            </div>
           </div>
         </div>
-      </div>
-    ),
-  },
-  {
-    title: 'Business Directory — Get Discovered',
-    badge: 'Discovery',
-    icon: <Building2 className="h-5 w-5" />,
-    keywords: 'business directory listing discover profile storefront business page location contact',
-    videoSection: 'guide_directory',
-    actionTab: 'directory',
-    actionLabel: 'Open Business Directory',
-    flyerUrl: flyerGuideGrowth,
-    flyerCaption: 'Business Profile & Directory Discovery Guide Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>The <strong>Business Directory</strong> is GGD's discovery layer. It helps people find businesses, products and services.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Create and maintain your public business profile.</li>
-          <li>Add your logo, description, location, contact details, WhatsApp and relevant links.</li>
-          <li>Use your public business page as a destination you can share with customers.</li>
-          <li>Keep business information accurate so people understand what you offer and how to reach you.</li>
-        </ul>
-        <p><strong>Think of it as your GGD business presence:</strong> people discover you first, then move to your products, services or contact options.</p>
-      </div>
-    ),
-  },
-  {
-    title: 'Products & Services — Show What You Sell',
-    badge: 'Business',
-    icon: <Store className="h-5 w-5" />,
-    keywords: 'products marketplace services sell listing product service shop business',
-    videoSection: 'guide_products',
-    actionTab: 'my-business',
-    actionLabel: 'Manage Products & Storefront',
-    flyerUrl: flyerGuideGrowth,
-    flyerCaption: 'Products & Services Catalog Showcase Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>Your business presence can showcase what you actually sell or provide.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong>Products:</strong> list products with useful details so customers can discover and evaluate them.</li>
-          <li><strong>Services:</strong> present the services your business offers and how customers can contact you.</li>
-          <li>Keep listings connected to the correct business profile so discovery leads back to your business.</li>
-        </ul>
-        <p>The goal is simple: <strong>visibility should lead somewhere useful.</strong></p>
-      </div>
-    ),
-  },
-  {
-    title: 'Banner Ads — Buy Visibility Across GGD',
-    badge: 'Advertising',
-    icon: <Megaphone className="h-5 w-5" />,
-    keywords: 'banner ads advertising campaign impressions clicks ctr target url promote paid visibility',
-    videoSection: 'guide_ads',
-    actionTab: 'campaigns',
-    actionLabel: 'Launch a Banner Campaign',
-    flyerUrl: flyerGuideBannerAds,
-    flyerCaption: 'GGD Commercial Banner Advertising Network Flyer',
-    content: (
-      <div className="space-y-3">
-        <p><strong>GGD Banner Ads</strong> are the platform's commercial display advertising system. They are separate from the Featured Slider.</p>
-        <ol className="list-decimal space-y-2 pl-5">
-          <li>Create your campaign with the required creative, message and destination.</li>
-          <li>Choose the available duration and placement options.</li>
-          <li>Fund the campaign according to the platform's current pricing.</li>
-          <li>Monitor available impressions, clicks and performance information.</li>
-        </ol>
-        <div className="rounded-xl border p-4 bg-muted/30">
-          <p className="font-semibold text-foreground">Banner Ads ≠ Featured Slider</p>
-          <p className="mt-1 text-sm text-muted-foreground">Banner Ads are paid advertising. The Featured Slider is an admin-managed featured-content, featured-business or announcement presentation system.</p>
+      ),
+    });
+  }
+
+  // 3. Business Directory
+  if (isEnabled('business_directory')) {
+    list.push({
+      title: 'Business Directory — Get Discovered',
+      badge: 'Discovery',
+      icon: <Building2 className="h-5 w-5" />,
+      keywords: 'business directory listing discover profile storefront business page location contact',
+      videoSection: 'guide_directory',
+      actionTab: 'directory',
+      actionLabel: 'Open Business Directory',
+      flyerUrl: flyerGuideGrowth,
+      flyerCaption: 'Business Profile & Directory Discovery Guide Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>The <strong>Business Directory</strong> is GGD's discovery layer. It helps people find businesses, products and services.</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Create and maintain your public business profile.</li>
+            <li>Add your logo, description, location, contact details, WhatsApp and relevant links.</li>
+            <li>Use your public business page as a destination you can share with customers.</li>
+            <li>Keep business information accurate so people understand what you offer and how to reach you.</li>
+          </ul>
+          <p><strong>Think of it as your GGD business presence:</strong> people discover you first, then move to your products, services or contact options.</p>
         </div>
-      </div>
-    ),
-  },
-  {
-    title: 'Featured Slider — Featured, Not Banner Advertising',
-    badge: 'Featured',
-    icon: <ImageIcon className="h-5 w-5" />,
-    keywords: 'slider featured business update announcement placement slides admin',
-    videoSection: 'guide_slider',
-    flyerUrl: flyerGuideBannerAds,
-    flyerCaption: 'Featured Slider & High-Impact Announcement Showcase Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>The <strong>Featured Slider</strong> is a separate presentation layer for featured updates, businesses, features or announcements selected by the platform.</p>
-        <p>It should not be confused with buying a Banner Ad. Featured exposure follows the platform's applicable admin rules.</p>
-      </div>
-    ),
-  },
-  {
-    title: 'Credit Tasks — Community Promotion & Earn-and-Spend',
-    badge: 'Credits',
-    icon: <CreditCard className="h-5 w-5" />,
-    keywords: 'credit task youtube views watch time likes comments subscribers website visits shares reward credits earn promote',
-    videoSection: 'guide_tasks',
-    actionTab: 'tasks',
-    actionLabel: 'Open Credit Tasks',
-    flyerUrl: flyerGuideTasks,
-    flyerCaption: 'Community Credit Tasks & Promotion Ecosystem Flyer',
-    content: (
-      <div className="space-y-3">
-        <p><strong>Credit Tasks</strong> let a user or business fund a community promotion task using GGD credits. Other users complete the task and receive GGD credits as their reward.</p>
-        <p>Task goals can include YouTube views, watch time, likes, comments, subscribers, website visits and social shares.</p>
-        <div className="rounded-xl bg-muted/60 p-4">
-          <p className="font-semibold text-foreground">The GGD credit loop</p>
-          <p className="mt-1 text-sm text-muted-foreground">User A spends GGD credits → creates a promotion task → User B completes it → User B earns GGD credits → User B can use those credits for eligible GGD activities.</p>
+      ),
+    });
+  }
+
+  // 4. Products & Services
+  if (isEnabled('products_services')) {
+    list.push({
+      title: 'Products & Services — Show What You Sell',
+      badge: 'Business',
+      icon: <Store className="h-5 w-5" />,
+      keywords: 'products marketplace services sell listing product service shop business',
+      videoSection: 'guide_products',
+      actionTab: 'my-business',
+      actionLabel: 'Manage Products & Storefront',
+      flyerUrl: flyerGuideGrowth,
+      flyerCaption: 'Products & Services Catalog Showcase Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>Your business presence can showcase what you actually sell or provide.</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li><strong>Products:</strong> list products with useful details so customers can discover and evaluate them.</li>
+            <li><strong>Services:</strong> present the services your business offers and how customers can contact you.</li>
+            <li>Keep listings connected to the correct business profile so discovery leads back to your business.</li>
+          </ul>
+          <p>The goal is simple: <strong>visibility should lead somewhere useful.</strong></p>
         </div>
-        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Important: Credit Tasks are not the Syndicate system.</p>
-      </div>
-    ),
-  },
-  {
+      ),
+    });
+  }
+
+  // 5. Banner Ads
+  if (isEnabled('banner_ads')) {
+    list.push({
+      title: 'Banner Ads — Buy Visibility Across GGD',
+      badge: 'Advertising',
+      icon: <Megaphone className="h-5 w-5" />,
+      keywords: 'banner ads advertising campaign impressions clicks ctr target url promote paid visibility',
+      videoSection: 'guide_ads',
+      actionTab: 'campaigns',
+      actionLabel: 'Launch a Banner Campaign',
+      flyerUrl: flyerGuideBannerAds,
+      flyerCaption: 'GGD Commercial Banner Advertising Network Flyer',
+      content: (
+        <div className="space-y-3">
+          <p><strong>GGD Banner Ads</strong> are the platform's commercial display advertising system. They are separate from the Featured Slider.</p>
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>Create your campaign with the required creative, message and destination.</li>
+            <li>Choose the available duration and placement options.</li>
+            <li>Fund the campaign according to the platform's current pricing.</li>
+            <li>Monitor available impressions, clicks and performance information.</li>
+          </ol>
+          <div className="rounded-xl border p-4 bg-muted/30">
+            <p className="font-semibold text-foreground">Banner Ads ≠ Featured Slider</p>
+            <p className="mt-1 text-sm text-muted-foreground">Banner Ads are paid advertising. The Featured Slider is an admin-managed featured-content, featured-business or announcement presentation system.</p>
+          </div>
+        </div>
+      ),
+    });
+  }
+
+  // 6. Featured Slider
+  if (isEnabled('featured_slider')) {
+    list.push({
+      title: 'Featured Slider — Featured, Not Banner Advertising',
+      badge: 'Featured',
+      icon: <ImageIcon className="h-5 w-5" />,
+      keywords: 'slider featured business update announcement placement slides admin',
+      videoSection: 'guide_slider',
+      flyerUrl: flyerGuideBannerAds,
+      flyerCaption: 'Featured Slider & High-Impact Announcement Showcase Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>The <strong>Featured Slider</strong> is a separate presentation layer for featured updates, businesses, features or announcements selected by the platform.</p>
+          <p>It should not be confused with buying a Banner Ad. Featured exposure follows the platform's applicable admin rules.</p>
+        </div>
+      ),
+    });
+  }
+
+  // 7. Credit Tasks
+  if (isEnabled('credit_tasks')) {
+    list.push({
+      title: 'Credit Tasks — Community Promotion & Earn-and-Spend',
+      badge: 'Credits',
+      icon: <CreditCard className="h-5 w-5" />,
+      keywords: 'credit task youtube views watch time likes comments subscribers website visits shares reward credits earn promote',
+      videoSection: 'guide_tasks',
+      actionTab: 'tasks',
+      actionLabel: 'Open Credit Tasks',
+      flyerUrl: flyerGuideTasks,
+      flyerCaption: 'Community Credit Tasks & Promotion Ecosystem Flyer',
+      content: (
+        <div className="space-y-3">
+          <p><strong>Credit Tasks</strong> let a user or business fund a community promotion task using GGD credits. Other users complete the task and receive GGD credits as their reward.</p>
+          <p>Task goals can include YouTube views, watch time, likes, comments, subscribers, website visits and social shares.</p>
+          <div className="rounded-xl bg-muted/60 p-4">
+            <p className="font-semibold text-foreground">The GGD credit loop</p>
+            <p className="mt-1 text-sm text-muted-foreground">User A spends GGD credits → creates a promotion task → User B completes it → User B earns GGD credits → User B can use those credits for eligible GGD activities.</p>
+          </div>
+          <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Important: Credit Tasks are not the Syndicate system.</p>
+        </div>
+      ),
+    });
+  }
+
+  // 8. Syndicate (Core)
+  list.push({
     title: 'Syndicate — Verified Paid Promotion Network',
     badge: 'Promoters',
     icon: <Users className="h-5 w-5" />,
-    keywords: 'syndicate verified promoter paid promotion whatsapp facebook instagram tiktok telegram proof earnings wallet payout',
+    keywords: isEnabled('syndicate_non_whatsapp_channels')
+      ? 'syndicate verified promoter paid promotion whatsapp facebook instagram tiktok telegram proof earnings wallet payout'
+      : 'syndicate verified promoter paid promotion whatsapp status groups channel proof earnings wallet payout',
     videoSection: 'guide_syndicate',
     actionTab: 'syndicate',
     actionLabel: 'Open Syndicate Hub',
@@ -249,103 +297,127 @@ const sections: GuideSection[] = [
         <ol className="list-decimal space-y-2 pl-5">
           <li>A business creates and funds a Syndicate campaign.</li>
           <li>A verified promoter accepts an available campaign.</li>
-          <li>The promoter carries out the required promotion on the specified channel.</li>
+          <li>
+            {isEnabled('syndicate_non_whatsapp_channels')
+              ? 'The promoter carries out the required promotion on the specified channel.'
+              : 'The promoter carries out the required promotion on WhatsApp Status or WhatsApp Groups.'}
+          </li>
           <li>The promoter submits proof/results when required.</li>
           <li>The campaign is reviewed according to its approval mode and eligible earnings are paid.</li>
         </ol>
-        <div className="rounded-xl border p-4 bg-muted/30">
-          <p className="font-semibold text-foreground">Two separate economies</p>
-          <p className="mt-1 text-sm text-muted-foreground">A Syndicate member keeps their normal GGD Credit Wallet and also has a separate Syndicate paid-earnings wallet. They are not the same balance.</p>
+        {isEnabled('credit_tasks') && (
+          <div className="rounded-xl border p-4 bg-muted/30">
+            <p className="font-semibold text-foreground">Two separate economies</p>
+            <p className="mt-1 text-sm text-muted-foreground">A Syndicate member keeps their normal GGD Credit Wallet and also has a separate Syndicate paid-earnings wallet. They are not the same balance.</p>
+          </div>
+        )}
+      </div>
+    ),
+  });
+
+  // 9. Blog Creator
+  if (isEnabled('blogmate_ai')) {
+    list.push({
+      title: 'Blog Creator & AI Drafter — Create Marketing Content',
+      badge: 'VIP Marketing Tools',
+      icon: <BookOpen className="h-5 w-5" />,
+      keywords: 'blog blogmate ai blog article content writing advertisement marketing funnel create edit save publish vip premium',
+      videoSection: 'guide_blog',
+      actionTab: 'feed',
+      actionLabel: 'Open Blog Creator',
+      flyerUrl: flyerGuideGrowth,
+      flyerCaption: 'BlogMate AI Editorial Content & SEO Marketing Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>The <strong>Blog Creator & AI Drafter</strong> is GGD's premier content broadcasting suite for VIP members. It turns your business expertise and products into engaging, search-optimized editorial articles.</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Generate rich structured blog articles with Gemini AI assistance.</li>
+            <li>Select curated royalty-free covers or upload your own high-res photography.</li>
+            <li>Add structured headings, body sections, image illustrations, and author notes.</li>
+            <li>Broadcast your published articles directly to the Community Feed and your business storefront.</li>
+          </ul>
+          <p><strong>VIP Exclusive:</strong> Blog creation is available to Premium VIP members and platform administrators.</p>
         </div>
-      </div>
-    ),
-  },
-  {
-    title: 'Blog Creator & AI Drafter — Create Marketing Content',
-    badge: 'VIP Marketing Tools',
-    icon: <BookOpen className="h-5 w-5" />,
-    keywords: 'blog blogmate ai blog article content writing advertisement marketing funnel create edit save publish vip premium',
-    videoSection: 'guide_blog',
-    actionTab: 'feed',
-    actionLabel: 'Open Blog Creator',
-    flyerUrl: flyerGuideGrowth,
-    flyerCaption: 'BlogMate AI Editorial Content & SEO Marketing Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>The <strong>Blog Creator & AI Drafter</strong> is GGD's premier content broadcasting suite for VIP members. It turns your business expertise and products into engaging, search-optimized editorial articles.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Generate rich structured blog articles with Gemini AI assistance.</li>
-          <li>Select curated royalty-free covers or upload your own high-res photography.</li>
-          <li>Add structured headings, body sections, image illustrations, and author notes.</li>
-          <li>Broadcast your published articles directly to the Community Feed and your business storefront.</li>
-        </ul>
-        <p><strong>VIP Exclusive:</strong> Blog creation is available to Premium VIP members and platform administrators.</p>
-      </div>
-    ),
-  },
-  {
-    title: 'Community — Build Awareness & Relationships',
-    badge: 'Community',
-    icon: <MessageCircle className="h-5 w-5" />,
-    keywords: 'community feed posts comments reactions hashtags share photos video businesses social',
-    videoSection: 'guide_community',
-    actionTab: 'feed',
-    actionLabel: 'Open Community Feed',
-    flyerUrl: flyerGuideTasks,
-    flyerCaption: 'GGD Community Feed & Social Engagement Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>The <strong>Community</strong> is GGD's social and distribution layer.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Create posts and share relevant links, images and supported video content.</li>
-          <li>Use hashtags to improve discovery.</li>
-          <li>React, comment and engage with other posts.</li>
-          <li>Use community participation to build awareness around a business or offer.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    title: 'GGG Credits — Your Internal Platform Currency',
-    badge: 'Wallet',
-    icon: <Wallet className="h-5 w-5" />,
-    keywords: 'ggg credits wallet earn spend buy transfer tasks promotion internal currency',
-    videoSection: 'guide_wallet',
-    actionTab: 'wallet',
-    actionLabel: 'Open Wallet Hub',
-    flyerUrl: flyerGuideTasks,
-    flyerCaption: 'GGG Credits Economy & Internal Currency Flow Flyer',
-    content: (
-      <div className="space-y-3">
-        <p><strong>GGG credits</strong> are the internal platform currency used for eligible GGD activities.</p>
-        <p>Users may earn or obtain credits and spend them on eligible promotion, advertising or marketing features according to active platform rules.</p>
-        <p>Credit balances are separate from the <strong>Syndicate paid-earnings wallet</strong>.</p>
-      </div>
-    ),
-  },
-  {
-    title: 'Analytics & Marketing Tools — Understand Your Results',
-    badge: 'Insights',
-    icon: <BarChart3 className="h-5 w-5" />,
-    keywords: 'analytics impressions clicks ctr performance campaign results tracking insights apps',
-    videoSection: 'guide_apps',
-    actionTab: 'growth',
-    actionLabel: 'View Business Growth Score',
-    flyerUrl: flyerGuideBannerAds,
-    flyerCaption: 'Marketing Telemetry, Analytics & CTR Tracking Flyer',
-    content: (
-      <div className="space-y-3">
-        <p>Marketing is more useful when you can see what happened after you promoted something.</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Review available ad impressions and clicks.</li>
-          <li>Use CTR and other campaign information where available.</li>
-          <li>Review relevant promotion/content activity and results.</li>
-          <li>Use what you learn to improve the next campaign or piece of content.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
+      ),
+    });
+  }
+
+  // 10. Community
+  if (isEnabled('community_feed')) {
+    list.push({
+      title: 'Community — Build Awareness & Relationships',
+      badge: 'Community',
+      icon: <MessageCircle className="h-5 w-5" />,
+      keywords: 'community feed posts comments reactions hashtags share photos video businesses social',
+      videoSection: 'guide_community',
+      actionTab: 'feed',
+      actionLabel: 'Open Community Feed',
+      flyerUrl: flyerGuideTasks,
+      flyerCaption: 'GGD Community Feed & Social Engagement Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>The <strong>Community</strong> is GGD's social and distribution layer.</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Create posts and share relevant links, images and supported video content.</li>
+            <li>Use hashtags to improve discovery.</li>
+            <li>React, comment and engage with other posts.</li>
+            <li>Use community participation to build awareness around a business or offer.</li>
+          </ul>
+        </div>
+      ),
+    });
+  }
+
+  // 11. GGG Credits
+  if (isEnabled('credit_tasks') || isEnabled('task_wallet')) {
+    list.push({
+      title: 'GGG Credits — Your Internal Platform Currency',
+      badge: 'Wallet',
+      icon: <Wallet className="h-5 w-5" />,
+      keywords: 'ggg credits wallet earn spend buy transfer tasks promotion internal currency',
+      videoSection: 'guide_wallet',
+      actionTab: 'wallet',
+      actionLabel: 'Open Wallet Hub',
+      flyerUrl: flyerGuideTasks,
+      flyerCaption: 'GGG Credits Economy & Internal Currency Flow Flyer',
+      content: (
+        <div className="space-y-3">
+          <p><strong>GGG credits</strong> are the internal platform currency used for eligible GGD activities.</p>
+          <p>Users may earn or obtain credits and spend them on eligible promotion, advertising or marketing features according to active platform rules.</p>
+          <p>Credit balances are separate from the <strong>Syndicate paid-earnings wallet</strong>.</p>
+        </div>
+      ),
+    });
+  }
+
+  // 12. Analytics
+  if (isEnabled('marketing_apps_marketplace')) {
+    list.push({
+      title: 'Analytics & Marketing Tools — Understand Your Results',
+      badge: 'Insights',
+      icon: <BarChart3 className="h-5 w-5" />,
+      keywords: 'analytics impressions clicks ctr performance campaign results tracking insights apps',
+      videoSection: 'guide_apps',
+      actionTab: 'growth',
+      actionLabel: 'View Business Growth Score',
+      flyerUrl: flyerGuideBannerAds,
+      flyerCaption: 'Marketing Telemetry, Analytics & CTR Tracking Flyer',
+      content: (
+        <div className="space-y-3">
+          <p>Marketing is more useful when you can see what happened after you promoted something.</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Review available ad impressions and clicks.</li>
+            <li>Use CTR and other campaign information where available.</li>
+            <li>Review relevant promotion/content activity and results.</li>
+            <li>Use what you learn to improve the next campaign or piece of content.</li>
+          </ul>
+        </div>
+      ),
+    });
+  }
+
+  // 13. Account & Getting Help (Core)
+  list.push({
     title: 'Account & Getting Help',
     badge: 'Support',
     icon: <CheckCircle2 className="h-5 w-5" />,
@@ -366,10 +438,14 @@ const sections: GuideSection[] = [
         </ul>
       </div>
     ),
-  },
-];
+  });
+
+  return list;
+};
 
 const UserGuide = () => {
+  const { isEnabled } = useFeatureToggles();
+  const sections = useMemo(() => getSections(isEnabled), [isEnabled]);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);

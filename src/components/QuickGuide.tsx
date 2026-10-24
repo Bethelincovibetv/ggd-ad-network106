@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { guideService } from "@/services/guideService";
 import { playRewardSound } from "@/lib/soundEffects";
 import { toast } from "sonner";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface GuideStep {
   id: string;
@@ -26,9 +27,11 @@ interface GuideStep {
   icon: React.ComponentType<any>;
   completed: boolean;
   feature: string;
+  featureGate?: string;
 }
 
 const QuickGuide = ({ onFeatureChange }: { onFeatureChange: (feature: string) => void }) => {
+  const { isEnabled } = useFeatureToggles();
   const [userId, setUserId] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,30 +55,52 @@ const QuickGuide = ({ onFeatureChange }: { onFeatureChange: (feature: string) =>
     })();
   }, []);
 
-  const guideSteps: GuideStep[] = [
+  const allGuideSteps: GuideStep[] = [
     {
       id: 'welcome',
-      title: 'Welcome to GGD & BlogMate AI',
-      description: 'You are successfully logged in! This guide will help you get started with all our powerful advertising and marketing features.',
+      title: 'Welcome to GGD Ad Network',
+      description: 'You are successfully logged in! This interactive guide will help you get started with our verified promotion and growth features.',
       icon: Sparkles,
       completed: true,
       feature: 'landing'
     },
     {
+      id: 'syndicate',
+      title: 'Explore Paid Syndicate Campaigns',
+      description: isEnabled('syndicate_non_whatsapp_channels')
+        ? 'Discover or launch paid promoter campaigns across WhatsApp and social channels with verified proof of posting.'
+        : 'Discover or launch paid WhatsApp Status campaigns with verified screenshot proof and direct payouts.',
+      icon: Zap,
+      completed: completedSteps.includes('syndicate'),
+      feature: 'syndicate',
+      featureGate: 'syndicate_campaigns'
+    },
+    {
+      id: 'business-profile',
+      title: 'Set Up Your Verified Business Profile',
+      description: 'Create your business directory profile with direct WhatsApp contact and showcase your offerings.',
+      icon: TrendingUp,
+      completed: completedSteps.includes('business-profile'),
+      feature: 'directory',
+      featureGate: 'business_directory'
+    },
+    {
       id: 'blog-generator',
       title: 'Generate Your First Blog Post',
-      description: 'Create SEO-optimized blog posts in minutes. Just enter a topic and let our AI do the work.',
+      description: 'Create SEO-optimized blog posts in minutes. Just enter a topic and let AI do the work.',
       icon: FileText,
       completed: completedSteps.includes('blog-generator'),
-      feature: 'blog'
+      feature: 'blog',
+      featureGate: 'blogmate_ai'
     },
     {
       id: 'gaming-ads',
-      title: 'Create Gaming & Banner Advertisements',
-      description: 'Design engaging animated ads for games and digital products with our specialized ad creator.',
+      title: 'Create Commercial Banner Advertisements',
+      description: 'Design engaging banner ads and launch targeted placements across our network.',
       icon: Zap,
       completed: completedSteps.includes('gaming-ads'),
-      feature: 'advert'
+      feature: 'advert',
+      featureGate: 'banner_ads'
     },
     {
       id: 'sales-funnel',
@@ -83,17 +108,21 @@ const QuickGuide = ({ onFeatureChange }: { onFeatureChange: (feature: string) =>
       description: 'Create professional sales funnels with countdown timers and conversion optimization.',
       icon: TrendingUp,
       completed: completedSteps.includes('sales-funnel'),
-      feature: 'funnel'
+      feature: 'funnel',
+      featureGate: 'sales_funnel'
     },
     {
       id: 'ad-rotator',
-      title: 'Manage Ad Rotations & Campaigns',
-      description: 'Set up and manage rotating advertisements across your platforms efficiently.',
+      title: 'Manage Featured Slider & Campaigns',
+      description: 'Set up and manage rotating announcements across your platform showcase efficiently.',
       icon: RotateCcw,
       completed: completedSteps.includes('ad-rotator'),
-      feature: 'rotator'
+      feature: 'rotator',
+      featureGate: 'slide_manager'
     }
   ];
+
+  const guideSteps = allGuideSteps.filter(s => !s.featureGate || isEnabled(s.featureGate));
 
   const toggleStepCompleted = async (stepId: string) => {
     if (stepId === 'welcome') return;

@@ -165,9 +165,52 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
   };
-  const startCreateAd = () => { setIsCreating(true); scrollToBannerForm(); };
+  const { isEnabled } = useFeatureToggles();
+
+  const isTabAllowed = (tab: string): boolean => {
+    if (['ads-create', 'campaigns', 'advertising'].includes(tab)) {
+      return isEnabled('banner_ads') && isEnabled('ads');
+    }
+    if (['tasks'].includes(tab)) {
+      return isEnabled('credit_tasks') && isEnabled('tasks');
+    }
+    if (['redeem', 'redeem-airtime', 'airtime'].includes(tab)) {
+      return isEnabled('credit_airtime_redeem') && isEnabled('airtime_redeem');
+    }
+    if (['feed'].includes(tab)) {
+      return isEnabled('community_feed') && isEnabled('community');
+    }
+    if (['inbox'].includes(tab)) {
+      return isEnabled('chat_and_calls') && isEnabled('p2p_chat');
+    }
+    if (['vixora', 'vixora-creator', 'creator', 'vixora-studio', 'studio'].includes(tab)) {
+      return isEnabled('vixora_ai_studio') && isEnabled('vixora_ai');
+    }
+    if (['directory'].includes(tab)) {
+      return isEnabled('business_directory') && isEnabled('directory');
+    }
+    if (['marketplace'].includes(tab)) {
+      return isEnabled('marketing_apps_marketplace') && isEnabled('marketplace');
+    }
+    if (['smart-links'].includes(tab)) {
+      return isEnabled('link_shortener');
+    }
+    if (['premium'].includes(tab)) {
+      return isEnabled('premium_vip_upgrade') && isEnabled('premium_upgrade');
+    }
+    if (['upgrade'].includes(tab)) {
+      return isEnabled('co_owner_upgrade');
+    }
+    return true;
+  };
+
   const handleTabChange = (tab: string) => {
-    if (tab === 'ads-create') {
+    let target = tab;
+    if (!isTabAllowed(target)) {
+      target = isEnabled('banner_ads') ? 'ads' : 'growth';
+    }
+
+    if (target === 'ads-create') {
       setActiveTab('campaigns');
       if (typeof window !== 'undefined') {
         try {
@@ -180,17 +223,16 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       startCreateAd();
       return;
     }
-    setActiveTab(tab);
+    setActiveTab(target);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('ggd_active_tab', tab);
+        localStorage.setItem('ggd_active_tab', target);
         const url = new URL(window.location.href);
-        url.searchParams.set('tab', tab);
+        url.searchParams.set('tab', target);
         window.history.replaceState(null, '', url.toString());
       } catch {}
     }
   };
-  const { isEnabled } = useFeatureToggles();
   const [showWizard, setShowWizard] = useState(false);
   const [profileSetupComplete, setProfileSetupComplete] = useState<boolean | null>(null);
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
@@ -702,18 +744,21 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     const disabled = <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
     switch (activeTab) {
       case 'ads':
+        if (!isEnabled('banner_ads') && !isEnabled('ads')) {
+          return <BusinessGrowthDashboard onNavigate={handleTabChange} />;
+        }
         if (analyticsAdId) {
           return <CampaignAnalytics adId={analyticsAdId} onBack={() => setAnalyticsAdId(null)} />;
         }
         return (
           <div className="space-y-4">
             {/* Slider directly under the search bar */}
-            {isEnabled('slides') && <SlideCarousel />}
+            {isEnabled('featured_slider') && isEnabled('slides') && <SlideCarousel />}
 
             <HomeDashboard credits={credits} walletBalance={walletBalance} isAdmin={isAdmin} onNavigate={handleTabChange} />
 
             {/* Ad Display Preview */}
-            {isEnabled('ads') && <AdDisplayPreview />}
+            {isEnabled('banner_ads') && isEnabled('ads') && <AdDisplayPreview />}
           </div>
         );
 

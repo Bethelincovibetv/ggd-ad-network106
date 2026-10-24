@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Volume2, VolumeX, Square } from "lucide-react";
 import { toast } from "sonner";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const VoiceWelcome = () => {
+  const { isEnabled } = useFeatureToggles();
   const [isPlaying, setIsPlaying] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
@@ -27,14 +29,22 @@ const VoiceWelcome = () => {
     }
   }, [speechSupported, hasAutoPlayed]);
 
-  const welcomeMessage = `
-    Welcome to Profitmate AI! Your ultimate content creation and profit-generating suite is ready to help you build your online business. 
-    To get started, simply click the "Get Started Free" button below to create your account. 
-    Once you're logged in, you can generate SEO-optimized blog posts, create professional Amazon KDP-ready ebooks with AI-powered content, 
-    build gaming advertisements, create high-converting sales funnels, manage ad rotations, explore CPA marketing opportunities, 
-    and chat with our intelligent AI assistant. Everything you need to scale your content creation and maximize your profits is right here. 
-    Let's start building your success story with Profitmate AI!
-  `;
+  const welcomeMessage = (() => {
+    const capabilities: string[] = [];
+    if (isEnabled('business_directory')) capabilities.push("list your verified business in the directory");
+    if (isEnabled('syndicate_non_whatsapp_channels')) {
+      capabilities.push("launch paid multi-platform promoter campaigns with verified proof");
+    } else {
+      capabilities.push("launch paid WhatsApp Status campaigns with verified screenshot proof");
+    }
+    if (isEnabled('banner_ads')) capabilities.push("launch commercial banner advertising");
+    if (isEnabled('credit_tasks')) capabilities.push("complete promotional tasks for credits");
+    if (isEnabled('blogmate_ai')) capabilities.push("generate SEO-optimized blog posts");
+
+    const capString = capabilities.length > 0 ? capabilities.join(", ") : "grow your brand with verified audience reach";
+
+    return `Welcome to GGD Ad Network! Your premier platform to ${capString}. Everything you need to scale your reach is right here. Let's start building your success story with GGD Ad Network!`;
+  })();
 
   const playWelcomeMessage = (autoPlay = false) => {
     if (!speechSupported) {

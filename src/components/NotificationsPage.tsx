@@ -22,12 +22,14 @@ import {
   showPushNotification,
   getPushPermission,
 } from '@/services/pushNotificationService';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 interface NotificationsPageProps {
   onNavigate?: (tab: string) => void;
 }
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate }) => {
+  const { isEnabled } = useFeatureToggles();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'read' | 'transfers' | 'history' | 'guide' | 'system'>('all');
@@ -505,6 +507,28 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       if (filterTab === 'guide' && !isGuide) return false;
       if (filterTab === 'system' && (isTransfer || isGuide)) return false;
 
+      // Feature toggle filters: hide notifications mentioning disabled features
+      if (!isEnabled('credit_tasks')) {
+        if (n.type?.includes('task') || n.title?.toLowerCase().includes('credit task') || n.type === 'credit_transfer') {
+          return false;
+        }
+      }
+      if (!isEnabled('banner_ads')) {
+        if (n.type?.includes('banner') || n.title?.toLowerCase().includes('banner ad')) {
+          return false;
+        }
+      }
+      if (!isEnabled('business_directory')) {
+        if (n.title?.toLowerCase().includes('directory') || n.nav_target === 'directory') {
+          return false;
+        }
+      }
+      if (!isEnabled('community_feed')) {
+        if (n.type?.includes('post') || n.title?.toLowerCase().includes('community post') || n.nav_target === 'feed') {
+          return false;
+        }
+      }
+
       // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -515,7 +539,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
 
       return true;
     });
-  }, [notifications, filterTab, searchQuery]);
+  }, [notifications, filterTab, searchQuery, isEnabled]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const readCount = notifications.filter((n) => n.is_read).length;

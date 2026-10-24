@@ -16,6 +16,8 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { scrubFeatureCopy } from "@/lib/featureRegistry";
 
 interface CeoConfig {
   name: string;
@@ -49,6 +51,7 @@ const DEFAULT_CEO_CONFIG: CeoConfig = {
 
 const AboutPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isEnabled } = useFeatureToggles();
   const [ceo, setCeo] = useState<CeoConfig>(DEFAULT_CEO_CONFIG);
   const [showFullFlyer, setShowFullFlyer] = useState(false);
   const [showCeoSection, setShowCeoSection] = useState<boolean>(true);
@@ -386,43 +389,53 @@ const AboutPage: React.FC = () => {
               <div className="space-y-2.5 pt-2">
                 <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Core Strategic Focus</h4>
                 <div className="grid sm:grid-cols-2 gap-2.5">
-                  <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
-                    <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600 shrink-0">
-                      <Rocket className="h-4 w-4" />
+                  {(isEnabled('blogmate_ai') || isEnabled('vixora_ai_studio')) && (
+                    <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
+                      <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600 shrink-0">
+                        <Rocket className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-bold text-foreground">AI-Driven Digital Tools</h5>
+                        <p className="text-[11px] text-muted-foreground">Intelligent copywriting, automated asset synthesis, and campaign optimizers.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-foreground">AI-Driven Digital Tools</h5>
-                      <p className="text-[11px] text-muted-foreground">Intelligent copywriting, automated asset synthesis, and campaign optimizers.</p>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
-                    <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 shrink-0">
-                      <Megaphone className="h-4 w-4" />
+                  {isEnabled('banner_ads') && (
+                    <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
+                      <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 shrink-0">
+                        <Megaphone className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-bold text-foreground">Automated Ad Platforms</h5>
+                        <p className="text-[11px] text-muted-foreground">Decentralized impressions, credit-backed actions, and verified brand distribution.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-foreground">Automated Ad Platforms</h5>
-                      <p className="text-[11px] text-muted-foreground">Decentralized impressions, credit-backed actions, and verified social distribution.</p>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
-                    <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
-                      <Code className="h-4 w-4" />
+                  {(isEnabled('storefronts') || isEnabled('business_directory')) && (
+                    <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0">
+                        <Code className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-bold text-foreground">Web Solutions for Creators</h5>
+                        <p className="text-[11px] text-muted-foreground">Scalable storefronts, responsive digital portfolios, and seamless direct customer communication.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-foreground">Web Solutions for Creators</h5>
-                      <p className="text-[11px] text-muted-foreground">Scalable storefronts, responsive digital portfolios, and seamless direct customer communication.</p>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
                     <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 shrink-0">
                       <Users className="h-4 w-4" />
                     </div>
                     <div>
-                      <h5 className="text-xs font-bold text-foreground">Syndicate Social Networks</h5>
-                      <p className="text-[11px] text-muted-foreground">Empowering promoters and everyday users to monetize their reach through viral campaigns.</p>
+                      <h5 className="text-xs font-bold text-foreground">Syndicate Promoter Networks</h5>
+                      <p className="text-[11px] text-muted-foreground">
+                        {isEnabled('syndicate_non_whatsapp_channels')
+                          ? 'Empowering promoters and everyday users to monetize their reach through viral campaigns.'
+                          : 'Empowering promoters and everyday users to monetize their reach through viral WhatsApp Status and community campaigns.'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -504,52 +517,64 @@ const AboutPage: React.FC = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             {
+              feature: 'business_directory',
               icon: Building2,
               title: "Get Discovered",
               desc: "Businesses can establish a presence and showcase their business, contact details, and location in the directory.",
               color: "text-blue-500 bg-blue-500/10",
             },
             {
+              feature: 'products_services',
               icon: Store,
               title: "Showcase Offerings",
               desc: "Highlight products and services directly on your profile so customer discovery converts into real inquiries.",
               color: "text-emerald-500 bg-emerald-500/10",
             },
             {
+              feature: 'banner_ads',
               icon: Megaphone,
               title: "Get Visibility",
               desc: "Use commercial Banner Ads and eligible featured exposure across GGD to increase high-intent brand visibility.",
               color: "text-orange-500 bg-orange-500/10",
             },
             {
+              feature: 'syndicate_campaigns',
               icon: Users,
               title: "Promote & Reach",
-              desc: "Use Credit Tasks for community promotion or work with verified Syndicate promoters for paid multi-platform promotion.",
+              desc: isEnabled('credit_tasks')
+                ? "Use Credit Tasks for community promotion or work with verified Syndicate promoters for paid promotion."
+                : isEnabled('syndicate_non_whatsapp_channels')
+                ? "Work with verified Syndicate promoters for paid multi-platform brand promotion with verified proof."
+                : "Work with verified Syndicate promoters for paid WhatsApp Status and community promotion with verified proof.",
               color: "text-purple-500 bg-purple-500/10",
             },
             {
+              feature: 'blogmate_ai',
               icon: Sparkles,
               title: "Create Marketing Content",
               desc: "Use practical marketing and content creation tools, including BlogMate AI, to craft compelling copy and articles.",
               color: "text-pink-500 bg-pink-500/10",
             },
             {
+              feature: 'wallet_funding',
               icon: TrendingUp,
               title: "Scale & Grow",
               desc: "The goal is to turn visibility, customer reach, and promotion into real, sustainable business opportunities.",
               color: "text-amber-500 bg-amber-500/10",
             },
-          ].map((item, i) => (
-            <Card key={i} className="border-border hover:border-orange-500/30 transition-colors">
-              <CardContent className="p-4 space-y-2">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${item.color}`}>
-                  <item.icon className="h-4 w-4" />
-                </div>
-                <h3 className="text-sm font-bold text-foreground">{item.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
+          ]
+            .filter(item => !item.feature || isEnabled(item.feature))
+            .map((item, i) => (
+              <Card key={i} className="border-border hover:border-orange-500/30 transition-colors">
+                <CardContent className="p-4 space-y-2">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${item.color}`}>
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
         </div>
       </div>
 
@@ -557,12 +582,39 @@ const AboutPage: React.FC = () => {
       <Card className="border-border">
         <CardContent className="p-6 space-y-4">
           <h2 className="text-lg font-bold text-foreground">How GGD Helps You Grow</h2>
-          <div className="grid sm:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { step: '01', title: 'Get Discovered', desc: 'Create your business profile with contact links, products, and services in the directory.' },
-              { step: '02', title: 'Create & Promote', desc: 'Craft marketing content with tools like BlogMate AI, launch Banner Ads, or post promotional tasks.' },
-              { step: '03', title: 'Reach Customers', desc: 'Community members and verified Syndicate promoters amplify your reach across social platforms.' },
-              { step: '04', title: 'Grow', desc: 'Convert increased visibility into direct inquiries, sales, and long-term customer relationships.' },
+              {
+                step: '01',
+                title: isEnabled('business_directory') ? 'Get Discovered' : 'Verified Setup',
+                desc: isEnabled('business_directory')
+                  ? 'Create your business profile with contact links, products, and services in the directory.'
+                  : 'Establish your verified business account with direct WhatsApp contact and verification.',
+              },
+              {
+                step: '02',
+                title: 'Create & Promote',
+                desc: (() => {
+                  const items: string[] = [];
+                  if (isEnabled('blogmate_ai')) items.push('tools like BlogMate AI');
+                  if (isEnabled('banner_ads')) items.push('launch Banner Ads');
+                  if (isEnabled('credit_tasks')) items.push('post promotional tasks');
+                  if (items.length > 0) return `Craft marketing content with ${items.join(', ')}.`;
+                  return 'Launch targeted Syndicate campaigns with guaranteed audience delivery.';
+                })(),
+              },
+              {
+                step: '03',
+                title: 'Reach Customers',
+                desc: isEnabled('syndicate_non_whatsapp_channels')
+                  ? 'Community members and verified Syndicate promoters amplify your reach across social platforms.'
+                  : 'Verified Syndicate promoters amplify your reach across high-view WhatsApp Status and group networks.',
+              },
+              {
+                step: '04',
+                title: 'Grow',
+                desc: 'Convert increased visibility into direct inquiries, sales, and long-term customer relationships.',
+              },
             ].map((s, i) => (
               <div key={i} className="space-y-1.5">
                 <div className="text-xs font-black text-orange-500">{s.step}</div>

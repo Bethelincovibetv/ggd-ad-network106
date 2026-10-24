@@ -155,25 +155,27 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
             <p className="text-2xl font-black mt-2">₦{(walletBalance ?? localWallet).toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('fund-credits')}>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <Coins className="h-5 w-5 opacity-80" />
-              <div className="flex items-center gap-1">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
-                </span>
-                <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credit Wallet</span>
+        {isEnabled('credit_tasks') && isEnabled('task_wallet') && (
+          <Card className="border-0 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('fund-credits')}>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <Coins className="h-5 w-5 opacity-80" />
+                <div className="flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                  </span>
+                  <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credit Wallet</span>
+                </div>
               </div>
-            </div>
-            <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
-          </CardContent>
-        </Card>
+              <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Vixora AI Creator Studio Hero Card */}
-      {isEnabled('vixora_ai') && (
+      {isEnabled('vixora_ai_studio') && isEnabled('vixora_ai') && (
         <Card
           className="border-0 bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-all overflow-hidden relative group"
           onClick={() => onNavigate('vixora-creator')}
@@ -205,7 +207,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       )}
 
       {/* Watch & Earn (YouTube ads) */}
-      <WatchVideoAds />
+      {isEnabled('watch_and_earn') && <WatchVideoAds />}
 
       {/* Professional analytics dashboard */}
       <Card className="border-0 shadow-md">
@@ -225,7 +227,9 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
             <Metric icon={CheckCircle2} label="Completed" value={insights.completed.toLocaleString()} tint="bg-teal-500/15 text-teal-600" />
             <Metric icon={Eye} label="Total Reach" value={insights.reach.toLocaleString()} tint="bg-indigo-500/15 text-indigo-600" />
             <Metric icon={Signal} label="Traffic Delivered" value={insights.traffic.toLocaleString()} tint="bg-pink-500/15 text-pink-600" />
-            <Metric icon={Coins} label="Credits Spent" value={stats.spent.toLocaleString()} tint="bg-amber-500/15 text-amber-600" />
+            {isEnabled('credit_tasks') && (
+              <Metric icon={Coins} label="Credits Spent" value={stats.spent.toLocaleString()} tint="bg-amber-500/15 text-amber-600" />
+            )}
           </div>
 
           <div className="mt-3 rounded-2xl border border-border/60 bg-gradient-to-br from-orange-500/10 to-red-500/10 p-3.5">

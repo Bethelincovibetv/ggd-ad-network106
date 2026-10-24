@@ -17,6 +17,7 @@ import ggdLogo from '@/assets/ggd-logo.png';
 import businessImg from '@/assets/landing-business.jpg';
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveContactCampaigns } from "@/services/contactGainService";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -151,58 +152,62 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const { isEnabled } = useFeatureToggles();
+  const allowNonWhatsapp = isEnabled('syndicate_non_whatsapp_channels');
+
   const navItems = [
-    { id: 'marketing-apps', label: 'Marketing Apps' },
+    ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
     { id: 'business', label: 'For Businesses' },
-    { id: 'promote-earn', label: 'Promote & Earn' },
+    ...(isEnabled('credit_tasks') || isEnabled('syndicate') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
     { id: 'how-it-works', label: 'How It Works' },
     { id: 'faq', label: 'FAQ' },
   ];
 
-
   const coreCapabilities = [
-    {
+    ...(isEnabled('business_directory') && isEnabled('directory') ? [{
       icon: Building2,
       title: "Get Discovered",
       description: "Establish your presence in the GGD Business Directory with your brand profile, contact info, and WhatsApp link so customers can find you.",
       color: "text-blue-400 bg-blue-500/10"
-    },
-    {
+    }] : []),
+    ...(isEnabled('storefronts') ? [{
       icon: Store,
       title: "Show What You Sell",
       description: "Showcase physical products, digital goods, and service offerings with clear pricing and direct inquiry channels.",
       color: "text-emerald-400 bg-emerald-500/10"
-    },
-    {
+    }] : []),
+    ...(isEnabled('banner_ads') && isEnabled('ads') ? [{
       icon: Megaphone,
       title: "Get Visibility",
       description: "Run high-visibility commercial Banner Ads across GGD and partner sites, plus unlock eligible featured exposure to drive traffic.",
       color: "text-orange-400 bg-orange-500/10"
-    },
-    {
+    }] : []),
+    ...(isEnabled('credit_tasks') && isEnabled('tasks') ? [{
       icon: Share2,
       title: "Promote & Reach",
       description: "Launch community Credit Tasks to gain video views, website visits, and social shares powered by the GGG credit economy.",
       color: "text-yellow-400 bg-yellow-500/10"
-    },
+    }] : []),
     {
       icon: Users,
       title: "Work With Promoters",
-      description: "Partner with verified Syndicate promoters who share your business campaigns across WhatsApp, Facebook, Instagram, and TikTok.",
+      description: allowNonWhatsapp
+        ? "Partner with verified Syndicate promoters who share your business campaigns across WhatsApp, Facebook, Instagram, and TikTok."
+        : "Partner with verified Syndicate promoters who share your business campaigns across WhatsApp Status, Groups, and Channels.",
       color: "text-purple-400 bg-purple-500/10"
     },
-    {
+    ...(isEnabled('blogmate_ai') ? [{
       icon: Sparkles,
       title: "Create Marketing Content",
       description: "Use integrated marketing tools, including BlogMate AI, to craft compelling articles, social posts, ads, and sales copy.",
       color: "text-pink-400 bg-pink-500/10"
-    },
-    {
+    }] : []),
+    ...(isEnabled('community_feed') && isEnabled('community') ? [{
       icon: Globe,
       title: "Build Awareness",
       description: "Share updates, network with local entrepreneurs, and engage with the active GGD community to grow brand loyalty.",
       color: "text-cyan-400 bg-cyan-500/10"
-    },
+    }] : []),
     {
       icon: BarChart3,
       title: "Track Results",
@@ -356,17 +361,18 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       </div>
 
       {/* Official Marketing & Growth Apps Marketplace Section (Admin Configured) */}
-      <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
-        <div className="max-w-6xl mx-auto">
-          <MarketingAppsMarketplace
-            pagePlacement="landing"
-            onRequireAuth={onGetStarted}
-            title="Official Growth & Marketing Apps"
-            subtitle="Admin-curated commercial applications and marketing solutions to accelerate enterprise growth on GGD"
-          />
+      {isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') && (
+        <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
+          <div className="max-w-6xl mx-auto">
+            <MarketingAppsMarketplace
+              pagePlacement="landing"
+              onRequireAuth={onGetStarted}
+              title="Official Growth & Marketing Apps"
+              subtitle="Admin-curated commercial applications and marketing solutions to accelerate enterprise growth on GGD"
+            />
+          </div>
         </div>
-      </div>
-
+      )}
 
       {/* For Businesses Section */}
       <div id="business" className="container mx-auto px-4 py-16">
@@ -394,11 +400,15 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
 
             <div className="grid sm:grid-cols-2 gap-4 pt-2">
               {[
-                {
+                ...(isEnabled('business_directory') && isEnabled('directory') ? [{
                   icon: Building2,
                   title: "Establish Your Presence",
                   desc: "Create a verified profile in the Business Directory with contact info, WhatsApp link, location, and brand description."
-                },
+                }] : [{
+                  icon: Building2,
+                  title: "Establish Your Presence",
+                  desc: "Create your verified merchant profile with direct WhatsApp contact info, location, and brand description."
+                }]),
                 {
                   icon: Store,
                   title: "Showcase What You Sell",
@@ -407,7 +417,11 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 {
                   icon: Megaphone,
                   title: "Reach Targeted Customers",
-                  desc: "Amplify your message through commercial Banner Ads, community credit tasks, and verified Syndicate promoter campaigns."
+                  desc: "Amplify your message through " + [
+                    isEnabled('banner_ads') && isEnabled('ads') && "commercial Banner Ads",
+                    isEnabled('credit_tasks') && isEnabled('tasks') && "community credit tasks",
+                    "verified Syndicate promoter campaigns"
+                  ].filter(Boolean).join(", ") + "."
                 },
                 {
                   icon: TrendingUp,
@@ -436,58 +450,63 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
         </Card>
       </div>
 
-      {/* Promote & Earn Section (Clear distinction between Credit Tasks and Syndicate) */}
+      {/* Promote & Earn Section */}
       <div id="promote-earn" className="container mx-auto px-4 py-16">
         <div className="text-center mb-12 space-y-2">
           <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-200">
-            <Coins className="h-3.5 w-3.5 text-[#e67e22]" /> Two Distinct Channels
+            <Coins className="h-3.5 w-3.5 text-[#e67e22]" />
+            {isEnabled('credit_tasks') && isEnabled('tasks') ? 'Two Distinct Channels' : 'Verified Syndicate Network'}
           </div>
           <h2 className="text-3xl md:text-4xl font-black text-white">Promote & Earn on GGD</h2>
           <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
-            GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.
+            {isEnabled('credit_tasks') && isEnabled('tasks')
+              ? 'GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.'
+              : 'Partner with verified Syndicate promoters to amplify your message across targeted WhatsApp audiences with escrow proof of delivery.'}
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {/* Credit Tasks Card */}
-          <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
-            <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase tracking-wider">
-                  Community Economy
-                </span>
-                <span className="text-xs text-gray-400">Earn & Spend</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="h-12 w-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <Share2 className="h-6 w-6" />
+        <div className={`gap-6 ${isEnabled('credit_tasks') && isEnabled('tasks') ? 'grid md:grid-cols-2 max-w-5xl mx-auto' : 'max-w-2xl mx-auto flex justify-center'}`}>
+          {/* Credit Tasks Card (only if credit_tasks is ON) */}
+          {isEnabled('credit_tasks') && isEnabled('tasks') && (
+            <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
+              <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase tracking-wider">
+                    Community Economy
+                  </span>
+                  <span className="text-xs text-gray-400">Earn & Spend</span>
                 </div>
-                <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
-                <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                  Community members complete promotional activities like watching YouTube videos, visiting websites, and social sharing to earn GGG Credits.
-                </p>
-              </div>
 
-              <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
-                <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
-                <ul className="space-y-1.5 list-disc list-inside text-gray-400">
-                  <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
-                  <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
-                  <li>Promote social posts, watch time, and link visits through active community members.</li>
-                </ul>
-              </div>
+                <div className="space-y-2">
+                  <div className="h-12 w-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Share2 className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
+                  <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                    Community members complete promotional activities like watching videos, visiting websites, and social sharing to earn GGG Credits.
+                  </p>
+                </div>
 
-              <div className="pt-4 mt-auto">
-                <Button onClick={onGetStarted} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl">
-                  Explore Credit Tasks <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
+                  <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
+                  <ul className="space-y-1.5 list-disc list-inside text-gray-400">
+                    <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
+                    <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
+                    <li>Promote social posts and link visits through active community members.</li>
+                  </ul>
+                </div>
+
+                <div className="pt-4 mt-auto">
+                  <Button onClick={onGetStarted} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl">
+                    Explore Credit Tasks <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Syndicate Card */}
-          <Card className="bg-gradient-to-br from-[#24172f] via-[#1b1224] to-[#140c1c] border-purple-500/30 overflow-hidden flex flex-col">
+          <Card className="bg-gradient-to-br from-[#24172f] via-[#1b1224] to-[#140c1c] border-purple-500/30 overflow-hidden flex flex-col w-full">
             <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full uppercase tracking-wider">
@@ -502,7 +521,9 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 </div>
                 <h3 className="text-xl font-bold text-white">Syndicate Promoters</h3>
                 <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                  Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp, Facebook, Instagram, and TikTok with verified proof.
+                  {allowNonWhatsapp
+                    ? 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp, Facebook, Instagram, and TikTok with verified proof.'
+                    : 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp Status, Groups, and Channels with verified proof.'}
                 </p>
               </div>
 
@@ -510,7 +531,7 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                 <p className="font-semibold text-purple-400">How the Syndicate Economy Works:</p>
                 <ul className="space-y-1.5 list-disc list-inside text-gray-400">
                   <li>Businesses fund paid campaigns to reach <strong className="text-white">targeted social audiences</strong>.</li>
-                  <li>Verified Syndicate promoters share across social media and upload <strong className="text-white">proof of posting</strong>.</li>
+                  <li>Verified Syndicate promoters share content and upload <strong className="text-white">proof of posting</strong>.</li>
                   <li>Promoters earn cash rewards into their <strong className="text-white">separate Syndicate wallet</strong>.</li>
                 </ul>
               </div>
@@ -538,17 +559,26 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             {
               step: "01",
               title: "Get Discovered",
-              desc: "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
+              desc: isEnabled('business_directory') && isEnabled('directory')
+                ? "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
+                : "Create your verified business profile with your logo, direct WhatsApp contact link, and product catalog."
             },
             {
               step: "02",
               title: "Create & Promote",
-              desc: "Craft marketing copy with tools like BlogMate AI, launch Banner Ads, or post community promotional tasks."
+              desc: [
+                isEnabled('blogmate_ai') && "Craft marketing copy with BlogMate AI",
+                isEnabled('banner_ads') && isEnabled('ads') && "launch Banner Ads",
+                isEnabled('credit_tasks') && isEnabled('tasks') && "post promotional tasks",
+                "launch verified Syndicate campaigns"
+              ].filter(Boolean).join(", or ") + "."
             },
             {
               step: "03",
               title: "Reach Customers",
-              desc: "Community members and verified Syndicate promoters amplify your reach across social platforms and websites."
+              desc: allowNonWhatsapp
+                ? "Community members and verified Syndicate promoters amplify your reach across social platforms and websites."
+                : "Verified Syndicate promoters amplify your reach across high-intent WhatsApp communities."
             },
             {
               step: "04",
@@ -566,48 +596,50 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       </div>
 
       {/* BlogMate AI Section — Positioned as a marketing/content tool inside GGD */}
-      <div id="blogmate" className="container mx-auto px-4 py-16">
-        <Card className="bg-gradient-to-br from-[#1f192b] via-[#241738] to-[#171124] border-purple-500/30 max-w-4xl mx-auto overflow-hidden">
-          <CardContent className="p-8 md:p-12 space-y-6 relative">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      {isEnabled('blogmate_ai') && (
+        <div id="blogmate" className="container mx-auto px-4 py-16">
+          <Card className="bg-gradient-to-br from-[#1f192b] via-[#241738] to-[#171124] border-purple-500/30 max-w-4xl mx-auto overflow-hidden">
+            <CardContent className="p-8 md:p-12 space-y-6 relative">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-full px-3.5 py-1 text-xs font-semibold">
-                <Sparkles className="h-3.5 w-3.5" /> Marketing & Content Tool
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black text-white">
-                BlogMate AI — Marketing & Content Creation
-              </h2>
-              <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-                BlogMate AI is a marketing and content creation tool inside GGD Ad Network. Turn business ideas into compelling articles, social posts, promotional ads, and sales copy in seconds.
-              </p>
-            </div>
-
-            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-              {[
-                { step: "1. Generate", desc: "Draft high-converting articles and promo copy tailored to your business." },
-                { step: "2. Edit & Save", desc: "Refine content in the editor and save to your private drafts library." },
-                { step: "3. Publish", desc: "Publish content to build organic search and platform discoverability." },
-                { step: "4. Promote", desc: "Link content directly to Banner Ads or Syndicate campaigns for maximum reach." },
-              ].map((item, i) => (
-                <div key={i} className="bg-[#120a1c]/80 border border-purple-500/20 rounded-xl p-4 text-center space-y-1.5">
-                  <h4 className="text-xs font-bold text-purple-400">{item.step}</h4>
-                  <p className="text-[11px] text-gray-400 leading-relaxed">{item.desc}</p>
+              <div className="text-center space-y-3">
+                <div className="inline-flex items-center gap-2 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-full px-3.5 py-1 text-xs font-semibold">
+                  <Sparkles className="h-3.5 w-3.5" /> Marketing & Content Tool
                 </div>
-              ))}
-            </div>
+                <h2 className="text-2xl md:text-3xl font-black text-white">
+                  BlogMate AI — Marketing & Content Creation
+                </h2>
+                <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+                  BlogMate AI is a marketing and content creation tool inside GGD Ad Network. Turn business ideas into compelling articles, social posts, promotional ads, and sales copy in seconds.
+                </p>
+              </div>
 
-            <div className="text-center space-y-2 pt-2">
-              <p className="text-xs text-gray-400">
-                BlogMate is one of several marketing tools within GGD designed to power your business growth.
-              </p>
-              <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-6 text-sm font-bold rounded-xl shadow-lg hover:scale-105 transition-transform">
-                Explore Marketing Tools <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                {[
+                  { step: "1. Generate", desc: "Draft high-converting articles and promo copy tailored to your business." },
+                  { step: "2. Edit & Save", desc: "Refine content in the editor and save to your private drafts library." },
+                  { step: "3. Publish", desc: "Publish content to build organic search and platform discoverability." },
+                  { step: "4. Promote", desc: "Link content directly to Banner Ads or Syndicate campaigns for maximum reach." },
+                ].map((item, i) => (
+                  <div key={i} className="bg-[#120a1c]/80 border border-purple-500/20 rounded-xl p-4 text-center space-y-1.5">
+                    <h4 className="text-xs font-bold text-purple-400">{item.step}</h4>
+                    <p className="text-[11px] text-gray-400 leading-relaxed">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-center space-y-2 pt-2">
+                <p className="text-xs text-gray-400">
+                  BlogMate is one of several marketing tools within GGD designed to power your business growth.
+                </p>
+                <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-6 text-sm font-bold rounded-xl shadow-lg hover:scale-105 transition-transform">
+                  Explore Marketing Tools <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Homepage Video */}
       <div className="container mx-auto px-4 py-8">

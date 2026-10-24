@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, User, Building2, ClipboardList, Megaphone, Briefcase, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 interface Result {
   id: string;
@@ -13,6 +14,7 @@ interface Result {
 }
 
 const GlobalSearchBar: React.FC = () => {
+  const { isEnabled } = useFeatureToggles();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,10 +37,10 @@ const GlobalSearchBar: React.FC = () => {
       const term = `%${q.trim()}%`;
       const [profiles, businesses, tasks, ads, apps, synTasks] = await Promise.all([
         supabase.from('profiles').select('user_id,display_name,email,business_name,business_category').or(`display_name.ilike.${term},email.ilike.${term},business_name.ilike.${term}`).limit(5),
-        supabase.from('business_profiles').select('id,business_name,description').ilike('business_name', `%${q.trim()}%`).limit(5),
-        supabase.from('tasks').select('id,title,description').ilike('title', `%${q.trim()}%`).eq('is_active', true).limit(5),
-        supabase.from('ads').select('id,title,description').ilike('title', `%${q.trim()}%`).eq('is_active', true).limit(5),
-        supabase.from('marketing_apps').select('id,title,description,app_link').ilike('title', `%${q.trim()}%`).limit(5),
+        isEnabled('business_directory') ? supabase.from('business_profiles').select('id,business_name,description').ilike('business_name', `%${q.trim()}%`).limit(5) : Promise.resolve({ data: [] } as any),
+        isEnabled('credit_tasks') ? supabase.from('tasks').select('id,title,description').ilike('title', `%${q.trim()}%`).eq('is_active', true).limit(5) : Promise.resolve({ data: [] } as any),
+        isEnabled('banner_ads') ? supabase.from('ads').select('id,title,description').ilike('title', `%${q.trim()}%`).eq('is_active', true).limit(5) : Promise.resolve({ data: [] } as any),
+        isEnabled('marketing_apps_marketplace') ? supabase.from('marketing_apps').select('id,title,description,app_link').ilike('title', `%${q.trim()}%`).limit(5) : Promise.resolve({ data: [] } as any),
         supabase.from('syndicate_tasks').select('id,title,description').ilike('title', `%${q.trim()}%`).limit(5),
       ]);
 
@@ -48,26 +50,34 @@ const GlobalSearchBar: React.FC = () => {
         subtitle: p.business_category || p.email, group: 'Users', icon: User,
         onClick: () => navigate(`/user/${p.user_id}`),
       }));
-      (businesses.data || []).forEach((b: any) => out.push({
-        id: 'b-' + b.id, title: b.business_name, subtitle: b.description?.slice(0, 80),
-        group: 'Businesses', icon: Building2,
-        onClick: () => navigate(`/business/${b.id}`),
-      }));
-      (tasks.data || []).forEach((t: any) => out.push({
-        id: 't-' + t.id, title: t.title, subtitle: t.description?.slice(0, 80),
-        group: 'Tasks', icon: ClipboardList, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'tasks' })); },
-      }));
-      (ads.data || []).forEach((a: any) => out.push({
-        id: 'a-' + a.id, title: a.title, subtitle: a.description?.slice(0, 80),
-        group: 'Banner Ads', icon: Megaphone, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'ads' })); },
-      }));
-      (apps.data || []).forEach((a: any) => out.push({
-        id: 'app-' + a.id, title: a.title, subtitle: a.description?.slice(0, 80),
-        group: 'Apps', icon: Megaphone, onClick: () => { if (a.app_link) window.open(a.app_link, '_blank'); },
-      }));
+      if (isEnabled('business_directory')) {
+        (businesses.data || []).forEach((b: any) => out.push({
+          id: 'b-' + b.id, title: b.business_name, subtitle: b.description?.slice(0, 80),
+          group: 'Businesses', icon: Building2,
+          onClick: () => navigate(`/business/${b.id}`),
+        }));
+      }
+      if (isEnabled('credit_tasks')) {
+        (tasks.data || []).forEach((t: any) => out.push({
+          id: 't-' + t.id, title: t.title, subtitle: t.description?.slice(0, 80),
+          group: 'Tasks', icon: ClipboardList, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'tasks' })); },
+        }));
+      }
+      if (isEnabled('banner_ads')) {
+        (ads.data || []).forEach((a: any) => out.push({
+          id: 'a-' + a.id, title: a.title, subtitle: a.description?.slice(0, 80),
+          group: 'Banner Ads', icon: Megaphone, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'ads' })); },
+        }));
+      }
+      if (isEnabled('marketing_apps_marketplace')) {
+        (apps.data || []).forEach((a: any) => out.push({
+          id: 'app-' + a.id, title: a.title, subtitle: a.description?.slice(0, 80),
+          group: 'Apps', icon: Megaphone, onClick: () => { if (a.app_link) window.open(a.app_link, '_blank'); },
+        }));
+      }
       (synTasks.data || []).forEach((s: any) => out.push({
         id: 's-' + s.id, title: s.title, subtitle: s.description?.slice(0, 80),
-        group: 'Syndicate Tasks', icon: Briefcase, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'syndicate' })); },
+        group: 'Syndicate Tasks', icon: Briefcase, onClick: () => { setOpen(false); window.dispatchEvent(new CustomEvent('ggd-nav', { detail: 'business-tasks' })); },
       }));
 
       setResults(out);
@@ -80,6 +90,14 @@ const GlobalSearchBar: React.FC = () => {
     (acc[r.group] = acc[r.group] || []).push(r); return acc;
   }, {});
 
+  if (!isEnabled('realtime_search')) {
+    return null;
+  }
+
+  const placeholder = isEnabled('banner_ads')
+    ? 'Search users, businesses, ads…'
+    : 'Search users, businesses, syndicates…';
+
   return (
     <div ref={ref} className="relative w-full max-w-md">
       <div className="relative">
@@ -89,7 +107,7 @@ const GlobalSearchBar: React.FC = () => {
           value={q}
           onChange={e => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Search users, businesses, ads…"
+          placeholder={placeholder}
           className="w-full h-9 pl-9 pr-9 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40"
         />
         {q && (

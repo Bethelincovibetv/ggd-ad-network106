@@ -37,28 +37,35 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
       grad: 'from-orange-500 via-orange-600 to-red-600',
       matches: ['ads']
     }] : []),
-    ...(isEnabled('community') ? [{
+    ...(isEnabled('community_feed') && isEnabled('community') ? [{
       id: 'feed',
       icon: Sparkles,
       label: 'Feed',
       grad: 'from-pink-500 via-fuchsia-500 to-purple-600',
       matches: ['feed']
     }] : []),
-    ...(isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') ? [{
+    ...(isEnabled('credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') && isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') ? [{
       id: 'tasks',
       icon: CheckSquare,
       label: 'Tasks',
       grad: 'from-emerald-500 via-green-500 to-teal-600',
       matches: ['tasks']
     }] : []),
-    ...(isEnabled('nav_campaigns') ? [{
+    ...(isEnabled('banner_ads') && isEnabled('ads') && isEnabled('nav_campaigns') ? [{
       id: 'campaigns',
       icon: BarChart2,
       label: 'Ads',
       grad: 'from-amber-500 via-orange-500 to-red-500',
       matches: ['campaigns', 'ads-create']
     }] : []),
-    ...(isEnabled('nav_my_business') ? [{
+    ...(isEnabled('syndicate') && !isEnabled('banner_ads') ? [{
+      id: 'business-tasks',
+      icon: Users,
+      label: 'Syndicate',
+      grad: 'from-violet-500 via-purple-600 to-indigo-600',
+      matches: ['business-tasks', 'syndicate', 'syndicate-wallet']
+    }] : []),
+    ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{
       id: 'my-business',
       icon: Store,
       label: 'My Biz',

@@ -284,7 +284,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
   };
 
   const options = [
-    ...(isEnabled("community") && isEnabled("create_post")
+    ...(isEnabled("community_feed") && isEnabled("community") && isEnabled("create_post")
       ? [
           {
             id: "blog",
@@ -311,7 +311,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
           },
         ]
       : []),
-    ...(isEnabled("tasks") && isEnabled("social_tasks") && isEnabled("nav_social_tasks") && isEnabled("nav_credit_tasks") && isEnabled("create_credit_task")
+    ...(isEnabled("credit_tasks") && isEnabled("tasks") && isEnabled("social_tasks") && isEnabled("nav_social_tasks") && isEnabled("nav_credit_tasks") && isEnabled("create_credit_task")
       ? [{
           id: "task",
           icon: ClipboardList,
@@ -324,7 +324,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
           },
         }]
       : []),
-    ...(isEnabled("ads") && isEnabled("create_banner_ad")
+    ...(isEnabled("banner_ads") && isEnabled("ads") && isEnabled("create_banner_ad")
       ? [{
           id: "ad",
           icon: Megaphone,

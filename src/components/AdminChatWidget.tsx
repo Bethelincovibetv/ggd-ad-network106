@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, X, ExternalLink, Sparkles, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const AdminChatWidget = () => {
+  const { isEnabled } = useFeatureToggles();
   const [isOpen, setIsOpen] = useState(false);
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [adminWhatsapp, setAdminWhatsapp] = useState('2348131107416');
@@ -76,9 +78,10 @@ const AdminChatWidget = () => {
   const quickMessages = [
     'I need help with my account',
     'I want to fund my wallet',
-    'I have a question about ads',
-    'I want to upgrade to Premium',
-    'I need support with a task',
+    ...(isEnabled('banner_ads') ? ['I have a question about banner ads'] : []),
+    ...(isEnabled('premium_vip_upgrade') ? ['I want to upgrade to Premium'] : []),
+    ...(isEnabled('credit_tasks') ? ['I need support with a task'] : []),
+    'I have a question about Syndicate campaigns',
   ];
 
   return (
@@ -96,7 +99,7 @@ const AdminChatWidget = () => {
                 <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
               </div>
               <p className="text-xs text-muted-foreground line-clamp-2">
-                Need quick assistance with your wallet, ads, or syndicate account?
+                Need quick assistance with your wallet or syndicate account?
               </p>
               <div className="mt-2.5 flex items-center gap-2">
                 <Button

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,8 @@ import { CallProvider } from "@/contexts/CallContext";
 import { IncomingCallBanner } from "@/components/call/IncomingCallBanner";
 import { CallModal } from "@/components/call/CallModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { Feature } from "@/lib/featureRegistry";
 
 const AdminPage = lazy(() => import("./components/AdminPage"));
 const BusinessDetailPage = lazy(() => import("./pages/BusinessDetailPage"));
@@ -27,7 +29,6 @@ const VixoraCreatorPage = lazy(() => import("./pages/VixoraCreatorPage"));
 const RedeemAirtimePage = lazy(() => import("./pages/RedeemAirtimePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-
 const queryClient = new QueryClient();
 
 const RouteFallback = () => (
@@ -35,6 +36,19 @@ const RouteFallback = () => (
     <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
   </div>
 );
+
+/**
+ * FeatureRoute: Gated Route Protector
+ * If the feature toggle is disabled, securely redirects to homepage with zero content leak.
+ */
+const FeatureRoute = ({ feature, element }: { feature: string; element: React.ReactNode }) => {
+  const { isEnabled, loading } = useFeatureToggles();
+  if (loading) return <RouteFallback />;
+  if (!isEnabled(feature)) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{element}</>;
+};
 
 const App = () => (
   <ErrorBoundary>
@@ -48,38 +62,88 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/business/:id" element={<BusinessDetailPage />} />
-                <Route path="/user/:id" element={<UserProfilePublicPage />} />
-                <Route path="/b/:slug" element={<UserProfilePublicPage />} />
-                <Route path="/r/:slug" element={<RedirectPage />} />
-                <Route path="/s/:slug" element={<SharePreviewPage />} />
-                <Route path="/product/:id" element={<ProductDetailPage />} />
-                <Route path="/industry/:slug" element={<IndustryPage />} />
+
+                {/* Business Directory & Storefronts */}
+                <Route
+                  path="/business/:id"
+                  element={<FeatureRoute feature="business_directory" element={<BusinessDetailPage />} />}
+                />
+                <Route
+                  path="/user/:id"
+                  element={<FeatureRoute feature="storefronts" element={<UserProfilePublicPage />} />}
+                />
+                <Route
+                  path="/b/:slug"
+                  element={<FeatureRoute feature="storefronts" element={<UserProfilePublicPage />} />}
+                />
+                <Route
+                  path="/industry/:slug"
+                  element={<FeatureRoute feature="business_directory" element={<IndustryPage />} />}
+                />
+                <Route
+                  path="/product/:id"
+                  element={<FeatureRoute feature="products_services" element={<ProductDetailPage />} />}
+                />
+
+                {/* Smart Links */}
+                <Route
+                  path="/r/:slug"
+                  element={<FeatureRoute feature="link_shortener" element={<RedirectPage />} />}
+                />
+                <Route
+                  path="/s/:slug"
+                  element={<FeatureRoute feature="link_shortener" element={<SharePreviewPage />} />}
+                />
+
+                {/* Airtime & Data Redemption */}
+                <Route
+                  path="/redeem"
+                  element={<FeatureRoute feature="credit_airtime_redeem" element={<RedeemAirtimePage />} />}
+                />
+                <Route
+                  path="/airtime"
+                  element={<FeatureRoute feature="credit_airtime_redeem" element={<RedeemAirtimePage />} />}
+                />
+
+                {/* Syndicate Core Registration */}
                 <Route path="/syndicate-register" element={<SyndicateRegister />} />
                 <Route path="/notifications" element={<NotificationsDedicatedPage />} />
                 <Route path="/guide" element={<GuideDedicatedPage />} />
-                <Route path="/vixora" element={<VixoraCreatorPage />} />
-                <Route path="/vixora-creator" element={<VixoraCreatorPage />} />
-                <Route path="/creator" element={<VixoraCreatorPage />} />
-                <Route path="/studio" element={<VixoraCreatorPage />} />
-                <Route path="/autopilot" element={<VixoraCreatorPage />} />
-                <Route path="/voiceover" element={<VixoraCreatorPage />} />
-                <Route path="/scripts" element={<VixoraCreatorPage />} />
-                <Route path="/videos" element={<VixoraCreatorPage />} />
-                <Route path="/bgmusic" element={<VixoraCreatorPage />} />
-                <Route path="/tools" element={<VixoraCreatorPage />} />
-                <Route path="/growth" element={<VixoraCreatorPage />} />
-                <Route path="/contact" element={<VixoraCreatorPage />} />
-                <Route path="/coach" element={<VixoraCreatorPage />} />
-                <Route path="/developer" element={<VixoraCreatorPage />} />
-                <Route path="/redeem" element={<RedeemAirtimePage />} />
-                <Route path="/airtime" element={<RedeemAirtimePage />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
 
+                {/* Vixora AI Video Creator Routes */}
+                {[
+                  "/vixora",
+                  "/vixora-creator",
+                  "/creator",
+                  "/studio",
+                  "/autopilot",
+                  "/voiceover",
+                  "/scripts",
+                  "/videos",
+                  "/bgmusic",
+                  "/tools",
+                  "/growth",
+                  "/contact",
+                  "/coach",
+                  "/developer",
+                ].map(path => (
+                  <Route
+                    key={path}
+                    path={path}
+                    element={<FeatureRoute feature="vixora_ai_studio" element={<VixoraCreatorPage />} />}
+                  />
+                ))}
+
+                {/* Catch-All */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-            <AdminChatWidget />
+
+            {/* Floating GGD AI Assistant / Support Widget (gated by ggd_ai_chat) */}
+            <Feature name="ggd_ai_chat">
+              <AdminChatWidget />
+            </Feature>
+
             <InstallPrompt />
             <PushNotificationPrompt />
             <IncomingCallBanner />

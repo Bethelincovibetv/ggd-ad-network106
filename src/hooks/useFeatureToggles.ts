@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isFeatureEnabled, FEATURE_REGISTRY_MAP } from '@/lib/featureRegistry';
 
 const CACHE_KEY = 'ggd_feature_toggles_v1';
 
@@ -11,7 +12,10 @@ const loadCached = (): Record<string, boolean> | null => {
   if (cache) return cache;
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
-    if (raw) { cache = JSON.parse(raw); return cache; }
+    if (raw) {
+      cache = JSON.parse(raw);
+      return cache;
+    }
   } catch {}
   return null;
 };
@@ -38,6 +42,13 @@ export const setFeatureToggleLocally = (key: string, enabled: boolean) => {
   listeners.forEach(l => l({ ...cache! }));
 };
 
+export const setBatchFeatureTogglesLocally = (updates: Record<string, boolean>) => {
+  if (!cache) cache = loadCached() || {};
+  cache = { ...cache, ...updates };
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
+  listeners.forEach(l => l({ ...cache! }));
+};
+
 export const useFeatureToggles = () => {
   const initial = loadCached();
   const [features, setFeatures] = useState<Record<string, boolean>>(initial || {});
@@ -55,12 +66,19 @@ export const useFeatureToggles = () => {
     return () => { listeners.delete(onUpdate); };
   }, []);
 
-  // Before we have any data (no cache + no fetch response), default DISABLED
-  // so admin-disabled features never flash on during the loading state.
-  const isEnabled = (key: string) => {
-    if (!hydrated && !initial) return false;
-    return features[key] !== false;
+  // Before we have any data (no cache + no fetch response):
+  // Core protected features stay true; gated features default to false to prevent visual flash.
+  const isEnabled = (key: string): boolean => {
+    const def = FEATURE_REGISTRY_MAP[key];
+    if (def && !def.canDisable) {
+      return true;
+    }
+    if (!hydrated && !initial) {
+      return false;
+    }
+    return isFeatureEnabled(key, features);
   };
 
   return { features, isEnabled, loading };
 };
+

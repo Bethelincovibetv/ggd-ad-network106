@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 interface HeaderWalletsProps {
   walletBalance: number;
@@ -65,11 +66,14 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
   className = '',
 }) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const { isEnabled } = useFeatureToggles();
+  const showCreditWallet = isEnabled('credit_tasks') && isEnabled('task_wallet');
+  const showAirtimeRedeem = isEnabled('credit_airtime_redeem');
 
   return (
     <div className={`flex items-center gap-1 sm:gap-2 flex-shrink-0 ${className}`}>
       {/* ========================================================
-          MOBILE/COMPACT DUAL WALLET CAPSULE (< 640px)
+          MOBILE/COMPACT WALLET CAPSULE (< 640px)
           Prevents horizontal header stretching and nav bar overlap
          ======================================================== */}
       <div className="flex sm:hidden items-center bg-card/90 border border-border/80 shadow-xs rounded-full p-0.5 backdrop-blur-xs">
@@ -87,23 +91,27 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
           <span>{formatCompactNaira(walletBalance)}</span>
         </button>
 
-        {/* Divider */}
-        <div className="h-3 w-px bg-border/80 my-auto" />
+        {showCreditWallet && (
+          <>
+            {/* Divider */}
+            <div className="h-3 w-px bg-border/80 my-auto" />
 
-        {/* Credit Segment */}
-        <button
-          type="button"
-          onClick={() => onNavigate('fund-credits')}
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black text-orange-700 dark:text-orange-400 hover:bg-orange-500/15 active:scale-95 transition-all"
-          title={`Credit Wallet: ${isAdmin ? 'Unlimited' : credits.toLocaleString()} cr (Click to top up)`}
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
-          </span>
-          <span>{formatCompactCredits(credits, isAdmin)}</span>
-          <span className="text-[9px] font-extrabold opacity-75">cr</span>
-        </button>
+            {/* Credit Segment */}
+            <button
+              type="button"
+              onClick={() => onNavigate('fund-credits')}
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black text-orange-700 dark:text-orange-400 hover:bg-orange-500/15 active:scale-95 transition-all"
+              title={`Credit Wallet: ${isAdmin ? 'Unlimited' : credits.toLocaleString()} cr (Click to top up)`}
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
+              </span>
+              <span>{formatCompactCredits(credits, isAdmin)}</span>
+              <span className="text-[9px] font-extrabold opacity-75">cr</span>
+            </button>
+          </>
+        )}
 
         {/* Quick Popover Trigger */}
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -155,40 +163,44 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
               </div>
 
               {/* Credit Wallet Detail */}
-              <div className="bg-orange-500/10 border border-orange-500/25 rounded-xl p-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-orange-700 dark:text-orange-400 flex items-center gap-1">
-                    <Coins className="h-3.5 w-3.5" /> Advertising Credits
-                  </span>
-                  <span className="text-xs font-black text-orange-700 dark:text-orange-300">
-                    {isAdmin ? 'Unlimited' : `${credits.toLocaleString()} cr`}
-                  </span>
+              {showCreditWallet && (
+                <div className="bg-orange-500/10 border border-orange-500/25 rounded-xl p-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-orange-700 dark:text-orange-400 flex items-center gap-1">
+                      <Coins className="h-3.5 w-3.5" /> Advertising Credits
+                    </span>
+                    <span className="text-xs font-black text-orange-700 dark:text-orange-300">
+                      {isAdmin ? 'Unlimited' : `${credits.toLocaleString()} cr`}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & redeem instant airtime.</p>
+                  <div className={`grid ${showAirtimeRedeem ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5 mt-2`}>
+                    {showAirtimeRedeem && (
+                      <Button
+                        size="sm"
+                        className="w-full h-7 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg gap-1 shadow-xs"
+                        onClick={() => {
+                          setPopoverOpen(false);
+                          onNavigate('redeem-airtime');
+                        }}
+                      >
+                        Redeem Airtime
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-7 text-[10px] font-bold border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-500/10 rounded-lg gap-1"
+                      onClick={() => {
+                        setPopoverOpen(false);
+                        onNavigate('fund-credits');
+                      }}
+                    >
+                      <Plus className="h-3 w-3" /> Top Up
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & redeem instant airtime.</p>
-                <div className="grid grid-cols-2 gap-1.5 mt-2">
-                  <Button
-                    size="sm"
-                    className="w-full h-7 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg gap-1 shadow-xs"
-                    onClick={() => {
-                      setPopoverOpen(false);
-                      onNavigate('redeem-airtime');
-                    }}
-                  >
-                    Redeem Airtime
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-[10px] font-bold border-orange-500/30 text-orange-700 dark:text-orange-300 hover:bg-orange-500/10 rounded-lg gap-1"
-                    onClick={() => {
-                      setPopoverOpen(false);
-                      onNavigate('fund-credits');
-                    }}
-                  >
-                    <Plus className="h-3 w-3" /> Top Up
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           </PopoverContent>
         </Popover>
@@ -216,22 +228,24 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
       </button>
 
       {/* Live Connected Credit Wallet Pill */}
-      <button
-        type="button"
-        onClick={() => onNavigate('fund-credits')}
-        className="hidden sm:flex items-center gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group cursor-pointer"
-        title="Credit Wallet (Click to top up / fund)"
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-        </span>
-        <span className="text-orange-700 dark:text-orange-400 font-black text-xs md:text-sm">
-          {isAdmin ? '∞' : credits.toLocaleString()}{' '}
-          <span className="text-[10px] font-extrabold opacity-80">cr</span>
-        </span>
-        <Coins className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
-      </button>
+      {showCreditWallet && (
+        <button
+          type="button"
+          onClick={() => onNavigate('fund-credits')}
+          className="hidden sm:flex items-center gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group cursor-pointer"
+          title="Credit Wallet (Click to top up / fund)"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+          </span>
+          <span className="text-orange-700 dark:text-orange-400 font-black text-xs md:text-sm">
+            {isAdmin ? 'Unlimited' : credits.toLocaleString()}{' '}
+            <span className="text-[10px] font-extrabold opacity-80">cr</span>
+          </span>
+          <Coins className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
+        </button>
+      )}
 
       {/* Role Indicators (Responsive: compact/hidden on tiny mobile, visible on tablet+) */}
       <div className="hidden md:flex items-center gap-1">
@@ -259,3 +273,4 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
     </div>
   );
 };
+

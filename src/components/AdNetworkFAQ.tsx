@@ -27,6 +27,9 @@ import {
   Zap,
 } from "lucide-react";
 
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { scrubFeatureCopy } from "@/lib/featureRegistry";
+
 export interface FAQItem {
   id: string;
   question: string;
@@ -34,6 +37,7 @@ export interface FAQItem {
   category: 'General' | 'Advertisers' | 'Syndicate' | 'Payments' | 'Tools';
   tags?: string[];
   featured?: boolean;
+  feature?: string;
 }
 
 export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
@@ -64,6 +68,7 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
   {
     id: 'faq-4',
     category: 'General',
+    feature: 'business_directory',
     question: 'What is the Accredited Business Directory & Digital Storefront?',
     answer: 'The GGD Business Directory is a search-indexed catalog of verified merchants across Nigeria. Every registered business receives a customized digital storefront featuring their logo, verified badge, product catalog, custom pricing, and direct WhatsApp contact buttons. It is SEO-optimized to help local and national buyers find and trust your brand.',
     tags: ['Directory', 'Storefront', 'Verification']
@@ -72,6 +77,7 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
     id: 'faq-5',
     category: 'Payments',
     featured: true,
+    feature: 'credit_tasks',
     question: 'What is the difference between Community Credits (GGG) and the Syndicate Wallet?',
     answer: 'Community Credits (GGG) are internal platform utility tokens used for daily platform activities, community task rewards, AI content generation, and ad boosts. The Syndicate Wallet holds real cash earnings (in Naira ₦) accumulated by verified promoters from completing paid business campaigns, which can be withdrawn directly to personal bank accounts.',
     tags: ['Credits', 'Wallet', 'Withdrawals']
@@ -86,6 +92,7 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
   {
     id: 'faq-7',
     category: 'Tools',
+    feature: 'blogmate_ai',
     question: 'What marketing and AI tools are included inside GGD?',
     answer: 'GGD includes a comprehensive suite of digital marketing tools: BlogMate AI (generates high-converting articles and sales copy), Sales Funnel Generator (builds landing pages and capture forms), Ebook Generator, Dynamic Link Shortener with analytics, and Web App Generator — all designed to accelerate customer acquisition.',
     tags: ['BlogMate AI', 'Sales Funnel', 'Tools']
@@ -151,16 +158,43 @@ export const AdNetworkFAQ: React.FC<AdNetworkFAQProps> = ({
   className = "",
   id = "faq"
 }) => {
+  const { isEnabled } = useFeatureToggles();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategory);
 
+  const processedItems = useMemo(() => {
+    return items
+      .filter(item => !item.feature || isEnabled(item.feature))
+      .map(item => {
+        let answer = item.answer;
+        if (!isEnabled('syndicate_non_whatsapp_channels')) {
+          answer = answer
+            .replace(/statuses,\s*Facebook\s*groups,\s*and\s*TikTok\s*pages/gi, 'statuses and WhatsApp groups')
+            .replace(/WhatsApp\s*status,\s*Instagram,\s*Facebook,\s*or\s*TikTok/gi, 'WhatsApp status, groups, and channels')
+            .replace(/Facebook\s*friends,\s*Instagram\s*followers,\s*or\s*TikTok\s*audience/gi, 'WhatsApp contacts and audience');
+        }
+        if (!isEnabled('banner_ads')) {
+          answer = answer
+            .replace(/\(1\)\s*High-visibility\s*Banner\s*Ads\s*that\s*rotate\s*across\s*our\s*verified\s*publisher\s*network,\s*/gi, '')
+            .replace(/banner\s*ad\s*or\s*/gi, '');
+        }
+        if (!isEnabled('business_directory')) {
+          answer = answer.replace(/complete\s*your\s*Business\s*Profile\s*in\s*the\s*directory,\s*and\s*/gi, '');
+        }
+        return {
+          ...item,
+          answer: scrubFeatureCopy(answer, isEnabled),
+        };
+      });
+  }, [items, isEnabled]);
+
   const categories = useMemo(() => {
-    const cats = ['All', ...Array.from(new Set(items.map(item => item.category)))];
+    const cats = ['All', ...Array.from(new Set(processedItems.map(item => item.category)))];
     return cats;
-  }, [items]);
+  }, [processedItems]);
 
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return processedItems.filter(item => {
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
       if (!matchesCategory) return false;
 
@@ -173,7 +207,7 @@ export const AdNetworkFAQ: React.FC<AdNetworkFAQProps> = ({
 
       return inQuestion || inAnswer || inTags;
     });
-  }, [items, selectedCategory, searchQuery]);
+  }, [processedItems, selectedCategory, searchQuery]);
 
   const isDark = variant === 'dark';
 

@@ -48,6 +48,112 @@ app.use((req, res, next) => {
   next();
 });
 
+// ----------------------------------------------------
+// Server-Side Feature Toggle Protection & Cache
+// ----------------------------------------------------
+let serverFeatureCache: Record<string, boolean> = {};
+let lastCacheFetchTime = 0;
+const CACHE_TTL_MS = 10000; // 10s TTL
+
+const SUPABASE_URL_DEFAULT = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
+const SUPABASE_KEY_DEFAULT = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+async function refreshServerFeatureToggles(): Promise<Record<string, boolean>> {
+  const now = Date.now();
+  if (now - lastCacheFetchTime < CACHE_TTL_MS && Object.keys(serverFeatureCache).length > 0) {
+    return serverFeatureCache;
+  }
+  try {
+    const resp = await fetch(`${SUPABASE_URL_DEFAULT}/rest/v1/feature_toggles?select=feature_key,is_enabled`, {
+      headers: {
+        'apikey': SUPABASE_KEY_DEFAULT,
+        'Authorization': `Bearer ${SUPABASE_KEY_DEFAULT}`,
+      },
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data)) {
+        const map: Record<string, boolean> = {};
+        data.forEach((row: any) => {
+          if (row?.feature_key) map[row.feature_key] = row.is_enabled;
+        });
+        serverFeatureCache = map;
+        lastCacheFetchTime = now;
+      }
+    }
+  } catch (e) {
+    // Non-fatal
+  }
+  return serverFeatureCache;
+}
+
+function isServerFeatureEnabled(key: string, toggles: Record<string, boolean>): boolean {
+  if (['wallet_funding', 'escrow', 'syndicate_campaigns', 'auth', 'support'].includes(key)) {
+    return true;
+  }
+  if (toggles[key] !== undefined) return toggles[key] === true;
+
+  const legacyAliases: Record<string, string> = {
+    'banner_ads': 'ads',
+    'credit_tasks': 'tasks',
+    'community_feed': 'community',
+    'business_directory': 'directory',
+    'marketing_apps_marketplace': 'marketplace',
+    'credit_airtime_redeem': 'airtime_redeem',
+    'vixora_ai_studio': 'vixora_ai',
+    'chat_and_calls': 'p2p_chat',
+    'premium_vip_upgrade': 'premium_upgrade',
+  };
+  const alias = legacyAliases[key];
+  if (alias && toggles[alias] !== undefined) return toggles[alias] === true;
+
+  return true;
+}
+
+// Global server-side route feature gate middleware: returns 404 for disabled feature routes
+app.use(async (req, res, next) => {
+  const path = req.path;
+  if (!path.startsWith('/api')) return next();
+
+  let requiredFeature: string | null = null;
+  if (path.startsWith('/api/airtime')) {
+    requiredFeature = 'credit_airtime_redeem';
+  } else if (path.startsWith('/api/chat') || path.startsWith('/api/calls')) {
+    requiredFeature = 'chat_and_calls';
+  } else if (path.startsWith('/api/digital-products')) {
+    requiredFeature = 'digital_products_store';
+  } else if (path.startsWith('/api/realtime-search')) {
+    requiredFeature = 'realtime_search';
+  } else if (path.startsWith('/api/generate-blog')) {
+    requiredFeature = 'blogmate_ai';
+  } else if (path.startsWith('/api/generate-ebook')) {
+    requiredFeature = 'ebook_generator';
+  } else if (path.startsWith('/api/vixora')) {
+    requiredFeature = 'vixora_ai_studio';
+  } else if (path.startsWith('/api/posts')) {
+    requiredFeature = 'community_feed';
+  }
+
+  if (requiredFeature) {
+    const toggles = await refreshServerFeatureToggles();
+    if (!isServerFeatureEnabled(requiredFeature, toggles)) {
+      return res.status(404).json({
+        error: `Endpoint not found: feature '${requiredFeature}' is disabled.`,
+        statusCode: 404,
+      });
+    }
+  }
+
+  next();
+});
+
+// Cache invalidation endpoint for admin
+app.post('/api/admin/invalidate-feature-cache', (req, res) => {
+  lastCacheFetchTime = 0;
+  serverFeatureCache = {};
+  return res.json({ success: true, message: 'Server feature cache cleared.' });
+});
+
 let customGeminiKey = '';
 let customPexelsKey = '';
 
@@ -192,8 +298,37 @@ app.post('/api/ai/generate', async (req, res) => {
     const { contents, systemInstruction, temperature = 0.7, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
     const candidateKeys = await getCandidateGeminiKeys(apiKey);
 
+    const toggles = await refreshServerFeatureToggles();
+    const disabledList: string[] = [];
+    const featureNamePairs = [
+      ['banner_ads', 'Banner Ads'],
+      ['credit_tasks', 'Credit Tasks / Community GGG Credits'],
+      ['watch_and_earn', 'Watch & Earn'],
+      ['youtube_boost', 'YouTube Boost'],
+      ['business_directory', 'Business Directory'],
+      ['storefronts', 'Storefronts'],
+      ['blogmate_ai', 'BlogMate AI'],
+      ['vixora_ai_studio', 'Vixora AI Studio'],
+      ['ebook_generator', 'Ebook Generator'],
+      ['sales_funnel', 'Sales Funnel Generator'],
+      ['community_feed', 'Community Feed'],
+      ['digital_products_store', 'Digital Products Store'],
+      ['marketing_apps_marketplace', 'Marketing Apps Marketplace'],
+      ['cpa_marketing', 'CPA Marketing'],
+      ['premium_vip_upgrade', 'VIP / Premium Upgrade'],
+    ];
+    for (const [key, name] of featureNamePairs) {
+      if (!isServerFeatureEnabled(key, toggles)) {
+        disabledList.push(name);
+      }
+    }
+
     const config: any = {};
-    if (systemInstruction) config.systemInstruction = systemInstruction;
+    let activeSys = systemInstruction || '';
+    if (disabledList.length > 0) {
+      activeSys += `\n\n[PLATFORM CONSTRAINTS]: The following features are strictly DISABLED and must NEVER be mentioned, promoted, suggested, or referenced: ${disabledList.join(', ')}. Focus solely on enabled platform capabilities (such as Syndicate promotions, business verification, and wallet).`;
+    }
+    if (activeSys) config.systemInstruction = activeSys;
     if (typeof temperature === 'number') config.temperature = temperature;
     if (responseMimeType) config.responseMimeType = responseMimeType;
 

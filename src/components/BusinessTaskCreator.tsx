@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const DEFAULT_PLATFORMS = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
@@ -34,6 +35,8 @@ const DEFAULT_PLATFORMS = [
 ];
 
 const BusinessTaskCreator = () => {
+  const { isEnabled } = useFeatureToggles();
+  const allowNonWhatsapp = isEnabled('syndicate_non_whatsapp_channels');
   const [tasks, setTasks] = useState<any[]>([]);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, any>>({});
@@ -442,7 +445,10 @@ const BusinessTaskCreator = () => {
             <div>
               <Label className="text-xs font-medium mb-2 block">Target Placements *</Label>
               <div className="space-y-2">
-                {platformPricing.filter(p => p.is_active !== false).map(p => {
+                {platformPricing
+                  .filter(p => p.is_active !== false)
+                  .filter(p => allowNonWhatsapp || p.platform_key.startsWith('whatsapp'))
+                  .map(p => {
                   const checked = form.placements.includes(p.platform_key);
                   return (
                     <div role="button" tabIndex={0} key={p.platform_key} onClick={() => togglePlacement(p.platform_key)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && togglePlacement(p.platform_key)}
