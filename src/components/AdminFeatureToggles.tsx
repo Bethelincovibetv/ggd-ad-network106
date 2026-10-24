@@ -20,7 +20,11 @@ import {
   FEATURE_REGISTRY_MAP,
   FeatureGroup,
   WHATSAPP_SYNDICATE_FOCUS_PRESET,
+  MENU_TOGGLE_REGISTRY,
+  MENU_TOGGLE_MAP,
+  MenuSection,
 } from "@/lib/featureRegistry";
+import { Menu, Layers } from "lucide-react";
 
 interface FeatureRow {
   id: string;
@@ -35,6 +39,8 @@ const AdminFeatureToggles = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('All');
+  const [selectedMenuSection, setSelectedMenuSection] = useState<string>('All');
+  const [activeTab, setActiveTab] = useState<'features' | 'menus'>('features');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string>('');
   const [applyingPreset, setApplyingPreset] = useState(false);
@@ -83,8 +89,13 @@ const AdminFeatureToggles = () => {
       let currentFeatures: FeatureRow[] = (data as FeatureRow[]) || [];
       const existingKeys = new Set(currentFeatures.map(f => f.feature_key));
 
-      // Build defaults from our master FEATURE_REGISTRY
-      const missingToggles = FEATURE_REGISTRY
+      // Build defaults from our master FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
+      const allMasterDefinitions = [
+        ...FEATURE_REGISTRY.map(t => ({ key: t.key, label: t.label, description: t.description, defaultState: t.defaultState })),
+        ...MENU_TOGGLE_REGISTRY.map(m => ({ key: m.key, label: m.label, description: m.description, defaultState: m.defaultState })),
+      ];
+
+      const missingToggles = allMasterDefinitions
         .filter(t => !existingKeys.has(t.key))
         .map(t => ({
           feature_key: t.key,
@@ -106,9 +117,13 @@ const AdminFeatureToggles = () => {
 
       setFeatures(currentFeatures);
     } catch (err) {
-      // Offline fallback using FEATURE_REGISTRY
+      // Offline fallback using FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
+      const allMasterDefinitions = [
+        ...FEATURE_REGISTRY.map(t => ({ key: t.key, label: t.label, description: t.description, defaultState: t.defaultState })),
+        ...MENU_TOGGLE_REGISTRY.map(m => ({ key: m.key, label: m.label, description: m.description, defaultState: m.defaultState })),
+      ];
       setFeatures(
-        FEATURE_REGISTRY.map((t, idx) => ({
+        allMasterDefinitions.map((t, idx) => ({
           id: `default-${idx}`,
           feature_key: t.key,
           feature_name: t.label,
@@ -166,6 +181,9 @@ const AdminFeatureToggles = () => {
     if (feature.feature_key === 'vixora_ai_studio') setFeatureToggleLocally('vixora_ai', nextState);
     if (feature.feature_key === 'chat_and_calls') setFeatureToggleLocally('p2p_chat', nextState);
     if (feature.feature_key === 'premium_vip_upgrade') setFeatureToggleLocally('premium_upgrade', nextState);
+    if (feature.feature_key === 'save_favorite') setFeatureToggleLocally('favorites', nextState);
+    if (feature.feature_key === 'wallet_transfer') setFeatureToggleLocally('credit_transfer', nextState);
+    if (feature.feature_key === 'credit_wallet') setFeatureToggleLocally('task_wallet', nextState);
 
     try {
       await supabase
@@ -185,6 +203,50 @@ const AdminFeatureToggles = () => {
       toast.success(`${feature.feature_name}: ${nextState ? 'Enabled' : 'Disabled'}`);
     } catch (err) {
       toast.error("Could not persist setting to remote database, saved locally.");
+    }
+  };
+
+  // Batch toggle all menu navigation items
+  const setAllMenusState = async (enableAll: boolean) => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Admin privileges required.");
+      return;
+    }
+    setApplyingPreset(true);
+    try {
+      const updates: Record<string, boolean> = {};
+      MENU_TOGGLE_REGISTRY.forEach(m => {
+        updates[m.key] = enableAll;
+      });
+
+      setFeatures(prev =>
+        prev.map(f => {
+          if (updates[f.feature_key] !== undefined) {
+            return { ...f, is_enabled: enableAll };
+          }
+          return f;
+        })
+      );
+      setBatchFeatureTogglesLocally(updates);
+
+      const rowsToUpsert = MENU_TOGGLE_REGISTRY.map(m => ({
+        feature_key: m.key,
+        feature_name: m.label,
+        is_enabled: enableAll,
+        description: m.description,
+      }));
+
+      await supabase
+        .from('feature_toggles')
+        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
+
+      await logToggleChange(`PRESET_SET_ALL_MENUS_${enableAll ? 'ON' : 'OFF'}`, enableAll);
+      fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
+      toast.success(enableAll ? "All menu navigation items shown." : "All menu navigation items hidden.");
+    } catch (err: any) {
+      toast.error("Failed updating menu toggles: " + err.message);
+    } finally {
+      setApplyingPreset(false);
     }
   };
 
@@ -327,6 +389,26 @@ const AdminFeatureToggles = () => {
     return def ? def.defaultState : true;
   };
 
+  const menuSections: (MenuSection | 'All')[] = [
+    'All',
+    'Main Navigation',
+    'Work & Growth',
+    'Discover & Market',
+    'Help & Account',
+  ];
+
+  const filteredMenuToggles = MENU_TOGGLE_REGISTRY.filter(m => {
+    const matchesSearch =
+      !search ||
+      m.label.toLowerCase().includes(search.toLowerCase()) ||
+      m.key.toLowerCase().includes(search.toLowerCase()) ||
+      m.description.toLowerCase().includes(search.toLowerCase());
+
+    const matchesSection = selectedMenuSection === 'All' || m.section === selectedMenuSection;
+
+    return matchesSearch && matchesSection;
+  });
+
   return (
     <Card className="border-border/70 shadow-sm">
       <CardHeader className="pb-4 border-b border-border/50">
@@ -344,40 +426,94 @@ const AdminFeatureToggles = () => {
               </Badge>
             </div>
             <CardDescription className="text-xs mt-1 leading-relaxed">
-              When a toggle is <strong>OFF</strong>, that feature is completely invisible platform-wide: menus, routes, buttons, dashboard cards, guides, FAQ, search, notifications, and AI answers.
+              When a toggle is <strong>OFF</strong>, that capability or menu item is hidden platform-wide.
             </CardDescription>
           </div>
 
-          {/* Preset Buttons */}
+          {/* Preset Buttons & Quick Tabs */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={applyWhatsAppSyndicateFocus}
-              disabled={applyingPreset}
-              className="h-9 px-3.5 text-xs font-black rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-sm gap-1.5 cursor-pointer"
-            >
-              <Smartphone className="h-4 w-4" />
-              WhatsApp Syndicate Focus
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={resetToAllOn}
-              disabled={applyingPreset}
-              className="h-9 px-3 text-xs font-bold rounded-xl border-border text-foreground hover:bg-muted gap-1.5 cursor-pointer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset All (Turn ON)
-            </Button>
+            {activeTab === 'features' ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={applyWhatsAppSyndicateFocus}
+                  disabled={applyingPreset}
+                  className="h-9 px-3.5 text-xs font-black rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-sm gap-1.5 cursor-pointer"
+                >
+                  <Smartphone className="h-4 w-4" />
+                  WhatsApp Syndicate Focus
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={resetToAllOn}
+                  disabled={applyingPreset}
+                  className="h-9 px-3 text-xs font-bold rounded-xl border-border text-foreground hover:bg-muted gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset All (Turn ON)
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => setAllMenusState(true)}
+                  disabled={applyingPreset}
+                  className="h-9 px-3.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-1.5 cursor-pointer"
+                >
+                  <Eye className="h-4 w-4" />
+                  Show All Menus
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAllMenusState(false)}
+                  disabled={applyingPreset}
+                  className="h-9 px-3 text-xs font-bold rounded-xl border-border text-foreground hover:bg-muted gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Hide All Menus
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
+        {/* Master Dual Navigation Mode Switcher */}
+        <div className="pt-4 flex items-center gap-2 border-b border-border/40 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('features')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'features'
+                ? 'bg-orange-500 text-white shadow-xs'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            Platform Features ({FEATURE_REGISTRY.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('menus')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'menus'
+                ? 'bg-orange-500 text-white shadow-xs'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+            }`}
+          >
+            <Menu className="h-4 w-4" />
+            Menu Navigation Items ({MENU_TOGGLE_REGISTRY.length})
+          </button>
+        </div>
+
         {/* Search & Category Filter Pills */}
-        <div className="pt-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search features by name, key, or copy..."
+              placeholder={activeTab === 'features' ? "Search features..." : "Search menu items..."}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="h-9 pl-9 text-xs rounded-xl bg-muted/40"
@@ -385,118 +521,205 @@ const AdminFeatureToggles = () => {
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            {groups.map(g => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setSelectedGroup(g)}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
-                  selectedGroup === g
-                    ? 'bg-orange-500 text-white shadow-xs'
-                    : 'bg-muted/50 hover:bg-muted text-muted-foreground'
-                }`}
-              >
-                {g}
-              </button>
-            ))}
+            {activeTab === 'features'
+              ? groups.map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setSelectedGroup(g)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
+                      selectedGroup === g
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))
+              : menuSections.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSelectedMenuSection(s)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
+                      selectedMenuSection === s
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'bg-muted/50 hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="pt-6 space-y-6">
-        {/* Preset Explanation Callout */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/20 flex items-start gap-3 text-xs">
-          <Smartphone className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <p className="font-bold text-foreground">WhatsApp Syndicate Focus Preset</p>
-            <p className="text-muted-foreground text-[11px] leading-relaxed">
-              Activates the strict single-purpose mode: disables banner ads, credit tasks, video watch-to-earn, business directory, storefronts, community feed, AI tools, and restricts Syndicate distribution to WhatsApp (Status, Group, Channel). Escrow, wallet funding, payouts, and referrals remain live.
-            </p>
-          </div>
-        </div>
+        {activeTab === 'features' ? (
+          <>
+            {/* Preset Explanation Callout */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/20 flex items-start gap-3 text-xs">
+              <Smartphone className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold text-foreground">WhatsApp Syndicate Focus Preset</p>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  Activates the strict single-purpose mode: disables banner ads, credit tasks, video watch-to-earn, business directory, storefronts, community feed, AI tools, and restricts Syndicate distribution to WhatsApp (Status, Group, Channel). Escrow, wallet funding, payouts, and referrals remain live.
+                </p>
+              </div>
+            </div>
 
-        {/* Feature Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filteredFeatures.map(def => {
-            const isEnabled = getFeatureState(def.key);
-            const isProtected = !def.canDisable;
+            {/* Feature Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredFeatures.map(def => {
+                const isEnabled = getFeatureState(def.key);
+                const isProtected = !def.canDisable;
 
-            return (
-              <div
-                key={def.key}
-                className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
-                  isEnabled
-                    ? 'bg-card border-border/80 shadow-xs'
-                    : 'bg-muted/20 border-dashed border-border/50 opacity-75'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Label
-                      className={`text-xs font-bold text-foreground ${
-                        isProtected ? 'cursor-default' : 'cursor-pointer'
-                      }`}
-                      onClick={() => !isProtected && toggleFeature({
-                        id: def.key,
-                        feature_key: def.key,
-                        feature_name: def.label,
-                        is_enabled: isEnabled,
-                        description: def.description,
-                      })}
-                    >
-                      {def.label}
-                    </Label>
+                return (
+                  <div
+                    key={def.key}
+                    className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                      isEnabled
+                        ? 'bg-card border-border/80 shadow-xs'
+                        : 'bg-muted/20 border-dashed border-border/50 opacity-75'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Label
+                          className={`text-xs font-bold text-foreground ${
+                            isProtected ? 'cursor-default' : 'cursor-pointer'
+                          }`}
+                          onClick={() => !isProtected && toggleFeature({
+                            id: def.key,
+                            feature_key: def.key,
+                            feature_name: def.label,
+                            is_enabled: isEnabled,
+                            description: def.description,
+                          })}
+                        >
+                          {def.label}
+                        </Label>
 
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase">
-                      {def.group}
-                    </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase">
+                          {def.group}
+                        </span>
 
-                    {isProtected && (
-                      <span className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded-md flex items-center gap-1">
-                        <Lock className="h-2.5 w-2.5" /> Locked Core
-                      </span>
-                    )}
-                  </div>
+                        {isProtected && (
+                          <span className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                            <Lock className="h-2.5 w-2.5" /> Locked Core
+                          </span>
+                        )}
+                      </div>
 
-                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                    {def.description}
-                  </p>
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                        {def.description}
+                      </p>
 
-                  {def.routes && def.routes.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-muted-foreground">Routes:</span>
-                      {def.routes.slice(0, 3).map(r => (
-                        <code key={r} className="text-[10px] px-1 rounded bg-muted font-mono text-muted-foreground">
-                          {r}
-                        </code>
-                      ))}
-                      {def.routes.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">+{def.routes.length - 3}</span>
+                      {def.routes && def.routes.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">Routes:</span>
+                          {def.routes.slice(0, 3).map(r => (
+                            <code key={r} className="text-[10px] px-1 rounded bg-muted font-mono text-muted-foreground">
+                              {r}
+                            </code>
+                          ))}
+                          {def.routes.length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">+{def.routes.length - 3}</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
 
-                <div className="shrink-0 pt-0.5">
-                  <Switch
-                    checked={isEnabled}
-                    disabled={isProtected}
-                    onCheckedChange={() =>
-                      toggleFeature({
-                        id: def.key,
-                        feature_key: def.key,
-                        feature_name: def.label,
-                        is_enabled: isEnabled,
-                        description: def.description,
-                      })
-                    }
-                    className="data-[state=checked]:bg-emerald-600 cursor-pointer"
-                  />
+                    <div className="shrink-0 pt-0.5">
+                      <Switch
+                        checked={isEnabled}
+                        disabled={isProtected}
+                        onCheckedChange={() =>
+                          toggleFeature({
+                            id: def.key,
+                            feature_key: def.key,
+                            feature_name: def.label,
+                            is_enabled: isEnabled,
+                            description: def.description,
+                          })
+                        }
+                        className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          /* Menu Navigation Toggles Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredMenuToggles.map(menu => {
+              const isEnabled = getFeatureState(menu.key);
+
+              return (
+                <div
+                  key={menu.key}
+                  className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                    isEnabled
+                      ? 'bg-card border-border/80 shadow-xs'
+                      : 'bg-muted/20 border-dashed border-border/50 opacity-75'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Label
+                        className="text-xs font-bold text-foreground cursor-pointer"
+                        onClick={() =>
+                          toggleFeature({
+                            id: menu.key,
+                            feature_key: menu.key,
+                            feature_name: menu.label,
+                            is_enabled: isEnabled,
+                            description: menu.description,
+                          })
+                        }
+                      >
+                        {menu.label}
+                      </Label>
+
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-orange-500/10 text-orange-600 uppercase">
+                        {menu.section}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      {menu.description}
+                    </p>
+
+                    <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span>Target tab:</span>
+                      <code className="px-1.5 py-0.5 rounded bg-muted font-mono font-bold text-foreground">
+                        {menu.navTabId}
+                      </code>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 pt-0.5">
+                    <Switch
+                      checked={isEnabled}
+                      onCheckedChange={() =>
+                        toggleFeature({
+                          id: menu.key,
+                          feature_key: menu.key,
+                          feature_name: menu.label,
+                          is_enabled: isEnabled,
+                          description: menu.description,
+                        })
+                      }
+                      className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

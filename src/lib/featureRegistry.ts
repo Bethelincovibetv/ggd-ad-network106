@@ -217,6 +217,26 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
+    key: 'credit_wallet',
+    label: 'Credit Wallet UI',
+    group: 'Credit & Tasks Economy',
+    defaultState: true,
+    canDisable: true,
+    description: 'Display Credit Wallet balance, credit transactions, and credit funding options in headers and hubs.',
+    navTabIds: ['task-wallet', 'fund-credits'],
+    keywords: ['Credit Wallet', 'Task Wallet', 'credits balance'],
+  },
+  {
+    key: 'wallet_transfer',
+    label: 'Wallet & P2P Fund Transfer',
+    group: 'Credit & Tasks Economy',
+    defaultState: true,
+    canDisable: true,
+    description: 'Transfer funds or GGG Credits peer-to-peer between registered members using email or user ID.',
+    navTabIds: ['transfer'],
+    keywords: ['Wallet Transfer', 'Credit Transfer', 'Transfer Funds', 'P2P Transfer'],
+  },
+  {
     key: 'credit_transfer',
     label: 'P2P Credit Transfer',
     group: 'Credit & Tasks Economy',
@@ -356,6 +376,23 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     keywords: [
       'Referral Chat',
       'Promoter Chat',
+    ],
+  },
+  {
+    key: 'save_favorite',
+    label: 'Saved Items & Favorites',
+    group: 'Community & Messaging',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allow users to save ads, products, storefronts, and posts to their personal bookmarks and wishlist.',
+    navTabIds: ['favorites', 'saved'],
+    routes: ['/favorites'],
+    keywords: [
+      'Saved Items',
+      'Favorites',
+      'Save Favorite',
+      'Bookmark',
+      'Wishlist',
     ],
   },
 
@@ -587,6 +624,185 @@ FEATURE_REGISTRY.forEach(f => {
   FEATURE_REGISTRY_MAP[f.key] = f;
 });
 
+export type MenuSection = 'Main Navigation' | 'Work & Growth' | 'Discover & Market' | 'Help & Account';
+
+export interface MenuToggleDefinition {
+  key: string;
+  label: string;
+  section: MenuSection;
+  defaultState: boolean;
+  description: string;
+  navTabId: string;
+}
+
+export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
+  {
+    key: 'nav_home',
+    label: 'Home Dashboard',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Home overview',
+    navTabId: 'ads',
+  },
+  {
+    key: 'nav_vixora_ai',
+    label: 'Vixora AI Creator',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Vixora AI Video Creator Suite',
+    navTabId: 'vixora-creator',
+  },
+  {
+    key: 'nav_feed',
+    label: 'Community Feed',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Social Community Discussions',
+    navTabId: 'feed',
+  },
+  {
+    key: 'nav_credit_tasks',
+    label: 'Credit Tasks',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Social Credit Earn Tasks',
+    navTabId: 'tasks',
+  },
+  {
+    key: 'nav_campaigns',
+    label: 'Banner Ads',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Commercial Banner Ad Campaigns',
+    navTabId: 'campaigns',
+  },
+  {
+    key: 'nav_airtime_redeem',
+    label: 'Redeem Airtime & Data',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Instant Airtime & Data Redemption',
+    navTabId: 'redeem-airtime',
+  },
+  {
+    key: 'nav_wallet',
+    label: 'Wallet Hub',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Cash & Credit Wallet Management',
+    navTabId: 'wallet',
+  },
+  {
+    key: 'nav_inbox',
+    label: 'GGD Inbox',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for Direct Messaging & Audio Calls',
+    navTabId: 'inbox',
+  },
+  {
+    key: 'nav_profile',
+    label: 'My Profile',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Main navigation item for User Profile & Account Settings',
+    navTabId: 'profile',
+  },
+  {
+    key: 'nav_my_business',
+    label: 'My Business',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for Merchant Storefront & Business Workspace',
+    navTabId: 'my-business',
+  },
+  {
+    key: 'nav_growth',
+    label: 'Business Growth',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for Business Analytics & Revenue Growth',
+    navTabId: 'growth',
+  },
+  {
+    key: 'nav_syndicate',
+    label: 'Syndicate Hub / Campaigns',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for Syndicate Campaigns & Promoter Hub',
+    navTabId: 'syndicate',
+  },
+  {
+    key: 'nav_favorites',
+    label: 'Saved & Favorites',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Bookmarked Ads, Storefronts & Posts',
+    navTabId: 'favorites',
+  },
+  {
+    key: 'nav_contact_gain',
+    label: 'Contact Gain Hub',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Contact Exchange & WhatsApp Audience Growth',
+    navTabId: 'contact-gain',
+  },
+  {
+    key: 'nav_share_earn',
+    label: 'Share & Earn',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Referral Network & Viral Promotion',
+    navTabId: 'share-earn',
+  },
+  {
+    key: 'nav_marketplace',
+    label: 'Marketing Tools Marketplace',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Growth Apps & Marketing Plugins',
+    navTabId: 'marketplace',
+  },
+  {
+    key: 'nav_directory',
+    label: 'Business Directory',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Accredited Business Listings',
+    navTabId: 'directory',
+  },
+  {
+    key: 'nav_api_keys',
+    label: 'API Keys',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for Developer Integration API Keys',
+    navTabId: 'api-keys',
+  },
+  {
+    key: 'nav_guide',
+    label: 'GGD User Guide',
+    section: 'Help & Account',
+    defaultState: true,
+    description: 'Help navigation item for Step-by-Step Guides & Manuals',
+    navTabId: 'guide',
+  },
+  {
+    key: 'nav_about',
+    label: 'About GGD',
+    section: 'Help & Account',
+    defaultState: true,
+    description: 'Help navigation item for Platform Info & Legal Terms',
+    navTabId: 'about',
+  },
+];
+
+export const MENU_TOGGLE_MAP: Record<string, MenuToggleDefinition> = {};
+MENU_TOGGLE_REGISTRY.forEach(m => {
+  MENU_TOGGLE_MAP[m.key] = m;
+});
+
 /**
  * WhatsApp Syndicate Focus Preset:
  * Turns OFF everything EXCEPT:
@@ -610,6 +826,8 @@ export const WHATSAPP_SYNDICATE_FOCUS_PRESET: Record<string, boolean> = {
   watch_and_earn: false,
   youtube_boost: false,
   task_wallet: false,
+  credit_wallet: false,
+  wallet_transfer: false,
   credit_transfer: false,
   credit_airtime_redeem: false,
   business_directory: false,
@@ -619,6 +837,7 @@ export const WHATSAPP_SYNDICATE_FOCUS_PRESET: Record<string, boolean> = {
   community_feed: false,
   chat_and_calls: false,
   referral_chat: false,
+  save_favorite: false,
   blogmate_ai: false,
   vixora_ai_studio: false,
   ebook_generator: false,
@@ -657,6 +876,13 @@ export const isFeatureEnabled = (
   if (toggles[key] !== undefined) {
     return Boolean(toggles[key]);
   }
+
+  // Check menu toggles
+  const menuDef = MENU_TOGGLE_MAP[key];
+  if (menuDef && toggles[key] !== undefined) {
+    return Boolean(toggles[key]);
+  }
+
   // Check backward compatible aliases
   if (key === 'banner_ads' && toggles['ads'] !== undefined) return Boolean(toggles['ads']);
   if (key === 'credit_tasks' && toggles['tasks'] !== undefined) return Boolean(toggles['tasks']);
@@ -667,7 +893,14 @@ export const isFeatureEnabled = (
   if (key === 'vixora_ai_studio' && toggles['vixora_ai'] !== undefined) return Boolean(toggles['vixora_ai']);
   if (key === 'chat_and_calls' && toggles['p2p_chat'] !== undefined) return Boolean(toggles['p2p_chat']);
   if (key === 'premium_vip_upgrade' && toggles['premium_upgrade'] !== undefined) return Boolean(toggles['premium_upgrade']);
+  if ((key === 'save_favorite' || key === 'favorites') && toggles['save_favorite'] !== undefined) return Boolean(toggles['save_favorite']);
+  if ((key === 'save_favorite' || key === 'favorites') && toggles['favorites'] !== undefined) return Boolean(toggles['favorites']);
+  if ((key === 'wallet_transfer' || key === 'credit_transfer') && toggles['wallet_transfer'] !== undefined) return Boolean(toggles['wallet_transfer']);
+  if ((key === 'wallet_transfer' || key === 'credit_transfer') && toggles['credit_transfer'] !== undefined) return Boolean(toggles['credit_transfer']);
+  if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['credit_wallet'] !== undefined) return Boolean(toggles['credit_wallet']);
+  if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['task_wallet'] !== undefined) return Boolean(toggles['task_wallet']);
 
+  if (menuDef) return menuDef.defaultState;
   return def ? def.defaultState : true;
 };
 

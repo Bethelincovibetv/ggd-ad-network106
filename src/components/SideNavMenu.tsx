@@ -43,40 +43,40 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home' }] : []),
-    ...(isEnabled('vixora_ai_studio') && isEnabled('vixora_ai') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI Creator' }] : []),
-    ...(isEnabled('community_feed') && isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
-    ...(isEnabled('credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') && isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
-    ...(isEnabled('banner_ads') && isEnabled('ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
-    ...(isEnabled('credit_airtime_redeem') && isEnabled('airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime & Data' }] : []),
+    ...(isEnabled('vixora_ai_studio') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI Creator' }] : []),
+    ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
+    ...(isEnabled('credit_tasks') && isEnabled('nav_credit_tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
+    ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
+    ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime & Data' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
-    ...(isEnabled('chat_and_calls') && isEnabled('p2p_chat') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
+    ...(isEnabled('chat_and_calls') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
-    ...(isEnabled('premium_vip_upgrade') && isEnabled('premium_upgrade') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
+    ...(isEnabled('premium_vip_upgrade') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
   ];
 
   const work = [
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
-    { id: 'growth', icon: Rocket, label: 'Business Growth' },
-    ...(isEnabled('business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
-    ...(isEnabled('syndicate') ? (isSyndicate ? [
+    ...(isEnabled('nav_growth') ? [{ id: 'growth', icon: Rocket, label: 'Business Growth' }] : []),
+    ...(isEnabled('syndicate_core') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('nav_syndicate') ? (isSyndicate ? [
       { id: 'syndicate', icon: Users, label: 'Syndicate Hub' },
     ] : [
       { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
     ]) : []),
-    ...(!isBusiness && !isSyndicate && isEnabled('co_owner_upgrade') && isEnabled('nav_business_details') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
+    ...(!isBusiness && !isSyndicate && isEnabled('co_owner_upgrade') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
   ];
 
   const discover = [
-    { id: 'favorites', icon: Heart, label: 'Saved & Favorites' },
-    ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
-    ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
-    ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
-    ...(isEnabled('business_directory') && isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
-    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
+    ...((isEnabled('save_favorite') || isEnabled('favorites')) && isEnabled('nav_favorites') ? [{ id: 'favorites', icon: Heart, label: 'Saved & Favorites' }] : []),
+    ...(isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
+    ...(isEnabled('nav_share_earn') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
+    ...(isEnabled('marketing_apps_marketplace') && isEnabled('nav_marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
+    ...(isEnabled('business_directory') && isEnabled('nav_directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
+    ...((isPremium || isAdmin) && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
   const help = [
-    ...(isEnabled('quick_guide') && isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
+    ...(isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];
 

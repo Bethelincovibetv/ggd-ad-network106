@@ -103,6 +103,9 @@ function isServerFeatureEnabled(key: string, toggles: Record<string, boolean>): 
     'vixora_ai_studio': 'vixora_ai',
     'chat_and_calls': 'p2p_chat',
     'premium_vip_upgrade': 'premium_upgrade',
+    'wallet_transfer': 'credit_transfer',
+    'credit_wallet': 'task_wallet',
+    'save_favorite': 'favorites',
   };
   const alias = legacyAliases[key];
   if (alias && toggles[alias] !== undefined) return toggles[alias] === true;
@@ -120,6 +123,10 @@ app.use(async (req, res, next) => {
     requiredFeature = 'credit_airtime_redeem';
   } else if (path.startsWith('/api/chat') || path.startsWith('/api/calls')) {
     requiredFeature = 'chat_and_calls';
+  } else if (path.startsWith('/api/transfer')) {
+    requiredFeature = 'wallet_transfer';
+  } else if (path.startsWith('/api/favorite')) {
+    requiredFeature = 'save_favorite';
   } else if (path.startsWith('/api/digital-products')) {
     requiredFeature = 'digital_products_store';
   } else if (path.startsWith('/api/realtime-search')) {

@@ -1105,7 +1105,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       case 'saved':
       case 'wishlist':
       case 'bookmarks':
-        return <FavoritesPage onNavigateTab={handleTabChange} />;
+        return (isEnabled('save_favorite') || isEnabled('favorites')) ? <FavoritesPage onNavigateTab={handleTabChange} /> : disabled;
 
       case 'directory':
         return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
