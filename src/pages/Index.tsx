@@ -69,10 +69,10 @@ const Index = () => {
       }
     });
 
-    // Safety timeout: prevent indefinite spinner (fast 400ms timeout)
+    // Safety timeout: prevent indefinite spinner (fast 250ms timeout)
     const timer = setTimeout(() => {
       if (mounted) setLoading(false);
-    }, 400);
+    }, 250);
 
     return () => {
       mounted = false;
@@ -98,8 +98,9 @@ const Index = () => {
 
   if (loading && !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground space-y-3">
+        <div className="animate-spin h-9 w-9 border-4 border-orange-500 border-t-transparent rounded-full shadow-md" />
+        <p className="text-xs font-semibold text-muted-foreground animate-pulse">Loading GGD Ad Network…</p>
       </div>
     );
   }

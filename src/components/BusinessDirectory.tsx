@@ -128,8 +128,11 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
 
   const fetchData = async () => {
     try {
-      const [bizRes, catRes, costRes, listRes] = await Promise.all([
+      const [bizRes, profRes, catRes, costRes, listRes] = await Promise.all([
         (supabase.from('business_profiles') as any).select('*'),
+        (supabase.from('profiles') as any)
+          .select('id, user_id, display_name, business_name, business_description, business_logo_url, business_category, industry, state, business_location, business_phone, business_website, business_slug, avatar_url, is_verified, verification_status')
+          .not('business_name', 'is', null),
         (supabase.from('business_categories') as any).select('*').eq('is_active', true).order('sort_order'),
         supabase.from('app_settings').select('value').eq('key', 'directory_listing_cost').maybeSingle(),
         (supabase.from('business_listings') as any)
@@ -139,12 +142,45 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
       ]);
 
       const loadedCats = catRes.data || [];
-      const allBiz = (bizRes.data || []).filter((b: any) => b.is_directory_listed !== false);
+
+      // Map profiles with business_name into unified business profiles
+      const profileBusinesses = (profRes.data || [])
+        .filter((p: any) => p.business_name && p.business_name.trim().length > 0)
+        .map((p: any) => ({
+          id: p.id || p.user_id,
+          user_id: p.user_id,
+          business_name: p.business_name,
+          description: p.business_description,
+          logo_url: p.business_logo_url || p.avatar_url,
+          category_id: p.business_category || p.industry,
+          category: p.business_category || p.industry,
+          state: p.state || (p.business_location ? extractStateFromLocation(p.business_location) : null),
+          address: p.business_location || 'Nigeria',
+          phone_number: p.business_phone,
+          website_link: p.business_website,
+          slug: p.business_slug,
+          is_directory_listed: true,
+          is_verified: p.is_verified || p.verification_status === 'VERIFIED',
+          source: 'profile',
+        }));
+
+      const rawBiz = bizRes.data || [];
       const bizMap = new Map<string, any>();
-      allBiz.forEach((b: any) => {
-        if (b.id) bizMap.set(b.id, b);
+
+      // Index profile businesses
+      profileBusinesses.forEach((b: any) => {
         if (b.user_id) bizMap.set(b.user_id, b);
+        if (b.id) bizMap.set(b.id, b);
       });
+
+      // Overlay explicit business_profiles table entries
+      rawBiz.forEach((b: any) => {
+        if (b.user_id) bizMap.set(b.user_id, { ...bizMap.get(b.user_id), ...b });
+        else if (b.id) bizMap.set(b.id, b);
+      });
+
+      const allBiz = Array.from(new Set(bizMap.values()))
+        .filter((b: any) => b.is_directory_listed !== false && b.business_name);
 
       // Format real database listings
       const rawDbListings = listRes.data || [];
@@ -1188,12 +1224,17 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
                             <span className="text-[10px] font-semibold text-muted-foreground">Inquiry</span>
                           )}
 
-                          <button
-                            onClick={() => navigate(`/product/${l.id}`)}
-                            className="text-[10px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-0.5 cursor-pointer"
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/product/${l.id}`);
+                            }}
+                            className="h-8 px-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1 cursor-pointer"
                           >
-                            View →
-                          </button>
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>View Details</span>
+                          </Button>
                         </div>
                       </div>
                     </div>

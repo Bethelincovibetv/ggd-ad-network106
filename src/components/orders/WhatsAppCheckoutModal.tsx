@@ -38,6 +38,8 @@ import {
   Send,
   Loader2,
   Store,
+  ChevronUp,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -109,10 +111,14 @@ export const WhatsAppCheckoutModal: React.FC<WhatsAppCheckoutModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   // Auto-fill customer details from logged in profile
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setIsMinimized(false);
+      return;
+    }
 
     // Reset quantity to 1 when modal opens
     setQuantity(1);
@@ -233,29 +239,44 @@ export const WhatsAppCheckoutModal: React.FC<WhatsAppCheckoutModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border border-border/80 shadow-2xl bg-card">
-        {/* Header with WhatsApp Emerald Branding */}
-        <div className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 p-5 text-white sticky top-0 z-10 shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur border border-white/30 grid place-items-center shadow-inner">
-                <MessageCircle className="h-5 w-5 text-white" />
+    <>
+      <Dialog open={isOpen && !isMinimized} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border border-border/80 shadow-2xl bg-card">
+          {/* Header with WhatsApp Emerald Branding */}
+          <div className="bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 p-5 text-white sticky top-0 z-10 shadow-md">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur border border-white/30 grid place-items-center shadow-inner shrink-0">
+                  <MessageCircle className="h-5 w-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-1.5 flex-wrap">
+                    <span>WhatsApp Instant Checkout</span>
+                    <Badge className="bg-white/25 text-white text-[10px] font-black border-0">
+                      DIRECT TO SELLER
+                    </Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-white/80 font-medium truncate">
+                    Autofills item, quantities & delivery details directly to merchant.
+                  </DialogDescription>
+                </div>
               </div>
-              <div>
-                <DialogTitle className="text-lg font-black text-white tracking-tight flex items-center gap-1.5">
-                  WhatsApp Instant Checkout
-                  <Badge className="bg-white/25 text-white text-[10px] font-black border-0">
-                    DIRECT TO SELLER
-                  </Badge>
-                </DialogTitle>
-                <DialogDescription className="text-xs text-white/80 font-medium">
-                  Autofills item, quantities & delivery details directly to the merchant.
-                </DialogDescription>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMinimized(true)}
+                  className="h-8 px-2.5 text-white hover:bg-white/20 rounded-xl text-xs font-bold gap-1 border border-white/25 cursor-pointer"
+                  title="Minimize order and keep browsing"
+                >
+                  <Minus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Minimize</span>
+                </Button>
               </div>
             </div>
           </div>
-        </div>
 
         <div className="p-5 sm:p-6 space-y-5">
           {/* Product Summary Card */}
@@ -521,7 +542,63 @@ export const WhatsAppCheckoutModal: React.FC<WhatsAppCheckoutModalProps> = ({
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      {/* Minimized Floating Order Dock */}
+      {isOpen && isMinimized && (
+        <aside
+          aria-label="Minimized WhatsApp order"
+          className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-[9999] animate-in slide-in-from-bottom-5 duration-300"
+        >
+          <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-2.5 px-4 rounded-2xl shadow-2xl border-2 border-emerald-400/50 backdrop-blur-md">
+            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
+              <MessageCircle className="h-5 w-5 text-white" />
+            </div>
+
+            <div
+              role="button"
+              tabIndex={0}
+              className="min-w-0 max-w-[190px] sm:max-w-xs cursor-pointer text-left focus:outline-hidden"
+              onClick={() => setIsMinimized(false)}
+              onKeyDown={(e) => e.key === 'Enter' && setIsMinimized(false)}
+            >
+              <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-200">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping" />
+                <span>Active WhatsApp Order</span>
+              </div>
+              <p className="text-xs font-black truncate">{product.title}</p>
+              <p className="text-[11px] font-bold text-white/90">
+                {unitPrice > 0 ? `₦${(unitPrice * quantity).toLocaleString()} (${quantity}x)` : 'Pending details'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 ml-2 shrink-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsMinimized(false)}
+                className="h-8 px-2.5 bg-white text-emerald-700 hover:bg-emerald-50 text-xs font-black rounded-xl shadow-xs cursor-pointer"
+              >
+                <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                Resume
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setIsMinimized(false);
+                  onClose();
+                }}
+                className="h-8 w-8 p-0 text-white/80 hover:text-white hover:bg-white/20 rounded-xl cursor-pointer"
+                title="Discard order"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </aside>
+      )}
+    </>
   );
 };
 

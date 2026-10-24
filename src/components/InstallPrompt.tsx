@@ -10,38 +10,80 @@ const DISMISSED_KEY = 'ggd-install-dismissed-permanent';
 const MINIMIZED_KEY = 'ggd-install-minimized';
 const SNOOZE_HOURS = 72; // If dismissed, snooze for 3 days
 
+const safeGet = (key: string): string | null => {
+  try {
+    return typeof window !== 'undefined' && window.localStorage ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+};
+
+const safeSet = (key: string, val: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) localStorage.setItem(key, val);
+  } catch {}
+};
+
+const safeRemove = (key: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) localStorage.removeItem(key);
+  } catch {}
+};
+
+const safeSessionGet = (key: string): string | null => {
+  try {
+    return typeof window !== 'undefined' && window.sessionStorage ? sessionStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+};
+
+const safeSessionSet = (key: string, val: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) sessionStorage.setItem(key, val);
+  } catch {}
+};
+
+const safeSessionRemove = (key: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) sessionStorage.removeItem(key);
+  } catch {}
+};
+
 export const isAppInstalled = (): boolean => {
   if (typeof window === 'undefined') return false;
 
-  // 1. Explicitly recorded install in localStorage
-  if (localStorage.getItem(INSTALLED_KEY) === 'true') {
-    return true;
-  }
+  try {
+    // 1. Explicitly recorded install in localStorage
+    if (safeGet(INSTALLED_KEY) === 'true') {
+      return true;
+    }
 
-  // 2. Display mode checks (Desktop PWA, Android Chrome PWA, Edge PWA)
-  const isDisplayStandalone = 
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.matchMedia?.('(display-mode: fullscreen)').matches ||
-    window.matchMedia?.('(display-mode: minimal-ui)').matches ||
-    window.matchMedia?.('(display-mode: window-controls-overlay)').matches;
+    // 2. Display mode checks (Desktop PWA, Android Chrome PWA, Edge PWA)
+    const isDisplayStandalone = 
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.matchMedia?.('(display-mode: fullscreen)').matches ||
+      window.matchMedia?.('(display-mode: minimal-ui)').matches ||
+      window.matchMedia?.('(display-mode: window-controls-overlay)').matches;
 
-  if (isDisplayStandalone) {
-    localStorage.setItem(INSTALLED_KEY, 'true');
-    return true;
-  }
+    if (isDisplayStandalone) {
+      safeSet(INSTALLED_KEY, 'true');
+      return true;
+    }
 
-  // 3. iOS WebKit standalone flag
-  // @ts-ignore
-  if (window.navigator?.standalone === true) {
-    localStorage.setItem(INSTALLED_KEY, 'true');
-    return true;
-  }
+    // 3. iOS WebKit standalone flag
+    // @ts-ignore
+    if (window.navigator?.standalone === true) {
+      safeSet(INSTALLED_KEY, 'true');
+      return true;
+    }
 
-  // 4. Android TWA / app wrapper referrer
-  if (typeof document !== 'undefined' && document.referrer?.includes('android-app://')) {
-    localStorage.setItem(INSTALLED_KEY, 'true');
-    return true;
-  }
+    // 4. Android TWA / app wrapper referrer
+    if (typeof document !== 'undefined' && document.referrer?.includes('android-app://')) {
+      safeSet(INSTALLED_KEY, 'true');
+      return true;
+    }
+  } catch {}
 
   return false;
 };
@@ -67,7 +109,7 @@ const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
-    return typeof window !== 'undefined' && localStorage.getItem(MINIMIZED_KEY) === 'true';
+    return safeGet(MINIMIZED_KEY) === 'true';
   });
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [isInstalledState, setIsInstalledState] = useState<boolean>(() => isAppInstalled());
@@ -84,9 +126,9 @@ const InstallPrompt = () => {
 
     const checkPromptNeeded = () => {
       if (isAppInstalled()) return false;
-      if (localStorage.getItem(DISMISSED_KEY) === 'true') return false;
-      if (sessionStorage.getItem('ggd_install_session_dismissed') === 'true') return false;
-      const snoozeUntil = Number(localStorage.getItem(SNOOZE_KEY) || 0);
+      if (safeGet(DISMISSED_KEY) === 'true') return false;
+      if (safeSessionGet('ggd_install_session_dismissed') === 'true') return false;
+      const snoozeUntil = Number(safeGet(SNOOZE_KEY) || 0);
       const snoozed = snoozeUntil && Date.now() < snoozeUntil;
       return !snoozed;
     };
@@ -102,9 +144,9 @@ const InstallPrompt = () => {
     };
 
     const handleCustomTrigger = () => {
-      localStorage.removeItem(DISMISSED_KEY);
-      sessionStorage.removeItem('ggd_install_session_dismissed');
-      localStorage.removeItem(MINIMIZED_KEY);
+      safeRemove(DISMISSED_KEY);
+      safeSessionRemove('ggd_install_session_dismissed');
+      safeRemove(MINIMIZED_KEY);
       setIsMinimized(false);
       if (isAppInstalled()) {
         setIsInstalledState(true);
@@ -198,7 +240,7 @@ const InstallPrompt = () => {
         setShowPrompt(false);
         setShowIosHelp(false);
         setIsMinimized(false);
-        localStorage.removeItem(MINIMIZED_KEY);
+        safeRemove(MINIMIZED_KEY);
         toast.success("Installing GGD Ad Network app...");
       }
       setDeferredPrompt(null);
@@ -211,21 +253,21 @@ const InstallPrompt = () => {
     setShowPrompt(false);
     setShowIosHelp(false);
     setIsMinimized(false);
-    sessionStorage.setItem('ggd_install_session_dismissed', 'true');
-    localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_HOURS * 3600 * 1000));
-    localStorage.setItem(DISMISSED_KEY, 'true');
-    localStorage.removeItem(MINIMIZED_KEY);
+    safeSessionSet('ggd_install_session_dismissed', 'true');
+    safeSet(SNOOZE_KEY, String(Date.now() + SNOOZE_HOURS * 3600 * 1000));
+    safeSet(DISMISSED_KEY, 'true');
+    safeRemove(MINIMIZED_KEY);
   };
 
   const handleMinimize = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setIsMinimized(true);
-    localStorage.setItem(MINIMIZED_KEY, 'true');
+    safeSet(MINIMIZED_KEY, 'true');
   };
 
   const handleRestore = () => {
     setIsMinimized(false);
-    localStorage.removeItem(MINIMIZED_KEY);
+    safeRemove(MINIMIZED_KEY);
   };
 
   if (isInstalledState || !showPrompt) return null;

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe,
-  MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown,
+  MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown, Eye,
   ShoppingBag, Share2, Mail, Play, Menu, X, Home, Info, ShieldCheck, ChevronRight,
   Clock, PackageCheck, Palette, Megaphone
 } from 'lucide-react';
@@ -1061,9 +1061,10 @@ const UserProfilePublicPage: React.FC = () => {
                             <Button
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                              className={`${activeTemplate.primaryBtn} text-xs h-10 px-3.5 rounded-xl`}
+                              className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-sm cursor-pointer"
                             >
-                              Details
+                              <Eye className="h-4 w-4" />
+                              <span>View Details</span>
                             </Button>
                           </div>
                         </div>
@@ -1166,9 +1167,10 @@ const UserProfilePublicPage: React.FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                            className="w-full border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs"
+                            className="w-full border-orange-500/30 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs cursor-pointer"
                           >
-                            Details →
+                            <Eye className="h-3.5 w-3.5 text-orange-600" />
+                            <span>View Details</span>
                           </Button>
                         </div>
                       </div>

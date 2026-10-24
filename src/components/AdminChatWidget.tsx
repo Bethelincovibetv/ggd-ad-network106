@@ -31,7 +31,14 @@ const AdminChatWidget = () => {
     window.addEventListener('ggd-open-support-chat', openHandler);
 
     // Show contextual recommendation notification once per session if not dismissed
-    const isDismissed = localStorage.getItem('ggd_chat_recommendation_dismissed') || sessionStorage.getItem('ggd_chat_recommendation_dismissed');
+    let isDismissed = false;
+    try {
+      isDismissed = Boolean(
+        (typeof window !== 'undefined' && window.localStorage?.getItem('ggd_chat_recommendation_dismissed')) ||
+        (typeof window !== 'undefined' && window.sessionStorage?.getItem('ggd_chat_recommendation_dismissed'))
+      );
+    } catch {}
+
     if (!isDismissed) {
       const timer = setTimeout(() => {
         setShowRecommendation(true);
@@ -56,8 +63,14 @@ const AdminChatWidget = () => {
 
   const dismissRecommendation = () => {
     setShowRecommendation(false);
-    localStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
-    sessionStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
+      }
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.setItem('ggd_chat_recommendation_dismissed', 'true');
+      }
+    } catch {}
   };
 
   const quickMessages = [

@@ -150,13 +150,19 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
         <CardContent className="p-3.5 sm:p-4">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Visual Thumbnail */}
-            <div className="relative h-24 w-full sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-muted flex-shrink-0">
+            <div 
+              role="button"
+              tabIndex={0}
+              onClick={() => window.open(`/product/${item.id}`, '_blank')}
+              className="relative h-24 w-full sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-muted flex-shrink-0 cursor-pointer group/thumb focus:outline-hidden"
+              title="Click to view product details"
+            >
               {item.image_url ? (
                 <img
                   loading="lazy"
                   src={item.image_url}
                   alt={item.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-muted to-muted/60 text-muted-foreground/60">
@@ -194,7 +200,11 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="font-bold text-sm sm:text-base text-foreground truncate max-w-full">
+                      <h4 
+                        onClick={() => window.open(`/product/${item.id}`, '_blank')}
+                        className="font-bold text-sm sm:text-base text-foreground truncate max-w-full cursor-pointer hover:text-orange-600 transition-colors"
+                        title="Click to view product details"
+                      >
                         {item.title}
                       </h4>
                       {isFeatured && (
@@ -253,12 +263,13 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
 
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="outline"
                     onClick={() => window.open(`/product/${item.id}`, '_blank')}
-                    className="h-9 px-2.5 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-xl"
+                    className="h-9 px-3 text-xs font-bold gap-1.5 text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 rounded-xl shadow-xs cursor-pointer"
+                    title="View public product details page"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Preview
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>View Details</span>
                   </Button>
                 </div>
 

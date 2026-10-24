@@ -12,6 +12,40 @@ const NOTIF_MINIMIZED_KEY = 'ggd-notif-prompt-minimized';
 const SNOOZE_HOURS = 72; // Don't annoy user for 3 days if dismissed
 const BONUS_CREDITS = 50;
 
+const safeGet = (key: string): string | null => {
+  try {
+    return typeof window !== 'undefined' && window.localStorage ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+};
+
+const safeSet = (key: string, val: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) localStorage.setItem(key, val);
+  } catch {}
+};
+
+const safeRemove = (key: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) localStorage.removeItem(key);
+  } catch {}
+};
+
+const safeSessionGet = (key: string): string | null => {
+  try {
+    return typeof window !== 'undefined' && window.sessionStorage ? sessionStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+};
+
+const safeSessionSet = (key: string, val: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) sessionStorage.setItem(key, val);
+  } catch {}
+};
+
 export const triggerPushNotificationPrompt = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('ggd-trigger-notif-prompt'));
@@ -29,7 +63,7 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
 }) => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
-    return typeof window !== 'undefined' && localStorage.getItem(NOTIF_MINIMIZED_KEY) === 'true';
+    return safeGet(NOTIF_MINIMIZED_KEY) === 'true';
   });
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(propUserId);
@@ -65,15 +99,15 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
     resolveUser();
 
     const checkShouldShow = () => {
-      const isPermanentlyDismissed = localStorage.getItem(NOTIF_DISMISSED_KEY) === 'true';
+      const isPermanentlyDismissed = safeGet(NOTIF_DISMISSED_KEY) === 'true';
       if (isPermanentlyDismissed) return false;
 
-      const isSessionDismissed = sessionStorage.getItem('ggd_push_session_dismissed') === 'true';
+      const isSessionDismissed = safeSessionGet('ggd_push_session_dismissed') === 'true';
       if (isSessionDismissed) return false;
 
-      const snoozeUntil = Number(localStorage.getItem(NOTIF_SNOOZE_KEY) || 0);
+      const snoozeUntil = Number(safeGet(NOTIF_SNOOZE_KEY) || 0);
       const isSnoozed = snoozeUntil && Date.now() < snoozeUntil;
-      const alreadyAccepted = localStorage.getItem('ggd_push_registered') === 'true';
+      const alreadyAccepted = safeGet('ggd_push_registered') === 'true';
       return !isSnoozed && !alreadyAccepted && Notification.permission === 'default';
     };
 
@@ -87,9 +121,9 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
     }
 
     const handleCustomPromptTrigger = () => {
-      localStorage.removeItem(NOTIF_DISMISSED_KEY);
-      sessionStorage.removeItem('ggd_push_session_dismissed');
-      localStorage.removeItem(NOTIF_MINIMIZED_KEY);
+      safeRemove(NOTIF_DISMISSED_KEY);
+      safeSessionRemove('ggd_push_session_dismissed');
+      safeRemove(NOTIF_MINIMIZED_KEY);
       setIsMinimized(false);
       setShowPrompt(true);
     };
@@ -178,21 +212,21 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
   const handleDismiss = () => {
     setShowPrompt(false);
     setIsMinimized(false);
-    sessionStorage.setItem('ggd_push_session_dismissed', 'true');
-    localStorage.setItem(NOTIF_SNOOZE_KEY, String(Date.now() + SNOOZE_HOURS * 3600 * 1000));
-    localStorage.setItem(NOTIF_DISMISSED_KEY, 'true');
-    localStorage.removeItem(NOTIF_MINIMIZED_KEY);
+    safeSessionSet('ggd_push_session_dismissed', 'true');
+    safeSet(NOTIF_SNOOZE_KEY, String(Date.now() + SNOOZE_HOURS * 3600 * 1000));
+    safeSet(NOTIF_DISMISSED_KEY, 'true');
+    safeRemove(NOTIF_MINIMIZED_KEY);
   };
 
   const handleMinimize = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setIsMinimized(true);
-    localStorage.setItem(NOTIF_MINIMIZED_KEY, 'true');
+    safeSet(NOTIF_MINIMIZED_KEY, 'true');
   };
 
   const handleRestore = () => {
     setIsMinimized(false);
-    localStorage.removeItem(NOTIF_MINIMIZED_KEY);
+    safeRemove(NOTIF_MINIMIZED_KEY);
   };
 
   if (permissionGranted || !showPrompt) return null;
