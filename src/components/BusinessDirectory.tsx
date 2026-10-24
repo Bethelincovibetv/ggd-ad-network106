@@ -262,6 +262,22 @@ const BusinessDirectory = ({ isBusiness, onRequireAuth, hideCarousel = false }: 
       }
       return;
     }
+
+    const { data: prof } = await supabase.from('profiles').select('is_verified, verification_status').eq('user_id', user.id).maybeSingle();
+    const { data: bProf } = await (supabase.from('business_profiles') as any).select('is_verified').eq('user_id', user.id).maybeSingle();
+    const verifRec = verificationsMap.get(user.id);
+    const userVerified = Boolean(
+      prof?.is_verified === true ||
+      prof?.verification_status === 'VERIFIED' ||
+      bProf?.is_verified === true ||
+      (verifRec?.status === 'VERIFIED' && verifRec?.verified_badge_granted)
+    );
+
+    if (!userVerified) {
+      toast.error("Business verification required! You must verify your business with NIN or CAC before listing in the directory.");
+      setSubscribing(false);
+      return;
+    }
     if (directoryCost > 0) {
       const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).single();
       if (!profile || profile.credits < directoryCost) {

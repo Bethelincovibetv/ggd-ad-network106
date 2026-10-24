@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { NewFavoriteInput, FavoriteType } from '@/types/favorites';
 
 interface FavoriteButtonProps {
@@ -37,7 +38,14 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   className = '',
   iconType = 'heart',
 }) => {
+  const { isEnabled } = useFeatureToggles();
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  // If the admin switches off Save Favorite, hide button completely platform-wide
+  if (!isEnabled('save_favorite') || !isEnabled('favorites')) {
+    return null;
+  }
+
   const saved = isFavorite(item.targetId, item.type);
 
   const handleClick = (e: React.MouseEvent) => {

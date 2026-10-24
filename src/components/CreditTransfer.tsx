@@ -38,6 +38,8 @@ import {
   TransferRecord,
 } from "@/services/transferService";
 
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+
 interface CreditTransferProps {
   credits: number;
   onCreditsUpdate: (credits: number) => void;
@@ -47,6 +49,9 @@ interface CreditTransferProps {
 type TransferStep = 'recipient' | 'amount' | 'review' | 'success';
 
 const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferProps) => {
+  const { isEnabled } = useFeatureToggles();
+  const isTransferEnabled = isEnabled('wallet_transfer') && isEnabled('credit_transfer');
+
   // Step State
   const [step, setStep] = useState<TransferStep>('recipient');
 
@@ -305,6 +310,22 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
     navigator.clipboard.writeText(text);
     toast.success('Transfer receipt copied to clipboard!');
   };
+
+  if (!isTransferEnabled) {
+    return (
+      <Card className="border-border/70">
+        <CardContent className="p-8 text-center space-y-3">
+          <div className="h-12 w-12 rounded-2xl bg-purple-500/10 text-purple-600 mx-auto flex items-center justify-center">
+            <Send className="h-6 w-6" />
+          </div>
+          <h3 className="font-bold text-base text-foreground">Wallet Transfers Disabled</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Peer-to-peer wallet and credit transfers are currently disabled by platform administration.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">

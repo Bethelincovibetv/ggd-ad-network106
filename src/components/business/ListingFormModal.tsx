@@ -18,6 +18,8 @@ interface ListingFormModalProps {
   businessProfileId: string;
   userId: string;
   onSaved: () => void;
+  isVerified?: boolean;
+  onVerify?: () => void;
 }
 
 export const ListingFormModal: React.FC<ListingFormModalProps> = ({
@@ -28,6 +30,8 @@ export const ListingFormModal: React.FC<ListingFormModalProps> = ({
   businessProfileId,
   userId,
   onSaved,
+  isVerified = true,
+  onVerify,
 }) => {
   const isService = listingType === 'service';
   const isEditing = !!editingItem;
@@ -126,6 +130,12 @@ export const ListingFormModal: React.FC<ListingFormModalProps> = ({
 
     setSaving(true);
     try {
+      if (isVerified === false) {
+        toast.error("Business verification required: You must verify your business with NIN or CAC before creating or updating listings.");
+        if (onVerify) onVerify();
+        setSaving(false);
+        return;
+      }
       const numPrice = price.trim() === '' ? 0 : parseFloat(price);
       const payload: any = {
         title: title.trim().slice(0, 150),

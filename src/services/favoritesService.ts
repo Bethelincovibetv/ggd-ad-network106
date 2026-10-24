@@ -49,10 +49,25 @@ export const isFavorite = (targetId: string, type?: FavoriteType): boolean => {
   });
 };
 
+const isFavoritesFeatureDisabled = (): boolean => {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('ggd_feature_toggles_v1') : null;
+    if (raw) {
+      const toggles = JSON.parse(raw);
+      if (toggles.save_favorite === false || toggles.favorites === false) return true;
+    }
+  } catch {}
+  return false;
+};
+
 /**
  * Adds an item to favorites.
  */
-export const addFavorite = (input: NewFavoriteInput): FavoriteItem => {
+export const addFavorite = (input: NewFavoriteInput): FavoriteItem | null => {
+  if (isFavoritesFeatureDisabled()) {
+    console.warn('Save Favorite feature is currently disabled by administrator.');
+    return null;
+  }
   const current = getStoredFavorites();
   const id = `${input.type}_${input.targetId}`;
 

@@ -114,6 +114,28 @@ export async function executeTransfer(
     return { success: false, error: 'Transfer amount must be a whole positive number.' };
   }
 
+  // Feature Toggle Check (Client Cache + Database Enforcement)
+  try {
+    const rawCache = typeof localStorage !== 'undefined' ? localStorage.getItem('ggd_feature_toggles_v1') : null;
+    if (rawCache) {
+      const toggles = JSON.parse(rawCache);
+      if (toggles.wallet_transfer === false || toggles.credit_transfer === false) {
+        return { success: false, error: 'Wallet transfers are currently disabled by platform administration.' };
+      }
+    }
+  } catch {}
+
+  try {
+    const { data: dbToggles } = await supabase
+      .from('feature_toggles')
+      .select('feature_key, is_enabled')
+      .in('feature_key', ['wallet_transfer', 'credit_transfer']);
+
+    if (dbToggles && dbToggles.some(t => t.is_enabled === false)) {
+      return { success: false, error: 'Wallet transfers are currently disabled by platform administration.' };
+    }
+  } catch {}
+
   isTransferInFlight = true;
 
   try {

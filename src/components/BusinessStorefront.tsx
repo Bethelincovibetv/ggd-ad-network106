@@ -24,6 +24,9 @@ import {
   BarChart3,
   Loader2,
   Filter,
+  Lock,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,39 +183,118 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
     };
   }, []);
 
+  const isVerified = Boolean(
+    verificationRecord?.verified_badge_granted === true ||
+    verificationRecord?.status === 'VERIFIED' ||
+    profile?.is_verified === true ||
+    userProfile?.is_verified === true
+  );
+
   const handleOpenChoiceModal = () => {
+    if (!isVerified) {
+      toast.error("Business verification required to create listings. Please verify your business identity with NIN or CAC.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setEditingItem(null);
     setChoiceModalOpen(true);
   };
 
   const handleSelectTypeFromChoice = (type: 'product' | 'service') => {
+    if (!isVerified) {
+      toast.error("Business verification required to create listings. Please verify your business identity with NIN or CAC.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setEditingItem(null);
     setFormListingType(type);
     setFormModalOpen(true);
   };
 
   const handleAddDirectProduct = () => {
+    if (!isVerified) {
+      toast.error("Business verification required to add products. Please verify your business identity with NIN or CAC.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setEditingItem(null);
     setFormListingType('product');
     setFormModalOpen(true);
   };
 
   const handleAddDirectService = () => {
+    if (!isVerified) {
+      toast.error("Business verification required to add services. Please verify your business identity with NIN or CAC.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setEditingItem(null);
     setFormListingType('service');
     setFormModalOpen(true);
   };
 
   const handleEditItem = (item: any) => {
+    if (!isVerified) {
+      toast.error("Business verification required to edit listings.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setEditingItem(item);
     setFormListingType(item.listing_type === 'service' ? 'service' : 'product');
     setFormModalOpen(true);
   };
 
   const handleNavigateTab = (tab: string) => {
+    if (!isVerified && tab !== 'overview' && tab !== 'profile') {
+      toast.error("Business verification required! Commercial management tools are locked until your business is verified.");
+      setVerificationModalOpen(true);
+      return;
+    }
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const handleTabChange = (tab: string) => {
+    if (!isVerified && tab !== 'overview' && tab !== 'profile') {
+      toast.error("Business verification required! Business management tools are locked until your business is verified with NIN or CAC.");
+      setVerificationModalOpen(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  const renderLockedGate = (featureTitle: string) => (
+    <Card className="border-dashed border-amber-500/50 bg-amber-50/20 dark:bg-amber-950/10 p-8 sm:p-12 text-center rounded-3xl space-y-4">
+      <div className="h-16 w-16 rounded-3xl bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 grid place-items-center mx-auto shadow-md">
+        <Lock className="h-8 w-8" />
+      </div>
+      <div className="space-y-1.5 max-w-md mx-auto">
+        <div className="flex items-center justify-center gap-2">
+          <h3 className="text-lg font-black text-foreground">{featureTitle} Locked</h3>
+          <Badge variant="outline" className="border-amber-500 bg-amber-100 text-amber-800 text-[10px] font-black">Not Verified</Badge>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Business verification is required to access {featureTitle.toLowerCase()} and create listings. Unverified businesses only have an ordinary profile page. Verify your business with NIN or CAC to unlock full business management access.
+        </p>
+      </div>
+      <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+        <Button
+          onClick={() => setVerificationModalOpen(true)}
+          className="h-11 px-6 text-xs font-black bg-amber-600 hover:bg-amber-700 text-white rounded-2xl shadow-md cursor-pointer"
+        >
+          <ShieldAlert className="h-4 w-4 mr-1.5" />
+          Verify Business Now
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setActiveTab('profile')}
+          className="h-11 px-4 text-xs font-bold rounded-2xl cursor-pointer"
+        >
+          Edit Ordinary Profile
+        </Button>
+      </div>
+    </Card>
+  );
 
   // Derived Lists
   const allProducts = listings.filter((l) => l.listing_type !== 'service');
@@ -328,13 +410,23 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
                 </Button>
               )}
 
-              <Button
-                onClick={handleOpenChoiceModal}
-                className="flex-1 sm:flex-initial h-11 px-5 text-xs font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg shadow-orange-500/20 rounded-2xl transition-all"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Listing
-              </Button>
+              {isVerified ? (
+                <Button
+                  onClick={handleOpenChoiceModal}
+                  className="flex-1 sm:flex-initial h-11 px-5 text-xs font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-600 hover:from-orange-600 hover:to-red-700 text-white shadow-lg shadow-orange-500/20 rounded-2xl transition-all cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Listing
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setVerificationModalOpen(true)}
+                  className="flex-1 sm:flex-initial h-11 px-5 text-xs font-black bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 hover:from-amber-600 hover:to-red-700 text-white shadow-lg shadow-amber-500/20 rounded-2xl transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  <span>Verify Business</span>
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -343,7 +435,7 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
       {/* ========================================================================= */}
       {/* 2. WORKSPACE TABS NAVIGATION BAR                                          */}
       {/* ========================================================================= */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <div className="overflow-x-auto no-scrollbar pb-1">
           <TabsList className="h-12 p-1 bg-muted/60 border border-border/60 rounded-2xl inline-flex w-auto min-w-full sm:min-w-0 justify-start sm:justify-center gap-1">
             <TabsTrigger value="overview" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
@@ -359,31 +451,37 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
             <TabsTrigger value="products" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Package className="h-3.5 w-3.5 text-blue-600" />
               Products ({allProducts.length})
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
 
             <TabsTrigger value="services" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Zap className="h-3.5 w-3.5 text-purple-600" />
               Services ({allServices.length})
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
 
             <TabsTrigger value="listings" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Layers className="h-3.5 w-3.5 text-emerald-600" />
               All Listings ({listings.length})
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
 
             <TabsTrigger value="storefront" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Share2 className="h-3.5 w-3.5 text-cyan-600" />
               Storefront
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
 
             <TabsTrigger value="advertising" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Megaphone className="h-3.5 w-3.5 text-orange-600" />
               Promote
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
 
             <TabsTrigger value="performance" className="rounded-xl text-xs font-bold px-3 sm:px-4 h-10 gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <BarChart3 className="h-3.5 w-3.5 text-indigo-600" />
               Performance
+              {!isVerified && <Lock className="h-3 w-3 text-amber-500 ml-1 inline" />}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -448,34 +546,53 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
             </Card>
           )}
 
-          {/* Business Verification Prompt Banner if not verified */}
-          {verificationRecord?.status !== 'VERIFIED' && (
-            <Card className="border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent shadow-sm overflow-hidden">
-              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-emerald-600 text-white grid place-items-center shrink-0 shadow-md">
-                    <Building2 className="h-5 w-5" />
+          {/* Business Management Access Gate Card if not verified */}
+          {!isVerified && (
+            <Card className="border-amber-500/50 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent shadow-sm overflow-hidden rounded-3xl">
+              <CardContent className="p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white grid place-items-center shrink-0 shadow-lg shadow-amber-500/25">
+                      <ShieldAlert className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-black text-foreground">
+                          Verification Required for Business Management
+                        </h3>
+                        <Badge variant="outline" className="border-amber-500/60 bg-amber-100 text-amber-800 text-[10px] font-black">
+                          Not Verified
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+                        Unverified businesses cannot create listings and do not have access to business management tools (products, services, storefront customization, or advertising) until verified with NIN or CAC. You currently have an ordinary profile page.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-foreground flex items-center gap-1.5">
-                      Get Verified with NIN or CAC Registration
-                      <BusinessVerificationBadge status={verificationRecord?.status} size="sm" showText={false} />
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW'
-                        ? 'Your submission is in review by our admin compliance team.'
-                        : 'Unlock verified search badges, increased buyer trust, and priority directory placement.'}
-                    </p>
-                  </div>
+
+                  <Button
+                    onClick={() => setVerificationModalOpen(true)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-black text-xs h-11 px-5 rounded-2xl shadow-md shrink-0 w-full sm:w-auto cursor-pointer"
+                  >
+                    <ShieldAlert className="h-4 w-4 mr-1.5" />
+                    {verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW' ? 'Check Review Status' : 'Verify Business Identity'}
+                  </Button>
                 </div>
 
-                <Button
-                  onClick={() => setVerificationModalOpen(true)}
-                  size="sm"
-                  className="h-9 px-4 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md shrink-0 w-full sm:w-auto"
-                >
-                  {verificationRecord?.status === 'FLAGGED_FOR_MANUAL_REVIEW' ? 'Check Review Status' : 'Start Verification'}
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/50 text-xs">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                    <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span>Listing Creation: <strong>Locked</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                    <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span>Business Manage Tools: <strong>Locked</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                    <Store className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span>Ordinary Profile Page: <strong>Active</strong></span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -555,44 +672,68 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
             </Card>
           </div>
 
-          {/* Quick Add Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div
-              onClick={handleAddDirectProduct}
-              className="p-4 rounded-2xl border-2 border-dashed border-blue-300 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 hover:border-blue-500 cursor-pointer transition-all flex items-center gap-3.5 group"
-            >
-              <div className="h-11 w-11 rounded-xl bg-blue-600 text-white grid place-items-center shadow-md group-hover:scale-105 transition-transform shrink-0">
-                <Package className="h-5 w-5" />
+          {/* Quick Add Banner (Only for Verified Businesses) */}
+          {isVerified ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div
+                onClick={handleAddDirectProduct}
+                className="p-4 rounded-2xl border-2 border-dashed border-blue-300 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 hover:border-blue-500 cursor-pointer transition-all flex items-center gap-3.5 group"
+              >
+                <div className="h-11 w-11 rounded-xl bg-blue-600 text-white grid place-items-center shadow-md group-hover:scale-105 transition-transform shrink-0">
+                  <Package className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-black text-foreground group-hover:text-blue-600 transition-colors">
+                    + Add New Product
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Physical goods, fashion, merchandise, or digital items.
+                  </p>
+                </div>
+                <Plus className="h-5 w-5 text-blue-600 shrink-0" />
               </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-black text-foreground group-hover:text-blue-600 transition-colors">
-                  + Add New Product
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Physical goods, fashion, merchandise, or digital items.
-                </p>
-              </div>
-              <Plus className="h-5 w-5 text-blue-600 shrink-0" />
-            </div>
 
-            <div
-              onClick={handleAddDirectService}
-              className="p-4 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 hover:border-purple-500 cursor-pointer transition-all flex items-center gap-3.5 group"
-            >
-              <div className="h-11 w-11 rounded-xl bg-purple-600 text-white grid place-items-center shadow-md group-hover:scale-105 transition-transform shrink-0">
-                <Zap className="h-5 w-5" />
+              <div
+                onClick={handleAddDirectService}
+                className="p-4 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 hover:border-purple-500 cursor-pointer transition-all flex items-center gap-3.5 group"
+              >
+                <div className="h-11 w-11 rounded-xl bg-purple-600 text-white grid place-items-center shadow-md group-hover:scale-105 transition-transform shrink-0">
+                  <Zap className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-black text-foreground group-hover:text-purple-600 transition-colors">
+                    + Add New Service
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Consultation, repairs, agency work, or custom gigs.
+                  </p>
+                </div>
+                <Plus className="h-5 w-5 text-purple-600 shrink-0" />
               </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-black text-foreground group-hover:text-purple-600 transition-colors">
-                  + Add New Service
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Consultation, repairs, agency work, or custom gigs.
-                </p>
-              </div>
-              <Plus className="h-5 w-5 text-purple-600 shrink-0" />
             </div>
-          </div>
+          ) : (
+            <div className="p-4 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-500 text-white grid place-items-center shadow-md shrink-0">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-foreground">Active Mode: Ordinary Profile Page</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Update your business name, bio, telephone, and address. Product/service listing creation is unlocked upon identity verification.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveTab('profile')}
+                className="h-9 px-4 text-xs font-bold rounded-xl shrink-0 border-amber-300 hover:bg-amber-100 dark:border-amber-700 cursor-pointer"
+              >
+                Edit Ordinary Profile
+              </Button>
+            </div>
+          )}
 
           {/* Recent Listings Preview */}
           <Card className="border-border/70 shadow-sm">
@@ -659,116 +800,122 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 3: DEDICATED PRODUCTS TAB                                             */}
         {/* ========================================================================= */}
         <TabsContent value="products" className="space-y-4">
-          {/* Top Bar for Products */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-black text-foreground flex items-center gap-2">
-                <Package className="h-5 w-5 text-blue-600" />
-                Products Catalog
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Manage all physical and digital merchandise for your business.
-              </p>
-            </div>
+          {!isVerified ? (
+            renderLockedGate("Products Catalog & Inventory")
+          ) : (
+            <>
+              {/* Top Bar for Products */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+                    <Package className="h-5 w-5 text-blue-600" />
+                    Products Catalog
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Manage all physical and digital merchandise for your business.
+                  </p>
+                </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {isEnabled('vixora_business_agent') && (
-                <Button
-                  onClick={() => openAgentWithPrompt('Create a new product with price')}
-                  variant="outline"
-                  className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
-                >
-                  <Bot className="h-4 w-4 text-violet-600" />
-                  <span>Add with AI</span>
-                </Button>
-              )}
-              <Button
-                onClick={handleAddDirectProduct}
-                className="h-10 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md cursor-pointer"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Product
-              </Button>
-            </div>
-          </div>
-
-          {/* Search & Filter Toolbar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search products by title or description..."
-                className="pl-9 h-10 text-xs rounded-xl"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
-              <Button
-                size="sm"
-                variant={productFilter === 'all' ? 'default' : 'ghost'}
-                onClick={() => setProductFilter('all')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5"
-              >
-                All ({allProducts.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={productFilter === 'active' ? 'default' : 'ghost'}
-                onClick={() => setProductFilter('active')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5"
-              >
-                Active
-              </Button>
-              <Button
-                size="sm"
-                variant={productFilter === 'featured' ? 'default' : 'ghost'}
-                onClick={() => setProductFilter('featured')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 text-amber-600"
-              >
-                <Crown className="h-3 w-3 mr-1 fill-amber-500" />
-                Featured
-              </Button>
-            </div>
-          </div>
-
-          {/* Products List */}
-          {filteredProducts.length === 0 ? (
-            <Card className="border-border/70 border-dashed">
-              <CardContent className="p-8 text-center">
-                <Package className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">
-                  {allProducts.length === 0
-                    ? "Your business doesn't have any products yet."
-                    : "No products match your search or filter."}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  Add physical or digital items to sell through your storefront and share directly on WhatsApp.
-                </p>
-                {allProducts.length === 0 && (
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {isEnabled('vixora_business_agent') && (
+                    <Button
+                      onClick={() => openAgentWithPrompt('Create a new product with price')}
+                      variant="outline"
+                      className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Bot className="h-4 w-4 text-violet-600" />
+                      <span>Add with AI</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={handleAddDirectProduct}
-                    className="mt-4 h-10 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow"
+                    className="h-10 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md cursor-pointer"
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Add First Product
+                    Add Product
                   </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {filteredProducts.map((p) => (
-                <ProductCardItem
-                  key={p.id}
-                  item={p}
-                  onEdit={handleEditItem}
-                  onRefresh={fetchWorkspaceData}
-                  userCredits={userProfile?.credits || 0}
-                />
-              ))}
-            </div>
+                </div>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search products by title or description..."
+                    className="pl-9 h-10 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
+                  <Button
+                    size="sm"
+                    variant={productFilter === 'all' ? 'default' : 'ghost'}
+                    onClick={() => setProductFilter('all')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5"
+                  >
+                    All ({allProducts.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={productFilter === 'active' ? 'default' : 'ghost'}
+                    onClick={() => setProductFilter('active')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5"
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={productFilter === 'featured' ? 'default' : 'ghost'}
+                    onClick={() => setProductFilter('featured')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 text-amber-600"
+                  >
+                    <Crown className="h-3 w-3 mr-1 fill-amber-500" />
+                    Featured
+                  </Button>
+                </div>
+              </div>
+
+              {/* Products List */}
+              {filteredProducts.length === 0 ? (
+                <Card className="border-border/70 border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <Package className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-foreground">
+                      {allProducts.length === 0
+                        ? "Your business doesn't have any products yet."
+                        : "No products match your search or filter."}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      Add physical or digital items to sell through your storefront and share directly on WhatsApp.
+                    </p>
+                    {allProducts.length === 0 && (
+                      <Button
+                        onClick={handleAddDirectProduct}
+                        className="mt-4 h-10 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add First Product
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {filteredProducts.map((p) => (
+                    <ProductCardItem
+                      key={p.id}
+                      item={p}
+                      onEdit={handleEditItem}
+                      onRefresh={fetchWorkspaceData}
+                      userCredits={userProfile?.credits || 0}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -776,116 +923,122 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 4: DEDICATED SERVICES TAB                                             */}
         {/* ========================================================================= */}
         <TabsContent value="services" className="space-y-4">
-          {/* Top Bar for Services */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-black text-foreground flex items-center gap-2">
-                <Zap className="h-5 w-5 text-purple-600" />
-                Services & Offerings
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Manage your professional services, consultation packages, and client offerings.
-              </p>
-            </div>
+          {!isVerified ? (
+            renderLockedGate("Services Management")
+          ) : (
+            <>
+              {/* Top Bar for Services */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-purple-600" />
+                    Services & Offerings
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Manage your professional services, consultation packages, and client offerings.
+                  </p>
+                </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {isEnabled('vixora_business_agent') && (
-                <Button
-                  onClick={() => openAgentWithPrompt('Add a new professional service with price')}
-                  variant="outline"
-                  className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
-                >
-                  <Bot className="h-4 w-4 text-violet-600" />
-                  <span>Add with AI</span>
-                </Button>
-              )}
-              <Button
-                onClick={handleAddDirectService}
-                className="h-10 px-4 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-md cursor-pointer"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Service
-              </Button>
-            </div>
-          </div>
-
-          {/* Search & Filter Toolbar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={serviceSearch}
-                onChange={(e) => setServiceSearch(e.target.value)}
-                placeholder="Search services by title or description..."
-                className="pl-9 h-10 text-xs rounded-xl"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
-              <Button
-                size="sm"
-                variant={serviceFilter === 'all' ? 'default' : 'ghost'}
-                onClick={() => setServiceFilter('all')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5"
-              >
-                All ({allServices.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={serviceFilter === 'active' ? 'default' : 'ghost'}
-                onClick={() => setServiceFilter('active')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5"
-              >
-                Active
-              </Button>
-              <Button
-                size="sm"
-                variant={serviceFilter === 'featured' ? 'default' : 'ghost'}
-                onClick={() => setServiceFilter('featured')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 text-amber-600"
-              >
-                <Crown className="h-3 w-3 mr-1 fill-amber-500" />
-                Featured
-              </Button>
-            </div>
-          </div>
-
-          {/* Services List */}
-          {filteredServices.length === 0 ? (
-            <Card className="border-border/70 border-dashed">
-              <CardContent className="p-8 text-center">
-                <Zap className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">
-                  {allServices.length === 0
-                    ? "Your business doesn't have any services yet."
-                    : "No services match your search or filter."}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  List your professional skills, consultations, and deliverables so clients can inquire directly.
-                </p>
-                {allServices.length === 0 && (
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {isEnabled('vixora_business_agent') && (
+                    <Button
+                      onClick={() => openAgentWithPrompt('Add a new professional service with price')}
+                      variant="outline"
+                      className="h-10 px-3 text-xs font-bold border-violet-500/40 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Bot className="h-4 w-4 text-violet-600" />
+                      <span>Add with AI</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={handleAddDirectService}
-                    className="mt-4 h-10 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow"
+                    className="h-10 px-4 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow-md cursor-pointer"
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Add First Service
+                    Add Service
                   </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {filteredServices.map((s) => (
-                <ProductCardItem
-                  key={s.id}
-                  item={s}
-                  onEdit={handleEditItem}
-                  onRefresh={fetchWorkspaceData}
-                  userCredits={userProfile?.credits || 0}
-                />
-              ))}
-            </div>
+                </div>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    placeholder="Search services by title or description..."
+                    className="pl-9 h-10 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
+                  <Button
+                    size="sm"
+                    variant={serviceFilter === 'all' ? 'default' : 'ghost'}
+                    onClick={() => setServiceFilter('all')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5"
+                  >
+                    All ({allServices.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={serviceFilter === 'active' ? 'default' : 'ghost'}
+                    onClick={() => setServiceFilter('active')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5"
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={serviceFilter === 'featured' ? 'default' : 'ghost'}
+                    onClick={() => setServiceFilter('featured')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 text-amber-600"
+                  >
+                    <Crown className="h-3 w-3 mr-1 fill-amber-500" />
+                    Featured
+                  </Button>
+                </div>
+              </div>
+
+              {/* Services List */}
+              {filteredServices.length === 0 ? (
+                <Card className="border-border/70 border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <Zap className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-foreground">
+                      {allServices.length === 0
+                        ? "Your business doesn't have any services yet."
+                        : "No services match your search or filter."}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      List your professional skills, consultations, and deliverables so clients can inquire directly.
+                    </p>
+                    {allServices.length === 0 && (
+                      <Button
+                        onClick={handleAddDirectService}
+                        className="mt-4 h-10 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl shadow"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add First Service
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {filteredServices.map((s) => (
+                    <ProductCardItem
+                      key={s.id}
+                      item={s}
+                      onEdit={handleEditItem}
+                      onRefresh={fetchWorkspaceData}
+                      userCredits={userProfile?.credits || 0}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -893,110 +1046,116 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 5: ALL LISTINGS (UNIFIED SEPARATION)                                   */}
         {/* ========================================================================= */}
         <TabsContent value="listings" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-black text-foreground flex items-center gap-2">
-                <Layers className="h-5 w-5 text-emerald-600" />
-                All Listings Catalog
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Consolidated overview of all {allProducts.length} Products and {allServices.length} Services.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddDirectProduct}
-                className="flex-1 sm:flex-initial h-10 text-xs font-bold text-blue-600 border-blue-200 hover:bg-blue-50"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Product
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddDirectService}
-                className="flex-1 sm:flex-initial h-10 text-xs font-bold text-purple-600 border-purple-200 hover:bg-purple-50"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Service
-              </Button>
-            </div>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={allListingsSearch}
-                onChange={(e) => setAllListingsSearch(e.target.value)}
-                placeholder="Search across all listings..."
-                className="pl-9 h-10 text-xs rounded-xl"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50 overflow-x-auto no-scrollbar">
-              <Button
-                size="sm"
-                variant={allListingsFilter === 'all' ? 'default' : 'ghost'}
-                onClick={() => setAllListingsFilter('all')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0"
-              >
-                All ({listings.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={allListingsFilter === 'products' ? 'default' : 'ghost'}
-                onClick={() => setAllListingsFilter('products')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-blue-600"
-              >
-                Products ({allProducts.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={allListingsFilter === 'services' ? 'default' : 'ghost'}
-                onClick={() => setAllListingsFilter('services')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-purple-600"
-              >
-                Services ({allServices.length})
-              </Button>
-              <Button
-                size="sm"
-                variant={allListingsFilter === 'featured' ? 'default' : 'ghost'}
-                onClick={() => setAllListingsFilter('featured')}
-                className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-amber-600"
-              >
-                Featured
-              </Button>
-            </div>
-          </div>
-
-          {/* Listings List */}
-          {filteredAllListings.length === 0 ? (
-            <Card className="border-border/70 border-dashed">
-              <CardContent className="p-8 text-center">
-                <ShoppingBag className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">No listings found</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Click the buttons above to add your first product or service.
-                </p>
-              </CardContent>
-            </Card>
+          {!isVerified ? (
+            renderLockedGate("All Listings Catalog")
           ) : (
-            <div className="space-y-3">
-              {filteredAllListings.map((item) => (
-                <ProductCardItem
-                  key={item.id}
-                  item={item}
-                  onEdit={handleEditItem}
-                  onRefresh={fetchWorkspaceData}
-                  userCredits={userProfile?.credits || 0}
-                />
-              ))}
-            </div>
+            <>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-emerald-600" />
+                    All Listings Catalog
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Consolidated overview of all {allProducts.length} Products and {allServices.length} Services.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddDirectProduct}
+                    className="flex-1 sm:flex-initial h-10 text-xs font-bold text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Product
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddDirectService}
+                    className="flex-1 sm:flex-initial h-10 text-xs font-bold text-purple-600 border-purple-200 hover:bg-purple-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Service
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search and Filters */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={allListingsSearch}
+                    onChange={(e) => setAllListingsSearch(e.target.value)}
+                    placeholder="Search across all listings..."
+                    className="pl-9 h-10 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50 overflow-x-auto no-scrollbar">
+                  <Button
+                    size="sm"
+                    variant={allListingsFilter === 'all' ? 'default' : 'ghost'}
+                    onClick={() => setAllListingsFilter('all')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0"
+                  >
+                    All ({listings.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={allListingsFilter === 'products' ? 'default' : 'ghost'}
+                    onClick={() => setAllListingsFilter('products')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-blue-600"
+                  >
+                    Products ({allProducts.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={allListingsFilter === 'services' ? 'default' : 'ghost'}
+                    onClick={() => setAllListingsFilter('services')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-purple-600"
+                  >
+                    Services ({allServices.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={allListingsFilter === 'featured' ? 'default' : 'ghost'}
+                    onClick={() => setAllListingsFilter('featured')}
+                    className="h-8 text-xs font-bold rounded-lg px-2.5 shrink-0 text-amber-600"
+                  >
+                    Featured
+                  </Button>
+                </div>
+              </div>
+
+              {/* Listings List */}
+              {filteredAllListings.length === 0 ? (
+                <Card className="border-border/70 border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <ShoppingBag className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-foreground">No listings found</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Click the buttons above to add your first product or service.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {filteredAllListings.map((item) => (
+                    <ProductCardItem
+                      key={item.id}
+                      item={item}
+                      onEdit={handleEditItem}
+                      onRefresh={fetchWorkspaceData}
+                      userCredits={userProfile?.credits || 0}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -1004,36 +1163,48 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         {/* TAB 6: STOREFRONT SECTION                                                 */}
         {/* ========================================================================= */}
         <TabsContent value="storefront">
-          <StorefrontSection
-            profile={profile}
-            setProfile={setProfile}
-            listings={listings}
-            userId={userId}
-            onNavigateToTab={handleNavigateTab}
-          />
+          {!isVerified ? (
+            renderLockedGate("Storefront Customization")
+          ) : (
+            <StorefrontSection
+              profile={profile}
+              setProfile={setProfile}
+              listings={listings}
+              userId={userId}
+              onNavigateToTab={handleNavigateTab}
+            />
+          )}
         </TabsContent>
 
         {/* ========================================================================= */}
         {/* TAB 7: ADVERTISING & PROMOTION SECTION                                    */}
         {/* ========================================================================= */}
         <TabsContent value="advertising">
-          <AdvertisingSection
-            businessName={profile?.business_name || 'Your Business'}
-            userId={userId}
-            onNavigateToTab={handleNavigateTab}
-          />
+          {!isVerified ? (
+            renderLockedGate("Advertising & Promotion")
+          ) : (
+            <AdvertisingSection
+              businessName={profile?.business_name || 'Your Business'}
+              userId={userId}
+              onNavigateToTab={handleNavigateTab}
+            />
+          )}
         </TabsContent>
 
         {/* ========================================================================= */}
         {/* TAB 8: PERFORMANCE SECTION                                                */}
         {/* ========================================================================= */}
         <TabsContent value="performance">
-          <PerformanceSection
-            profile={profile}
-            listings={listings}
-            userId={userId}
-            onNavigateToTab={handleNavigateTab}
-          />
+          {!isVerified ? (
+            renderLockedGate("Performance & Analytics")
+          ) : (
+            <PerformanceSection
+              profile={profile}
+              listings={listings}
+              userId={userId}
+              onNavigateToTab={handleNavigateTab}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -1046,6 +1217,8 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         open={choiceModalOpen}
         onOpenChange={setChoiceModalOpen}
         onSelectType={handleSelectTypeFromChoice}
+        isVerified={isVerified}
+        onVerify={() => setVerificationModalOpen(true)}
       />
 
       {/* Listing Form Modal: Handles creating & editing Products and Services */}
@@ -1057,6 +1230,8 @@ export const BusinessStorefront: React.FC<BusinessStorefrontProps> = ({ onNaviga
         businessProfileId={profile?.id}
         userId={userId}
         onSaved={fetchWorkspaceData}
+        isVerified={isVerified}
+        onVerify={() => setVerificationModalOpen(true)}
       />
 
       {/* Business Verification Engine Modal */}

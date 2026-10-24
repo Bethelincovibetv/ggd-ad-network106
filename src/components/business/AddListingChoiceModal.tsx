@@ -6,18 +6,16 @@ interface AddListingChoiceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectType: (type: 'product' | 'service') => void;
+  isVerified?: boolean;
+  onVerify?: () => void;
 }
 
-/**
- * Unified "Add Listing" entry point modal.
- * Clearly asks the user:
- * "What do you want to add?"
- * [ Product ] [ Service ]
- */
 export const AddListingChoiceModal: React.FC<AddListingChoiceModalProps> = ({
   open,
   onOpenChange,
   onSelectType,
+  isVerified = true,
+  onVerify,
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

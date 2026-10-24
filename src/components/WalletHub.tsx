@@ -18,20 +18,50 @@ interface WalletHubProps {
 
 const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initialTab = 'task-wallet' }: WalletHubProps) => {
   const { isEnabled } = useFeatureToggles();
+  const isCreditWalletEnabled = isEnabled('credit_wallet') && isEnabled('task_wallet');
+  const isWalletTransferEnabled = isEnabled('wallet_transfer') && isEnabled('credit_transfer');
   const isRedeemEnabled = isEnabled('airtime_redeem');
+  const isRedeemAllowed = isCreditWalletEnabled && isRedeemEnabled;
+  const isTransferAllowed = isCreditWalletEnabled && isWalletTransferEnabled;
+
   const [exchangeRate, setExchangeRate] = useState<number>(100);
-  const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer' | 'redeem'>(
-    initialTab === 'redeem' && !isRedeemEnabled ? 'task-wallet' : initialTab
-  );
+  const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer' | 'redeem'>(() => {
+    if (!isCreditWalletEnabled) return 'task-wallet';
+    if (initialTab === 'transfer' && !isTransferAllowed) return 'task-wallet';
+    if (initialTab === 'redeem' && !isRedeemAllowed) return 'task-wallet';
+    if (initialTab === 'buy' && !isCreditWalletEnabled) return 'task-wallet';
+    return initialTab;
+  });
   const [taskWallet, setTaskWallet] = useState<any>(null);
   const channelRef = useRef<any>(null);
   const walletChannelRef = useRef<any>(null);
 
+  // Keep activeTab valid if toggles change dynamically
+  useEffect(() => {
+    if (!isCreditWalletEnabled && activeTab !== 'task-wallet') {
+      setActiveTab('task-wallet');
+    } else if (activeTab === 'transfer' && !isTransferAllowed) {
+      setActiveTab('task-wallet');
+    } else if (activeTab === 'redeem' && !isRedeemAllowed) {
+      setActiveTab('task-wallet');
+    } else if (activeTab === 'buy' && !isCreditWalletEnabled) {
+      setActiveTab('task-wallet');
+    }
+  }, [isCreditWalletEnabled, isTransferAllowed, isRedeemAllowed, activeTab]);
+
   useEffect(() => {
     if (initialTab) {
-      setActiveTab(initialTab);
+      if (!isCreditWalletEnabled && initialTab !== 'task-wallet') {
+        setActiveTab('task-wallet');
+      } else if (initialTab === 'transfer' && !isTransferAllowed) {
+        setActiveTab('task-wallet');
+      } else if (initialTab === 'redeem' && !isRedeemAllowed) {
+        setActiveTab('task-wallet');
+      } else {
+        setActiveTab(initialTab);
+      }
     }
-  }, [initialTab]);
+  }, [initialTab, isCreditWalletEnabled, isTransferAllowed, isRedeemAllowed]);
 
   useEffect(() => {
     let isMounted = true;
@@ -164,7 +194,7 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+          <div className={isCreditWalletEnabled ? "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4" : "grid grid-cols-1 gap-3 mt-4"}>
             {/* Naira Task Wallet */}
             <div
               onClick={() => setActiveTab('task-wallet')}
@@ -193,40 +223,50 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
               </div>
             </div>
 
-            {/* Credits Wallet */}
-            <div
-              onClick={() => setActiveTab('buy')}
-              className={`bg-white/15 backdrop-blur rounded-2xl p-4 border transition-all cursor-pointer hover:bg-white/20 hover:scale-[1.01] ${
-                activeTab === 'buy' || activeTab === 'transfer' ? 'border-white/50 ring-2 ring-white/30' : 'border-white/20'
-              }`}
-            >
-              <div className="flex items-center justify-between opacity-90">
-                <div className="flex items-center gap-1.5">
-                  <Coins className="h-4 w-4" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Credit Wallet (GGG)</span>
+            {/* Credits Wallet (Only visible when credit_wallet is enabled) */}
+            {isCreditWalletEnabled && (
+              <div
+                onClick={() => setActiveTab('buy')}
+                className={`bg-white/15 backdrop-blur rounded-2xl p-4 border transition-all cursor-pointer hover:bg-white/20 hover:scale-[1.01] ${
+                  activeTab === 'buy' || activeTab === 'transfer' ? 'border-white/50 ring-2 ring-white/30' : 'border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between opacity-90">
+                  <div className="flex items-center gap-1.5">
+                    <Coins className="h-4 w-4" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Credit Wallet (GGG)</span>
+                  </div>
+                  <span className="text-[10px] bg-amber-400/40 text-amber-100 px-2 py-0.5 rounded-full font-bold">IN-APP CREDITS</span>
                 </div>
-                <span className="text-[10px] bg-amber-400/40 text-amber-100 px-2 py-0.5 rounded-full font-bold">IN-APP CREDITS</span>
+                <p className="text-3xl font-black mt-2 tracking-tight">{credits.toLocaleString()} <span className="text-sm font-normal opacity-80">cr</span></p>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/15 text-[11px] opacity-90">
+                  <span>Est. Value</span>
+                  <span className="font-semibold">≈ ₦{nairaEquivalent.toLocaleString()} NGN</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[11px] opacity-90">
+                  <span>Account Status</span>
+                  <span className="font-semibold text-amber-200 flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Connected & Active
+                  </span>
+                </div>
               </div>
-              <p className="text-3xl font-black mt-2 tracking-tight">{credits.toLocaleString()} <span className="text-sm font-normal opacity-80">cr</span></p>
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/15 text-[11px] opacity-90">
-                <span>Est. Value</span>
-                <span className="font-semibold">≈ ₦{nairaEquivalent.toLocaleString()} NGN</span>
-              </div>
-              <div className="flex items-center justify-between mt-1 text-[11px] opacity-90">
-                <span>Account Status</span>
-                <span className="font-semibold text-amber-200 flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Connected & Active
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto sm:h-12 rounded-2xl bg-secondary/80 p-1 gap-1">
+        <TabsList className={`w-full grid h-auto sm:h-12 rounded-2xl bg-secondary/80 p-1 gap-1 ${
+          !isCreditWalletEnabled
+            ? 'grid-cols-1 max-w-xs'
+            : isTransferAllowed && isRedeemAllowed
+            ? 'grid-cols-2 sm:grid-cols-4'
+            : isTransferAllowed || isRedeemAllowed
+            ? 'grid-cols-2 sm:grid-cols-3'
+            : 'grid-cols-2'
+        }`}>
           <TabsTrigger
             value="task-wallet"
             className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
@@ -234,7 +274,7 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
             <Banknote className="h-3.5 w-3.5" />
             Naira Wallet (₦)
           </TabsTrigger>
-          {isRedeemEnabled && (
+          {isRedeemAllowed && (
             <TabsTrigger
               value="redeem"
               className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md font-bold h-10"
@@ -243,39 +283,47 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
               Redeem Airtime & Data
             </TabsTrigger>
           )}
-          <TabsTrigger
-            value="buy"
-            className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
-          >
-            <Coins className="h-3.5 w-3.5" />
-            Top Up Credits
-          </TabsTrigger>
-          <TabsTrigger
-            value="transfer"
-            className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
-          >
-            <Send className="h-3.5 w-3.5" />
-            Transfer
-          </TabsTrigger>
+          {isCreditWalletEnabled && (
+            <TabsTrigger
+              value="buy"
+              className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
+            >
+              <Coins className="h-3.5 w-3.5" />
+              Top Up Credits
+            </TabsTrigger>
+          )}
+          {isTransferAllowed && (
+            <TabsTrigger
+              value="transfer"
+              className="text-xs gap-1.5 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md font-semibold h-10"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Transfer
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="task-wallet" className="mt-4">
           <TaskWalletFunding />
         </TabsContent>
 
-        {isRedeemEnabled && (
+        {isRedeemAllowed && (
           <TabsContent value="redeem" className="mt-4">
             <CreditRedeemAirtime currentCredits={credits} onCreditsUpdated={onCreditsUpdate} />
           </TabsContent>
         )}
 
-        <TabsContent value="buy" className="mt-4">
-          <CreditFunding credits={credits} onCreditsUpdate={onCreditsUpdate} />
-        </TabsContent>
+        {isCreditWalletEnabled && (
+          <TabsContent value="buy" className="mt-4">
+            <CreditFunding credits={credits} onCreditsUpdate={onCreditsUpdate} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="transfer" className="mt-4">
-          <CreditTransfer credits={credits} onCreditsUpdate={onCreditsUpdate} isPremium={isPremium} />
-        </TabsContent>
+        {isTransferAllowed && (
+          <TabsContent value="transfer" className="mt-4">
+            <CreditTransfer credits={credits} onCreditsUpdate={onCreditsUpdate} isPremium={isPremium} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

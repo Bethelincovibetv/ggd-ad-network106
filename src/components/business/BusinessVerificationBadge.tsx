@@ -78,10 +78,10 @@ export const BusinessVerificationBadge: React.FC<BusinessVerificationBadgeProps>
     <Badge
       onClick={onClick}
       variant="outline"
-      className={`border-border bg-muted/50 text-muted-foreground font-semibold transition-all ${onClick ? 'cursor-pointer hover:bg-muted' : ''} ${sizeClasses[size]} ${className}`}
+      className={`border-amber-500/60 bg-amber-50/90 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 font-black tracking-wide transition-all ${onClick ? 'cursor-pointer hover:bg-amber-100 hover:scale-105' : ''} ${sizeClasses[size]} ${className}`}
     >
-      <AlertCircle className={`${iconSizes[size]} text-muted-foreground shrink-0`} />
-      {showText && <span>Unverified</span>}
+      <ShieldAlert className={`${iconSizes[size]} text-amber-600 shrink-0`} />
+      {showText && <span>Not Verified</span>}
     </Badge>
   );
 };

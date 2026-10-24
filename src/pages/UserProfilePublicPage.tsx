@@ -8,7 +8,7 @@ import {
   ArrowLeft, MapPin, Award, CheckCircle, Loader2, Briefcase, Users, Phone, Globe,
   MessageCircle, Star, Sparkles, Store, Facebook, Instagram, Send, ExternalLink, Crown, Eye,
   ShoppingBag, Share2, Mail, Play, Menu, X, Home, Info, ShieldCheck, ChevronRight,
-  Clock, PackageCheck, Palette, Megaphone
+  Clock, PackageCheck, Palette, Megaphone, ShieldAlert
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -376,7 +376,7 @@ const UserProfilePublicPage: React.FC = () => {
   const featured = filteredListings.filter(l => l.is_featured);
   const rest = filteredListings.filter(l => !l.is_featured);
 
-  const navMenuItems = [
+  const navMenuItems = isVerified ? [
     { id: 'overview' as const, label: 'Home Overview', icon: Home },
     { id: 'catalog' as const, label: 'Products & Services', icon: ShoppingBag, count: listings.length },
     { id: 'about' as const, label: 'About Business', icon: Info },
@@ -384,6 +384,11 @@ const UserProfilePublicPage: React.FC = () => {
     { id: 'contact' as const, label: 'Contact & Location', icon: Phone },
     { id: 'socials' as const, label: 'Social Channels', icon: Globe, count: socials.length },
     { id: 'trust' as const, label: 'Trust & Verification', icon: ShieldCheck },
+  ] : [
+    { id: 'overview' as const, label: 'Profile Overview', icon: Home },
+    { id: 'about' as const, label: 'About Profile', icon: Info },
+    { id: 'contact' as const, label: 'Contact & Location', icon: Phone },
+    ...(socials.length > 0 ? [{ id: 'socials' as const, label: 'Social Channels', icon: Globe, count: socials.length }] : []),
   ];
 
   return (
@@ -600,18 +605,20 @@ const UserProfilePublicPage: React.FC = () => {
 
             {/* Quick Status Pill */}
             <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border ${
-              isVerified ? 'bg-emerald-50 border-emerald-200/80' : 'bg-slate-50 border-slate-200'
+              isVerified ? 'bg-emerald-50 border-emerald-200/80' : 'bg-amber-50/90 border-amber-300/80'
             }`}>
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                <span className={`${isVerified ? 'text-emerald-700' : 'text-slate-700'} font-bold text-[11px]`}>
-                  {isVerified ? 'Open for Inquiries' : 'Standard Merchant'}
+                <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span className={`${isVerified ? 'text-emerald-700' : 'text-amber-900'} font-bold text-[11px]`}>
+                  {isVerified ? 'Open for Inquiries' : 'Ordinary Profile'}
                 </span>
               </div>
               {isVerified ? (
                 <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
               ) : (
-                <span className="text-[10px] text-slate-500 font-medium">Unverified Site</span>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 bg-amber-100 text-amber-800 font-black">
+                  Not Verified
+                </Badge>
               )}
             </div>
           </div>
@@ -619,7 +626,7 @@ const UserProfilePublicPage: React.FC = () => {
           {/* Navigation Links Menu */}
           <nav className="p-4 flex-1 space-y-1.5">
             <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Website Navigation
+              {isVerified ? 'Website Navigation' : 'Profile Navigation'}
             </p>
             {navMenuItems.map((item) => {
               const Icon = item.icon;
@@ -744,11 +751,17 @@ const UserProfilePublicPage: React.FC = () => {
                 )}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/40 to-transparent z-10" />
                 
-                {/* Badges on Hero Banner - Only shown when merchant is verified */}
-                {isVerified && (
+                {/* Badges on Hero Banner */}
+                {isVerified ? (
                   <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
                     <Badge className="bg-emerald-600 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
                       <CheckCircle className="h-3.5 w-3.5 fill-white text-emerald-600" /> Verified Partner
+                    </Badge>
+                  </div>
+                ) : (
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 gap-1.5 font-black text-xs py-1 px-3 shadow-md">
+                      <ShieldAlert className="h-3.5 w-3.5" /> Not Verified
                     </Badge>
                   </div>
                 )}
@@ -830,7 +843,7 @@ const UserProfilePublicPage: React.FC = () => {
                       </Button>
                     )}
 
-                    {business?.whatsapp_group_link && (
+                    {business?.whatsapp_group_link && isVerified && (
                       <Button
                         onClick={() => window.open(business.whatsapp_group_link, '_blank')}
                         className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-sm animate-pulse"
@@ -845,7 +858,7 @@ const UserProfilePublicPage: React.FC = () => {
                         targetId: business?.id || profile.user_id || id || 'biz',
                         type: 'business',
                         title: name,
-                        subtitle: catName || 'Verified Merchant Storefront',
+                        subtitle: catName || 'Business Profile',
                         description: description,
                         imageUrl: logoImage,
                         location: address,
@@ -872,37 +885,79 @@ const UserProfilePublicPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Key Highlights Metrics Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
-                  <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Catalog</p>
-                    <p className={`text-lg sm:text-xl font-black ${activeTemplate.headingText} mt-0.5`}>{listings.length} Listings</p>
+                {/* Unverified Notice Alert if not verified */}
+                {!isVerified && (
+                  <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/90 text-amber-900 flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-amber-200/70 text-amber-800 shrink-0 mt-0.5">
+                      <ShieldAlert className="h-5 w-5" />
+                    </div>
+                    <div className="text-xs space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-sm text-amber-950">Ordinary Business Profile</span>
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-amber-400 bg-amber-100 text-amber-800 font-black">
+                          Not Verified
+                        </Badge>
+                      </div>
+                      <p className="text-amber-900/90 leading-relaxed font-medium">
+                        This business profile has not completed official identity verification. Storefront website extras, commercial catalog products, and accredited ratings are withheld until verified. You can reach out directly via GGD Chat, WhatsApp, or Phone below.
+                      </p>
+                    </div>
                   </div>
-                  <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Satisfaction</p>
-                    <p className="text-lg sm:text-xl font-black text-amber-500 mt-0.5 flex items-center justify-center gap-1">
-                      <Star className="h-4 w-4 fill-current" />
-                      {reviewStats.totalReviews > 0 ? `${reviewStats.averageRating.toFixed(1)} / 5.0` : '5.0 (New)'}
-                    </p>
-                    <span className="text-[9px] text-slate-400 font-medium block">
-                      {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} genuine ratings` : 'Real client rating'}
-                    </span>
+                )}
+
+                {/* Key Highlights Metrics Bar (Storefront Extras vs Ordinary Profile) */}
+                {isVerified ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Catalog</p>
+                      <p className={`text-lg sm:text-xl font-black ${activeTemplate.headingText} mt-0.5`}>{listings.length} Listings</p>
+                    </div>
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Satisfaction</p>
+                      <p className="text-lg sm:text-xl font-black text-amber-500 mt-0.5 flex items-center justify-center gap-1">
+                        <Star className="h-4 w-4 fill-current" />
+                        {reviewStats.totalReviews > 0 ? `${reviewStats.averageRating.toFixed(1)} / 5.0` : '5.0 (New)'}
+                      </p>
+                      <span className="text-[9px] text-slate-400 font-medium block">
+                        {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} genuine ratings` : 'Real client rating'}
+                      </span>
+                    </div>
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Response</p>
+                      <p className="text-lg sm:text-xl font-black text-emerald-600 mt-0.5">&lt; 15 mins</p>
+                    </div>
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Accreditation</p>
+                      <p className={`text-lg sm:text-xl font-black ${activeTemplate.accentText} mt-0.5`}>Verified</p>
+                    </div>
                   </div>
-                  <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Response</p>
-                    <p className="text-lg sm:text-xl font-black text-emerald-600 mt-0.5">&lt; 15 mins</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-100">
+                    <div className="bg-slate-50/80 rounded-2xl p-3.5 text-center border border-slate-200">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Profile Mode</p>
+                      <p className="text-sm sm:text-base font-black text-slate-800 mt-0.5">Ordinary Profile</p>
+                    </div>
+                    <div className="bg-amber-50/80 rounded-2xl p-3.5 text-center border border-amber-200">
+                      <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Verification Status</p>
+                      <p className="text-sm sm:text-base font-black text-amber-800 mt-0.5 flex items-center justify-center gap-1.5">
+                        <ShieldAlert className="h-4 w-4 text-amber-600" /> Not Verified
+                      </p>
+                    </div>
+                    <div className="bg-emerald-50/80 rounded-2xl p-3.5 text-center border border-emerald-200">
+                      <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Direct Communication</p>
+                      <p className="text-sm sm:text-base font-black text-emerald-700 mt-0.5 flex items-center justify-center gap-1.5">
+                        <MessageCircle className="h-4 w-4" /> Available for Chat
+                      </p>
+                    </div>
                   </div>
-                  <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Accreditation</p>
-                    <p className={`text-lg sm:text-xl font-black ${activeTemplate.accentText} mt-0.5`}>Verified</p>
-                  </div>
-                </div>
+                )}
               </div>
             </Card>
           </section>
 
-          {/* SECTION 2: PRODUCTS & SERVICES CATALOG */}
-          <section id="catalog" className="scroll-mt-24 space-y-6">
+          {/* SECTION 2: PRODUCTS & SERVICES CATALOG (Verified Stores Only) */}
+          {isVerified && (
+            <section id="catalog" className="scroll-mt-24 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
               <div>
                 <div className="flex items-center gap-2.5">
@@ -1185,7 +1240,8 @@ const UserProfilePublicPage: React.FC = () => {
                 <p className="text-xs text-slate-500 mt-1">Please check back soon or chat directly with the business.</p>
               </div>
             )}
-          </section>
+            </section>
+          )}
 
           {/* SECTION 3: ABOUT THE BUSINESS */}
           <section id="about" className="scroll-mt-24 space-y-4">
@@ -1342,106 +1398,110 @@ const UserProfilePublicPage: React.FC = () => {
             </section>
           )}
 
-          {/* SECTION 6: CUSTOMER REVIEWS & RATINGS */}
-          <BusinessReviewsSection
-            businessUserId={profile.user_id}
-            businessName={name}
-            reviews={reviews}
-            stats={reviewStats}
-            currentUser={currentUser}
-            isAdmin={isAdmin}
-            activeTemplate={activeTemplate}
-          />
+          {/* SECTION 6: CUSTOMER REVIEWS & RATINGS (Verified Stores Only) */}
+          {isVerified && (
+            <BusinessReviewsSection
+              businessUserId={profile.user_id}
+              businessName={name}
+              reviews={reviews}
+              stats={reviewStats}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
+              activeTemplate={activeTemplate}
+            />
+          )}
 
-          {/* SECTION 7: TRUST & ACCREDITATION */}
-          <section id="trust" className="scroll-mt-24 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Accreditation & Trust</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Verification status and accredited business pledge</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Official Verification Status Card */}
-              <Card className={`rounded-2xl p-6 shadow-xs border ${
-                isVerified 
-                  ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200' 
-                  : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200'
-              }`}>
-                <div className="flex items-start gap-3.5">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
-                    isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {isVerified ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                      <h3 className="text-base font-black text-slate-900">
-                        {isVerified ? 'Accredited & Verified Merchant' : 'Unverified Merchant Profile'}
-                      </h3>
-                      <BusinessVerificationBadge 
-                        status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
-                        isVerified={isVerified} 
-                        size="sm" 
-                      />
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {isVerified 
-                        ? `This merchant has completed official identity verification${verificationRecord?.document_type ? ` via ${verificationRecord.document_type}` : ''} on the GGD Merchant Network.` 
-                        : 'This store has not yet completed official CAC or NIN identity verification.'
-                      }
-                    </p>
-                  </div>
+          {/* SECTION 7: TRUST & ACCREDITATION (Verified Stores Only) */}
+          {isVerified && (
+            <section id="trust" className="scroll-mt-24 space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
-              </Card>
+                <div>
+                  <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Accreditation & Trust</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Verification status and accredited business pledge</p>
+                </div>
+              </div>
 
-              {syndicate && (
-                <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Official Verification Status Card */}
+                <Card className={`rounded-2xl p-6 shadow-xs border ${
+                  isVerified 
+                    ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200' 
+                    : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200'
+                }`}>
                   <div className="flex items-start gap-3.5">
-                    <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                      <Award className="h-6 w-6" />
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
+                      isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {isVerified ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-black text-slate-900">Syndicate Promoter Verified</h3>
-                      <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                        <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                          <p className="text-[9px] text-purple-700 uppercase font-bold">Score</p>
-                          <p className="text-sm font-black text-slate-900">{syndicate.ranking_score || 0}</p>
-                        </div>
-                        <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                          <p className="text-[9px] text-purple-700 uppercase font-bold">Tasks</p>
-                          <p className="text-sm font-black text-slate-900">{syndicate.tasks_completed || 0}</p>
-                        </div>
-                        <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                          <p className="text-[9px] text-purple-700 uppercase font-bold">Channels</p>
-                          <p className="text-sm font-black text-slate-900">{(syndicate.verified_platforms || []).length}</p>
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                        <h3 className="text-base font-black text-slate-900">
+                          {isVerified ? 'Accredited & Verified Merchant' : 'Unverified Merchant Profile'}
+                        </h3>
+                        <BusinessVerificationBadge 
+                          status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
+                          isVerified={isVerified} 
+                          size="sm" 
+                        />
                       </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {isVerified 
+                          ? `This merchant has completed official identity verification${verificationRecord?.document_type ? ` via ${verificationRecord.document_type}` : ''} on the GGD Merchant Network.` 
+                          : 'This store has not yet completed official CAC or NIN identity verification.'
+                        }
+                      </p>
                     </div>
                   </div>
                 </Card>
-              )}
 
-              {/* Network Security Guarantee Card */}
-              <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-xs`}>
-                <div className="flex items-start gap-3.5">
-                  <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="h-6 w-6" />
+                {syndicate && (
+                  <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
+                    <div className="flex items-start gap-3.5">
+                      <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                        <Award className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-base font-black text-slate-900">Syndicate Promoter Verified</h3>
+                        <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
+                            <p className="text-[9px] text-purple-700 uppercase font-bold">Score</p>
+                            <p className="text-sm font-black text-slate-900">{syndicate.ranking_score || 0}</p>
+                          </div>
+                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
+                            <p className="text-[9px] text-purple-700 uppercase font-bold">Tasks</p>
+                            <p className="text-sm font-black text-slate-900">{syndicate.tasks_completed || 0}</p>
+                          </div>
+                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
+                            <p className="text-[9px] text-purple-700 uppercase font-bold">Channels</p>
+                            <p className="text-sm font-black text-slate-900">{(syndicate.verified_platforms || []).length}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Network Security Guarantee Card */}
+                <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-xs`}>
+                  <div className="flex items-start gap-3.5">
+                    <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">GGD Safe Commerce Pledge</h3>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Identity, commercial phone lines, and corporate profiles are monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-900">GGD Safe Commerce Pledge</h3>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Identity, commercial phone lines, and corporate profiles are monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </section>
+                </Card>
+              </div>
+            </section>
+          )}
 
           {/* Sponsored Ad Banner & Network Footer */}
           <div className="pt-4 border-t border-slate-200 space-y-4">

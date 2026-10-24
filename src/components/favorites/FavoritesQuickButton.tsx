@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { FavoritesModal } from '@/components/favorites/FavoritesModal';
 
 interface FavoritesQuickButtonProps {
@@ -14,6 +15,11 @@ export const FavoritesQuickButton: React.FC<FavoritesQuickButtonProps> = ({
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const { totalCount } = useFavorites();
+  const { isEnabled } = useFeatureToggles();
+
+  if (!isEnabled('save_favorite') || !isEnabled('favorites')) {
+    return null;
+  }
 
   return (
     <>

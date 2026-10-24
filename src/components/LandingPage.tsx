@@ -320,10 +320,9 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
       {/* Stats with animated counters */}
       <div className="border-y border-[#333] bg-[#111]">
         <div className="container mx-auto px-4 py-8" ref={statsRef}>
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 max-w-xl mx-auto gap-6 sm:gap-12">
             {[
               { value: impressionsCount, suffix: "+", label: "Impressions Served" },
-              { value: campaignsCount, suffix: "+", label: "Active Campaigns" },
               { value: null, display: "Free", label: "To Get Started" },
             ].map((s, i) => (
               <div key={i} className="text-center">
