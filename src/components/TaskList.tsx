@@ -425,70 +425,70 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         }
 
         // 2. Handler for community and advertiser tasks via complete_credit_task RPC
-        const { data, error } = await callRpc('complete_credit_task', {
-          p_task_id: task.id,
+        let rpcSuccess = false;
+        try {
+          const { data: rpcData, error: rpcErr } = await callRpc<any>('complete_credit_task', {
+            p_task_id: task.id,
+          });
+
+          if (!rpcErr && rpcData) {
+            if (rpcData.success) {
+              rpcSuccess = true;
+              const awarded = Number(rpcData.credits_awarded) || Number(task.reward_credits) || 5;
+              const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+              const updatedCredits = Number(prof?.credits || (credits + awarded));
+              onCreditsUpdate(updatedCredits);
+              setCompletions(prev => Array.from(new Set([...prev, task.id])));
+              setVerifyingTaskId(null);
+              playRewardSound();
+              toast.success(`🎉 Earned ${awarded} credits!`);
+              fetchTasks();
+              return;
+            } else if (rpcData.error) {
+              setVerifyingTaskId(null);
+              toast.info(rpcData.error || "Could not complete task");
+              return;
+            }
+          }
+        } catch (rpcCatch) {
+          console.warn("RPC complete_credit_task call failed, using direct database fallback:", rpcCatch);
+        }
+
+        // 3. Fallback: direct database insertion with unique constraint protection
+        const { error: insErr } = await supabase.from('task_completions').insert({
+          task_id: task.id,
+          user_id: user.id,
         });
 
-        if (error) {
-          if ((error as any).code === '23505') {
-            setVerifyingTaskId(null);
+        if (insErr) {
+          setVerifyingTaskId(null);
+          if ((insErr as any).code === '23505') {
             toast.info("Already completed!");
             setCompletions(prev => Array.from(new Set([...prev, task.id])));
             return;
           }
-
-          // Fallback: direct database insertion with unique constraint protection
-          const { error: insErr } = await supabase.from('task_completions').insert({
-            task_id: task.id,
-            user_id: user.id,
-          });
-
-          if (insErr) {
-            setVerifyingTaskId(null);
-            if ((insErr as any).code === '23505') {
-              toast.info("Already completed!");
-              setCompletions(prev => Array.from(new Set([...prev, task.id])));
-              return;
-            }
-            toast.error(insErr.message || "Failed to complete task");
-            return;
-          }
-
-          const awarded = task.reward_credits || 5;
-          const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
-          const currentCredits = Number(prof?.credits || 0);
-          const updatedCredits = currentCredits + awarded;
-          await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
-
-          await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
-          if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
-            await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
-          }
-
-          onCreditsUpdate(updatedCredits);
-          setCompletions(prev => Array.from(new Set([...prev, task.id])));
-          setVerifyingTaskId(null);
-          playRewardSound();
-          toast.success(`🎉 Earned ${awarded} credits!`);
-          fetchTasks();
+          toast.error(insErr.message || "Failed to complete task");
           return;
         }
 
-        const res = data as any;
-        if (res && !res.success) {
-          setVerifyingTaskId(null);
-          toast.info(res.error || "Could not complete task");
-          return;
+        const awarded = Number(task.reward_credits) || 5;
+        const { data: prof } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+        const currentCredits = Number(prof?.credits || 0);
+        const updatedCredits = currentCredits + awarded;
+        await supabase.from('profiles').update({ credits: updatedCredits }).eq('user_id', user.id);
+
+        await supabase.from('tasks').update({ completions_count: (task.completions_count || 0) + 1 }).eq('id', task.id);
+        if (task.max_completions && (task.completions_count || 0) + 1 >= task.max_completions) {
+          await supabase.from('tasks').update({ is_active: false }).eq('id', task.id);
         }
 
-        const awarded = res?.credits_awarded || task.reward_credits || 5;
-        const updatedCredits = credits + awarded;
         onCreditsUpdate(updatedCredits);
         setCompletions(prev => Array.from(new Set([...prev, task.id])));
         setVerifyingTaskId(null);
         playRewardSound();
         toast.success(`🎉 Earned ${awarded} credits!`);
         fetchTasks();
+        return;
       } catch (err: any) {
         setVerifyingTaskId(null);
         toast.error(err.message || "Task verification failed");

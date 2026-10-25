@@ -238,11 +238,51 @@ const BusinessTaskCreator = () => {
     }
   };
 
-  const archiveTask = async (taskId: string) => {
-    if (!confirm('Move this task to Completed Campaigns? It will stop accepting new submissions.')) return;
-    await supabase.from('syndicate_tasks').update({ status: 'completed' }).eq('id', taskId);
-    toast.success('Moved to Completed Campaigns');
-    fetchData();
+  // Date Filter System State
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | '7days' | '30days' | 'custom'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Double Confirmation Warning Modal State for Mark as Complete
+  const [taskToComplete, setTaskToComplete] = useState<any | null>(null);
+  const [completionStep, setCompletionStep] = useState<1 | 2>(1);
+  const [confirmInput, setConfirmInput] = useState('');
+  const [completing, setCompleting] = useState(false);
+
+  // Trigger double confirmation warning modal before completing campaign
+  const openMarkCompleteModal = (task: any) => {
+    setTaskToComplete(task);
+    setCompletionStep(1);
+    setConfirmInput('');
+  };
+
+  // Perform full campaign completion
+  const handleConfirmMarkComplete = async () => {
+    if (!taskToComplete) return;
+    setCompleting(true);
+    try {
+      const { error } = await supabase
+        .from('syndicate_tasks')
+        .update({
+          status: 'completed',
+        })
+        .eq('id', taskToComplete.id);
+
+      if (error) throw error;
+
+      toast.success(`Campaign "${taskToComplete.title}" marked as completed. Active delivery halted!`);
+      
+      setTasks(prev => prev.map(t => t.id === taskToComplete.id ? { ...t, status: 'completed' } : t));
+      if (openTask?.id === taskToComplete.id) {
+        setOpenTask((prev: any) => prev ? { ...prev, status: 'completed' } : null);
+      }
+      setTaskToComplete(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error('Failed to complete campaign: ' + err.message);
+    } finally {
+      setCompleting(false);
+    }
   };
 
   const convertToBannerAd = async (task: any) => {
@@ -315,10 +355,50 @@ const BusinessTaskCreator = () => {
 
   const totalCostPreview = calculateTotalCost();
 
+  // Comprehensive Search & Date Filter
   const filterTasks = (list: any[]) => {
     const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
+    
+    return list.filter(t => {
+      const matchesSearch = !q || t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      if (datePreset === 'all') return true;
+
+      const taskDate = new Date(t.created_at || t.campaign_date);
+
+      if (datePreset === 'today') {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        return taskDate >= todayStart;
+      }
+
+      if (datePreset === '7days') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return taskDate >= sevenDaysAgo;
+      }
+
+      if (datePreset === '30days') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return taskDate >= thirtyDaysAgo;
+      }
+
+      if (datePreset === 'custom') {
+        if (startDate) {
+          const start = new Date(`${startDate}T00:00:00`);
+          if (taskDate < start) return false;
+        }
+        if (endDate) {
+          const end = new Date(`${endDate}T23:59:59`);
+          if (taskDate > end) return false;
+        }
+        return true;
+      }
+
+      return true;
+    });
   };
 
   const renderTaskCard = (task: any, isCompleted: boolean) => {
@@ -538,20 +618,90 @@ const BusinessTaskCreator = () => {
         </div>
       )}
 
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search campaigns…" value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+      {/* Search & Date Filter Bar */}
+      <div className="space-y-2 p-3.5 rounded-2xl border border-border bg-card shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search campaigns…" value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-9 text-xs rounded-xl" />
+          </div>
+
+          {/* Date Filter Preset Buttons */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              size="sm"
+              variant={datePreset === 'all' ? 'default' : 'outline'}
+              onClick={() => setDatePreset('all')}
+              className={`h-8 px-3 text-xs font-bold rounded-xl ${datePreset === 'all' ? 'bg-orange-500 text-white shadow-xs' : 'border-border'}`}
+            >
+              All Time
+            </Button>
+            <Button
+              size="sm"
+              variant={datePreset === 'today' ? 'default' : 'outline'}
+              onClick={() => setDatePreset('today')}
+              className={`h-8 px-3 text-xs font-bold rounded-xl ${datePreset === 'today' ? 'bg-orange-500 text-white shadow-xs' : 'border-border'}`}
+            >
+              Today
+            </Button>
+            <Button
+              size="sm"
+              variant={datePreset === '7days' ? 'default' : 'outline'}
+              onClick={() => setDatePreset('7days')}
+              className={`h-8 px-3 text-xs font-bold rounded-xl ${datePreset === '7days' ? 'bg-orange-500 text-white shadow-xs' : 'border-border'}`}
+            >
+              Past 7 Days
+            </Button>
+            <Button
+              size="sm"
+              variant={datePreset === '30days' ? 'default' : 'outline'}
+              onClick={() => setDatePreset('30days')}
+              className={`h-8 px-3 text-xs font-bold rounded-xl ${datePreset === '30days' ? 'bg-orange-500 text-white shadow-xs' : 'border-border'}`}
+            >
+              Past 30 Days
+            </Button>
+            <Button
+              size="sm"
+              variant={datePreset === 'custom' ? 'default' : 'outline'}
+              onClick={() => setDatePreset('custom')}
+              className={`h-8 px-3 text-xs font-bold rounded-xl ${datePreset === 'custom' ? 'bg-orange-500 text-white shadow-xs' : 'border-border'}`}
+            >
+              Custom
+            </Button>
+          </div>
+        </div>
+
+        {/* Custom Date Range Pickers */}
+        {datePreset === 'custom' && (
+          <div className="flex items-center gap-2 pt-2 border-t border-border/50 text-xs">
+            <span className="font-semibold text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5 text-orange-500" /> Start:
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="h-8 px-2 rounded-lg border border-input bg-background font-semibold text-xs"
+            />
+            <span className="font-semibold text-muted-foreground ml-2">End:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="h-8 px-2 rounded-lg border border-input bg-background font-semibold text-xs"
+            />
+          </div>
+        )}
       </div>
 
       {/* Tabs Active vs Completed */}
       <Tabs defaultValue="active">
         <TabsList className="grid grid-cols-2 w-full">
           <TabsTrigger value="active" className="text-xs">
-            <Hourglass className="h-3.5 w-3.5 mr-1" />Active ({visibleActive.length})
+            <Hourglass className="h-3.5 w-3.5 mr-1" />Active ({filterTasks(visibleActive).length})
           </TabsTrigger>
           <TabsTrigger value="completed" className="text-xs">
-            <Trophy className="h-3.5 w-3.5 mr-1" />Completed ({allCompleted.length})
+            <Trophy className="h-3.5 w-3.5 mr-1" />Completed ({filterTasks(allCompleted).length})
           </TabsTrigger>
         </TabsList>
 
@@ -559,7 +709,7 @@ const BusinessTaskCreator = () => {
           {filterTasks(visibleActive).length === 0 ? (
             <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">
               <Briefcase className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              No active campaigns. Create one above.
+              No active campaigns found matching filters.
             </CardContent></Card>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
@@ -572,7 +722,7 @@ const BusinessTaskCreator = () => {
           {filterTasks(allCompleted).length === 0 ? (
             <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">
               <Trophy className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              No completed campaigns yet.
+              No completed campaigns found matching filters.
             </CardContent></Card>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
@@ -594,6 +744,7 @@ const BusinessTaskCreator = () => {
               if (statusFilter === 'pending') return sub.status === 'submitted' || sub.status === 'accepted';
               return sub.status === statusFilter;
             });
+            const isTaskActive = openTask.status === 'active';
             return (
               <>
                 <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white p-5">
@@ -624,9 +775,13 @@ const BusinessTaskCreator = () => {
                     ))}
                   </div>
 
-                  {openTask.status === 'active' && (
-                    <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => archiveTask(openTask.id)}>
-                      <Archive className="h-3 w-3 mr-1" />Mark campaign as completed
+                  {isTaskActive && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => openMarkCompleteModal(openTask)}
+                      className="w-full text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs"
+                    >
+                      <Archive className="h-3.5 w-3.5 mr-1.5" /> Mark Campaign as Complete
                     </Button>
                   )}
 
@@ -701,6 +856,85 @@ const BusinessTaskCreator = () => {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* Double Confirmation Warning Modal */}
+      <Dialog open={!!taskToComplete} onOpenChange={open => { if (!open) setTaskToComplete(null); }}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <div className="flex items-center gap-3 text-amber-600 dark:text-amber-500">
+            <div className="h-10 w-10 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0">
+              <Archive className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-base text-foreground">Mark Campaign as Complete?</h3>
+              <p className="text-xs text-muted-foreground">Double Confirmation Warning</p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-foreground space-y-2 mt-2">
+            <p className="font-bold">⚠️ Warning: Important Action</p>
+            <p className="text-muted-foreground leading-relaxed">
+              Marking <span className="font-bold text-foreground">"{taskToComplete?.title}"</span> as complete will immediately:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1">
+              <li>Halt active ad delivery and distribution across the network.</li>
+              <li>Close the campaign to new syndicate promoter submissions.</li>
+              <li>Move the campaign to Completed Campaigns history.</li>
+            </ul>
+          </div>
+
+          {completionStep === 1 ? (
+            <div className="space-y-3 pt-2">
+              <p className="text-xs font-semibold text-foreground">
+                Step 1 of 2: Type <code className="px-1.5 py-0.5 rounded bg-muted font-mono font-black text-rose-600">COMPLETE</code> to unlock final confirmation:
+              </p>
+              <Input
+                placeholder="Type COMPLETE to confirm"
+                value={confirmInput}
+                onChange={e => setConfirmInput(e.target.value)}
+                className="h-10 text-xs rounded-xl font-bold tracking-wider"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setTaskToComplete(null)} className="h-9 px-4 rounded-xl text-xs">
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={confirmInput.trim().toUpperCase() !== 'COMPLETE'}
+                  onClick={() => setCompletionStep(2)}
+                  className="h-9 px-4 rounded-xl font-bold bg-amber-600 hover:bg-amber-700 text-white text-xs gap-1.5"
+                >
+                  Proceed to Final Step <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 font-bold">
+                Final Confirmation: Tap below to confirm and halt campaign delivery immediately.
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setCompletionStep(1)} className="text-xs text-muted-foreground">
+                  ← Back
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setTaskToComplete(null)} className="h-9 px-4 rounded-xl text-xs">
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={completing}
+                    onClick={handleConfirmMarkComplete}
+                    className="h-9 px-5 rounded-xl font-black bg-rose-600 hover:bg-rose-700 text-white text-xs gap-1.5 shadow-sm"
+                  >
+                    {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                    Confirm & End Campaign
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Image zoom */}
       <Dialog open={!!zoomImage} onOpenChange={o => { if (!o) setZoomImage(null); }}>

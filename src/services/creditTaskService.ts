@@ -206,31 +206,39 @@ export async function executeCompleteTask(taskId: string): Promise<CompleteTaskR
     // member's wallet in one transaction.
     const isRealTaskUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realTaskId);
     if (isRealTaskUuid) {
-      const { data: rpcData, error: rpcError } = await callRpc<{
-        success: boolean;
-        credits_awarded?: number;
-        error?: string;
-      }>('complete_credit_task', { p_task_id: realTaskId });
+      try {
+        const { data: rpcData, error: rpcError } = await callRpc<{
+          success: boolean;
+          credits_awarded?: number;
+          error?: string;
+        }>('complete_credit_task', { p_task_id: realTaskId });
 
-      if (rpcError) {
-        return { success: false, error: `Unable to complete task securely: ${rpcError.message}` };
+        if (!rpcError && rpcData) {
+          if (rpcData.success) {
+            const awarded = Number(rpcData.credits_awarded) || rewardCredits;
+            const { data: refreshedProfile } = await supabase
+              .from("profiles")
+              .select("credits")
+              .eq("user_id", userId)
+              .maybeSingle();
+
+            return {
+              success: true,
+              rewardAwarded: awarded,
+              newBalance: Number(refreshedProfile?.credits) || 0,
+            };
+          } else if (rpcData.error) {
+            return { success: false, error: rpcData.error };
+          }
+        }
+
+        // If error is not a schema cache / missing RPC function error, return it
+        if (rpcError && rpcError.code !== "PGRST202" && !rpcError.message?.includes("schema cache") && !rpcError.message?.includes("Could not find the function")) {
+          return { success: false, error: rpcError.message };
+        }
+      } catch (err) {
+        console.warn("complete_credit_task RPC unavailable, proceeding to direct database fallback:", err);
       }
-      if (!rpcData?.success) {
-        return { success: false, error: rpcData?.error || 'Task completion was not accepted.' };
-      }
-
-      const awarded = Number(rpcData.credits_awarded) || rewardCredits;
-      const { data: refreshedProfile } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      return {
-        success: true,
-        rewardAwarded: awarded,
-        newBalance: Number(refreshedProfile?.credits) || 0,
-      };
     }
 
     // 2. Check if already completed in task_completions
