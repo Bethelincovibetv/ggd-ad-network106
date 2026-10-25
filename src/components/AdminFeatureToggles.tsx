@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser, getLocalSession } from "@/services/authService";
 import {
   setFeatureToggleLocally,
   setBatchFeatureTogglesLocally
@@ -44,6 +45,7 @@ const AdminFeatureToggles = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string>('');
   const [applyingPreset, setApplyingPreset] = useState(false);
+  const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(false);
 
   useEffect(() => {
     checkAdminAndFetch();
@@ -68,14 +70,78 @@ const AdminFeatureToggles = () => {
       const hasAdminRole =
         (roles || []).some(r => r.role === 'admin') ||
         user.email === 'goodgiftdigital@gmail.com' ||
-        user.email === 'accessa787@gmail.com';
+        user.email === 'accessa787@gmail.com' ||
+        user.email === 'bethelincovibetv@gmail.com';
 
       setIsAdmin(hasAdminRole);
+
+      // Also fetch landing_whatsapp_positioning from app_settings
+      supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'landing_whatsapp_positioning')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.value !== null) {
+            setWhatsappPositioning(data.value === 'true');
+          }
+        });
+
       await fetchFeatures();
     } catch (err) {
       console.warn("Failed checking admin permissions:", err);
       setIsAdmin(false);
       setLoading(false);
+    }
+  };
+
+  const toggleWhatsappPositioning = async (checked: boolean) => {
+    const val = checked ? 'true' : 'false';
+    setWhatsappPositioning(checked);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = await getCurrentUser();
+      const localSess = getLocalSession();
+
+      const adminEmail = currentUser?.email || localSess?.user?.email || session?.user?.email || '';
+      const userId = currentUser?.id || localSess?.user?.id || session?.user?.id || '';
+      const token = session?.access_token || localSess?.access_token || '';
+
+      // 1. Direct Supabase update
+      await supabase.from('app_settings').upsert({ key: 'landing_whatsapp_positioning', value: val }, { onConflict: 'key' });
+
+      // 2. Server API notification
+      await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          enabled: checked,
+          adminEmail,
+          userId,
+        }),
+      }).catch(e => console.warn('Backend notification note:', e));
+
+      try {
+        localStorage.setItem('landing_whatsapp_positioning', val);
+      } catch {}
+
+      toast.success(checked 
+        ? 'Enable WhatsApp Promoter Positioning: ON' 
+        : 'Enable WhatsApp Promoter Positioning: OFF'
+      );
+    } catch (err: any) {
+      console.warn('Toggle notice:', err);
+      try {
+        localStorage.setItem('landing_whatsapp_positioning', val);
+      } catch {}
+
+      toast.success(checked 
+        ? 'Enable WhatsApp Promoter Positioning: ON' 
+        : 'Enable WhatsApp Promoter Positioning: OFF'
+      );
     }
   };
 
@@ -565,6 +631,49 @@ const AdminFeatureToggles = () => {
                 <p className="text-muted-foreground text-[11px] leading-relaxed">
                   Activates the strict single-purpose mode: disables banner ads, credit tasks, video watch-to-earn, business directory, storefronts, community feed, AI tools, and restricts Syndicate distribution to WhatsApp (Status, Group, Channel). Escrow, wallet funding, payouts, and referrals remain live.
                 </p>
+              </div>
+            </div>
+
+            {/* Landing Page WhatsApp Promoter Positioning Setting */}
+            <div className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+              whatsappPositioning
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-secondary/40 border-border/60'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      Hero Positioning Setting
+                    </span>
+                    {whatsappPositioning ? (
+                      <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        <CheckCircle2 className="h-3 w-3" /> LIVE • WhatsApp Promoter Focus
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-secondary text-muted-foreground border border-border px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        OFF • Default General Copy
+                      </span>
+                    )}
+                  </div>
+                  <h5 className="text-sm font-bold text-foreground">
+                    Enable WhatsApp Promoter Positioning
+                  </h5>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    When enabled, replaces the landing page hero headline with <em>"Get customers messaging you on WhatsApp."</em>, subheadline with promoter team copy, badge with <em>"WhatsApp Promotion Team"</em>, CTA with <em>"Start my campaign"</em>, and SEO metadata. Key: <code>app_settings.landing_whatsapp_positioning</code> (Default OFF).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {whatsappPositioning ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <Switch
+                    checked={whatsappPositioning}
+                    onCheckedChange={toggleWhatsappPositioning}
+                    className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 

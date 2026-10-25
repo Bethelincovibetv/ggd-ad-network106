@@ -17,6 +17,7 @@ import { WEBSITE_TEMPLATES, getWebsiteTemplate } from "@/utils/websiteTemplates"
 import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { getCurrentUser, getLocalSession } from "@/services/authService";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -110,6 +111,8 @@ const AdminSettings = () => {
         'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template',
         'default_business_website_template',
         'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours',
+        // Landing WhatsApp Promoter Positioning
+        'landing_whatsapp_positioning',
         // Founder & CEO Profile Keys
         'show_ceo_on_about_page',
         'ceo_name', 'ceo_role', 'ceo_location', 'ceo_background', 'ceo_focus',
@@ -284,6 +287,56 @@ const AdminSettings = () => {
     fetchPromos();
   };
 
+  const toggleWhatsappPositioning = async (checked: boolean) => {
+    const val = checked ? 'true' : 'false';
+    setSettings(p => ({ ...p, landing_whatsapp_positioning: val }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = await getCurrentUser();
+      const localSess = getLocalSession();
+
+      const adminEmail = currentUser?.email || localSess?.user?.email || session?.user?.email || '';
+      const userId = currentUser?.id || localSess?.user?.id || session?.user?.id || '';
+      const token = session?.access_token || localSess?.access_token || '';
+
+      // 1. Direct Supabase update
+      await supabase.from('app_settings').upsert({ key: 'landing_whatsapp_positioning', value: val }, { onConflict: 'key' });
+
+      // 2. Server API notification
+      await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          enabled: checked,
+          adminEmail,
+          userId,
+        }),
+      }).catch(e => console.warn('Backend notification note:', e));
+
+      try {
+        localStorage.setItem('landing_whatsapp_positioning', val);
+      } catch {}
+
+      toast.success(checked 
+        ? 'WhatsApp Promoter Positioning enabled on Landing Page!' 
+        : 'WhatsApp Promoter Positioning disabled (Default copy restored)'
+      );
+    } catch (err: any) {
+      console.warn('Setting toggle notice:', err);
+      try {
+        localStorage.setItem('landing_whatsapp_positioning', val);
+      } catch {}
+
+      toast.success(checked 
+        ? 'WhatsApp Promoter Positioning enabled!' 
+        : 'WhatsApp Promoter Positioning disabled!'
+      );
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
   const field = (key: string) => ({ value: settings[key] || '', onChange: (v: string) => setSettings(p => ({ ...p, [key]: v })) });
@@ -320,6 +373,60 @@ const AdminSettings = () => {
         </div>
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl pointer-events-none" />
       </div>
+
+      {/* LANDING PAGE WHATSAPP PROMOTER POSITIONING */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-700 p-3.5 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-emerald-200" />
+            <h4 className="text-sm font-bold">Landing Page WhatsApp Positioning</h4>
+          </div>
+          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-medium">Hero Positioning Control</span>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <div className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+            settings.landing_whatsapp_positioning === 'true'
+              ? 'bg-emerald-500/10 border-emerald-500/30'
+              : 'bg-secondary/40 border-border/50'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Hero Positioning Control
+                  </span>
+                  {settings.landing_whatsapp_positioning === 'true' ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <CheckCircle2 className="h-3 w-3" /> LIVE • WhatsApp Promoter Team
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-secondary text-muted-foreground border border-border px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      OFF • Default Platform Copy
+                    </span>
+                  )}
+                </div>
+                <h5 className="text-sm font-bold text-foreground">
+                  Enable WhatsApp Promoter Positioning
+                </h5>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  When enabled, dynamically adapts the landing page hero (headline: <em>"Get customers messaging you on WhatsApp."</em>, badge: <em>"WhatsApp Promotion Team"</em>, subheadline, CTA: <em>"Start my campaign"</em>, and SEO meta tags). Stored in <code>app_settings.landing_whatsapp_positioning</code> (Default OFF).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                <span className="text-xs font-bold text-muted-foreground">
+                  {settings.landing_whatsapp_positioning === 'true' ? 'Enabled' : 'Disabled'}
+                </span>
+                <Switch
+                  checked={settings.landing_whatsapp_positioning === 'true'}
+                  onCheckedChange={toggleWhatsappPositioning}
+                  className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* FOUNDER & CEO PROFILE MANAGEMENT */}
       <Card className="border-0 shadow-md rounded-2xl overflow-hidden">

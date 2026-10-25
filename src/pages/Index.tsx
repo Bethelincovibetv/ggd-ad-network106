@@ -12,6 +12,14 @@ const Index = () => {
   const [session, setSession] = useState<any>(() => getLocalSession());
   const [showAuth, setShowAuth] = useState(false);
   const [loading, setLoading] = useState(() => !getLocalSession());
+  const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('landing_whatsapp_positioning') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [settingLoaded, setSettingLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -22,6 +30,37 @@ const Index = () => {
       setSession(localSess);
       setLoading(false);
     }
+
+    // Authoritative fetch of landing_whatsapp_positioning from database
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'landing_whatsapp_positioning')
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (mounted) {
+          if (!error && data && data.value !== null) {
+            const isEnabled = data.value === 'true';
+            setWhatsappPositioning(isEnabled);
+            try {
+              localStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
+            } catch {}
+          } else {
+            setWhatsappPositioning(false);
+            try {
+              localStorage.setItem('landing_whatsapp_positioning', 'false');
+            } catch {}
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed fetching landing_whatsapp_positioning:", err);
+      })
+      .finally(() => {
+        if (mounted) {
+          setSettingLoaded(true);
+        }
+      });
 
     // 1. Listen for Supabase auth state change
     let sub: any = null;
@@ -69,10 +108,13 @@ const Index = () => {
       }
     });
 
-    // Safety timeout: prevent indefinite spinner (fast 250ms timeout)
+    // Safety timeout: prevent indefinite spinner
     const timer = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 250);
+      if (mounted) {
+        setLoading(false);
+        setSettingLoaded(true);
+      }
+    }, 300);
 
     return () => {
       mounted = false;
@@ -96,7 +138,7 @@ const Index = () => {
     setSession(null);
   };
 
-  if (loading && !session) {
+  if ((loading || !settingLoaded) && !session) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground space-y-3">
         <div className="animate-spin h-9 w-9 border-4 border-orange-500 border-t-transparent rounded-full shadow-md" />
@@ -125,12 +167,24 @@ const Index = () => {
   return (
     <>
       <MetaTags
-        title="GGD Ad Network — Nigeria's #1 Social Distribution & Marketplace"
-        description="Amplify your brand reach across WhatsApp, Telegram, TikTok & Facebook with verified syndicate promoters."
-        badge="OFFICIAL NETWORK"
-        keywords={['ad network Nigeria', 'social syndicate', 'WhatsApp marketing', 'business directory', 'monetization', 'Telegram promotions']}
+        title={
+          whatsappPositioning
+            ? "GGD Ad Network: WhatsApp promotion for Nigerian businesses"
+            : "GGD Ad Network — Nigeria's #1 Social Distribution & Marketplace"
+        }
+        description={
+          whatsappPositioning
+            ? "Our team of promoters posts your business on their Status, groups and channels, reaching real people in the states you choose. You pay only for the views we prove."
+            : "Amplify your brand reach across WhatsApp, Telegram, TikTok & Facebook with verified syndicate promoters."
+        }
+        badge={whatsappPositioning ? "WHATSAPP PROMOTION TEAM" : "OFFICIAL NETWORK"}
+        keywords={
+          whatsappPositioning
+            ? ['WhatsApp promotion Nigeria', 'WhatsApp marketing', 'social syndicate', 'WhatsApp status ads', 'promoter network']
+            : ['ad network Nigeria', 'social syndicate', 'WhatsApp marketing', 'business directory', 'monetization', 'Telegram promotions']
+        }
       />
-      <LandingPage onGetStarted={() => setShowAuth(true)} />
+      <LandingPage onGetStarted={() => setShowAuth(true)} whatsappPositioning={whatsappPositioning} />
     </>
   );
 };

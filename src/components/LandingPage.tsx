@@ -21,6 +21,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface LandingPageProps {
   onGetStarted: () => void;
+  whatsappPositioning?: boolean;
 }
 
 // Smooth animated counter hook
@@ -58,7 +59,7 @@ const useCountUp = (end: number, duration: number = 2000, active: boolean = true
   return count;
 };
 
-const LandingPage = ({ onGetStarted }: LandingPageProps) => {
+const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageProps) => {
   const navigate = useNavigate();
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -290,23 +291,40 @@ const LandingPage = ({ onGetStarted }: LandingPageProps) => {
             {/* Positioning Badge */}
             <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-5 py-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <Zap className="h-4 w-4 text-[#e67e22]" />
-              <span className="text-xs md:text-sm font-semibold text-gray-200">Digital Business-Growth & Marketing Platform</span>
+              <span className="text-xs md:text-sm font-semibold text-gray-200">
+                {whatsappPositioning ? "WhatsApp Promotion Team" : "Digital Business-Growth & Marketing Platform"}
+              </span>
             </div>
 
             {/* Main heading */}
-            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in" style={{ animationDelay: '0.4s' }}>
-              Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">Business</span>
-            </h1>
+            {whatsappPositioning ? (
+              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                Get customers messaging you on{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">
+                  WhatsApp.
+                </span>
+              </h1>
+            ) : (
+              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">Business</span>
+              </h1>
+            )}
 
             {/* Supporting Copy */}
-            <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
-              Get discovered, reach more customers, promote your products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.
-            </p>
+            {whatsappPositioning ? (
+              <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
+                Our team of promoters posts your business on their Status, groups and channels, reaching real people in the states you choose. You pay only for the views we prove.
+              </p>
+            ) : (
+              <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in" style={{ animationDelay: '0.6s' }}>
+                Get discovered, reach more customers, promote your products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.
+              </p>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4 max-w-md mx-auto animate-fade-in justify-center" style={{ animationDelay: '0.8s' }}>
               <Button onClick={onGetStarted} size="lg"
                 className="w-full sm:w-auto bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-transform">
-                Start Free <ArrowRight className="ml-2 h-5 w-5" />
+                {whatsappPositioning ? "Start my campaign" : "Start Free"} <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button variant="outline" size="lg" onClick={() => scrollTo('how-it-works')}
                 className="w-full sm:w-auto border-[#444] text-gray-300 hover:bg-[#2a2a2a] hover:text-white px-8 py-7 text-lg rounded-xl bg-[#2a2a2a]">
