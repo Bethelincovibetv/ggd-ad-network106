@@ -19,7 +19,7 @@ const Index = () => {
       return false;
     }
   });
-  const [settingLoaded, setSettingLoaded] = useState(false);
+  const [settingLoaded, setSettingLoaded] = useState(true);
 
   useEffect(() => {
     let mounted = true;
