@@ -20,17 +20,39 @@ const loadCached = (): Record<string, boolean> | null => {
   return null;
 };
 
+// Immediately pre-seed cache on module import to ensure zero-flash synchronous hydration
+cache = loadCached();
+
 const fetchToggles = (): Promise<Record<string, boolean>> => {
   if (inflight) return inflight;
   inflight = Promise.resolve(
     supabase.from('feature_toggles').select('feature_key, is_enabled')
-  ).then(({ data }) => {
-    const map: Record<string, boolean> = {};
-    (data || []).forEach((f: any) => { map[f.feature_key] = f.is_enabled; });
-    cache = map;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(map)); } catch {}
-    listeners.forEach(l => l(map));
-    return map;
+  ).then(({ data, error }) => {
+    inflight = null;
+    const existing = loadCached() || {};
+    if (!error && Array.isArray(data)) {
+      const fetchedMap: Record<string, boolean> = {};
+      data.forEach((f: any) => {
+        if (f && f.feature_key !== undefined) {
+          fetchedMap[f.feature_key] = f.is_enabled;
+        }
+      });
+      // Safe merge: preserve existing keys, overwrite with remote states
+      cache = { ...existing, ...fetchedMap };
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      } catch {}
+      listeners.forEach(l => l({ ...cache! }));
+      return cache!;
+    }
+    // On network error or bad payload: keep existing cached state intact without resetting to empty
+    cache = existing;
+    return existing;
+  }).catch(() => {
+    inflight = null;
+    const existing = loadCached() || {};
+    cache = existing;
+    return existing;
   });
   return inflight;
 };
@@ -51,30 +73,23 @@ export const setBatchFeatureTogglesLocally = (updates: Record<string, boolean>) 
 
 export const useFeatureToggles = () => {
   const initial = loadCached();
-  const [features, setFeatures] = useState<Record<string, boolean>>(initial || {});
+  const [features, setFeatures] = useState<Record<string, boolean>>(() => initial || {});
   const [loading, setLoading] = useState(!initial);
-  const [hydrated, setHydrated] = useState(!!initial);
 
   useEffect(() => {
     const onUpdate = (m: Record<string, boolean>) => {
       setFeatures(m);
       setLoading(false);
-      setHydrated(true);
     };
     listeners.add(onUpdate);
     fetchToggles().then(onUpdate);
     return () => { listeners.delete(onUpdate); };
   }, []);
 
-  // Before we have any data (no cache + no fetch response):
-  // Core protected features stay true; gated features default to false to prevent visual flash.
   const isEnabled = (key: string): boolean => {
     const def = FEATURE_REGISTRY_MAP[key];
     if (def && !def.canDisable) {
-      return true;
-    }
-    if (!hydrated && !initial) {
-      return false;
+      return true; // Protected core system features cannot be disabled
     }
     return isFeatureEnabled(key, features);
   };

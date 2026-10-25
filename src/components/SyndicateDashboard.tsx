@@ -83,9 +83,10 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   const [credits, setCredits] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(false);
   
-  // Date Filtering (Default: All active campaigns)
+  // Date & Status Filtering (Default: Active campaigns only)
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'all' | 'custom'>('all');
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<'active' | 'completed' | 'all'>('active');
   
   // Submission Form State (per-task)
   const [proofFiles, setProofFiles] = useState<Record<string, File>>({});
@@ -102,7 +103,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
   useEffect(() => { 
     fetchData(); 
-  }, [selectedDate, dateFilterMode]);
+  }, [selectedDate, dateFilterMode, campaignStatusFilter]);
 
   const setDateFilter = (mode: 'today' | 'yesterday' | 'all' | 'custom', customDate?: string) => {
     setDateFilterMode(mode);
@@ -127,12 +128,17 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
     setUserEmail(user.email || '');
 
     try {
-      // Build tasks query based on date filter
+      // Build tasks query based on status and date filter
       let tasksQuery = supabase
         .from('syndicate_tasks')
         .select('*')
-        .eq('status', 'active')
         .order('created_at', { ascending: false });
+
+      if (campaignStatusFilter === 'active') {
+        tasksQuery = tasksQuery.eq('status', 'active');
+      } else if (campaignStatusFilter === 'completed') {
+        tasksQuery = tasksQuery.neq('status', 'active');
+      }
 
       if (dateFilterMode !== 'all') {
         tasksQuery = tasksQuery
@@ -554,55 +560,101 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
         {/* VIEW 1: AVAILABLE CAMPAIGNS & PARTICIPATION */}
         <TabsContent value="campaigns" className="space-y-4 outline-none">
-          {/* Date Selector & Status Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-border bg-card shadow-2xs">
-            <div className="flex items-center gap-2 text-xs font-bold text-foreground shrink-0">
-              <Calendar className="h-4 w-4 text-purple-600" />
-              <span>Available Campaigns</span>
+          {/* Filter Bar: Status & Date Filters */}
+          <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-border bg-card shadow-2xs">
+            {/* Status Filter Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <Briefcase className="h-4 w-4 text-purple-600" />
+                <span>Filter Campaigns</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('active')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    campaignStatusFilter === 'active'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-muted/70 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Active Campaigns
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('completed')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    campaignStatusFilter === 'completed'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-muted/70 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Completed / Past
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    campaignStatusFilter === 'all'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-muted/70 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  All Statuses
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={dateFilterMode === 'today' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('today')}
-                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'today' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
-              >
-                Today
-              </Button>
+            {/* Date Filter Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5 text-purple-600" />
+                <span>Filter by Date</span>
+              </div>
 
-              <Button
-                type="button"
-                size="sm"
-                variant={dateFilterMode === 'yesterday' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('yesterday')}
-                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
-              >
-                Yesterday
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={dateFilterMode === 'today' ? 'default' : 'outline'}
+                  onClick={() => setDateFilter('today')}
+                  className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'today' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
+                >
+                  Today
+                </Button>
 
-              <Button
-                type="button"
-                size="sm"
-                variant={dateFilterMode === 'all' ? 'default' : 'outline'}
-                onClick={() => setDateFilter('all')}
-                className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
-              >
-                All Dates
-              </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={dateFilterMode === 'yesterday' ? 'default' : 'outline'}
+                  onClick={() => setDateFilter('yesterday')}
+                  className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'yesterday' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
+                >
+                  Yesterday
+                </Button>
 
-              <div className="flex items-center gap-1.5 bg-muted/70 px-2.5 py-1 rounded-xl border border-border">
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setDateFilter('custom', e.target.value);
-                    }
-                  }}
-                  className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
-                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={dateFilterMode === 'all' ? 'default' : 'outline'}
+                  onClick={() => setDateFilter('all')}
+                  className={`h-8 px-3 text-xs font-bold rounded-xl ${dateFilterMode === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'border-border'}`}
+                >
+                  All Dates
+                </Button>
+
+                <div className="flex items-center gap-1.5 bg-muted/70 px-2.5 py-1 rounded-xl border border-border">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setDateFilter('custom', e.target.value);
+                      }
+                    }}
+                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>

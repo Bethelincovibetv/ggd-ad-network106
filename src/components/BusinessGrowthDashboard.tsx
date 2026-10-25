@@ -170,14 +170,14 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
     } else if ((listings || []).length < 3) {
       t.push({ text: "Add more products — businesses with 3+ listings get 4x more customer inquiries.", action: "Add Products", tab: "business" });
     }
-    if (isEnabled("ads")) {
+    if (isEnabled("banner_ads") || isEnabled("ads")) {
       if (!liveAds.length) {
         t.push({ text: "You have no active Banner Advert. Create one to drive instant traffic to your store.", action: "Create Advert", tab: "ads-create" });
       } else if (views > 200 && clicks / Math.max(views, 1) < 0.02) {
         t.push({ text: "Your advert has good reach but low CTR. Use the AI Assistant to rewrite the headline.", action: "Optimize Campaign", tab: "ads" });
       }
     }
-    if (isEnabled("syndicate") && isEnabled("business_tasks") && !liveSyn.length) {
+    if ((isEnabled("syndicate_core") || isEnabled("syndicate")) && isEnabled("business_tasks") && !liveSyn.length) {
       t.push({ text: "Mobilize verified WhatsApp promoters to distribute your business offers across thousands of status views.", action: "Launch Syndicate Campaign", tab: "business-tasks" });
     }
     setTips(t.slice(0, 4));
@@ -196,6 +196,13 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
   const growth = traffic.prevViews
     ? Math.round(((traffic.views - traffic.prevViews) / traffic.prevViews) * 100)
     : traffic.views ? 100 : 0;
+
+  const showAdsPillar = isEnabled('banner_ads') || isEnabled('ads');
+  const showTasksPillar = isEnabled('credit_tasks') || isEnabled('tasks');
+  const showSyndicatePillar = isEnabled('syndicate_core') || isEnabled('syndicate') || isEnabled('business_tasks');
+  const showStorePillar = isEnabled('storefronts') || isEnabled('business_directory');
+
+  const enabledPillarsCount = [showAdsPillar, showTasksPillar, showSyndicatePillar, showStorePillar].filter(Boolean).length;
 
   return (
     <div className="space-y-4 pb-6">
@@ -237,80 +244,92 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
             <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${profileData.hasContact ? "bg-white/20 text-white" : "bg-black/20 text-white/70"}`}>
               <CheckCircle2 className="h-3 w-3" /> WhatsApp Contact
             </span>
-            <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${counts.activeListings > 0 ? "bg-white/20 text-white" : "bg-black/20 text-white/70"}`}>
-              <CheckCircle2 className="h-3 w-3" /> {counts.activeListings} Listings
-            </span>
+            {showStorePillar && (
+              <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${counts.activeListings > 0 ? "bg-white/20 text-white" : "bg-black/20 text-white/70"}`}>
+                <CheckCircle2 className="h-3 w-3" /> {counts.activeListings} Listings
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* QUICK LAUNCH GRID (4 PRIMARY PILLARS) */}
-      <Card className="border-border/70 shadow-sm">
-        <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-orange-500" /> Commercial Launch & Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* Button 1: Create Banner Ad */}
-            <button
-              onClick={() => onNavigate?.("ads-create")}
-              className="p-3 rounded-2xl border border-border/70 bg-card hover:border-orange-500/50 hover:bg-orange-500/5 transition-all text-left flex flex-col justify-between h-28 group"
-            >
-              <div className="h-8 w-8 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Megaphone className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Create Banner Ad</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeAds} live ads</p>
-              </div>
-            </button>
+      {/* QUICK LAUNCH GRID (DYNAMICALLY GATED PILLARS) */}
+      {enabledPillarsCount > 0 && (
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-orange-500" /> Commercial Launch & Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <div className={`grid grid-cols-2 ${enabledPillarsCount >= 4 ? 'sm:grid-cols-4' : enabledPillarsCount === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
+              {/* Button 1: Create Banner Ad */}
+              {showAdsPillar && (
+                <button
+                  onClick={() => onNavigate?.("ads-create")}
+                  className="p-3 rounded-2xl border border-border/70 bg-card hover:border-orange-500/50 hover:bg-orange-500/5 transition-all text-left flex flex-col justify-between h-28 group"
+                >
+                  <div className="h-8 w-8 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Megaphone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Create Banner Ad</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeAds} live ads</p>
+                  </div>
+                </button>
+              )}
 
-            {/* Button 2: Create Credit Task */}
-            <button
-              onClick={() => onNavigate?.("tasks-create")}
-              className="p-3 rounded-2xl border border-border/70 bg-card hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-left flex flex-col justify-between h-28 group"
-            >
-              <div className="h-8 w-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <CheckSquare className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Create Credit Task</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeTasks} live tasks</p>
-              </div>
-            </button>
+              {/* Button 2: Create Credit Task */}
+              {showTasksPillar && (
+                <button
+                  onClick={() => onNavigate?.("tasks-create")}
+                  className="p-3 rounded-2xl border border-border/70 bg-card hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-left flex flex-col justify-between h-28 group"
+                >
+                  <div className="h-8 w-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CheckSquare className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Create Credit Task</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeTasks} live tasks</p>
+                  </div>
+                </button>
+              )}
 
-            {/* Button 3: Launch Syndicate Campaign */}
-            <button
-              onClick={() => onNavigate?.("business-tasks")}
-              className="p-3 rounded-2xl border border-border/70 bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all text-left flex flex-col justify-between h-28 group"
-            >
-              <div className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Share2 className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Syndicate Campaign</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{counts.syndicateCampaigns} active</p>
-              </div>
-            </button>
+              {/* Button 3: Launch Syndicate Campaign */}
+              {showSyndicatePillar && (
+                <button
+                  onClick={() => onNavigate?.("business-tasks")}
+                  className="p-3 rounded-2xl border border-border/70 bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all text-left flex flex-col justify-between h-28 group"
+                >
+                  <div className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Share2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Syndicate Campaign</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{counts.syndicateCampaigns} active</p>
+                  </div>
+                </button>
+              )}
 
-            {/* Button 4: Manage Storefront & Listings */}
-            <button
-              onClick={() => onNavigate?.("business")}
-              className="p-3 rounded-2xl border border-border/70 bg-card hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-left flex flex-col justify-between h-28 group"
-            >
-              <div className="h-8 w-8 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Store className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Store & Directory</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeListings} products</p>
-              </div>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+              {/* Button 4: Manage Storefront & Listings */}
+              {showStorePillar && (
+                <button
+                  onClick={() => onNavigate?.("business")}
+                  className="p-3 rounded-2xl border border-border/70 bg-card hover:border-purple-500/50 hover:bg-purple-500/5 transition-all text-left flex flex-col justify-between h-28 group"
+                >
+                  <div className="h-8 w-8 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Store className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Store & Directory</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{counts.activeListings} products</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Vixora AI Business Copilot Card */}
       {isEnabled('vixora_business_agent') && (
@@ -356,7 +375,7 @@ const BusinessGrowthDashboard: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       {/* Best Campaign Spotlight */}
-      {best && (
+      {best && showAdsPillar && (
         <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
