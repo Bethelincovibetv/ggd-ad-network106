@@ -122,12 +122,12 @@ export const SyndicateProofs: React.FC<SyndicateProofsProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Control & Date Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-xl border border-border">
-            <Calendar className="h-4 w-4 text-purple-600" />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 p-3.5 sm:p-5 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 bg-muted px-2.5 sm:px-3 py-1.5 rounded-xl border border-border shrink-0">
+            <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600 shrink-0" />
             <span className="text-xs font-bold text-foreground">Date:</span>
             <input
               type="date"
@@ -139,20 +139,20 @@ export const SyndicateProofs: React.FC<SyndicateProofsProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 bg-muted rounded-xl border border-border">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted rounded-xl border border-border">
             <Button
               size="sm"
               variant={statusFilter === 'pending' ? 'default' : 'ghost'}
               onClick={() => setStatusFilter('pending')}
-              className={`h-8 text-xs font-bold rounded-lg ${statusFilter === 'pending' ? 'bg-amber-600 text-white' : ''}`}
+              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'pending' ? 'bg-amber-600 text-white' : ''}`}
             >
-              Pending Audit
+              Pending
             </Button>
             <Button
               size="sm"
               variant={statusFilter === 'approved' ? 'default' : 'ghost'}
               onClick={() => setStatusFilter('approved')}
-              className={`h-8 text-xs font-bold rounded-lg ${statusFilter === 'approved' ? 'bg-emerald-600 text-white' : ''}`}
+              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'approved' ? 'bg-emerald-600 text-white' : ''}`}
             >
               Approved
             </Button>
@@ -160,7 +160,7 @@ export const SyndicateProofs: React.FC<SyndicateProofsProps> = ({
               size="sm"
               variant={statusFilter === 'rejected' ? 'default' : 'ghost'}
               onClick={() => setStatusFilter('rejected')}
-              className={`h-8 text-xs font-bold rounded-lg ${statusFilter === 'rejected' ? 'bg-red-600 text-white' : ''}`}
+              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'rejected' ? 'bg-red-600 text-white' : ''}`}
             >
               Rejected
             </Button>
@@ -168,20 +168,20 @@ export const SyndicateProofs: React.FC<SyndicateProofsProps> = ({
               size="sm"
               variant={statusFilter === 'all' ? 'default' : 'ghost'}
               onClick={() => setStatusFilter('all')}
-              className={`h-8 text-xs font-bold rounded-lg ${statusFilter === 'all' ? 'bg-background text-foreground shadow-xs' : ''}`}
+              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'all' ? 'bg-background text-foreground shadow-xs' : ''}`}
             >
-              All Proofs
+              All
             </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           {statusFilter === 'pending' && filteredProofs.length > 0 && (
             <Button
               type="button"
               onClick={handleBatchApprovePending}
               disabled={batchApproving}
-              className="h-10 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-2"
+              className="h-9 sm:h-10 px-3.5 sm:px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-1.5 w-full sm:w-auto"
             >
               {batchApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
               Approve All Pending ({filteredProofs.length})

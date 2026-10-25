@@ -270,25 +270,25 @@ const TaskManager = () => {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 py-2 sm:py-4 max-w-full overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
-        <div>
-          <h2 className="text-xl font-black text-foreground flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            Credit Task Management
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3 sm:pb-4 p-3 sm:p-5 bg-card/40 rounded-2xl">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-black text-foreground flex items-center gap-2 flex-wrap">
+            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Credit Task Management</span>
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed break-words">
             Admin console for managing community reward tasks. Users complete tasks to earn GGD Credits.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={fetchTasks}
             disabled={loading}
-            className="rounded-xl h-9 text-xs"
+            className="rounded-xl h-8 sm:h-9 text-xs font-semibold px-2.5 sm:px-3"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -296,7 +296,7 @@ const TaskManager = () => {
           <Button
             size="sm"
             onClick={() => setShowCreateCard(!showCreateCard)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 text-xs font-bold shadow-md"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-8 sm:h-9 text-xs font-bold shadow-md px-3 sm:px-4"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             {showCreateCard ? 'Close Form' : 'New Credit Task'}
@@ -305,36 +305,36 @@ const TaskManager = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         <Card className="border-border/60 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent">
-          <CardContent className="p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Tasks</p>
-            <p className="text-2xl font-black text-foreground mt-0.5">{totalTasks}</p>
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">{activeTasks} currently active</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">Total Tasks</p>
+            <p className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{totalTasks}</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold truncate">{activeTasks} active</p>
           </CardContent>
         </Card>
 
         <Card className="border-border/60 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent">
-          <CardContent className="p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active Tasks</p>
-            <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">{activeTasks}</p>
-            <p className="text-[10px] text-muted-foreground mt-1 font-medium">{pausedTasks} paused</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">Active Tasks</p>
+            <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">{activeTasks}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium truncate">{pausedTasks} paused</p>
           </CardContent>
         </Card>
 
         <Card className="border-border/60 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent">
-          <CardContent className="p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Completions</p>
-            <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{totalCompletions}</p>
-            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Community user actions</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">Completions</p>
+            <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{totalCompletions}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium truncate">User actions</p>
           </CardContent>
         </Card>
 
         <Card className="border-border/60 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent">
-          <CardContent className="p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Credits Distributed</p>
-            <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-0.5">{totalCreditsAllocated.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Rewarding community</p>
+          <CardContent className="p-3 sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">Credits Distributed</p>
+            <p className="text-xl sm:text-2xl font-black text-purple-600 dark:text-purple-400 mt-0.5">{totalCreditsAllocated.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium truncate">Community rewards</p>
           </CardContent>
         </Card>
       </div>
@@ -540,38 +540,41 @@ const TaskManager = () => {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-card/60 p-2.5 sm:p-3 rounded-2xl border border-border/50">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Search tasks by title, instructions, or link..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="h-10 pl-9 text-xs rounded-xl bg-muted/20"
+            className="h-9 sm:h-10 pl-9 text-xs rounded-xl bg-muted/20"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Status Filter */}
-          <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs">
+          <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs flex-wrap">
             <button
+              type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 statusFilter === 'all' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
               All
             </button>
             <button
+              type="button"
               onClick={() => setStatusFilter('active')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 statusFilter === 'active' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
               Active
             </button>
             <button
+              type="button"
               onClick={() => setStatusFilter('paused')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 statusFilter === 'paused' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
@@ -580,26 +583,29 @@ const TaskManager = () => {
           </div>
 
           {/* Type Filter */}
-          <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs">
+          <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs flex-wrap">
             <button
+              type="button"
               onClick={() => setTypeFilter('all')}
-              className={`px-2.5 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 typeFilter === 'all' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
-              All Types
+              All
             </button>
             <button
+              type="button"
               onClick={() => setTypeFilter('share')}
-              className={`px-2.5 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 typeFilter === 'share' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
               📢 Share
             </button>
             <button
+              type="button"
               onClick={() => setTypeFilter('video')}
-              className={`px-2.5 py-1.5 rounded-lg font-bold transition text-[11px] ${
+              className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg font-bold transition text-[10px] sm:text-[11px] ${
                 typeFilter === 'video' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
               }`}
             >
@@ -616,7 +622,7 @@ const TaskManager = () => {
           <p className="text-xs text-muted-foreground mt-2">Loading credit tasks catalogue...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
-        <Card className="border-dashed border-border/60 bg-muted/10 p-10 text-center rounded-2xl">
+        <Card className="border-dashed border-border/60 bg-muted/10 p-6 sm:p-10 text-center rounded-2xl">
           <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
           <p className="text-sm font-bold text-foreground">No credit tasks found</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -639,12 +645,12 @@ const TaskManager = () => {
                   !isActive ? 'bg-muted/30 border-dashed border-border/60 opacity-80' : 'bg-card border-border/70 shadow-xs'
                 }`}
               >
-                <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <CardContent className="p-3.5 sm:p-5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 min-w-0">
                     {/* Flyer / Icon + Info */}
-                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-3.5 flex-1 min-w-0 w-full">
                       {task.flyer_url ? (
-                        <div className="h-16 w-16 rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 flex items-center justify-center">
+                        <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 flex items-center justify-center">
                           <img
                             src={task.flyer_url}
                             alt={task.title}
@@ -654,21 +660,21 @@ const TaskManager = () => {
                         </div>
                       ) : (
                         <div
-                          className={`h-16 w-16 rounded-xl flex items-center justify-center shrink-0 ${
+                          className={`h-14 w-14 sm:h-16 sm:w-16 rounded-xl flex items-center justify-center shrink-0 ${
                             isVideo
                               ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                               : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                           }`}
                         >
-                          {isVideo ? <Eye className="h-7 w-7" /> : <Share2 className="h-7 w-7" />}
+                          {isVideo ? <Eye className="h-6 w-6 sm:h-7 sm:w-7" /> : <Share2 className="h-6 w-6 sm:h-7 sm:w-7" />}
                         </div>
                       )}
 
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-foreground truncate">{task.title}</h4>
+                      <div className="flex-1 min-w-0 space-y-1 w-full">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                          <h4 className="text-xs sm:text-sm font-bold text-foreground break-words max-w-full">{task.title}</h4>
                           <Badge
-                            className={`text-[9px] font-bold border-0 ${
+                            className={`text-[9px] font-bold border-0 shrink-0 ${
                               isVideo
                                 ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                                 : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
@@ -677,7 +683,7 @@ const TaskManager = () => {
                             {isVideo ? '▶️ Video' : '📢 Share'}
                           </Badge>
                           <Badge
-                            className={`text-[9px] font-bold border-0 ${
+                            className={`text-[9px] font-bold border-0 shrink-0 ${
                               isActive
                                 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                                 : 'bg-muted text-muted-foreground'
@@ -688,30 +694,30 @@ const TaskManager = () => {
                         </div>
 
                         {task.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed break-words">
                             {task.description}
                           </p>
                         )}
 
-                        <div className="flex items-center gap-3 pt-1 flex-wrap text-[11px]">
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <div className="flex items-center gap-2 sm:gap-3 pt-1 flex-wrap text-[10px] sm:text-[11px] leading-snug">
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
                             <Coins className="h-3 w-3" /> +{task.reward_credits || 5} Credits
                           </span>
-                          <span className="text-muted-foreground flex items-center gap-1">
+                          <span className="text-muted-foreground flex items-center gap-1 shrink-0">
                             <Users className="h-3 w-3" />
-                            {completions} {max >= 999999 ? 'completed (unlimited)' : `/ ${max} completed (${progressPercent}%)`}
+                            {completions} {max >= 999999 ? 'completed (unlimited)' : `/ ${max} (${progressPercent}%)`}
                           </span>
                           {task.share_url && (
                             <a
                               href={task.share_url}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="text-blue-500 hover:text-blue-600 flex items-center gap-1 font-mono text-[10px]"
+                              className="text-blue-500 hover:text-blue-600 flex items-center gap-1 font-mono text-[10px] shrink-0 truncate max-w-[200px]"
                             >
-                              <ExternalLink className="h-3 w-3" /> Link
+                              <ExternalLink className="h-3 w-3 shrink-0" /> Link
                             </a>
                           )}
-                          <span className="text-muted-foreground/60 text-[10px]">
+                          <span className="text-muted-foreground/60 text-[10px] shrink-0">
                             Created: {new Date(task.created_at).toLocaleDateString()}
                           </span>
                         </div>
@@ -729,12 +735,12 @@ const TaskManager = () => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+                    <div className="flex items-center gap-1.5 flex-wrap shrink-0 self-start sm:self-center w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-border/40">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => toggleTaskActive(task)}
-                        className="h-8 text-xs rounded-xl font-semibold"
+                        className="h-8 text-xs rounded-xl font-semibold flex-1 sm:flex-none"
                       >
                         {isActive ? (
                           <>
@@ -751,7 +757,7 @@ const TaskManager = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => setEditingTask(task)}
-                        className="h-8 text-xs rounded-xl font-semibold"
+                        className="h-8 text-xs rounded-xl font-semibold flex-1 sm:flex-none"
                       >
                         <Edit3 className="h-3.5 w-3.5 mr-1 text-blue-500" /> Edit
                       </Button>
@@ -760,7 +766,7 @@ const TaskManager = () => {
                         size="icon"
                         variant="ghost"
                         onClick={() => setTaskToDelete(task)}
-                        className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                        className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10 shrink-0"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

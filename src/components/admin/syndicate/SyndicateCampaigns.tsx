@@ -643,39 +643,39 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
 
       {/* CAMPAIGN INSPECT & SETTLEMENT DRAWER */}
       {viewingCampaign && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <Card className="w-full max-w-4xl bg-background border border-border shadow-2xl rounded-3xl overflow-hidden my-6">
-            <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-5 text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-lg">{viewingCampaign.title}</h3>
-                <p className="text-xs text-purple-200 mt-0.5">
-                  Execution Date: {viewingCampaign.campaign_date || viewingCampaign.created_at?.split('T')[0]} • Location: {viewingCampaign.target_state || 'Nationwide'}
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <Card className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-background border border-border shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden my-3 sm:my-6 mx-1 sm:mx-0">
+            <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-3.5 sm:p-5 text-white flex items-center justify-between gap-3 shrink-0">
+              <div className="min-w-0">
+                <h3 className="font-black text-sm sm:text-lg truncate">{viewingCampaign.title}</h3>
+                <p className="text-[11px] sm:text-xs text-purple-200 mt-0.5 truncate">
+                  Date: {viewingCampaign.campaign_date || viewingCampaign.created_at?.split('T')[0]} • State: {viewingCampaign.target_state || 'Nationwide'}
                 </p>
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => setViewingCampaign(null)}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20 shrink-0" onClick={() => setViewingCampaign(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <CardContent className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+            <CardContent className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1 min-w-0">
               {/* Settlement Preview & Trigger */}
-              <div className="rounded-2xl p-5 bg-gradient-to-r from-emerald-950/40 via-background to-background border border-emerald-300 dark:border-emerald-800 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h4 className="font-black text-base text-foreground flex items-center gap-2">
-                      <Banknote className="h-5 w-5 text-emerald-600" /> Direct Team Settlement Engine
+              <div className="rounded-2xl p-3.5 sm:p-5 bg-gradient-to-r from-emerald-950/40 via-background to-background border border-emerald-300 dark:border-emerald-800 space-y-3.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="font-black text-sm sm:text-base text-foreground flex items-center gap-2 flex-wrap">
+                      <Banknote className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 shrink-0" /> Direct Team Settlement Engine
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed break-words">
                       Calculate collective payouts and disburse directly to members' verified Paystack bank accounts.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
                     <select
                       aria-label="Settlement Mode"
                       value={settleMode}
                       onChange={(e: any) => setSettleMode(e.target.value)}
-                      className="h-10 text-xs font-bold rounded-xl border border-input bg-card px-3"
+                      className="h-9 sm:h-10 text-xs font-bold rounded-xl border border-input bg-card px-2.5 sm:px-3 flex-1 sm:flex-none"
                     >
                       <option value="paystack">⚡ Paystack Transfers</option>
                       <option value="manual">💵 Mark Manually Settled</option>
@@ -685,7 +685,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                       type="button"
                       onClick={() => handleSettleCampaign(viewingCampaign.id)}
                       disabled={settling || campaignAssignments.length === 0}
-                      className="h-10 px-5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-2"
+                      className="h-9 sm:h-10 px-3.5 sm:px-5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-1.5 flex-1 sm:flex-none shrink-0"
                     >
                       {settling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
                       Execute Settlement
@@ -693,26 +693,26 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
-                  <div className="bg-card p-3 rounded-xl border border-border">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Settlement Base</p>
-                    <p className="text-base font-black text-foreground mt-0.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-xs pt-1">
+                  <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border">
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold truncate">Settlement Base</p>
+                    <p className="text-sm sm:text-base font-black text-foreground mt-0.5 truncate">
                       ₦{Number(viewingCampaign.total_cost || 5000).toLocaleString()}
                     </p>
                   </div>
-                  <div className="bg-card p-3 rounded-xl border border-border">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Team Pool ({payoutPct}%)</p>
-                    <p className="text-base font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                  <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border">
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold truncate">Team Pool ({payoutPct}%)</p>
+                    <p className="text-sm sm:text-base font-black text-purple-600 dark:text-purple-400 mt-0.5 truncate">
                       ₦{Math.round(Number(viewingCampaign.total_cost || 5000) * (payoutPct / 100)).toLocaleString()}
                     </p>
                   </div>
-                  <div className="bg-card p-3 rounded-xl border border-border">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Participating Members</p>
-                    <p className="text-base font-black text-blue-600 mt-0.5">{campaignAssignments.length} submitted</p>
+                  <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border">
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-bold truncate">Participants</p>
+                    <p className="text-sm sm:text-base font-black text-blue-600 mt-0.5 truncate">{campaignAssignments.length} submitted</p>
                   </div>
-                  <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-300 dark:border-emerald-800">
-                    <p className="text-[10px] text-emerald-800 dark:text-emerald-300 uppercase font-bold">Payout / Member</p>
-                    <p className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/40 p-2.5 sm:p-3 rounded-xl border border-emerald-300 dark:border-emerald-800">
+                    <p className="text-[9px] sm:text-[10px] text-emerald-800 dark:text-emerald-300 uppercase font-bold truncate">Payout / Member</p>
+                    <p className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-300 mt-0.5 truncate">
                       ₦{campaignAssignments.length > 0 
                         ? Math.round(Number(viewingCampaign.total_cost || 5000) * (payoutPct / 100) / campaignAssignments.length).toLocaleString()
                         : '0'}
@@ -722,10 +722,10 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
               </div>
 
               {/* Participating Members Table */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-sm text-foreground flex items-center justify-between">
+              <div className="space-y-3 min-w-0">
+                <h4 className="font-bold text-xs sm:text-sm text-foreground flex items-center justify-between gap-2 flex-wrap">
                   <span>Participating Operators ({campaignAssignments.length})</span>
-                  <Badge variant="outline" className="text-xs">{viewingCampaign.max_syndicates || 50} Max Slots</Badge>
+                  <Badge variant="outline" className="text-[10px] sm:text-xs">{viewingCampaign.max_syndicates || 50} Max Slots</Badge>
                 </h4>
 
                 {loadingAssignments ? (
@@ -733,8 +733,8 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                     <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                   </div>
                 ) : campaignAssignments.length > 0 ? (
-                  <div className="border border-border rounded-xl overflow-hidden">
-                    <table className="w-full text-xs text-left">
+                  <div className="border border-border rounded-xl overflow-x-auto min-w-0 max-w-full">
+                    <table className="w-full text-xs text-left min-w-[550px]">
                       <thead className="bg-muted text-muted-foreground font-bold uppercase text-[10px]">
                         <tr>
                           <th className="py-2.5 px-3">Member</th>
@@ -747,13 +747,13 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                       <tbody className="divide-y divide-border/60">
                         {campaignAssignments.map(a => (
                           <tr key={a.id} className="hover:bg-muted/20">
-                            <td className="py-2.5 px-3 font-bold text-foreground">
+                            <td className="py-2.5 px-3 font-bold text-foreground truncate max-w-[140px]">
                               {a.profiles?.display_name || a.profiles?.email || 'Member'}
                             </td>
-                            <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground">
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                               {new Date(a.submitted_at || a.created_at).toLocaleString()}
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-2.5 px-3 whitespace-nowrap">
                               {a.proof_url ? (
                                 <a href={a.proof_url} target="_blank" rel="noopener noreferrer" className="text-purple-600 font-bold hover:underline">
                                   View Proof
@@ -762,7 +762,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                                 <span className="text-muted-foreground">No proof file</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-2.5 px-3 whitespace-nowrap">
                               {a.syndicate_profiles?.bank_name ? (
                                 <span className="text-[11px]">
                                   {a.syndicate_profiles.bank_name} (•••• {a.syndicate_profiles.account_number?.slice(-4)})
@@ -771,7 +771,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                                 <Badge variant="outline" className="text-[9px] text-amber-600">Bank Missing</Badge>
                               )}
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-2.5 px-3 whitespace-nowrap">
                               <Badge className={`text-[10px] font-bold ${
                                 a.status === 'approved' || a.status === 'paid' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
                               }`}>
