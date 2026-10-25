@@ -28,6 +28,7 @@ import {
   Sparkles,
   AlertTriangle,
   PlayCircle,
+  Eye,
   HelpCircle,
   TrendingUp,
   Coins,
@@ -39,6 +40,7 @@ import {
   Zap,
   DollarSign
 } from "lucide-react";
+import ProductPhotoViewerModal from '@/components/ProductPhotoViewerModal';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -96,8 +98,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   // Primary navigation tab: 'campaigns' | 'submissions' | 'wallet' | 'profile'
   const [mainTab, setMainTab] = useState<string>('campaigns');
   // Submissions filter: 'all' | 'submitted' | 'completed' | 'rejected'
-  const [submissionsFilter, setSubmissionsFilter] = useState<string>('all');
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
+  const [photoViewerUrl, setPhotoViewerUrl] = useState<string | null>(null);
+  const [photoViewerTitle, setPhotoViewerTitle] = useState<string>('Media Lightbox');
   
   const { isEnabled } = useFeatureToggles();
 
@@ -821,12 +824,29 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
                     {/* Visual Flyer Thumbnail (if attached) */}
                     {task.flyer_url && (
-                      <div className="relative rounded-xl overflow-hidden border border-border/70 max-w-sm max-h-48 bg-muted/40">
+                      <div 
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setPhotoViewerUrl(task.flyer_url);
+                          setPhotoViewerTitle(`Campaign Flyer: ${task.title}`);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            setPhotoViewerUrl(task.flyer_url);
+                            setPhotoViewerTitle(`Campaign Flyer: ${task.title}`);
+                          }
+                        }}
+                        className="relative rounded-xl overflow-hidden border border-border/70 max-w-sm max-h-48 bg-muted/40 cursor-pointer group hover:ring-2 hover:ring-orange-500/50 transition-all"
+                      >
                         <img 
                           src={task.flyer_url} 
                           alt={task.title} 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                         />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 backdrop-blur-xs">
+                          <Eye className="h-4 w-4" /> Full In-App View
+                        </div>
                       </div>
                     )}
 
@@ -847,11 +867,13 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
                           {userAssignment.proof_url && (
                             <div className="flex items-center gap-3 pt-1">
-                              <a 
-                                href={userAssignment.proof_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="h-12 w-16 rounded-lg overflow-hidden border border-border bg-background flex-shrink-0 block"
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  setPhotoViewerUrl(userAssignment.proof_url);
+                                  setPhotoViewerTitle(`Submitted Proof for "${task.title}"`);
+                                }}
+                                className="h-12 w-16 rounded-lg overflow-hidden border border-border bg-background flex-shrink-0 block hover:ring-2 hover:ring-emerald-500/50 transition text-left cursor-pointer"
                               >
                                 {isVideoProof(userAssignment.proof_url) ? (
                                   <div className="h-full w-full bg-slate-900 flex items-center justify-center text-white">
@@ -864,16 +886,18 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                                     className="h-full w-full object-cover" 
                                   />
                                 )}
-                              </a>
+                              </button>
                               <div className="text-xs">
-                                <a 
-                                  href={userAssignment.proof_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="font-bold text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1"
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    setPhotoViewerUrl(userAssignment.proof_url);
+                                    setPhotoViewerTitle(`Submitted Proof for "${task.title}"`);
+                                  }}
+                                  className="font-bold text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer text-left"
                                 >
-                                  View Submitted Proof <ExternalLink className="h-3 w-3" />
-                                </a>
+                                  <Eye className="h-3.5 w-3.5 text-emerald-600" /> View Submitted Proof
+                                </button>
                                 {userAssignment.proof_link && (
                                   <p className="text-[11px] text-muted-foreground truncate max-w-xs">
                                     Post: {userAssignment.proof_link}
@@ -1229,6 +1253,14 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Professional In-App Photo Lightbox */}
+      <ProductPhotoViewerModal
+        isOpen={!!photoViewerUrl}
+        onClose={() => setPhotoViewerUrl(null)}
+        images={photoViewerUrl ? [photoViewerUrl] : []}
+        productTitle={photoViewerTitle}
+      />
     </div>
   );
 };

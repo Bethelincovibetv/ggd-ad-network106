@@ -14,7 +14,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Briefcase, Upload, Loader2, Plus, Eye, CheckCircle, Clock, XCircle, Image as ImageIcon,
   User, MapPin, Calendar, Search, Archive, BarChart3, Trophy, Hourglass, Trash2, ChevronRight, Megaphone,
-  Globe, CheckCheck,
+  Globe, CheckCheck, Sparkles, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,8 @@ import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndi
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
+import { ProductPhotoViewerModal } from "@/components/ProductPhotoViewerModal";
 
 const DEFAULT_PLATFORMS = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
@@ -64,6 +66,8 @@ const BusinessTaskCreator = () => {
   const [stateTargetingEnabled, setStateTargetingEnabled] = useState<boolean>(true);
   const [customCountEnabled, setCustomCountEnabled] = useState<boolean>(true);
   const [fixedCampaignPrice, setFixedCampaignPrice] = useState<number>(5000);
+  const [showLinkGeneratorModal, setShowLinkGeneratorModal] = useState<boolean>(false);
+  const [mySavedShortLinks, setMySavedShortLinks] = useState<any[]>([]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -71,7 +75,7 @@ const BusinessTaskCreator = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes, pctRes, configRes] = await Promise.all([
+    const [tasksRes, profileRes, pricingRes, assignmentsRes, rateRes, pctRes, configRes, shortLinksRes] = await Promise.all([
       supabase.from('syndicate_tasks').select('*').eq('business_user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('credits, login_bonus_credits').eq('user_id', user.id).maybeSingle(),
       supabase.from('platform_pricing').select('*').order('platform_name'),
@@ -83,7 +87,10 @@ const BusinessTaskCreator = () => {
         'syndicate_custom_count_enabled',
         'syndicate_fixed_campaign_price',
       ]),
+      supabase.from('short_links').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
+
+    setMySavedShortLinks(shortLinksRes.data || []);
 
     const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
     if (setting?.value) setBannerCostPerDay(parseInt(setting.value) || 50);
@@ -509,7 +516,86 @@ const BusinessTaskCreator = () => {
           <CardContent className="p-4 space-y-3">
             <Input placeholder="Task title *" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
             <Textarea placeholder="Write-up / ad copy *" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} />
-            <Input placeholder="Share link (optional)" value={form.share_link} onChange={e => setForm({...form, share_link: e.target.value})} />
+            {/* Destination Share Link & Link Generator */}
+            <div className="space-y-1.5 bg-orange-50/50 dark:bg-orange-950/20 p-3 rounded-2xl border border-orange-200/80 dark:border-orange-800/60">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1">
+                  <Link2 className="h-3.5 w-3.5 text-orange-500" /> Destination Share Link (Optional)
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowLinkGeneratorModal(true)}
+                  className="h-7 text-[11px] font-black text-orange-600 dark:text-orange-300 border-orange-300 dark:border-orange-700 bg-background hover:bg-orange-100 dark:hover:bg-orange-950/60 rounded-xl flex items-center gap-1 shadow-2xs"
+                >
+                  <Sparkles className="h-3 w-3 text-orange-500 fill-orange-500/30" />
+                  <span>Generate / Select Link</span>
+                </Button>
+              </div>
+
+              <div className="relative">
+                <Input
+                  placeholder="https://... or select/generate link"
+                  value={form.share_link}
+                  onChange={e => setForm({...form, share_link: e.target.value})}
+                  className="pr-20 h-10 text-xs rounded-xl bg-background font-medium"
+                />
+                {form.share_link ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setForm({...form, share_link: ''})}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg"
+                  >
+                    Clear Link
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowLinkGeneratorModal(true)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2 text-[10px] font-black text-orange-600 dark:text-orange-300 hover:bg-orange-100/50 rounded-lg"
+                  >
+                    <Plus className="h-3 w-3 mr-0.5" />
+                    Generate
+                  </Button>
+                )}
+              </div>
+
+              {/* Quick Short Links Selector */}
+              {mySavedShortLinks.length > 0 && (
+                <div className="pt-1.5 space-y-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Select from your generated links:</p>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    {mySavedShortLinks.slice(0, 6).map(linkItem => {
+                      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                      const fullShortUrl = `${origin}/r/${linkItem.slug}`;
+                      const isSelected = form.share_link === fullShortUrl || form.share_link === linkItem.target_url;
+                      return (
+                        <button
+                          key={linkItem.id}
+                          type="button"
+                          onClick={() => {
+                            setForm({...form, share_link: fullShortUrl});
+                            toast.success("Short link attached!");
+                          }}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold whitespace-nowrap transition border ${
+                            isSelected
+                              ? 'border-orange-500 bg-orange-500 text-white shadow-xs'
+                              : 'border-border/60 bg-background hover:bg-muted text-foreground'
+                          }`}
+                        >
+                          /r/{linkItem.slug} {linkItem.title ? `(${linkItem.title})` : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div>
               <Label className="text-xs font-medium">Flyer / Image</Label>
@@ -936,12 +1022,23 @@ const BusinessTaskCreator = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Image zoom */}
-      <Dialog open={!!zoomImage} onOpenChange={o => { if (!o) setZoomImage(null); }}>
-        <DialogContent className="max-w-3xl p-2 bg-black/95">
-          {zoomImage && <img loading="lazy" src={zoomImage} alt="Proof full size" className="w-full h-auto rounded" />}
-        </DialogContent>
-      </Dialog>
+      {/* Marketing Link Generator Modal */}
+      <MarketingLinkGeneratorModal
+        open={showLinkGeneratorModal}
+        onOpenChange={setShowLinkGeneratorModal}
+        onSelectLink={(selectedUrl) => {
+          setForm(prev => ({ ...prev, share_link: selectedUrl }));
+          toast.success("Marketing link attached to campaign!");
+        }}
+      />
+
+      {/* Professional In-App Image Lightbox */}
+      <ProductPhotoViewerModal
+        isOpen={!!zoomImage}
+        onClose={() => setZoomImage(null)}
+        images={zoomImage ? [zoomImage] : []}
+        productTitle="Syndicate Campaign Media View"
+      />
     </div>
   );
 };

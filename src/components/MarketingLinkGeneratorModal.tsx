@@ -198,166 +198,166 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-7">
-        <DialogHeader className="space-y-1.5 text-left">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 grid place-items-center text-white shadow-md">
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-3xl p-4 sm:p-6 mx-auto border border-border/80 shadow-2xl">
+        <DialogHeader className="space-y-1 text-left min-w-0 max-w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 grid place-items-center text-white shadow-md shrink-0">
               <Sparkles className="h-5 w-5" />
             </div>
-            <div>
-              <DialogTitle className="text-lg sm:text-xl font-black">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base sm:text-lg font-black truncate">
                 Marketing Link Generator
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs text-muted-foreground leading-tight line-clamp-2">
                 Generate trackable, conversion-ready landing links for your banner adverts and campaigns.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-5 pt-2">
+        <div className="space-y-4 pt-2 min-w-0 max-w-full overflow-hidden">
           {/* Link Type Selector */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 min-w-0">
             <button
               type="button"
               onClick={() => setActiveType('whatsapp')}
-              className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between min-w-0 overflow-hidden ${
                 activeType === 'whatsapp'
                   ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-300'
                   : 'border-border/60 hover:border-border text-muted-foreground'
               }`}
             >
-              <MessageSquare className="h-5 w-5 mb-2 text-green-600" />
-              <div>
-                <p className="text-xs font-bold text-foreground">WhatsApp Link</p>
-                <p className="text-[10px] opacity-75">Direct chat & orders</p>
+              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 mb-1.5 text-green-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">WhatsApp Link</p>
+                <p className="text-[10px] opacity-75 truncate">Direct chat & orders</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveType('storefront')}
-              className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between min-w-0 overflow-hidden ${
                 activeType === 'storefront'
                   ? 'border-orange-500 bg-orange-500/10 text-orange-700 dark:text-orange-300'
                   : 'border-border/60 hover:border-border text-muted-foreground'
               }`}
             >
-              <Store className="h-5 w-5 mb-2 text-orange-600" />
-              <div>
-                <p className="text-xs font-bold text-foreground">My Storefront</p>
-                <p className="text-[10px] opacity-75">Your official business site</p>
+              <Store className="h-4 w-4 sm:h-5 sm:w-5 mb-1.5 text-orange-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">My Storefront</p>
+                <p className="text-[10px] opacity-75 truncate">Official business site</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveType('website')}
-              className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between min-w-0 overflow-hidden ${
                 activeType === 'website'
                   ? 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300'
                   : 'border-border/60 hover:border-border text-muted-foreground'
               }`}
             >
-              <Globe className="h-5 w-5 mb-2 text-blue-600" />
-              <div>
-                <p className="text-xs font-bold text-foreground">Website URL</p>
-                <p className="text-[10px] opacity-75">Custom landing page</p>
+              <Globe className="h-4 w-4 sm:h-5 sm:w-5 mb-1.5 text-blue-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">Website URL</p>
+                <p className="text-[10px] opacity-75 truncate">Custom landing page</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveType('product')}
-              className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between min-w-0 overflow-hidden ${
                 activeType === 'product'
                   ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300'
                   : 'border-border/60 hover:border-border text-muted-foreground'
               }`}
             >
-              <Package className="h-5 w-5 mb-2 text-purple-600" />
-              <div>
-                <p className="text-xs font-bold text-foreground">Product Offer</p>
-                <p className="text-[10px] opacity-75">Link to specific item</p>
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 mb-1.5 text-purple-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">Product Offer</p>
+                <p className="text-[10px] opacity-75 truncate">Link to item</p>
               </div>
             </button>
           </div>
 
           {/* Form Fields Based on Type */}
-          <div className="bg-muted/40 p-4 rounded-2xl border border-border/50 space-y-3.5">
+          <div className="bg-muted/40 p-3.5 sm:p-4 rounded-2xl border border-border/50 space-y-3.5 min-w-0 max-w-full overflow-hidden">
             {activeType === 'whatsapp' && (
               <>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-xs font-bold">WhatsApp Phone Number</Label>
                   <Input
                     placeholder="e.g. 08012345678 or 2348012345678"
                     value={waPhone}
                     onChange={(e) => setWaPhone(e.target.value)}
-                    className="h-11 rounded-xl bg-background text-sm"
+                    className="h-10 rounded-xl bg-background text-xs sm:text-sm min-w-0"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[10.5px] text-muted-foreground leading-tight">
                     When customers click your advert, WhatsApp will immediately open a chat with this number.
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-xs font-bold">Pre-Filled Greeting Message</Label>
                   <Textarea
                     placeholder="Enter the message customers will send you automatically..."
                     value={waMessage}
                     onChange={(e) => setWaMessage(e.target.value)}
                     rows={2}
-                    className="rounded-xl bg-background text-sm resize-none"
+                    className="rounded-xl bg-background text-xs sm:text-sm resize-none min-w-0"
                   />
                 </div>
               </>
             )}
 
             {activeType === 'storefront' && (
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-foreground">Destination: Your GGD Digital Business Website</p>
-                <div className="p-3 bg-background rounded-xl border border-border/60 text-xs font-mono text-muted-foreground break-all">
+              <div className="space-y-2 min-w-0 max-w-full">
+                <p className="text-xs font-bold text-foreground truncate">Destination: Your GGD Digital Business Website</p>
+                <div className="p-2.5 sm:p-3 bg-background rounded-xl border border-border/60 text-[11px] sm:text-xs font-mono text-muted-foreground break-all max-w-full overflow-hidden">
                   {myBusinessSlug ? `${origin}/b/${myBusinessSlug}` : `${origin}/user/${myUserId || 'your-profile'}`}
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[10.5px] text-muted-foreground leading-tight">
                   Advert clicks will be directed straight to your official storefront, business biography, catalog, and verified contacts.
                 </p>
               </div>
             )}
 
             {activeType === 'website' && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs font-bold">Destination Landing Page URL</Label>
                 <Input
                   placeholder="https://yourwebsite.com/special-offer"
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
-                  className="h-11 rounded-xl bg-background text-sm"
+                  className="h-10 rounded-xl bg-background text-xs sm:text-sm min-w-0"
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[10.5px] text-muted-foreground leading-tight">
                   Any external landing page, portfolio, linktree, or Shopify/Paystack store URL.
                 </p>
               </div>
             )}
 
             {activeType === 'product' && (
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0 max-w-full">
                 <Label className="text-xs font-bold">Select Your Product / Service</Label>
                 {myProducts.length > 0 ? (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                     {myProducts.map(p => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => setSelectedProductId(p.id)}
-                        className={`w-full p-2.5 rounded-xl text-left text-xs flex items-center justify-between border transition ${
+                        className={`w-full p-2.5 rounded-xl text-left text-xs flex items-center justify-between border transition min-w-0 ${
                           selectedProductId === p.id
                             ? 'border-orange-500 bg-orange-500/10 font-bold'
                             : 'border-border/40 bg-background hover:bg-muted'
                         }`}
                       >
-                        <span className="truncate flex-1">{p.title}</span>
-                        {p.price && <span className="text-orange-600 font-bold ml-2">₦{Number(p.price).toLocaleString()}</span>}
+                        <span className="truncate flex-1 min-w-0 mr-2">{p.title}</span>
+                        {p.price && <span className="text-orange-600 font-bold shrink-0">₦{Number(p.price).toLocaleString()}</span>}
                       </button>
                     ))}
                   </div>
@@ -370,25 +370,25 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
             )}
 
             {/* Common options */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 min-w-0">
+              <div className="space-y-1 min-w-0">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Campaign / Link Label (Optional)</Label>
                 <Input
                   placeholder="e.g. Summer Promo Link"
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}
-                  className="h-9 rounded-xl bg-background text-xs"
+                  className="h-9 rounded-xl bg-background text-xs min-w-0"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Custom Link Slug (Optional)</Label>
-                <div className="flex items-center gap-1">
-                  <span className="text-[11px] text-muted-foreground font-mono">/r/</span>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-[11px] text-muted-foreground font-mono shrink-0">/r/</span>
                   <Input
                     placeholder="my-promo"
                     value={customSlug}
                     onChange={(e) => setCustomSlug(e.target.value)}
-                    className="h-9 rounded-xl bg-background text-xs font-mono"
+                    className="h-9 rounded-xl bg-background text-xs font-mono min-w-0 flex-1"
                   />
                 </div>
               </div>
@@ -398,10 +398,10 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
           <Button
             onClick={handleGenerateLink}
             disabled={loading}
-            className="w-full h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold shadow-lg shadow-orange-500/20"
+            className="w-full h-11 sm:h-12 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold shadow-lg shadow-orange-500/20 text-xs sm:text-sm"
           >
             {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
@@ -410,37 +410,37 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
 
           {/* Recently Generated Links */}
           {existingLinks.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/40">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black text-foreground">Your Generated Marketing Links</p>
-                <Badge variant="outline" className="text-[10px]">
+            <div className="space-y-2 pt-2 border-t border-border/40 min-w-0 max-w-full">
+              <div className="flex items-center justify-between min-w-0">
+                <p className="text-xs font-black text-foreground truncate">Your Generated Marketing Links</p>
+                <Badge variant="outline" className="text-[10px] shrink-0">
                   {existingLinks.length} Links
                 </Badge>
               </div>
 
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 min-w-0 max-w-full">
                 {existingLinks.map((item) => {
                   const fullUrl = `${origin}/r/${item.slug}`;
                   const isCopied = copiedId === item.id;
                   return (
                     <div
                       key={item.id}
-                      className="p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 transition flex items-center justify-between gap-2"
+                      className="p-2.5 rounded-2xl border border-border/60 bg-card hover:bg-muted/40 transition flex items-center justify-between gap-2 min-w-0 max-w-full overflow-hidden"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold truncate text-foreground">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-xs font-bold truncate text-foreground flex-1 min-w-0">
                             {item.title || item.slug}
                           </p>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600">
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600 shrink-0">
                             /r/{item.slug}
                           </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono">
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono max-w-full">
                           {item.target_url}
                         </p>
                         <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-0.5">
+                          <span className="flex items-center gap-0.5 shrink-0">
                             <BarChart2 className="h-3 w-3 text-emerald-500" />
                             {item.clicks || 0} clicks
                           </span>
@@ -452,7 +452,7 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
                           <Button
                             size="sm"
                             onClick={() => handleSelectAndClose(fullUrl)}
-                            className="h-8 px-2.5 text-xs font-bold rounded-lg bg-orange-500 hover:bg-orange-600 text-white"
+                            className="h-8 px-2 text-[11px] font-bold rounded-xl bg-orange-500 hover:bg-orange-600 text-white shrink-0"
                           >
                             Use in Ad
                           </Button>
@@ -461,7 +461,7 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
                           size="sm"
                           variant="outline"
                           onClick={() => handleCopy(fullUrl, item.id)}
-                          className="h-8 w-8 p-0 rounded-lg"
+                          className="h-8 w-8 p-0 rounded-xl shrink-0"
                           title="Copy Link"
                         >
                           {isCopied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -470,7 +470,7 @@ export const MarketingLinkGeneratorModal: React.FC<MarketingLinkGeneratorModalPr
                           href={fullUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="h-8 w-8 rounded-lg border border-border/60 grid place-items-center hover:bg-muted text-muted-foreground"
+                          className="h-8 w-8 rounded-xl border border-border/60 grid place-items-center hover:bg-muted text-muted-foreground shrink-0"
                           title="Test Link in new tab"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />

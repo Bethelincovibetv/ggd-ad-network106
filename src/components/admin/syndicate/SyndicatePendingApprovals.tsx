@@ -15,12 +15,14 @@ import {
   X, 
   Loader2,
   Video,
-  AlertCircle
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { reviewSyndicateAssignment } from "@/services/syndicateTaskService";
 import { notifyMemberOfStatusUpdate } from "@/services/adminNotificationHelper";
+import ProductPhotoViewerModal from "@/components/ProductPhotoViewerModal";
 
 interface SyndicatePendingApprovalsProps {
   assignments: any[];
@@ -49,6 +51,8 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'proofs' | 'bank' | 'applications'>('all');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState<string>('Proof Photo View');
 
   // Pending lists
   const pendingProofs = assignments.filter(a => a.status === 'submitted' || a.status === 'pending');
@@ -281,11 +285,13 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
                   <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-3">
                       {proof.proof_url && (
-                        <a
-                          href={proof.proof_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-16 w-20 rounded-xl overflow-hidden border border-border bg-muted flex-shrink-0 block hover:opacity-80 transition"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewerUrl(proof.proof_url);
+                            setViewerTitle(`Proof submitted by ${memberName}`);
+                          }}
+                          className="h-16 w-20 rounded-xl overflow-hidden border border-border bg-muted flex-shrink-0 block hover:ring-2 hover:ring-purple-500/50 transition cursor-pointer text-left"
                         >
                           {isVideoProof(proof.proof_url) ? (
                             <div className="h-full w-full bg-slate-900 flex items-center justify-center text-white">
@@ -294,7 +300,7 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
                           ) : (
                             <img src={proof.proof_url} alt="Proof" className="h-full w-full object-cover" />
                           )}
-                        </a>
+                        </button>
                       )}
                       <div>
                         <div className="flex items-center gap-2">
@@ -466,8 +472,13 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
               );
             })}
           </div>
-        </div>
-      )}
+      {/* Professional In-App Photo Lightbox */}
+      <ProductPhotoViewerModal
+        isOpen={!!viewerUrl}
+        onClose={() => setViewerUrl(null)}
+        images={viewerUrl ? [viewerUrl] : []}
+        productTitle={viewerTitle}
+      />
     </div>
   );
 };
