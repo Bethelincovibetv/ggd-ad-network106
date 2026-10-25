@@ -472,7 +472,8 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
               );
             })}
           </div>
-      {/* Professional In-App Photo Lightbox */}
+        </div>
+      )}
       <ProductPhotoViewerModal
         isOpen={!!viewerUrl}
         onClose={() => setViewerUrl(null)}

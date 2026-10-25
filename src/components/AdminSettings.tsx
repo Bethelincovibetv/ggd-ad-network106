@@ -289,51 +289,48 @@ const AdminSettings = () => {
 
   const toggleWhatsappPositioning = async (checked: boolean) => {
     const val = checked ? 'true' : 'false';
+    const previousVal = settings.landing_whatsapp_positioning || 'false';
+
+    // Optimistically set toggle
     setSettings(p => ({ ...p, landing_whatsapp_positioning: val }));
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const currentUser = await getCurrentUser();
-      const localSess = getLocalSession();
+      const token = session?.access_token;
 
-      const adminEmail = currentUser?.email || localSess?.user?.email || session?.user?.email || '';
-      const userId = currentUser?.id || localSess?.user?.id || session?.user?.id || '';
-      const token = session?.access_token || localSess?.access_token || '';
+      if (!token) {
+        throw new Error('Active session token missing. Please sign in as administrator.');
+      }
 
-      // 1. Direct Supabase update
-      await supabase.from('app_settings').upsert({ key: 'landing_whatsapp_positioning', value: val }, { onConflict: 'key' });
-
-      // 2. Server API notification
-      await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+      // 1. Authoritative server function call verifying admin role from session token
+      const resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          enabled: checked,
-          adminEmail,
-          userId,
-        }),
-      }).catch(e => console.warn('Backend notification note:', e));
+        body: JSON.stringify({ enabled: checked }),
+      });
 
+      const data = await resp.json().catch(() => ({ success: false, error: 'Server communication error' }));
+
+      if (!resp.ok || data.success !== true) {
+        throw new Error(data.error || 'Server rejected setting change');
+      }
+
+      // 2. Only write to localStorage after confirmed save
       try {
         localStorage.setItem('landing_whatsapp_positioning', val);
       } catch {}
 
       toast.success(checked 
         ? 'WhatsApp Promoter Positioning enabled on Landing Page!' 
-        : 'WhatsApp Promoter Positioning disabled (Default copy restored)'
+        : 'WhatsApp Promoter Positioning disabled (Default general copy restored)'
       );
     } catch (err: any) {
-      console.warn('Setting toggle notice:', err);
-      try {
-        localStorage.setItem('landing_whatsapp_positioning', val);
-      } catch {}
-
-      toast.success(checked 
-        ? 'WhatsApp Promoter Positioning enabled!' 
-        : 'WhatsApp Promoter Positioning disabled!'
-      );
+      // Revert toggle state, show error toast, do not write to localStorage
+      setSettings(p => ({ ...p, landing_whatsapp_positioning: previousVal }));
+      toast.error('Failed to change setting: ' + (err.message || 'Permission denied'));
     }
   };
 

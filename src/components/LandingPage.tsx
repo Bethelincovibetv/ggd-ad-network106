@@ -42,7 +42,6 @@ const useCountUp = (end: number, duration: number = 2000, active: boolean = true
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      // easeOutExpo for fluid countdown/countup
       const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       setCount(Math.round(ease * target));
       if (progress < 1) {
@@ -64,6 +63,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   const [waGroupLink, setWaGroupLink] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
+  const [verifiedWhatsappReach, setVerifiedWhatsappReach] = useState<number | null>(null);
   const [searchEnabled, setSearchEnabled] = useState(true);
 
   // Stats Intersection Observer & Visibility Trigger
@@ -91,8 +91,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   }, []);
 
   const impressionsCount = useCountUp(liveStats.impressions, 2200, statsVisible);
-  const campaignsCount = useCountUp(liveStats.campaigns, 1800, statsVisible);
-  const sitesCount = useCountUp(liveStats.sites, 1500, statsVisible);
+  const whatsappReachCount = useCountUp(verifiedWhatsappReach || 0, 2000, statsVisible);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'whatsapp_group_link').maybeSingle()
@@ -100,53 +99,70 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
     supabase.from('app_settings').select('value').eq('key', 'landing_search_enabled').maybeSingle()
       .then(({ data }) => { if (data?.value === 'false') setSearchEnabled(false); });
 
-    // Fetch live real campaign stats across all platform engines
-    const fetchStats = async () => {
-      try {
-        const now = Date.now();
-        const [adsRes, tasksRes, syndicateRes, keysRes, contactCampaigns] = await Promise.all([
-          supabase.from('ads').select('id, impressions, is_active, expires_at'),
-          supabase.from('tasks').select('id, is_active, completions_count, max_completions'),
-          supabase.from('syndicate_tasks').select('id, status'),
-          supabase.from('api_keys').select('id', { count: 'exact' }),
-          getActiveContactCampaigns().catch(() => []),
-        ]);
+    if (whatsappPositioning) {
+      // When WhatsApp positioning is ON, query ONLY real verified WhatsApp reach from approved syndicate submissions/assignments
+      const fetchWhatsappReach = async () => {
+        try {
+          const { data: approvedAssignments } = await supabase
+            .from('syndicate_task_assignments')
+            .select('id')
+            .eq('status', 'approved');
+          
+          const approvedCount = approvedAssignments?.length || 0;
+          setVerifiedWhatsappReach(approvedCount > 0 ? approvedCount : 0);
+        } catch (err) {
+          console.warn('Error fetching verified WhatsApp reach:', err);
+          setVerifiedWhatsappReach(0);
+        }
+      };
+      fetchWhatsappReach();
+    } else {
+      // Fetch live real campaign stats across all platform engines when positioning is OFF
+      const fetchStats = async () => {
+        try {
+          const now = Date.now();
+          const [adsRes, tasksRes, syndicateRes, keysRes, contactCampaigns] = await Promise.all([
+            supabase.from('ads').select('id, impressions, is_active, expires_at'),
+            supabase.from('tasks').select('id, is_active, completions_count, max_completions'),
+            supabase.from('syndicate_tasks').select('id, status'),
+            supabase.from('api_keys').select('id', { count: 'exact' }),
+            getActiveContactCampaigns().catch(() => []),
+          ]);
 
-        const allAds = adsRes.data || [];
-        const activeAdsCount = allAds.filter(a => {
-          if (!a.is_active) return false;
-          if (a.expires_at && new Date(a.expires_at).getTime() < now) return false;
-          return true;
-        }).length;
+          const allAds = adsRes.data || [];
+          const activeAdsCount = allAds.filter(a => {
+            if (!a.is_active) return false;
+            if (a.expires_at && new Date(a.expires_at).getTime() < now) return false;
+            return true;
+          }).length;
 
-        const allTasks = tasksRes.data || [];
-        const activeTasksCount = allTasks.filter(t => {
-          if (!t.is_active) return false;
-          if (t.max_completions && t.max_completions > 0 && (t.completions_count || 0) >= t.max_completions) return false;
-          return true;
-        }).length;
+          const allTasks = tasksRes.data || [];
+          const activeTasksCount = allTasks.filter(t => {
+            if (!t.is_active) return false;
+            if (t.max_completions && t.max_completions > 0 && (t.completions_count || 0) >= t.max_completions) return false;
+            return true;
+          }).length;
 
-        const allSyndicate = syndicateRes.data || [];
-        const activeSyndicateCount = allSyndicate.filter(s => s.status === 'active').length;
+          const allSyndicate = syndicateRes.data || [];
+          const activeSyndicateCount = allSyndicate.filter(s => s.status === 'active').length;
 
-        const activeContactCount = (contactCampaigns || []).filter(c => c.status === 'active').length;
+          const activeContactCount = (contactCampaigns || []).filter(c => c.status === 'active').length;
 
-        // Sum real active campaigns across all campaign systems
-        const totalActiveCampaigns = activeAdsCount + activeTasksCount + activeSyndicateCount + activeContactCount;
+          const totalActiveCampaigns = activeAdsCount + activeTasksCount + activeSyndicateCount + activeContactCount;
+          const totalImpressions = allAds.reduce((sum, a) => sum + (Number(a.impressions) || 0), 0);
 
-        const totalImpressions = allAds.reduce((sum, a) => sum + (Number(a.impressions) || 0), 0);
-
-        setLiveStats({
-          impressions: totalImpressions > 0 ? totalImpressions : 2280,
-          campaigns: totalActiveCampaigns > 0 ? totalActiveCampaigns : Math.max(activeAdsCount, 1),
-          sites: (keysRes.count && keysRes.count > 0) ? keysRes.count : 14,
-        });
-      } catch (err) {
-        console.warn('Error fetching live campaign stats:', err);
-      }
-    };
-    fetchStats();
-  }, []);
+          setLiveStats({
+            impressions: totalImpressions > 0 ? totalImpressions : 2280,
+            campaigns: totalActiveCampaigns > 0 ? totalActiveCampaigns : Math.max(activeAdsCount, 1),
+            sites: (keysRes.count && keysRes.count > 0) ? keysRes.count : 14,
+          });
+        } catch (err) {
+          console.warn('Error fetching live campaign stats:', err);
+        }
+      };
+      fetchStats();
+    }
+  }, [whatsappPositioning]);
 
   const scrollTo = (id: string) => {
     setMenuOpen(false);
@@ -156,12 +172,38 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   const { isEnabled } = useFeatureToggles();
   const allowNonWhatsapp = isEnabled('syndicate_non_whatsapp_channels');
 
-  const navItems = [
-    ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
-    { id: 'business', label: 'For Businesses' },
-    ...(isEnabled('credit_tasks') || isEnabled('syndicate') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
-    { id: 'how-it-works', label: 'How It Works' },
-    { id: 'faq', label: 'FAQ' },
+  const navItems = whatsappPositioning
+    ? [
+        { id: 'how-it-works', label: 'How It Works' },
+        { id: 'faq', label: 'FAQ' },
+      ]
+    : [
+        ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
+        { id: 'business', label: 'For Businesses' },
+        ...(isEnabled('credit_tasks') || isEnabled('syndicate') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
+        { id: 'how-it-works', label: 'How It Works' },
+        { id: 'faq', label: 'FAQ' },
+      ];
+
+  const whatsappWhyCards = [
+    {
+      icon: MapPin,
+      title: "Choose your state. We reach real people there.",
+      description: "Target specific states across Nigeria to make sure your offer reaches active local customers.",
+      color: "text-[#e67e22] bg-[#e67e22]/10"
+    },
+    {
+      icon: Users,
+      title: "A managed team of promoters, not strangers.",
+      description: "Our vetted network of active WhatsApp promoters post your flyer and text to their Status, groups, and channels.",
+      color: "text-[#e74c3c] bg-[#e74c3c]/10"
+    },
+    {
+      icon: BadgeCheck,
+      title: "Pay only for the views we prove, with screenshots and a delivery report.",
+      description: "Clear proof of every post and view count verified before campaign completion.",
+      color: "text-emerald-400 bg-emerald-500/10"
+    }
   ];
 
   const coreCapabilities = [
@@ -236,7 +278,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
             ))}
             <Button onClick={onGetStarted}
               className="bg-white text-[#e67e22] hover:bg-white/90 font-bold px-4 py-2 rounded-lg">
-              Get Started
+              {whatsappPositioning ? "Start my campaign" : "Get Started"}
             </Button>
           </div>
 
@@ -258,7 +300,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
             ))}
             <Button onClick={() => { setMenuOpen(false); onGetStarted(); }}
               className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white py-6 text-lg font-bold rounded-xl">
-              Get Started
+              {whatsappPositioning ? "Start my campaign" : "Get Started"}
             </Button>
           </div>
         </div>
@@ -275,7 +317,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
         <div className="container mx-auto px-4 pt-10 pb-16 relative z-10">
           <div className="text-center space-y-6">
-            {searchEnabled && (
+            {!whatsappPositioning && searchEnabled && (
               <div className="max-w-md mx-auto pt-2">
                 <GlobalSearchBar />
               </div>
@@ -335,50 +377,97 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       </div>
 
-      {/* Stats with animated counters */}
-      <div className="border-y border-[#333] bg-[#111]">
-        <div className="container mx-auto px-4 py-8" ref={statsRef}>
-          <div className="grid grid-cols-2 max-w-xl mx-auto gap-6 sm:gap-12">
-            {[
-              { value: impressionsCount, suffix: "+", label: "Impressions Served" },
-              { value: null, display: "Free", label: "To Get Started" },
-            ].map((s, i) => (
-              <div key={i} className="text-center">
-                <div className="text-2xl md:text-3xl font-black text-[#e67e22]">
-                  {s.value !== null ? `${s.value.toLocaleString()}${s.suffix}` : s.display}
+      {/* Stats Bar */}
+      {whatsappPositioning ? (
+        // When ON: Hide stats bar completely if no real verified data exists (or show only verified WhatsApp reach if > 0)
+        (verifiedWhatsappReach !== null && verifiedWhatsappReach > 0) ? (
+          <div className="border-y border-[#333] bg-[#111]">
+            <div className="container mx-auto px-4 py-8" ref={statsRef}>
+              <div className="flex justify-center max-w-xl mx-auto">
+                <div className="text-center">
+                  <div className="text-2xl md:text-3xl font-black text-[#e67e22]">
+                    {whatsappReachCount.toLocaleString()}+
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">Verified WhatsApp Reach</div>
                 </div>
-                <div className="text-xs text-gray-400 mt-1">{s.label}</div>
               </div>
-            ))}
+            </div>
+          </div>
+        ) : null
+      ) : (
+        // When OFF: Show default stats bar with animated counters
+        <div className="border-y border-[#333] bg-[#111]">
+          <div className="container mx-auto px-4 py-8" ref={statsRef}>
+            <div className="grid grid-cols-2 max-w-xl mx-auto gap-6 sm:gap-12">
+              {[
+                { value: impressionsCount, suffix: "+", label: "Impressions Served" },
+                { value: null, display: "Free", label: "To Get Started" },
+              ].map((s, i) => (
+                <div key={i} className="text-center">
+                  <div className="text-2xl md:text-3xl font-black text-[#e67e22]">
+                    {s.value !== null ? `${s.value.toLocaleString()}${s.suffix}` : s.display}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* What GGD Helps You Do */}
+      {/* Features Section ("Why businesses use GGD" when ON, "What GGD Helps You Do" when OFF) */}
       <div id="features" className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12 space-y-2">
-          <h2 className="text-3xl md:text-4xl font-black text-white">What GGD Helps You Do</h2>
-          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-            Everything your business needs to establish a presence, attract audiences, and drive real outcomes.
-          </p>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {coreCapabilities.map((item, i) => (
-            <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-300 group hover:-translate-y-1">
-              <CardContent className="p-5 space-y-3">
-                <div className={`p-3 rounded-xl w-fit ${item.color}`}>
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors">{item.title}</h3>
-                <p className="text-gray-400 text-xs leading-relaxed">{item.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {whatsappPositioning ? (
+          <>
+            <div className="text-center mb-12 space-y-2">
+              <h2 className="text-3xl md:text-4xl font-black text-white">Why businesses use GGD</h2>
+              <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+                Reach real customers in your target states with verified screenshot proof.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {whatsappWhyCards.map((item, i) => (
+                <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-300 group hover:-translate-y-1 flex flex-col justify-between">
+                  <CardContent className="p-6 space-y-4">
+                    <div className={`p-3.5 rounded-xl w-fit ${item.color}`}>
+                      <item.icon className="h-7 w-7" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white group-hover:text-[#e67e22] transition-colors leading-snug">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{item.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-center mb-12 space-y-2">
+              <h2 className="text-3xl md:text-4xl font-black text-white">What GGD Helps You Do</h2>
+              <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+                Everything your business needs to establish a presence, attract audiences, and drive real outcomes.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {coreCapabilities.map((item, i) => (
+                <Card key={i} className="bg-[#222] border-[#333] hover:border-[#e67e22]/40 transition-all duration-300 group hover:-translate-y-1">
+                  <CardContent className="p-5 space-y-3">
+                    <div className={`p-3 rounded-xl w-fit ${item.color}`}>
+                      <item.icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors">{item.title}</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">{item.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Official Marketing & Growth Apps Marketplace Section (Admin Configured) */}
-      {isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') && (
+      {/* Hidden when whatsappPositioning is ON: Marketing Apps Marketplace */}
+      {!whatsappPositioning && isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') && (
         <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
           <div className="max-w-6xl mx-auto">
             <MarketingAppsMarketplace
@@ -391,188 +480,208 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       )}
 
-      {/* For Businesses Section */}
-      <div id="business" className="container mx-auto px-4 py-16">
-        <Card className="bg-gradient-to-br from-[#0a1628] via-[#102038] to-[#1a2744] border-[#2a3f5f] max-w-4xl mx-auto overflow-hidden">
-          <CardContent className="p-8 md:p-12 space-y-8 relative">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Hidden when whatsappPositioning is ON: For Businesses Section */}
+      {!whatsappPositioning && (
+        <div id="business" className="container mx-auto px-4 py-16">
+          <Card className="bg-gradient-to-br from-[#0a1628] via-[#102038] to-[#1a2744] border-[#2a3f5f] max-w-4xl mx-auto overflow-hidden">
+            <CardContent className="p-8 md:p-12 space-y-8 relative">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full px-3.5 py-1 text-xs font-semibold">
-                <Building2 className="h-3.5 w-3.5" /> For Growing Businesses
-              </div>
-              <h2 className="text-2xl md:text-4xl font-black text-white">
-                Establish, Promote, and Grow Your Business
-              </h2>
-              <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-                Businesses can use GGD to establish their presence, showcase products and services, promote their business, reach customers and grow.
-              </p>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-md group">
-              <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 to-orange-500/30 blur-2xl rounded-2xl animate-pulse" />
-              <img src={businessImg} alt="Grow your business on GGD" loading="lazy" width={1024} height={768}
-                className="relative rounded-2xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-transform duration-500" />
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4 pt-2">
-              {[
-                ...(isEnabled('business_directory') && isEnabled('directory') ? [{
-                  icon: Building2,
-                  title: "Establish Your Presence",
-                  desc: "Create a verified profile in the Business Directory with contact info, WhatsApp link, location, and brand description."
-                }] : [{
-                  icon: Building2,
-                  title: "Establish Your Presence",
-                  desc: "Create your verified merchant profile with direct WhatsApp contact info, location, and brand description."
-                }]),
-                {
-                  icon: Store,
-                  title: "Showcase What You Sell",
-                  desc: "Display products, services, pricing, and key features directly on your storefront so visitors can inquire easily."
-                },
-                {
-                  icon: Megaphone,
-                  title: "Reach Targeted Customers",
-                  desc: "Amplify your message through " + [
-                    isEnabled('banner_ads') && isEnabled('ads') && "commercial Banner Ads",
-                    isEnabled('credit_tasks') && isEnabled('tasks') && "community credit tasks",
-                    "verified Syndicate promoter campaigns"
-                  ].filter(Boolean).join(", ") + "."
-                },
-                {
-                  icon: TrendingUp,
-                  title: "Track Performance & Grow",
-                  desc: "Monitor impressions, clicks, CTR, and customer engagement to continuously turn visibility into real business growth."
-                },
-              ].map((item, i) => (
-                <div key={i} className="bg-[#1a2744]/70 border border-[#2a3f5f] rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                      <item.icon className="h-4 w-4" />
-                    </div>
-                    <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                  </div>
-                  <p className="text-xs text-gray-300 leading-relaxed pl-10">{item.desc}</p>
+              <div className="text-center space-y-3">
+                <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full px-3.5 py-1 text-xs font-semibold">
+                  <Building2 className="h-3.5 w-3.5" /> For Growing Businesses
                 </div>
-              ))}
-            </div>
-
-            <div className="text-center pt-2">
-              <Button onClick={onGetStarted} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-base font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-105 transition-transform">
-                Start Your Business Presence <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Promote & Earn Section */}
-      <div id="promote-earn" className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12 space-y-2">
-          <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-200">
-            <Coins className="h-3.5 w-3.5 text-[#e67e22]" />
-            {isEnabled('credit_tasks') && isEnabled('tasks') ? 'Two Distinct Channels' : 'Verified Syndicate Network'}
-          </div>
-          <h2 className="text-3xl md:text-4xl font-black text-white">Promote & Earn on GGD</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
-            {isEnabled('credit_tasks') && isEnabled('tasks')
-              ? 'GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.'
-              : 'Partner with verified Syndicate promoters to amplify your message across targeted WhatsApp audiences with escrow proof of delivery.'}
-          </p>
-        </div>
-
-        <div className={`gap-6 ${isEnabled('credit_tasks') && isEnabled('tasks') ? 'grid md:grid-cols-2 max-w-5xl mx-auto' : 'max-w-2xl mx-auto flex justify-center'}`}>
-          {/* Credit Tasks Card (only if credit_tasks is ON) */}
-          {isEnabled('credit_tasks') && isEnabled('tasks') && (
-            <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
-              <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase tracking-wider">
-                    Community Economy
-                  </span>
-                  <span className="text-xs text-gray-400">Earn & Spend</span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="h-12 w-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                    <Share2 className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
-                  <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                    Community members complete promotional activities like watching videos, visiting websites, and social sharing to earn GGG Credits.
-                  </p>
-                </div>
-
-                <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
-                  <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
-                  <ul className="space-y-1.5 list-disc list-inside text-gray-400">
-                    <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
-                    <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
-                    <li>Promote social posts and link visits through active community members.</li>
-                  </ul>
-                </div>
-
-                <div className="pt-4 mt-auto">
-                  <Button onClick={onGetStarted} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl">
-                    Explore Credit Tasks <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Syndicate Card */}
-          <Card className="bg-gradient-to-br from-[#24172f] via-[#1b1224] to-[#140c1c] border-purple-500/30 overflow-hidden flex flex-col w-full">
-            <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full uppercase tracking-wider">
-                  Paid Syndicate Network
-                </span>
-                <span className="text-xs text-gray-400">Real Paid Rewards</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="h-12 w-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                  <Users className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold text-white">Syndicate Promoters</h3>
-                <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                  {allowNonWhatsapp
-                    ? 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp, Facebook, Instagram, and TikTok with verified proof.'
-                    : 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp Status, Groups, and Channels with verified proof.'}
+                <h2 className="text-2xl md:text-4xl font-black text-white">
+                  Establish, Promote, and Grow Your Business
+                </h2>
+                <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+                  Businesses can use GGD to establish their presence, showcase products and services, promote their business, reach customers and grow.
                 </p>
               </div>
 
-              <div className="space-y-2 bg-[#0e0714]/60 rounded-xl p-4 border border-purple-500/20 text-xs text-gray-300">
-                <p className="font-semibold text-purple-400">How the Syndicate Economy Works:</p>
-                <ul className="space-y-1.5 list-disc list-inside text-gray-400">
-                  <li>Businesses fund paid campaigns to reach <strong className="text-white">targeted social audiences</strong>.</li>
-                  <li>Verified Syndicate promoters share content and upload <strong className="text-white">proof of posting</strong>.</li>
-                  <li>Promoters earn cash rewards into their <strong className="text-white">separate Syndicate wallet</strong>.</li>
-                </ul>
+              <div className="relative mx-auto w-full max-w-md group">
+                <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 to-orange-500/30 blur-2xl rounded-2xl animate-pulse" />
+                <img src={businessImg} alt="Grow your business on GGD" loading="lazy" width={1024} height={768}
+                  className="relative rounded-2xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-transform duration-500" />
               </div>
 
-              <div className="pt-4 mt-auto">
-                <Button onClick={() => navigate('/syndicate-register')} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-6 rounded-xl">
-                  Become a Syndicate Promoter <ArrowRight className="ml-2 h-4 w-4" />
+              <div className="grid sm:grid-cols-2 gap-4 pt-2">
+                {[
+                  ...(isEnabled('business_directory') && isEnabled('directory') ? [{
+                    icon: Building2,
+                    title: "Establish Your Presence",
+                    desc: "Create a verified profile in the Business Directory with contact info, WhatsApp link, location, and brand description."
+                  }] : [{
+                    icon: Building2,
+                    title: "Establish Your Presence",
+                    desc: "Create your verified merchant profile with direct WhatsApp contact info, location, and brand description."
+                  }]),
+                  {
+                    icon: Store,
+                    title: "Showcase What You Sell",
+                    desc: "Display products, services, pricing, and key features directly on your storefront so visitors can inquire easily."
+                  },
+                  {
+                    icon: Megaphone,
+                    title: "Reach Targeted Customers",
+                    desc: "Amplify your message through " + [
+                      isEnabled('banner_ads') && isEnabled('ads') && "commercial Banner Ads",
+                      isEnabled('credit_tasks') && isEnabled('tasks') && "community credit tasks",
+                      "verified Syndicate promoter campaigns"
+                    ].filter(Boolean).join(", ") + "."
+                  },
+                  {
+                    icon: TrendingUp,
+                    title: "Track Performance & Grow",
+                    desc: "Monitor impressions, clicks, CTR, and customer engagement to continuously turn visibility into real business growth."
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="bg-[#1a2744]/70 border border-[#2a3f5f] rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-sm font-bold text-white">{item.title}</h3>
+                    </div>
+                    <p className="text-xs text-gray-300 leading-relaxed pl-10">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-center pt-2">
+                <Button onClick={onGetStarted} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-base font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-105 transition-transform">
+                  Start Your Business Presence <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
+      )}
+
+      {/* Hidden when whatsappPositioning is ON: Promote & Earn Section */}
+      {!whatsappPositioning && (
+        <div id="promote-earn" className="container mx-auto px-4 py-16">
+          <div className="text-center mb-12 space-y-2">
+            <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-200">
+              <Coins className="h-3.5 w-3.5 text-[#e67e22]" />
+              {isEnabled('credit_tasks') && isEnabled('tasks') ? 'Two Distinct Channels' : 'Verified Syndicate Network'}
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black text-white">Promote & Earn on GGD</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
+              {isEnabled('credit_tasks') && isEnabled('tasks')
+                ? 'GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.'
+                : 'Partner with verified Syndicate promoters to amplify your message across targeted WhatsApp audiences with proof of delivery.'}
+            </p>
+          </div>
+
+          <div className={`gap-6 ${isEnabled('credit_tasks') && isEnabled('tasks') ? 'grid md:grid-cols-2 max-w-5xl mx-auto' : 'max-w-2xl mx-auto flex justify-center'}`}>
+            {/* Credit Tasks Card */}
+            {isEnabled('credit_tasks') && isEnabled('tasks') && (
+              <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
+                <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full uppercase tracking-wider">
+                      Community Economy
+                    </span>
+                    <span className="text-xs text-gray-400">Earn & Spend</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="h-12 w-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                      <Share2 className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
+                    <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                      Community members complete promotional activities like watching videos, visiting websites, and social sharing to earn GGG Credits.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
+                    <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
+                    <ul className="space-y-1.5 list-disc list-inside text-gray-400">
+                      <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
+                      <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
+                      <li>Promote social posts and link visits through active community members.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-4 mt-auto">
+                    <Button onClick={onGetStarted} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-xl">
+                      Explore Credit Tasks <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Syndicate Card */}
+            <Card className="bg-gradient-to-br from-[#24172f] via-[#1b1224] to-[#140c1c] border-purple-500/30 overflow-hidden flex flex-col w-full">
+              <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full uppercase tracking-wider">
+                    Paid Syndicate Network
+                  </span>
+                  <span className="text-xs text-gray-400">Real Paid Rewards</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="h-12 w-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Syndicate Promoters</h3>
+                  <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                    {allowNonWhatsapp
+                      ? 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp, Facebook, Instagram, and TikTok with verified proof.'
+                      : 'Verified professional promoters take on paid promotional campaigns, sharing business offers across WhatsApp Status, Groups, and Channels with verified proof.'}
+                  </p>
+                </div>
+
+                <div className="space-y-2 bg-[#0e0714]/60 rounded-xl p-4 border border-purple-500/20 text-xs text-gray-300">
+                  <p className="font-semibold text-purple-400">How the Syndicate Economy Works:</p>
+                  <ul className="space-y-1.5 list-disc list-inside text-gray-400">
+                    <li>Businesses fund paid campaigns to reach <strong className="text-white">targeted social audiences</strong>.</li>
+                    <li>Verified Syndicate promoters share content and upload <strong className="text-white">proof of posting</strong>.</li>
+                    <li>Promoters earn cash rewards into their <strong className="text-white">separate Syndicate wallet</strong>.</li>
+                  </ul>
+                </div>
+
+                <div className="pt-4 mt-auto">
+                  <Button onClick={() => navigate('/syndicate-register')} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-6 rounded-xl">
+                    Become a Syndicate Promoter <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* How GGD Helps You Grow */}
       <div id="how-it-works" className="container mx-auto px-4 py-16">
         <div className="text-center mb-12 space-y-2">
           <h2 className="text-3xl md:text-4xl font-black text-white">How GGD Helps You Grow</h2>
           <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-            From initial business discovery to expanding revenue in four clear steps.
+            {whatsappPositioning ? "Get started in 3 simple steps." : "From initial business discovery to expanding revenue in four clear steps."}
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
+        <div className={`grid sm:grid-cols-2 ${whatsappPositioning ? 'lg:grid-cols-3 max-w-5xl' : 'lg:grid-cols-4'} gap-6 mx-auto`}>
+          {(whatsappPositioning ? [
+            {
+              step: "01",
+              title: "Pick your placement, state and number of promoters.",
+              desc: "Select WhatsApp Status, groups or channels, choose your target states, and specify the number of promoters you want."
+            },
+            {
+              step: "02",
+              title: "Our team posts your ad on their Status, groups, channels and communities.",
+              desc: "Vetted promoters receive your flyer and promotional text and share them directly with their active local audiences."
+            },
+            {
+              step: "03",
+              title: "You get a proof report with verified views.",
+              desc: "Access screenshot delivery reports and view counts as interested customers message your business on WhatsApp."
+            }
+          ] : [
             {
               step: "01",
               title: "Get Discovered",
@@ -602,7 +711,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
               title: "Grow",
               desc: "Convert increased high-intent visibility into inquiries, customer orders, and long-term business growth."
             },
-          ].map((s, i) => (
+          ]).map((s, i) => (
             <div key={i} className="text-center space-y-3 bg-[#222] border border-[#333] rounded-2xl p-6 hover:border-[#e67e22]/50 hover:scale-105 transition-all">
               <div className="text-4xl font-black text-[#e67e22]">{s.step}</div>
               <h3 className="text-base font-bold text-white">{s.title}</h3>
@@ -612,8 +721,8 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       </div>
 
-      {/* BlogMate AI Section — Positioned as a marketing/content tool inside GGD */}
-      {isEnabled('blogmate_ai') && (
+      {/* Hidden when whatsappPositioning is ON: BlogMate AI Section */}
+      {!whatsappPositioning && isEnabled('blogmate_ai') && (
         <div id="blogmate" className="container mx-auto px-4 py-16">
           <Card className="bg-gradient-to-br from-[#1f192b] via-[#241738] to-[#171124] border-purple-500/30 max-w-4xl mx-auto overflow-hidden">
             <CardContent className="p-8 md:p-12 space-y-6 relative">
@@ -650,7 +759,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                   BlogMate is one of several marketing tools within GGD designed to power your business growth.
                 </p>
                 <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-6 text-sm font-bold rounded-xl shadow-lg hover:scale-105 transition-transform">
-                  Explore Marketing Tools <ArrowRight className="ml-2 h-4 w-4" />
+                  Explore Marketing Tools <ArrowRight className="ml-4 w-4 h-4" />
                 </Button>
               </div>
             </CardContent>
@@ -670,6 +779,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       <AdNetworkFAQ
         id="faq"
         variant="dark"
+        whatsappPositioning={whatsappPositioning}
         onGetStarted={onGetStarted}
         onContactSupport={() => {
           if (waGroupLink) {
@@ -680,16 +790,20 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         }}
       />
 
-      {/* Contact CTA */}
+      {/* Contact / Closing CTA Banner */}
       <div id="contact" className="container mx-auto px-4 py-16">
         <div className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] rounded-2xl p-8 md:p-14 text-center hover:shadow-2xl hover:shadow-[#e67e22]/20 transition-shadow">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Grow Your Business?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            {whatsappPositioning ? "Ready to get customers messaging you?" : "Ready to Grow Your Business?"}
+          </h2>
           <p className="text-orange-100 text-base md:text-lg mb-8 max-w-xl mx-auto">
-            Join businesses, creators, and promoters on GGD Ad Network to expand your reach and boost visibility.
+            {whatsappPositioning
+              ? "Pick your state, set your budget, and we do the posting."
+              : "Join businesses, creators, and promoters on GGD Ad Network to expand your reach and boost visibility."}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button onClick={onGetStarted} size="lg" className="bg-white text-[#e67e22] hover:bg-gray-100 px-8 py-6 text-lg font-bold rounded-xl shadow-xl hover:scale-105 transition-transform">
-              Start Free — It's Free <ArrowRight className="ml-2 h-5 w-5" />
+              {whatsappPositioning ? "Start my campaign" : "Start Free"} <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             {waGroupLink && (
               <Button size="lg" variant="outline" onClick={() => window.open(waGroupLink, '_blank')}
@@ -706,6 +820,16 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         <div className="container mx-auto px-4 text-center text-gray-500 text-sm space-y-2">
           <p>© {new Date().getFullYear()} GGD Ad Network. All rights reserved.</p>
           <p className="text-xs">Powered by <span className="text-[#e67e22] font-semibold">Goodgift Digital</span></p>
+          {whatsappPositioning && (
+            <div className="pt-2">
+              <button
+                onClick={() => navigate('/syndicate-register')}
+                className="text-xs text-[#e67e22] hover:text-[#f39c12] hover:underline font-medium transition-colors"
+              >
+                Become a promoter
+              </button>
+            </div>
+          )}
         </div>
       </footer>
     </div>
@@ -713,4 +837,3 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
 };
 
 export default LandingPage;
-

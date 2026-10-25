@@ -120,6 +120,41 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
   }
 ];
 
+export const WHATSAPP_POSITIONING_FAQS: FAQItem[] = [
+  {
+    id: 'wa-faq-1',
+    category: 'General',
+    featured: true,
+    question: 'What placements are available?',
+    answer: 'We promote your business across WhatsApp Status, WhatsApp Groups, WhatsApp Channels, and targeted community groups in the Nigerian states you select.',
+    tags: ['Placements', 'WhatsApp', 'Reach']
+  },
+  {
+    id: 'wa-faq-2',
+    category: 'Payments',
+    featured: true,
+    question: 'How does payment work?',
+    answer: 'You pay only for the views we prove. You set your budget and target states, and payment covers verified view delivery.',
+    tags: ['Payments', 'Verified Views', 'Pricing']
+  },
+  {
+    id: 'wa-faq-3',
+    category: 'Advertisers',
+    featured: true,
+    question: 'What proof do you receive?',
+    answer: 'You receive a proof report with verified screenshots showing the actual WhatsApp status views, group posts, and audience reach delivered by our promoter team.',
+    tags: ['Proof', 'Screenshots', 'Delivery']
+  },
+  {
+    id: 'wa-faq-4',
+    category: 'General',
+    featured: true,
+    question: 'Are sales guaranteed?',
+    answer: 'No. We deliver verified views and reach from real people in your chosen states, and interested customers message you directly on WhatsApp.',
+    tags: ['Guarantee', 'Sales', 'Direct Contact']
+  }
+];
+
 export interface AdNetworkFAQProps {
   items?: FAQItem[];
   title?: string;
@@ -133,6 +168,7 @@ export interface AdNetworkFAQProps {
   onContactSupport?: () => void;
   className?: string;
   id?: string;
+  whatsappPositioning?: boolean;
 }
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -145,25 +181,31 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export const AdNetworkFAQ: React.FC<AdNetworkFAQProps> = ({
-  items = DEFAULT_AD_NETWORK_FAQS,
+  items,
   title = "Frequently Asked Questions",
-  subtitle = "Everything you need to know about promoting, earning, and scaling your business on GGD Ad Network.",
-  badge = "HELP & ANSWERS",
+  subtitle,
+  badge = "HELP & SUPPORT",
   allowSearch = true,
-  defaultCategory = 'All',
-  variant = 'dark',
+  defaultCategory = "All",
+  variant = "dark",
   showContactCta = true,
   onGetStarted,
   onContactSupport,
   className = "",
-  id = "faq"
+  id = "faq",
+  whatsappPositioning = false,
 }) => {
+  const activeItems = whatsappPositioning ? WHATSAPP_POSITIONING_FAQS : (items || DEFAULT_AD_NETWORK_FAQS);
+  const activeSubtitle = subtitle || (whatsappPositioning 
+    ? "Everything you need to know about promoting your business through our managed WhatsApp promoter team." 
+    : "Everything you need to know about promoting, earning, and scaling your business on GGD Ad Network.");
+
   const { isEnabled } = useFeatureToggles();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategory);
 
   const processedItems = useMemo(() => {
-    return items
+    return activeItems
       .filter(item => !item.feature || isEnabled(item.feature))
       .map(item => {
         let answer = item.answer;
@@ -186,7 +228,7 @@ export const AdNetworkFAQ: React.FC<AdNetworkFAQProps> = ({
           answer: scrubFeatureCopy(answer, isEnabled),
         };
       });
-  }, [items, isEnabled]);
+  }, [activeItems, isEnabled]);
 
   const categories = useMemo(() => {
     const cats = ['All', ...Array.from(new Set(processedItems.map(item => item.category)))];
@@ -230,11 +272,11 @@ export const AdNetworkFAQ: React.FC<AdNetworkFAQProps> = ({
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">
             {title}
           </h2>
-          {subtitle && (
+          {activeSubtitle && (
             <p className={`max-w-2xl mx-auto text-sm md:text-base leading-relaxed ${
               isDark ? 'text-gray-300' : 'text-slate-600'
             }`}>
-              {subtitle}
+              {activeSubtitle}
             </p>
           )}
         </div>

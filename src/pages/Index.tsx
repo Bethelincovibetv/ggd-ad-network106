@@ -46,15 +46,34 @@ const Index = () => {
               localStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
             } catch {}
           } else {
-            setWhatsappPositioning(false);
+            // Use cached value if exists, otherwise default to OFF
             try {
-              localStorage.setItem('landing_whatsapp_positioning', 'false');
-            } catch {}
+              const cached = localStorage.getItem('landing_whatsapp_positioning');
+              if (cached !== null) {
+                setWhatsappPositioning(cached === 'true');
+              } else {
+                setWhatsappPositioning(false);
+              }
+            } catch {
+              setWhatsappPositioning(false);
+            }
           }
         }
       })
       .catch((err) => {
         console.warn("Failed fetching landing_whatsapp_positioning:", err);
+        if (mounted) {
+          try {
+            const cached = localStorage.getItem('landing_whatsapp_positioning');
+            if (cached !== null) {
+              setWhatsappPositioning(cached === 'true');
+            } else {
+              setWhatsappPositioning(false);
+            }
+          } catch {
+            setWhatsappPositioning(false);
+          }
+        }
       })
       .finally(() => {
         if (mounted) {
@@ -108,13 +127,13 @@ const Index = () => {
       }
     });
 
-    // Safety timeout: prevent indefinite spinner
+    // Safety timeout (2000ms): prevent indefinite spinner
     const timer = setTimeout(() => {
       if (mounted) {
         setLoading(false);
         setSettingLoaded(true);
       }
-    }, 300);
+    }, 2000);
 
     return () => {
       mounted = false;
