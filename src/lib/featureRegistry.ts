@@ -102,6 +102,17 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
       'non-whatsapp',
     ],
   },
+  {
+    key: 'syndicate_portal',
+    label: 'Syndicate Portal Button',
+    group: 'Syndicate & Channels',
+    defaultState: true,
+    canDisable: true,
+    description: 'Toggle on/off the "Syndicate Portal" button in sidebars, footers, and navigation menus across the platform.',
+    navTabIds: ['syndicate', 'syndicate-join', 'business-tasks'],
+    routes: ['/syndicate-register'],
+    keywords: ['Syndicate Portal', 'Syndicate Hub', 'Syndicate Button', 'Join Syndicate'],
+  },
 
   // --- ADS & BANNERS ---
   {
