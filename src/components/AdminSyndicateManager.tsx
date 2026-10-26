@@ -65,6 +65,8 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   const [syndicatePayoutPercentage, setSyndicatePayoutPercentage] = useState<number>(70);
   const [savingPercentage, setSavingPercentage] = useState(false);
   const [syncingSubaccountId, setSyncingSubaccountId] = useState<string | null>(null);
+  const [promoterTeamWhatsappGroupLink, setPromoterTeamWhatsappGroupLink] = useState<string>('');
+  const [savingGroupLink, setSavingGroupLink] = useState(false);
 
   // Modal Dialogs State
   const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
@@ -95,7 +97,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
   const fetchData = async () => {
     try {
-      const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes, assignmentsRes, pctRes] = await Promise.all([
+      const [appsRes, syndicatesRes, withdrawalsRes, tasksRes, pricingRes, profilesRes, pausedRes, assignmentsRes, pctRes, waGroupRes] = await Promise.all([
         supabase.from('syndicate_applications').select('*').order('created_at', { ascending: false }),
         supabase.from('syndicate_profiles').select('*').order('ranking_score', { ascending: false }),
         supabase.from('withdrawal_requests').select('*').order('created_at', { ascending: false }),
@@ -105,10 +107,15 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
         supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
         supabase.from('syndicate_task_assignments').select('task_id, status'),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
+        supabase.from('app_settings').select('value').eq('key', 'syndicate_whatsapp_group_link').maybeSingle(),
       ]);
 
       if (pctRes.data?.value) {
         setSyndicatePayoutPercentage(parseInt(pctRes.data.value, 10) || 70);
+      }
+
+      if (waGroupRes.data?.value) {
+        setPromoterTeamWhatsappGroupLink(waGroupRes.data.value);
       }
 
       const profileMap: Record<string, any> = {};
@@ -341,6 +348,25 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
       toast.error(err.message || 'Failed to update payout percentage');
     } finally {
       setSavingPercentage(false);
+    }
+  };
+
+  const savePromoterTeamWhatsappGroupLink = async () => {
+    if (!promoterTeamWhatsappGroupLink.trim()) {
+      toast.error('Group link cannot be empty');
+      return;
+    }
+    setSavingGroupLink(true);
+    try {
+      await supabase.from('app_settings').upsert({
+        key: 'syndicate_whatsapp_group_link',
+        value: promoterTeamWhatsappGroupLink.trim(),
+      }, { onConflict: 'key' });
+      toast.success('Promoter Team WhatsApp Group Link updated successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update WhatsApp group link');
+    } finally {
+      setSavingGroupLink(false);
     }
   };
 
@@ -1544,6 +1570,42 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
         {/* PRICING & SOCIAL PLATFORM CONTROLS TAB */}
         <TabsContent value="pricing" className="space-y-4">
+          {/* Promoter Team WhatsApp Group Configuration */}
+          <Card className="border border-emerald-500/30 shadow-xs rounded-2xl overflow-hidden bg-card">
+            <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-green-900 p-4 text-white">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Users className="h-4 w-4 text-emerald-300" /> Syndicate Promoter Team WhatsApp Group Link
+              </h4>
+              <p className="text-[11px] opacity-90 mt-0.5">
+                Configure the official WhatsApp group link accessible in all Syndicate member dashboards for team strategy, planning & ad coordination
+              </p>
+            </div>
+            <CardContent className="p-4 sm:p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Input
+                    type="url"
+                    placeholder="https://chat.whatsapp.com/..."
+                    value={promoterTeamWhatsappGroupLink}
+                    onChange={e => setPromoterTeamWhatsappGroupLink(e.target.value)}
+                    className="h-10 text-xs rounded-xl font-medium pl-9"
+                  />
+                  <Users className="h-4 w-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+                <Button
+                  disabled={savingGroupLink}
+                  onClick={savePromoterTeamWhatsappGroupLink}
+                  className="h-10 px-5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+                >
+                  {savingGroupLink ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Update Group Link'}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                This link will be displayed prominently on all syndicate promoter dashboards so members can join the team strategy chat.
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Automated Paystack Subaccount Split Controller */}
           <Card className="border border-purple-500/30 shadow-xs rounded-2xl overflow-hidden bg-card">
             <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-800 p-4 text-white">

@@ -84,6 +84,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   const [payoutPct, setPayoutPct] = useState<number>(70);
   const [credits, setCredits] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(false);
+  const [teamWhatsappGroupLink, setTeamWhatsappGroupLink] = useState<string>('');
   
   // Date & Status Filtering (Default: Active campaigns only)
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -158,7 +159,8 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         settingRes, 
         rateRes, 
         payoutRes, 
-        pausedRes
+        pausedRes,
+        waGroupRes
       ] = await Promise.all([
         tasksQuery,
         supabase.from('syndicate_task_assignments').select('*, syndicate_tasks(*)').eq('syndicate_user_id', user.id).order('created_at', { ascending: false }),
@@ -168,6 +170,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_payout_percentage').maybeSingle(),
         supabase.from('app_settings').select('value').eq('key', 'syndicate_paused').maybeSingle(),
+        supabase.from('app_settings').select('value').eq('key', 'syndicate_whatsapp_group_link').maybeSingle(),
       ]);
 
       setTasks(tasksRes.data || []);
@@ -181,6 +184,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       const pct = parseInt(payoutRes.data?.value || '') || 70;
       setPayoutPct(pct);
       setPaused((pausedRes.data?.value || 'false') === 'true');
+      setTeamWhatsappGroupLink(waGroupRes.data?.value || '');
       setWallet({ balance: c * r });
       const h = Number(settingRes.data?.value);
       if (!Number.isNaN(h) && h > 0) setAssignmentHours(h);
@@ -513,6 +517,38 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             <span className="text-[10px] text-muted-foreground block">Earnings</span>
             <span className="text-xs font-black text-emerald-600">₦{(wallet?.balance || 0).toLocaleString()}</span>
           </div>
+        </div>
+      </div>
+
+      {/* TEAM WHATSAPP GROUP PROMOTER BANNER */}
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 border border-emerald-500/30 p-4 sm:p-5 shadow-md text-white relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <Users className="h-3 w-3" /> Official Promoter Strategy Group
+            </div>
+            <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+              Join the Promoter Team WhatsApp Group
+            </h3>
+            <p className="text-xs text-emerald-100/90 leading-relaxed max-w-xl">
+              Connect directly with fellow verified promoters, plan WhatsApp ad strategies, receive instant campaign updates, and coordinate execution.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black px-5 py-2.5 rounded-xl shadow-md transition-all shrink-0 hover:scale-105 active:scale-95 cursor-pointer text-xs"
+            onClick={() => {
+              if (teamWhatsappGroupLink) {
+                window.open(teamWhatsappGroupLink, '_blank');
+              } else {
+                toast.info("The Admin is currently setting up the official WhatsApp group link. Please check back shortly.");
+              }
+            }}
+          >
+            <Share2 className="h-4 w-4 mr-1.5" />
+            Join Team Group
+            <ExternalLink className="h-3.5 w-3.5 ml-1.5 opacity-80" />
+          </Button>
         </div>
       </div>
 
