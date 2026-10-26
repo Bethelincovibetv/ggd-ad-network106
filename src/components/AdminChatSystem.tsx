@@ -274,9 +274,81 @@ const AdminChatSystem = () => {
             <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
               <User className="h-4 w-4" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <CardTitle className="text-sm text-white">{selectedUser.display_name || 'User'}</CardTitle>
               <p className="text-[10px] text-orange-100">{selectedUser.email}</p>
+            </div>
+            {/* Admin Support Ticket Status Controller */}
+            <div className="flex items-center gap-1.5 bg-black/20 p-1 rounded-xl border border-white/10 shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-orange-100 hidden sm:inline px-1">
+                Status:
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await supabase.from('p2p_messages').insert({
+                      sender_id: adminId,
+                      receiver_id: selectedUser.user_id,
+                      kind: 'system',
+                      message: '📋 Support ticket status set to Pending',
+                      action_type: 'ticket_status_update',
+                      action_payload: { status: 'Pending', updated_by: adminId },
+                    });
+                    toast.success('Ticket status set to Pending');
+                  } catch (e: any) {
+                    toast.error(e.message || 'Error updating status');
+                  }
+                }}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-200 hover:bg-amber-500/40 border border-amber-400/30 transition-all cursor-pointer"
+                title="Mark ticket as Pending"
+              >
+                Pending
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await supabase.from('p2p_messages').insert({
+                      sender_id: adminId,
+                      receiver_id: selectedUser.user_id,
+                      kind: 'system',
+                      message: '⚡ Support ticket status updated to In Progress',
+                      action_type: 'ticket_status_update',
+                      action_payload: { status: 'In Progress', updated_by: adminId },
+                    });
+                    toast.success('Ticket status set to In Progress');
+                  } catch (e: any) {
+                    toast.error(e.message || 'Error updating status');
+                  }
+                }}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-500/20 text-blue-200 hover:bg-blue-500/40 border border-blue-400/30 transition-all cursor-pointer"
+                title="Mark ticket as In Progress"
+              >
+                In Progress
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await supabase.from('p2p_messages').insert({
+                      sender_id: adminId,
+                      receiver_id: selectedUser.user_id,
+                      kind: 'system',
+                      message: '✅ Support ticket marked as Resolved',
+                      action_type: 'ticket_status_update',
+                      action_payload: { status: 'Resolved', updated_by: adminId },
+                    });
+                    toast.success('Ticket marked as Resolved');
+                  } catch (e: any) {
+                    toast.error(e.message || 'Error updating status');
+                  }
+                }}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/40 border border-emerald-400/30 transition-all cursor-pointer"
+                title="Mark ticket as Resolved"
+              >
+                Resolved
+              </button>
             </div>
           </div>
         </CardHeader>

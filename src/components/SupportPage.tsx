@@ -35,14 +35,19 @@ import {
   Loader2,
   User,
   Building2,
+  Activity,
+  ListOrdered,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
 import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
+import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 import { playMessageSentSound, playMessageReceivedSound } from "@/utils/audio";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const SUPPORT_EMAIL = 'goodgiftdigital@gmail.com';
 const SUPPORT_PHONE = '07043537401';
@@ -58,7 +63,7 @@ interface SupportMsg {
   id: string;
   sender_id: string;
   receiver_id: string;
-  kind?: 'text' | 'voice' | 'system' | string;
+  kind?: 'text' | 'voice' | 'system' | 'ticket' | string;
   message: string | null;
   image_url?: string | null;
   action_type?: string | null;
@@ -67,72 +72,118 @@ interface SupportMsg {
   created_at: string;
 }
 
-interface FAQItem {
+export interface SupportTicketTrackerItem {
   id: string;
-  category: 'wallet' | 'ads' | 'syndicate' | 'store' | 'security';
-  q: string;
-  a: string;
+  ticketId: string;
+  category: string;
+  subject: string;
+  preview: string;
+  status: 'Pending' | 'In Progress' | 'Resolved';
+  createdAt: string;
+  lastUpdated: string;
+  msgCount: number;
 }
 
-const FAQS: FAQItem[] = [
+interface FAQItem {
+  id: string;
+  category: 'whatsapp' | 'wallet' | 'ads' | 'syndicate' | 'store' | 'security';
+  q: string;
+  a: string;
+  requiredFeature?: string;
+}
+
+// Master FAQ Repository
+const ALL_FAQS: FAQItem[] = [
+  // WHATSAPP POSITIONING FAQS (PRIMARY FOCUS)
   {
-    id: 'f1',
+    id: 'f-wa-1',
+    category: 'whatsapp',
+    q: "How does GGD WhatsApp Status Advertising work?",
+    a: "GGD connects your business directly with verified Nigerian promoters who post your campaign flyer on their active WhatsApp Statuses. You pay only for actual views verified by proof screenshots.",
+    requiredFeature: 'syndicate_core',
+  },
+  {
+    id: 'f-wa-2',
+    category: 'whatsapp',
+    q: "How do promoters submit proof screenshots and earn payouts?",
+    a: "Promoters share campaign flyers on WhatsApp Status, wait 24 hours to capture view counts, and upload proof screenshots in their Syndicate Portal. Once verified by GGD, payouts are credited immediately to their GGD wallet.",
+    requiredFeature: 'syndicate_core',
+  },
+  {
+    id: 'f-wa-3',
+    category: 'whatsapp',
+    q: "Can I choose target states (e.g., Lagos, Abuja, Rivers) for WhatsApp campaigns?",
+    a: "Yes! During campaign creation, you can select specific Nigerian states so your WhatsApp Status flyers reach prospective buyers in your preferred target location.",
+    requiredFeature: 'syndicate_core',
+  },
+  {
+    id: 'f-wa-4',
+    category: 'whatsapp',
+    q: "Is there a minimum budget for launching a WhatsApp Status campaign?",
+    a: "No! You can set flexible campaign budgets tailored to the exact number of verified WhatsApp views you want for your business.",
+    requiredFeature: 'syndicate_core',
+  },
+
+  // WALLET & CREDITS
+  {
+    id: 'f-wall-1',
     category: 'wallet',
     q: "How do credit transfers work and are they instant?",
-    a: "Credit transfers to other verified GGD members are processed instantly with zero platform fees. You verify the recipient's username or email first, confirm the details, and the credits reflect in their account immediately."
+    a: "Credit transfers to other verified GGD members are processed instantly with zero platform fees. Simply specify the recipient username or email and confirm.",
+    requiredFeature: 'nav_wallet',
   },
   {
-    id: 'f2',
+    id: 'f-wall-2',
     category: 'wallet',
-    q: "How do I fund my wallet with GGD credits?",
-    a: "Go to the Wallet Hub and tap 'Fund Credits'. You can purchase credit packages using Paystack (cards, bank transfer, USSD) or manual bank transfer. Once confirmed, your balance updates immediately."
+    q: "How do I fund my wallet with GGD credits or Cash balance?",
+    a: "Navigate to Wallet Hub and select 'Fund Credits'. You can purchase packages using Paystack (Card, Bank Transfer, USSD) or direct bank transfer.",
+    requiredFeature: 'nav_wallet',
   },
-  {
-    id: 'f3',
-    category: 'ads',
-    q: "How are my Banner Ads served and tracked?",
-    a: "Banner Ads are displayed across GGD member feeds and external publisher partner sites. You get real-time impression and click tracking in your Campaigns Hub and Campaign Analytics dashboard."
-  },
-  {
-    id: 'f4',
-    category: 'ads',
-    q: "Can I target my Banner Ads to specific Nigerian states?",
-    a: "Yes! During campaign creation, you can select state targeting (e.g., Lagos, Abuja, Rivers, or All Nigeria) so your advertising budget reaches your exact prospective customers."
-  },
-  {
-    id: 'f5',
-    category: 'syndicate',
-    q: "What is the GGD WhatsApp Syndicate and how do promoters get paid?",
-    a: "The Syndicate connects businesses with verified promoters who share campaign flyers on their active WhatsApp Statuses. Promoters submit proof screenshots, and once verified, payouts are credited to their wallet."
-  },
-  {
-    id: 'f6',
-    category: 'store',
-    q: "How do customers find my Business Storefront?",
-    a: "Your business listing is published to the public Business Directory. Customers can browse your catalog, contact you directly on WhatsApp, or send direct inquiries right from your public profile."
-  },
-  {
-    id: 'f7',
-    category: 'security',
-    q: "How do I verify my account or request Premium membership?",
-    a: "You can request Premium verification through our verified support desk or WhatsApp line. Premium members unlock advanced API access, higher transfer limits, and priority campaign indexing."
-  },
-];
 
-const CATEGORIES = [
-  { id: 'all', label: 'All Topics', icon: HelpCircle },
-  { id: 'wallet', label: 'Credits & Wallet', icon: Coins },
-  { id: 'ads', label: 'Banner Ads', icon: Megaphone },
-  { id: 'syndicate', label: 'Syndicate', icon: Share2 },
-  { id: 'store', label: 'Storefront', icon: Store },
-  { id: 'security', label: 'Security & Verification', icon: Lock },
+  // BANNER ADS
+  {
+    id: 'f-ads-1',
+    category: 'ads',
+    q: "How are my Banner Ads served across the network?",
+    a: "Banner Ads are displayed across GGD member feeds, public directory pages, and publisher partner websites with live click and impression analytics.",
+    requiredFeature: 'banner_ads',
+  },
+
+  // SYNDICATE
+  {
+    id: 'f-syn-1',
+    category: 'syndicate',
+    q: "How do I join as a Syndicate Promoter and start earning?",
+    a: "Register directly via the Syndicate Portal or landing page. Once approved, browse available tasks, share campaign flyers, and submit view proofs to earn.",
+    requiredFeature: 'syndicate_portal',
+  },
+
+  // STOREFRONT
+  {
+    id: 'f-store-1',
+    category: 'store',
+    q: "How do prospective customers discover my Business Storefront?",
+    a: "Your store profile is published to the GGD Business Directory. Customers can inspect your catalog and contact you directly on WhatsApp with one tap.",
+    requiredFeature: 'storefronts',
+  },
+
+  // SECURITY & VERIFICATION
+  {
+    id: 'f-sec-1',
+    category: 'security',
+    q: "How do I verify my account or upgrade to VIP / Premium?",
+    a: "Request Premium verification via the VIP Membership tab or direct WhatsApp support line to unlock higher transaction limits and priority indexing.",
+    requiredFeature: 'premium_vip_upgrade',
+  },
 ];
 
 const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'chat' | 'channels' | 'ticket' | 'faqs'>('chat');
+  const { isEnabled } = useFeatureToggles();
+  const [activeSubTab, setActiveSubTab] = useState<'tracker' | 'chat' | 'channels' | 'ticket' | 'faqs'>('tracker');
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState<string>('all');
-  const [openFaq, setOpenFaq] = useState<string | null>('f1');
+  const [openFaq, setOpenFaq] = useState<string | null>('f-wa-1');
+  const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(false);
 
   // User & Admin Chat States
   const [currentUserId, setCurrentUserId] = useState<string>('');
@@ -144,19 +195,42 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
   const [loadingChat, setLoadingChat] = useState<boolean>(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Ticket Tracker State
+  const [tickets, setTickets] = useState<SupportTicketTrackerItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'In Progress' | 'Resolved'>('all');
+
   // Ticket Form State
-  const [ticketCategory, setTicketCategory] = useState('General Inquiry');
+  const [ticketCategory, setTicketCategory] = useState('WhatsApp Status Campaign');
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketMessage, setTicketMessage] = useState('');
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [ticketSent, setTicketSent] = useState(false);
 
-  // Load User & Identify Admin ID
+  // Check landing_whatsapp_positioning setting from DB/localStorage
   useEffect(() => {
-    initSupportChat();
+    try {
+      const cached = localStorage.getItem('landing_whatsapp_positioning');
+      if (cached !== null) setWhatsappPositioning(cached === 'true');
+    } catch {}
+
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'landing_whatsapp_positioning')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.value !== null) {
+          setWhatsappPositioning(data.value === 'true');
+        }
+      });
   }, []);
 
-  const initSupportChat = async () => {
+  // Initialize Support System & Admin lookup
+  useEffect(() => {
+    initSupportSystem();
+  }, []);
+
+  const initSupportSystem = async () => {
     setLoadingChat(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -166,11 +240,11 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       }
       setCurrentUserId(user.id);
 
-      // Identify Admin User ID
+      // Reliable Admin User ID Resolution
       let foundAdminId: string | null = null;
       let foundAdminProf: any = null;
 
-      // 1. Check user_roles for admin
+      // 1. Query user_roles table
       const { data: adminRoles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -181,7 +255,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         foundAdminId = adminRoles[0].user_id;
       }
 
-      // 2. Fallback to admin email profile if user_roles didn't return
+      // 2. Fallback to admin email profile lookup
       if (!foundAdminId) {
         const { data: profs } = await supabase
           .from('profiles')
@@ -205,28 +279,28 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (foundAdminId) {
         setAdminUserId(foundAdminId);
         setAdminProfile(foundAdminProf || {
-          display_name: 'GGD Support Admin',
+          display_name: 'GGD Support Desk Admin',
           email: SUPPORT_EMAIL,
         });
-        await loadSupportMessages(user.id, foundAdminId);
+        await loadSupportMessagesAndTickets(user.id, foundAdminId);
       }
     } catch (err) {
-      console.warn('Error initializing support chat:', err);
+      console.warn('Error initializing support system:', err);
     } finally {
       setLoadingChat(false);
     }
   };
 
-  const loadSupportMessages = async (uid: string, adminId: string) => {
+  const loadSupportMessagesAndTickets = async (uid: string, adminId: string) => {
     try {
-      // Query p2p_messages between user and admin
+      // 1. Fetch p2p_messages
       const { data: p2pData } = await supabase
         .from('p2p_messages')
         .select('*')
         .or(`and(sender_id.eq.${uid},receiver_id.eq.${adminId}),and(sender_id.eq.${adminId},receiver_id.eq.${uid})`)
         .order('created_at', { ascending: true });
 
-      // Query admin_chat_messages
+      // 2. Fetch admin_chat_messages
       const { data: legacyData } = await supabase
         .from('admin_chat_messages')
         .select('*')
@@ -255,6 +329,9 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
       setChatMessages(list);
 
+      // Derive Tickets & Statuses
+      deriveTicketsFromMessages(list, uid, adminId);
+
       // Mark unread messages from admin as read
       await Promise.all([
         supabase
@@ -271,11 +348,66 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           .eq('is_read', false),
       ]);
     } catch (err) {
-      console.warn('Error loading support messages:', err);
+      console.warn('Error loading support messages & tickets:', err);
     }
   };
 
-  // Realtime subscription for incoming support messages
+  const deriveTicketsFromMessages = (msgs: SupportMsg[], uid: string, adminId: string) => {
+    if (msgs.length === 0) {
+      setTickets([]);
+      return;
+    }
+
+    // Group or extract tickets/threads
+    const userSentMsgs = msgs.filter((m) => m.sender_id === uid);
+    const adminRepliedMsgs = msgs.filter((m) => m.sender_id === adminId);
+
+    // Look for explicit status updates from admin
+    const statusUpdateMsgs = msgs.filter((m) => m.action_type === 'ticket_status_update' && m.action_payload?.status);
+    const latestExplicitStatus = statusUpdateMsgs.length > 0 ? statusUpdateMsgs[statusUpdateMsgs.length - 1].action_payload.status : null;
+
+    // Build overall ticket summary items
+    const ticketList: SupportTicketTrackerItem[] = [];
+
+    // Main Support Inquiry Ticket Thread
+    const firstMsg = userSentMsgs[0] || msgs[0];
+    const lastMsg = msgs[msgs.length - 1];
+
+    let currentStatus: 'Pending' | 'In Progress' | 'Resolved' = 'Pending';
+
+    if (latestExplicitStatus) {
+      currentStatus = latestExplicitStatus as any;
+    } else if (adminRepliedMsgs.length > 0) {
+      currentStatus = 'In Progress';
+    } else {
+      currentStatus = 'Pending';
+    }
+
+    // Check if user or admin sent a resolution text
+    if (msgs.some((m) => m.message?.toLowerCase().includes('resolved') || m.message?.toLowerCase().includes('ticket marked as resolved'))) {
+      if (!latestExplicitStatus || latestExplicitStatus === 'Resolved') {
+        currentStatus = 'Resolved';
+      }
+    }
+
+    const ticketIdNum = String(Math.abs(firstMsg.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0))).slice(0, 4);
+
+    ticketList.push({
+      id: firstMsg.id,
+      ticketId: `SUP-${ticketIdNum || '1048'}`,
+      category: firstMsg.action_payload?.category || 'Direct Admin Support',
+      subject: firstMsg.action_payload?.subject || (firstMsg.message ? firstMsg.message.slice(0, 40) + '...' : 'In-App Support Inquiry'),
+      preview: lastMsg.message || 'Support inquiry submitted',
+      status: currentStatus,
+      createdAt: firstMsg.created_at,
+      lastUpdated: lastMsg.created_at,
+      msgCount: msgs.length,
+    });
+
+    setTickets(ticketList);
+  };
+
+  // Realtime subscription for incoming support messages & status changes
   useEffect(() => {
     if (!currentUserId || !adminUserId) return;
 
@@ -285,7 +417,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'p2p_messages' },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const m = payload.new as any;
             if (
               (m.sender_id === currentUserId && m.receiver_id === adminUserId) ||
@@ -305,48 +437,24 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
               };
 
               setChatMessages((prev) => {
-                if (prev.some((x) => x.id === formatted.id)) return prev;
-                return [...prev, formatted];
+                const idx = prev.findIndex((x) => x.id === formatted.id);
+                if (idx !== -1) {
+                  const copy = [...prev];
+                  copy[idx] = formatted;
+                  deriveTicketsFromMessages(copy, currentUserId, adminUserId);
+                  return copy;
+                }
+                const updated = [...prev, formatted];
+                deriveTicketsFromMessages(updated, currentUserId, adminUserId);
+                return updated;
               });
 
-              if (m.sender_id === adminUserId) {
+              if (m.sender_id === adminUserId && payload.eventType === 'INSERT') {
                 playMessageReceivedSound();
                 supabase
                   .from('p2p_messages')
                   .update({ is_read: true })
                   .eq('id', m.id);
-              }
-            }
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'admin_chat_messages' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const m = payload.new as any;
-            if (
-              (m.sender_id === currentUserId && m.receiver_id === adminUserId) ||
-              (m.sender_id === adminUserId && m.receiver_id === currentUserId)
-            ) {
-              const formatted: SupportMsg = {
-                id: m.id,
-                sender_id: m.sender_id,
-                receiver_id: m.receiver_id,
-                kind: 'text',
-                message: m.message,
-                is_read: m.is_read || false,
-                created_at: m.created_at,
-              };
-
-              setChatMessages((prev) => {
-                if (prev.some((x) => x.id === formatted.id)) return prev;
-                return [...prev, formatted];
-              });
-
-              if (m.sender_id === adminUserId) {
-                playMessageReceivedSound();
               }
             }
           }
@@ -381,7 +489,9 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       created_at: new Date().toISOString(),
     };
 
-    setChatMessages((prev) => [...prev, optimisticMsg]);
+    const nextList = [...chatMessages, optimisticMsg];
+    setChatMessages(nextList);
+    deriveTicketsFromMessages(nextList, currentUserId, adminUserId);
     playMessageSentSound();
 
     try {
@@ -401,12 +511,14 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (err1) throw err1;
 
       if (inserted) {
-        setChatMessages((prev) =>
-          prev.map((m) => (m.id === tmpId ? (inserted as any) : m))
-        );
+        setChatMessages((prev) => {
+          const list = prev.map((m) => (m.id === tmpId ? (inserted as any) : m));
+          deriveTicketsFromMessages(list, currentUserId, adminUserId);
+          return list;
+        });
       }
 
-      // 2. Also insert into admin_chat_messages for admin dashboard
+      // 2. Also insert into admin_chat_messages
       try {
         await supabase.from('admin_chat_messages').insert({
           sender_id: currentUserId,
@@ -416,7 +528,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         });
       } catch {}
 
-      // 3. Insert notification for Admin
+      // 3. Notify Admin
       try {
         await supabase.from('notifications').insert({
           user_id: adminUserId,
@@ -459,7 +571,9 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       created_at: new Date().toISOString(),
     };
 
-    setChatMessages((prev) => [...prev, optimisticMsg]);
+    const nextList = [...chatMessages, optimisticMsg];
+    setChatMessages(nextList);
+    deriveTicketsFromMessages(nextList, currentUserId, adminUserId);
     playMessageSentSound();
 
     try {
@@ -480,9 +594,11 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (error) throw error;
 
       if (inserted) {
-        setChatMessages((prev) =>
-          prev.map((m) => (m.id === tmpId ? (inserted as any) : m))
-        );
+        setChatMessages((prev) => {
+          const list = prev.map((m) => (m.id === tmpId ? (inserted as any) : m));
+          deriveTicketsFromMessages(list, currentUserId, adminUserId);
+          return list;
+        });
       }
 
       toast.success('Voice note sent to GGD Admin!');
@@ -507,21 +623,26 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       const uid = authData.user?.id;
 
       if (uid && adminUserId) {
-        // Send as support message
-        const ticketBody = `[IN-APP TICKET - ${ticketCategory.toUpperCase()}]\nSubject: ${ticketSubject}\n\n${ticketMessage}`;
+        const ticketBody = `[SUPPORT TICKET - ${ticketCategory.toUpperCase()}]\nSubject: ${ticketSubject}\n\n${ticketMessage}`;
 
         await supabase.from('p2p_messages').insert({
           sender_id: uid,
           receiver_id: adminUserId,
-          kind: 'text',
+          kind: 'ticket',
           message: ticketBody,
+          action_type: 'support_ticket',
+          action_payload: {
+            category: ticketCategory,
+            subject: ticketSubject,
+            status: 'Pending',
+          },
           is_read: false,
         });
 
         await supabase.from('notifications').insert({
           user_id: uid,
           title: `Support Ticket: ${ticketSubject}`,
-          message: `Your ticket (${ticketCategory}) has been logged. Our operations team will respond shortly.`,
+          message: `Your ticket (${ticketCategory}) has been logged as Pending. Admin will review shortly.`,
           type: 'system',
         });
       }
@@ -530,6 +651,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       toast.success('Support ticket submitted successfully!');
       setTicketSubject('');
       setTicketMessage('');
+      setActiveSubTab('tracker');
     } catch {
       toast.error('Could not submit ticket. Please contact us on WhatsApp.');
     } finally {
@@ -537,9 +659,27 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     }
   };
 
+  const markTicketResolvedLocally = async (ticketId: string) => {
+    if (!currentUserId || !adminUserId) return;
+    try {
+      await supabase.from('p2p_messages').insert({
+        sender_id: currentUserId,
+        receiver_id: adminUserId,
+        kind: 'system',
+        message: '✅ Support ticket marked as Resolved by user.',
+        action_type: 'ticket_status_update',
+        action_payload: { status: 'Resolved' },
+      });
+      toast.success('Ticket status marked as Resolved!');
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: 'Resolved' } : t)));
+    } catch {
+      toast.error('Error updating ticket status');
+    }
+  };
+
   const openWhatsAppSupport = () => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const text = `Hello GGD Support! I need assistance with my account.\n\nAccount Email: ${userEmail || 'Member'}\nTime: ${time}\nTopic: General Inquiry`;
+    const text = `Hello GGD Support! I need assistance with my account.\n\nAccount Email: ${userEmail || 'Member'}\nTime: ${time}\nTopic: WhatsApp Campaign Support`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -548,7 +688,25 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     toast.success(`${label} copied to clipboard!`);
   };
 
-  const filteredFaqs = FAQS.filter((f) => {
+  // DYNAMICALLY FILTER FAQS BASED ON ACTIVE FEATURE TOGGLES AND WHATSAPP POSITIONING
+  const activeFaqs = ALL_FAQS.filter((f) => {
+    // Feature gating check
+    if (f.requiredFeature && !isEnabled(f.requiredFeature)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Re-sort FAQs: If WhatsApp Positioning is ON, put WhatsApp category FIRST!
+  const sortedFaqs = [...activeFaqs].sort((a, b) => {
+    if (whatsappPositioning) {
+      if (a.category === 'whatsapp' && b.category !== 'whatsapp') return -1;
+      if (a.category !== 'whatsapp' && b.category === 'whatsapp') return 1;
+    }
+    return 0;
+  });
+
+  const filteredFaqs = sortedFaqs.filter((f) => {
     const matchesCat = selectedCat === 'all' || f.category === selectedCat;
     const matchesSearch =
       !search ||
@@ -556,6 +714,8 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       f.a.toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
+
+  const filteredTickets = tickets.filter((t) => statusFilter === 'all' || t.status === statusFilter);
 
   return (
     <div className="space-y-5 pb-12 max-w-5xl mx-auto px-2 sm:px-4">
@@ -571,7 +731,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
             </div>
             <h2 className="text-2xl sm:text-3xl font-black mt-1 tracking-tight">How can we help you today?</h2>
             <p className="text-xs sm:text-sm opacity-90 mt-1 max-w-xl">
-              Chat live with GGD Admin, reach us via WhatsApp, call directly, or send an official email inquiry.
+              Track support request statuses (Pending, In Progress, Resolved), chat live with GGD Admin, or reach us on WhatsApp.
             </p>
           </div>
 
@@ -587,7 +747,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search help topics, credit transfers, ads, syndicate guides..."
+            placeholder="Search FAQs, WhatsApp Status ads, credit transfers, syndicate guides..."
             className="pl-10 h-12 rounded-2xl bg-white text-foreground placeholder:text-muted-foreground shadow-lg border-0 text-sm focus-visible:ring-2 focus-visible:ring-orange-400"
           />
         </div>
@@ -595,11 +755,11 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
       {/* Primary Contact Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Direct Admin Live Chat */}
+        {/* Support Ticket Status Tracker Card */}
         <Card
-          onClick={() => setActiveSubTab('chat')}
+          onClick={() => setActiveSubTab('tracker')}
           className={`cursor-pointer transition-all border-2 ${
-            activeSubTab === 'chat'
+            activeSubTab === 'tracker'
               ? 'border-orange-500 bg-orange-500/5 shadow-md'
               : 'border-border/70 hover:border-orange-500/50 bg-card'
           }`}
@@ -607,13 +767,38 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           <CardContent className="p-3.5 flex flex-col justify-between h-full space-y-2">
             <div className="flex items-center justify-between">
               <div className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+                <Activity className="h-5 w-5" />
+              </div>
+              <Badge className="bg-orange-500 text-white text-[10px] font-bold">
+                {tickets.length} Tracked
+              </Badge>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">Status Tracker</h4>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Pending, In Progress & Resolved status</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Direct Admin Live Chat */}
+        <Card
+          onClick={() => setActiveSubTab('chat')}
+          className={`cursor-pointer transition-all border-2 ${
+            activeSubTab === 'chat'
+              ? 'border-emerald-500 bg-emerald-500/5 shadow-md'
+              : 'border-border/70 hover:border-emerald-500/50 bg-card'
+          }`}
+        >
+          <CardContent className="p-3.5 flex flex-col justify-between h-full space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="h-9 w-9 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center font-bold">
                 <MessageCircle className="h-5 w-5" />
               </div>
-              <Badge className="bg-orange-500 text-white text-[10px] font-bold">In-App Live</Badge>
+              <Badge className="bg-emerald-600 text-white text-[10px] font-bold">Live Chat</Badge>
             </div>
             <div>
               <h4 className="font-bold text-sm text-foreground">Direct Admin Chat</h4>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Real-time chat & voice notes with Admin</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Real-time chat & voice notes</p>
             </div>
           </CardContent>
         </Card>
@@ -631,29 +816,11 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
               <Badge className="bg-emerald-600 text-white text-[10px] font-bold">Fastest</Badge>
             </div>
             <div>
-              <h4 className="font-bold text-sm text-foreground">WhatsApp Live</h4>
+              <h4 className="font-bold text-sm text-foreground">WhatsApp Support</h4>
               <p className="text-[11px] text-emerald-700 font-medium mt-0.5">{SUPPORT_PHONE}</p>
             </div>
           </CardContent>
         </Card>
-
-        {/* Official Email Desk */}
-        <a href={`mailto:${SUPPORT_EMAIL}?subject=Support Inquiry - ${encodeURIComponent(userEmail)}`} className="block">
-          <Card className="cursor-pointer transition-all border border-border/70 hover:border-blue-500/50 bg-card hover:bg-blue-500/5 h-full">
-            <CardContent className="p-3.5 flex flex-col justify-between h-full space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
-                  <Mail className="h-5 w-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-500/30">Official</Badge>
-              </div>
-              <div>
-                <h4 className="font-bold text-sm text-foreground">Email Desk</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{SUPPORT_EMAIL}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </a>
 
         {/* Direct Call & Address */}
         <Card
@@ -681,22 +848,166 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
       {/* Main Sub-Navigation Tabs */}
       <Tabs value={activeSubTab} onValueChange={(v: any) => setActiveSubTab(v)} className="w-full space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-12 p-1 bg-muted/70 rounded-2xl border">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-12 p-1 bg-muted/70 rounded-2xl border">
+          <TabsTrigger value="tracker" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Activity className="h-4 w-4 text-orange-500" /> Status Tracker
+          </TabsTrigger>
           <TabsTrigger value="chat" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <MessageCircle className="h-4 w-4 text-orange-500" /> Direct Admin Chat
+            <MessageCircle className="h-4 w-4 text-emerald-500" /> Direct Admin Chat
           </TabsTrigger>
           <TabsTrigger value="channels" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Phone className="h-4 w-4 text-emerald-500" /> Contact Channels
+            <Phone className="h-4 w-4 text-blue-500" /> Channels & Address
           </TabsTrigger>
           <TabsTrigger value="ticket" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Send className="h-4 w-4 text-blue-500" /> Submit Ticket
+            <Send className="h-4 w-4 text-purple-500" /> Submit Ticket
           </TabsTrigger>
           <TabsTrigger value="faqs" className="rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <HelpCircle className="h-4 w-4 text-purple-500" /> FAQs & Knowledge
+            <HelpCircle className="h-4 w-4 text-pink-500" /> FAQs & Knowledge
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: DIRECT ADMIN SUPPORT CHAT */}
+        {/* TAB 1: SUPPORT TICKET STATUS TRACKER */}
+        <TabsContent value="tracker" className="space-y-4 mt-0">
+          <Card className="border-border/80 shadow-md rounded-2xl overflow-hidden">
+            <CardHeader className="bg-muted/40 border-b border-border/60 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base font-extrabold flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-orange-500" />
+                    Support Messages Status Tracker
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Live status tracking (Pending, In Progress, Resolved) for all support inquiries sent to GGD Admin.
+                  </CardDescription>
+                </div>
+
+                {/* Status Filter Buttons */}
+                <div className="flex items-center bg-background p-1 rounded-xl border shrink-0">
+                  {(['all', 'Pending', 'In Progress', 'Resolved'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        statusFilter === st
+                          ? 'bg-orange-500 text-white shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4">
+              {filteredTickets.length === 0 ? (
+                <div className="py-12 text-center space-y-3 max-w-sm mx-auto">
+                  <div className="h-12 w-12 rounded-2xl bg-orange-500/10 text-orange-600 mx-auto flex items-center justify-center">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">No Support Tickets Found</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    You haven't submitted any support inquiries yet. Send a direct message or submit a ticket below to track its live status.
+                  </p>
+                  <div className="pt-2 flex justify-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveSubTab('chat')}
+                      className="text-xs rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                    >
+                      Open Direct Admin Chat
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setActiveSubTab('ticket')}
+                      className="text-xs rounded-xl"
+                    >
+                      Submit Ticket
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredTickets.map((t) => {
+                    const isPending = t.status === 'Pending';
+                    const isInProgress = t.status === 'In Progress';
+                    const isResolved = t.status === 'Resolved';
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="p-4 rounded-2xl border border-border/80 bg-card hover:border-orange-500/40 transition-all space-y-3 shadow-2xs"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs font-bold border-orange-500/30 text-orange-600 bg-orange-500/5">
+                              {t.ticketId}
+                            </Badge>
+                            <span className="font-extrabold text-xs text-foreground">{t.category}</span>
+                          </div>
+
+                          {/* Dynamic Status Badge */}
+                          <div className="flex items-center gap-2">
+                            {isPending && (
+                              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold px-2.5 py-1 gap-1.5 animate-pulse">
+                                <Clock className="h-3.5 w-3.5" /> Pending Review
+                              </Badge>
+                            )}
+                            {isInProgress && (
+                              <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-bold px-2.5 py-1 gap-1.5">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Admin In Progress
+                              </Badge>
+                            )}
+                            {isResolved && (
+                              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Resolved
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground">{t.subject}</h4>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.preview}</p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-muted-foreground">
+                          <span>Submitted: {new Date(t.createdAt).toLocaleString()}</span>
+
+                          <div className="flex items-center gap-2">
+                            {t.status !== 'Resolved' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => markTicketResolvedLocally(t.id)}
+                                className="h-8 text-[11px] font-bold rounded-xl border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 cursor-pointer"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Mark Resolved
+                              </Button>
+                            )}
+
+                            <Button
+                              size="sm"
+                              onClick={() => setActiveSubTab('chat')}
+                              className="h-8 text-[11px] font-bold rounded-xl bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 mr-1" /> View in Support Chat
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 2: DIRECT ADMIN SUPPORT CHAT (100% WORKING REAL CHAT) */}
         <TabsContent value="chat" className="space-y-3 mt-0">
           <Card className="border-border/80 shadow-md rounded-2xl overflow-hidden bg-card">
             <CardHeader className="bg-gradient-to-r from-orange-950 via-slate-900 to-slate-950 p-4 text-white border-b border-border/50">
@@ -740,9 +1051,9 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                     <div className="h-12 w-12 rounded-2xl bg-orange-500/10 text-orange-600 mx-auto flex items-center justify-center">
                       <Headphones className="h-6 w-6" />
                     </div>
-                    <h4 className="font-bold text-sm text-foreground">Welcome to Direct Admin Support</h4>
+                    <h4 className="font-bold text-sm text-foreground">Welcome to Direct Admin Support Chat</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Type a message or send a voice note below to get direct assistance from our platform administrators.
+                      Type a message or send a voice note below to chat live with GGD Administrators. Every message updates in real time.
                     </p>
                   </div>
                 ) : (
@@ -770,7 +1081,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                                 isMine={isMine}
                               />
                             ) : (
-                              <p className="whitespace-pre-wrap font-medium">{m.message}</p>
+                              <StructuredChatMessage text={m.message} isMine={isMine} />
                             )}
                           </div>
                           <div
@@ -785,8 +1096,10 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                               })}
                             </span>
                             {isMine && (
-                              <CheckCheck
-                                className={`h-3 w-3 ${m.is_read ? 'text-orange-600' : 'text-muted-foreground'}`}
+                              <MessageStatusIndicator
+                                status={m.id?.toString().startsWith('tmp-') ? 'sending' : m.is_read ? 'seen' : 'sent'}
+                                showTimestamp={false}
+                                size="xs"
                               />
                             )}
                           </div>
@@ -832,7 +1145,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: CONTACT CHANNELS & OFFICE ADDRESS */}
+        {/* TAB 3: CONTACT CHANNELS & OFFICE ADDRESS */}
         <TabsContent value="channels" className="space-y-4 mt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Phone & WhatsApp Channel */}
@@ -859,12 +1172,12 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                       size="sm"
                       variant="outline"
                       onClick={() => copyToClipboard(SUPPORT_PHONE, 'Phone number')}
-                      className="h-8 text-xs rounded-lg"
+                      className="h-8 text-xs rounded-lg cursor-pointer"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <a href={`tel:${SUPPORT_PHONE}`}>
-                      <Button size="sm" className="h-8 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Button size="sm" className="h-8 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
                         <PhoneCall className="h-3.5 w-3.5 mr-1" /> Call
                       </Button>
                     </a>
@@ -873,7 +1186,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
                 <Button
                   onClick={openWhatsAppSupport}
-                  className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs gap-2 shadow-md shadow-emerald-600/20"
+                  className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs gap-2 shadow-md shadow-emerald-600/20 cursor-pointer"
                 >
                   <MessageCircle className="h-4 w-4" /> Open Official WhatsApp Support
                 </Button>
@@ -903,14 +1216,14 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                     size="sm"
                     variant="outline"
                     onClick={() => copyToClipboard(SUPPORT_EMAIL, 'Email address')}
-                    className="h-8 text-xs rounded-lg shrink-0"
+                    className="h-8 text-xs rounded-lg shrink-0 cursor-pointer"
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
 
                 <a href={`mailto:${SUPPORT_EMAIL}?subject=Support Inquiry - ${encodeURIComponent(userEmail)}`} className="block">
-                  <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs gap-2 shadow-md shadow-blue-600/20">
+                  <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs gap-2 shadow-md shadow-blue-600/20 cursor-pointer">
                     <Mail className="h-4 w-4" /> Send Email via Mail Client
                   </Button>
                 </a>
@@ -943,7 +1256,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                   size="sm"
                   variant="outline"
                   onClick={() => copyToClipboard(OFFICE_ADDRESS, 'Office address')}
-                  className="h-9 rounded-xl text-xs font-bold gap-1.5 self-start sm:self-auto shrink-0 border-orange-500/30 text-orange-600 hover:bg-orange-500/10"
+                  className="h-9 rounded-xl text-xs font-bold gap-1.5 self-start sm:self-auto shrink-0 border-orange-500/30 text-orange-600 hover:bg-orange-500/10 cursor-pointer"
                 >
                   <Copy className="h-3.5 w-3.5" /> Copy Address
                 </Button>
@@ -952,7 +1265,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           </Card>
         </TabsContent>
 
-        {/* TAB 3: SUBMIT IN-APP SUPPORT TICKET */}
+        {/* TAB 4: SUBMIT IN-APP SUPPORT TICKET */}
         <TabsContent value="ticket" className="mt-0">
           <Card className="border-border/80 shadow-md rounded-2xl overflow-hidden">
             <CardHeader className="pb-3 bg-muted/30 border-b border-border/50">
@@ -973,23 +1286,23 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                   </div>
                   <h4 className="font-extrabold text-base text-foreground">Inquiry Submitted Successfully</h4>
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                    Thank you! Your ticket has been logged and sent directly to our support queue. You can track replies in the Direct Admin Chat tab above.
+                    Thank you! Your ticket has been logged and sent to Admin. You can track status (Pending, In Progress, Resolved) in the Status Tracker tab.
                   </p>
                   <div className="pt-2 flex justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setTicketSent(false)}
-                      className="text-xs rounded-xl"
+                      className="text-xs rounded-xl cursor-pointer"
                     >
                       Submit Another Ticket
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => setActiveSubTab('chat')}
-                      className="text-xs rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                      onClick={() => setActiveSubTab('tracker')}
+                      className="text-xs rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer"
                     >
-                      Go to Live Chat
+                      Open Status Tracker
                     </Button>
                   </div>
                 </div>
@@ -1007,9 +1320,10 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                         onChange={(e) => setTicketCategory(e.target.value)}
                         className="w-full mt-1 h-10 px-3 rounded-xl border border-input bg-background text-xs focus:ring-1 focus:ring-orange-500"
                       >
+                        <option value="WhatsApp Status Campaign">WhatsApp Status Campaign</option>
+                        <option value="Syndicate Promoter Payouts">Syndicate Promoter Payouts</option>
                         <option value="Wallet & Credit Transfer">Wallet & Credit Transfer</option>
                         <option value="Banner Ad Approval & Performance">Banner Ad Approval & Performance</option>
-                        <option value="Syndicate Campaign Submission">Syndicate Campaign Submission</option>
                         <option value="Business Listing & Storefront">Business Listing & Storefront</option>
                         <option value="Account Verification & Premium">Account Verification & Premium</option>
                         <option value="Other / Bug Report">Other / Bug Report</option>
@@ -1053,18 +1367,31 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: FREQUENTLY ASKED QUESTIONS */}
+        {/* TAB 5: FREQUENTLY ASKED QUESTIONS (WHATSAPP-FOCUSED & FEATURE-GATED) */}
         <TabsContent value="faqs" className="mt-0 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold uppercase tracking-wider text-foreground flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-orange-500" /> Knowledge Base & FAQs
+              {whatsappPositioning && (
+                <Badge className="bg-emerald-600 text-white text-[9px] uppercase font-black">
+                  WhatsApp Status Focused
+                </Badge>
+              )}
             </h3>
-            <span className="text-xs text-muted-foreground">{filteredFaqs.length} articles</span>
+            <span className="text-xs text-muted-foreground">{filteredFaqs.length} active articles</span>
           </div>
 
           {/* Category Filters */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {CATEGORIES.map((cat) => {
+            {[
+              { id: 'all', label: 'All Active Topics', icon: HelpCircle },
+              { id: 'whatsapp', label: 'WhatsApp Status Ads', icon: MessageCircle },
+              ...(isEnabled('nav_wallet') ? [{ id: 'wallet', label: 'Credits & Wallet', icon: Coins }] : []),
+              ...(isEnabled('banner_ads') ? [{ id: 'ads', label: 'Banner Ads', icon: Megaphone }] : []),
+              ...(isEnabled('syndicate_portal') ? [{ id: 'syndicate', label: 'Syndicate', icon: Share2 }] : []),
+              ...(isEnabled('storefronts') ? [{ id: 'store', label: 'Storefront', icon: Store }] : []),
+              ...(isEnabled('premium_vip_upgrade') ? [{ id: 'security', label: 'Security & Verification', icon: Lock }] : []),
+            ].map((cat) => {
               const Icon = cat.icon;
               const isSelected = selectedCat === cat.id;
               return (
@@ -1089,7 +1416,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           <div className="space-y-2">
             {filteredFaqs.length === 0 ? (
               <div className="py-8 text-center text-xs text-muted-foreground">
-                No matching questions found for &ldquo;{search}&rdquo;. Try another term or switch to Direct Admin Chat.
+                No matching questions found for &ldquo;{search}&rdquo;. Switch to Direct Admin Chat to send an inquiry.
               </div>
             ) : (
               filteredFaqs.map((faq) => {
@@ -1097,11 +1424,20 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                 return (
                   <Card
                     key={faq.id}
-                    className="border-border/70 overflow-hidden transition-all hover:border-border cursor-pointer"
+                    className={`border-border/70 overflow-hidden transition-all hover:border-border cursor-pointer ${
+                      faq.category === 'whatsapp' ? 'border-l-4 border-l-emerald-500' : ''
+                    }`}
                     onClick={() => setOpenFaq(isOpen ? null : faq.id)}
                   >
                     <CardContent className="p-3.5 flex items-center justify-between">
-                      <p className="text-xs font-bold text-foreground pr-2">{faq.q}</p>
+                      <div className="flex items-center gap-2">
+                        {faq.category === 'whatsapp' && (
+                          <Badge className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 text-[9px] font-black">
+                            WhatsApp
+                          </Badge>
+                        )}
+                        <p className="text-xs font-bold text-foreground pr-2">{faq.q}</p>
+                      </div>
                       {isOpen ? (
                         <ChevronUp className="h-4 w-4 text-orange-500 shrink-0" />
                       ) : (
