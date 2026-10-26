@@ -76,11 +76,13 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const help = [
+    { id: 'support', icon: Headphones, label: 'Support & Live Chat' },
     ...(isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];
 
   const iconGrad: Record<string, string> = {
+    support: 'from-emerald-500 to-teal-600',
     ads: 'from-orange-400 to-red-500',
     campaigns: 'from-amber-500 to-orange-600',
     'redeem-airtime': 'from-orange-500 to-amber-500',

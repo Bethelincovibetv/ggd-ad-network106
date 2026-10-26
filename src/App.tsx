@@ -25,6 +25,7 @@ const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
 const IndustryPage = lazy(() => import("./pages/IndustryPage"));
 const NotificationsDedicatedPage = lazy(() => import("./pages/NotificationsDedicatedPage"));
 const GuideDedicatedPage = lazy(() => import("./pages/GuideDedicatedPage"));
+const SupportDedicatedPage = lazy(() => import("./pages/SupportDedicatedPage"));
 const VixoraCreatorPage = lazy(() => import("./pages/VixoraCreatorPage"));
 const RedeemAirtimePage = lazy(() => import("./pages/RedeemAirtimePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -109,6 +110,8 @@ const App = () => (
                 <Route path="/syndicate-register" element={<SyndicateRegister />} />
                 <Route path="/notifications" element={<NotificationsDedicatedPage />} />
                 <Route path="/guide" element={<GuideDedicatedPage />} />
+                <Route path="/support" element={<SupportDedicatedPage />} />
+                <Route path="/help" element={<SupportDedicatedPage />} />
 
                 {/* Vixora AI Video Creator Routes */}
                 {[
