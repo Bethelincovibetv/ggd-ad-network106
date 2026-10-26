@@ -98,6 +98,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   // Primary navigation tab: 'campaigns' | 'submissions' | 'wallet' | 'profile'
   const [mainTab, setMainTab] = useState<string>('campaigns');
   // Submissions filter: 'all' | 'submitted' | 'completed' | 'rejected'
+  const [submissionsFilter, setSubmissionsFilter] = useState<'all' | 'submitted' | 'completed' | 'rejected'>('all');
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
   const [photoViewerUrl, setPhotoViewerUrl] = useState<string | null>(null);
   const [photoViewerTitle, setPhotoViewerTitle] = useState<string>('Media Lightbox');
