@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import SyndicateOnboardingWizard from "@/components/SyndicateOnboardingWizard";
 import SyndicateWallet from "@/components/SyndicateWallet";
 import SyndicateGuide from "@/components/SyndicateGuide";
+import PromoterNetworkChat from "@/components/PromoterNetworkChat";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -495,6 +496,14 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           sublabel: 'Official promoter WhatsApp team', 
           badge: 'WhatsApp',
           gradient: 'from-emerald-500 to-teal-600' 
+        },
+        { 
+          id: 'promoter-network', 
+          icon: Users, 
+          label: 'Promoter Chat & Network', 
+          sublabel: 'Connect & chat with syndicate members', 
+          badge: 'Inbox',
+          gradient: 'from-purple-600 via-indigo-600 to-pink-600' 
         },
         { 
           id: 'guide', 
@@ -1261,6 +1270,13 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+            )}
+
+            {/* SECTION: PROMOTER CHAT & NETWORK */}
+            {activeSection === 'promoter-network' && (
+              <div className="space-y-4">
+                <PromoterNetworkChat />
               </div>
             )}
 
