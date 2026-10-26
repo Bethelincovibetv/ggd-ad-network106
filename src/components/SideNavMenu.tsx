@@ -58,7 +58,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
     ...(isEnabled('nav_growth') ? [{ id: 'growth', icon: Rocket, label: 'Business Growth' }] : []),
     ...(isEnabled('syndicate_core') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
-    ...(isEnabled('syndicate_core') && isEnabled('nav_syndicate') ? (isSyndicate ? [
+    ...(isEnabled('syndicate_core') && isEnabled('nav_syndicate') && isEnabled('syndicate_portal') ? (isSyndicate ? [
       { id: 'syndicate', icon: Users, label: 'Syndicate Hub' },
     ] : [
       { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },

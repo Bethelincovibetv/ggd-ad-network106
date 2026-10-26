@@ -8,7 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
     port: 3000,
-    hmr: false,
+    hmr: {
+      overlay: false,
+    },
   },
   build: {
     outDir: "dist",

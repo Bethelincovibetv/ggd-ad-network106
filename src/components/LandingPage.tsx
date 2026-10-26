@@ -6,7 +6,7 @@ import {
   Globe, Zap, BarChart3, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, 
   Briefcase, TrendingUp, Target, Building2, Store, Megaphone, Sparkles, Coins, CheckCircle2,
   Share2, Eye, PenTool, Layers, ShoppingBag, BadgeCheck, MapPin,
-  ExternalLink, Phone, ArrowUpRight, Check
+  ExternalLink, Phone, ArrowUpRight, Check, Mail
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -188,6 +188,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         { id: 'how-it-works', label: 'How It Works' },
         { id: 'targeting', label: 'State Targeting' },
         { id: 'faq', label: 'FAQ' },
+        { id: 'contact-info', label: 'Contact Us' },
       ]
     : [
         ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
@@ -195,6 +196,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         ...(isEnabled('credit_tasks') || isEnabled('syndicate') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
         { id: 'how-it-works', label: 'How It Works' },
         { id: 'faq', label: 'FAQ' },
+        { id: 'contact-info', label: 'Contact Us' },
       ];
 
   const whatsappWhyCards = [
@@ -281,20 +283,27 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
             <span className="font-black text-xl text-white tracking-tight">GGD <span className="text-orange-100 font-medium text-xs ml-1 hidden sm:inline-block">AD NETWORK</span></span>
           </div>
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4">
             {navItems.map(item => (
               <button key={item.id} onClick={() => scrollTo(item.id)}
-                className="text-sm text-white/90 hover:text-white font-medium transition-colors">
+                className="text-sm text-white/90 hover:text-white font-medium transition-colors cursor-pointer">
                 {item.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => navigate('/syndicate-register')}
+              className="text-sm text-amber-200 hover:text-white font-bold transition-colors flex items-center gap-1 cursor-pointer px-2 py-1 rounded-lg hover:bg-white/10"
+            >
+              <Users className="h-4 w-4 text-amber-300" /> Join Syndicate
+            </button>
             <Button onClick={onGetStarted}
-              className="bg-white text-[#e67e22] hover:bg-orange-50 font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-[1.02] transition-all">
+              className="bg-white text-[#e67e22] hover:bg-orange-50 font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-[1.02] transition-all cursor-pointer">
               {whatsappPositioning ? "Start My Campaign" : "Get Started"}
             </Button>
           </div>
 
-          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-white p-2 border border-white/30 rounded-xl bg-white/10 hover:bg-white/20 transition">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-white p-2 border border-white/30 rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer">
             {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
@@ -303,15 +312,19 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333] animate-fade-in md:hidden shadow-2xl">
-          <div className="flex flex-col p-6 space-y-5">
+          <div className="flex flex-col p-6 space-y-4">
             {navItems.map(item => (
               <button key={item.id} onClick={() => scrollTo(item.id)}
-                className="text-left text-lg text-gray-200 hover:text-white font-medium transition-colors">
+                className="text-left text-lg text-gray-200 hover:text-white font-medium transition-colors cursor-pointer">
                 {item.label}
               </button>
             ))}
+            <Button onClick={() => { setMenuOpen(false); navigate('/syndicate-register'); }}
+              className="w-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer">
+              <Users className="mr-2 h-5 w-5" /> Register as Syndicate Member
+            </Button>
             <Button onClick={() => { setMenuOpen(false); onGetStarted(); }}
-              className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white py-6 text-lg font-bold rounded-xl shadow-lg">
+              className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer">
               {whatsappPositioning ? "Start My Campaign" : "Get Started"}
             </Button>
           </div>
@@ -1019,8 +1032,70 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         }}
       />
 
-      {/* Contact / Closing CTA Banner */}
-      <div id="contact" className="container mx-auto px-4 py-16">
+      {/* Contact & Office Location Section */}
+      <div id="contact-info" className="container mx-auto px-4 py-12">
+        <div className="bg-[#1c1c1c] border border-[#333] rounded-3xl p-6 md:p-10 max-w-5xl mx-auto shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 bg-[#e67e22]/10 border border-[#e67e22]/30 text-[#e67e22] rounded-full px-3.5 py-1 text-xs font-semibold">
+              <Building2 className="h-3.5 w-3.5" /> Head Office & Contact Details
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black text-white">Get in Touch with GGD</h2>
+            <p className="text-gray-400 text-xs md:text-sm max-w-md mx-auto">
+              Visit our office, email us, or reach out directly on phone or WhatsApp.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4 pt-2">
+            {/* Address */}
+            <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5 text-center space-y-3 hover:border-[#e67e22]/50 transition-all">
+              <div className="p-3 bg-[#e67e22]/10 text-[#e67e22] rounded-xl w-fit mx-auto">
+                <MapPin className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider">Office Address</p>
+                <p className="text-sm font-semibold text-white mt-1 leading-snug">
+                  23a Adebayo Doherty Rd, Lekki Phase 1, Lagos
+                </p>
+              </div>
+            </div>
+
+            {/* Email */}
+            <a
+              href="mailto:goodgiftdigital@gmail.com"
+              className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5 text-center space-y-3 hover:border-[#e67e22]/50 transition-all group cursor-pointer block"
+            >
+              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl w-fit mx-auto group-hover:scale-110 transition-transform">
+                <Mail className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider">Email Us</p>
+                <p className="text-sm font-semibold text-white mt-1 group-hover:text-[#e67e22] transition-colors">
+                  goodgiftdigital@gmail.com
+                </p>
+              </div>
+            </a>
+
+            {/* Phone / WhatsApp */}
+            <a
+              href="tel:07043537401"
+              className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-5 text-center space-y-3 hover:border-[#e67e22]/50 transition-all group cursor-pointer block"
+            >
+              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl w-fit mx-auto group-hover:scale-110 transition-transform">
+                <Phone className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-gray-400 tracking-wider">Phone / WhatsApp</p>
+                <p className="text-sm font-semibold text-white mt-1 group-hover:text-emerald-400 transition-colors">
+                  07043537401
+                </p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Closing CTA Banner */}
+      <div id="contact" className="container mx-auto px-4 py-8">
         <div className="relative rounded-3xl overflow-hidden border border-[#e67e22]/40 shadow-2xl">
           {/* Background Commercial Photography */}
           <div className="absolute inset-0 z-0">
@@ -1043,39 +1118,67 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                 : "Join businesses, creators, and promoters on GGD Ad Network to expand your reach and boost visibility."}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
-              <Button onClick={onGetStarted} size="lg" className="bg-[#e67e22] hover:bg-[#d35400] text-white px-9 py-6 text-lg font-bold rounded-xl shadow-xl hover:scale-105 transition-all">
+              <Button onClick={onGetStarted} size="lg" className="bg-[#e67e22] hover:bg-[#d35400] text-white px-9 py-6 text-lg font-bold rounded-xl shadow-xl hover:scale-105 transition-all cursor-pointer">
                 {whatsappPositioning ? "Start My Campaign" : "Start Free"} <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              {waGroupLink && (
-                <Button size="lg" variant="outline" onClick={() => window.open(waGroupLink, '_blank')}
-                  className="border-white/40 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl bg-black/40 backdrop-blur-md">
-                  <MessageCircle className="mr-2 h-5 w-5 text-emerald-400" /> Contact Support
-                </Button>
-              )}
+              <Button size="lg" variant="outline" onClick={() => window.open('https://wa.me/2347043537401?text=' + encodeURIComponent('Hello GGD Ad Network Support, I would like to inquire about advertising on GGD.'), '_blank')}
+                className="border-white/40 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl bg-black/40 backdrop-blur-md cursor-pointer">
+                <MessageCircle className="mr-2 h-5 w-5 text-emerald-400" /> WhatsApp Direct Care
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-[#333] py-8 bg-[#0e0e0e]">
-        <div className="container mx-auto px-4 text-center text-gray-500 text-sm space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <img src={ggdLogo} alt="GGD Ad Network" className="h-6 w-6 rounded-lg opacity-80" />
-            <span className="font-bold text-gray-400">GGD Ad Network</span>
-          </div>
-          <p>© {new Date().getFullYear()} GGD Ad Network. All rights reserved.</p>
-          <p className="text-xs">Powered by <span className="text-[#e67e22] font-semibold">Goodgift Digital</span></p>
-          {whatsappPositioning && (
-            <div className="pt-2">
-              <button
-                onClick={() => navigate('/syndicate-register')}
-                className="text-xs text-[#e67e22] hover:text-[#f39c12] hover:underline font-medium transition-colors"
-              >
-                Become a promoter
-              </button>
+      <footer className="border-t border-[#333] py-10 bg-[#0e0e0e]">
+        <div className="container mx-auto px-4 max-w-5xl space-y-6">
+          <div className="grid sm:grid-cols-3 gap-6 text-center sm:text-left border-b border-[#222] pb-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <img src={ggdLogo} alt="GGD Ad Network" className="h-6 w-6 rounded-lg opacity-90" />
+                <span className="font-bold text-gray-200">GGD Ad Network</span>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Nigeria's premier social distribution, advertising, and digital growth ecosystem.
+              </p>
             </div>
-          )}
+
+            <div className="space-y-1.5 text-xs text-gray-400">
+              <p className="font-bold text-gray-200 uppercase tracking-wider text-[11px] mb-2">Office Address</p>
+              <p className="flex items-center justify-center sm:justify-start gap-1.5 text-gray-300">
+                <MapPin className="h-3.5 w-3.5 text-[#e67e22] shrink-0" />
+                23a Adebayo Doherty Rd, Lekki Phase 1, Lagos
+              </p>
+            </div>
+
+            <div className="space-y-1.5 text-xs text-gray-400">
+              <p className="font-bold text-gray-200 uppercase tracking-wider text-[11px] mb-2">Direct Contact</p>
+              <p className="flex items-center justify-center sm:justify-start gap-1.5 text-gray-300">
+                <Mail className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                <a href="mailto:goodgiftdigital@gmail.com" className="hover:text-white transition-colors">
+                  goodgiftdigital@gmail.com
+                </a>
+              </p>
+              <p className="flex items-center justify-center sm:justify-start gap-1.5 text-gray-300">
+                <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <a href="tel:07043537401" className="hover:text-white transition-colors">
+                  07043537401
+                </a>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
+            <p>© {new Date().getFullYear()} GGD Ad Network. All rights reserved.</p>
+            <p>Powered by <span className="text-[#e67e22] font-semibold">Goodgift Digital</span></p>
+            <button
+              onClick={() => navigate('/syndicate-register')}
+              className="text-xs text-[#e67e22] hover:text-[#f39c12] hover:underline font-medium transition-colors cursor-pointer"
+            >
+              Become a promoter
+            </button>
+          </div>
         </div>
       </footer>
     </div>

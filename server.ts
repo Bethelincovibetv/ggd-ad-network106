@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -3547,6 +3548,8 @@ async function startServer() {
 
   const { distPath, indexHtmlPath, exists } = getDistPaths();
 
+  const httpServer = http.createServer(app);
+
   if (process.env.NODE_ENV === 'production') {
     // Serve production static assets from the resolved dist folder
     app.use(express.static(distPath));
@@ -3563,16 +3566,21 @@ async function startServer() {
       }
     });
   } else {
-    // Development mode: Mount Vite middleware
+    // Development mode: Mount Vite middleware with HMR attached to the HTTP server
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

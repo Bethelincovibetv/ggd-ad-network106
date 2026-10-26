@@ -58,12 +58,12 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
       grad: 'from-amber-500 via-orange-500 to-red-500',
       matches: ['campaigns', 'ads-create']
     }] : []),
-    ...(isEnabled('syndicate') && !isEnabled('banner_ads') ? [{
-      id: 'business-tasks',
+    ...(isEnabled('syndicate_portal') && isEnabled('syndicate') ? [{
+      id: isSyndicate ? 'syndicate' : 'business-tasks',
       icon: Users,
       label: 'Syndicate',
       grad: 'from-violet-500 via-purple-600 to-indigo-600',
-      matches: ['business-tasks', 'syndicate', 'syndicate-wallet']
+      matches: ['business-tasks', 'syndicate', 'syndicate-wallet', 'syndicate-join']
     }] : []),
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{
       id: 'my-business',

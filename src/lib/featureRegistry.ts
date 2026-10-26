@@ -725,6 +725,14 @@ export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
     navTabId: 'growth',
   },
   {
+    key: 'syndicate_portal',
+    label: 'Syndicate Portal',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Toggle on/off the Syndicate Portal button in navigation menus across the platform.',
+    navTabId: 'syndicate',
+  },
+  {
     key: 'nav_syndicate',
     label: 'Syndicate Hub / Campaigns',
     section: 'Work & Growth',
@@ -884,6 +892,12 @@ export const isFeatureEnabled = (
   }
 
   // Check backward compatible aliases
+  if ((key === 'syndicate_portal' || key === 'nav_syndicate' || key === 'syndicate') && toggles['syndicate_portal'] !== undefined) {
+    return Boolean(toggles['syndicate_portal']);
+  }
+  if ((key === 'syndicate_portal' || key === 'nav_syndicate') && toggles['nav_syndicate'] !== undefined) {
+    return Boolean(toggles['nav_syndicate']);
+  }
   if (key === 'banner_ads' && toggles['ads'] !== undefined) return Boolean(toggles['ads']);
   if (key === 'credit_tasks' && toggles['tasks'] !== undefined) return Boolean(toggles['tasks']);
   if (key === 'community_feed' && toggles['community'] !== undefined) return Boolean(toggles['community']);

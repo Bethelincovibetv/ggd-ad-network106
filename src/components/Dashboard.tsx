@@ -383,8 +383,17 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           profile = (ensured as any)?.profile || ensured;
         } catch {}
       }
-      if (profile?.syndicate_status === 'active') {
+      const isSyndicateMember = hasSyndicateAccess || profile?.syndicate_status === 'active';
+      if (isSyndicateMember) {
         setIsSyndicate(true);
+        // Automatic Login Redirect: registered Syndicate members land straight on Syndicate Portal dashboard
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const hasExplicitTabInUrl = urlParams.has('tab');
+          if (!hasExplicitTabInUrl) {
+            handleTabChange('syndicate');
+          }
+        }
       }
 
       // Check if user already has an active business storefront or ads

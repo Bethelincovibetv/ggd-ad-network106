@@ -235,6 +235,8 @@ const AdminFeatureToggles = () => {
     setFeatureToggleLocally(feature.feature_key, nextState);
 
     // Also update any paired aliases
+    if (feature.feature_key === 'syndicate_portal') setFeatureToggleLocally('nav_syndicate', nextState);
+    if (feature.feature_key === 'nav_syndicate') setFeatureToggleLocally('syndicate_portal', nextState);
     if (feature.feature_key === 'banner_ads') setFeatureToggleLocally('ads', nextState);
     if (feature.feature_key === 'credit_tasks') setFeatureToggleLocally('tasks', nextState);
     if (feature.feature_key === 'community_feed') setFeatureToggleLocally('community', nextState);
