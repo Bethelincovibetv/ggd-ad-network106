@@ -103,14 +103,14 @@ interface DashboardProps {
   userEmail: string;
 }
 
-const AvatarMenuButton = ({ avatarUrl, displayName, email }: { avatarUrl: string | null; displayName: string; email: string }) => {
-  const { toggleSidebar } = useSidebar();
+const AvatarMenuButton = ({ avatarUrl, displayName, email, onOpenProfile }: { avatarUrl: string | null; displayName: string; email: string; onOpenProfile: () => void }) => {
   const initial = (displayName || email || 'U').trim().charAt(0).toUpperCase();
   return (
     <button
-      onClick={toggleSidebar}
-      aria-label="Open menu"
-      className="rounded-full ring-2 ring-orange-500/30 hover:ring-orange-500 transition-all"
+      onClick={onOpenProfile}
+      aria-label="Edit Profile"
+      title="Click to Edit Profile"
+      className="rounded-full ring-2 ring-orange-500/30 hover:ring-orange-500 hover:scale-105 active:scale-95 transition-all cursor-pointer relative group flex items-center justify-center"
     >
       <Avatar className="h-8 w-8">
         {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName || 'User'} /> : null}
@@ -118,6 +118,7 @@ const AvatarMenuButton = ({ avatarUrl, displayName, email }: { avatarUrl: string
           {initial}
         </AvatarFallback>
       </Avatar>
+      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-emerald-500 border-2 border-background rounded-full" title="Active Account" />
     </button>
   );
 };
@@ -1241,6 +1242,14 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   };
 
 
+  if (activeTab === 'syndicate' && isEnabled('syndicate') && (isSyndicate || isAdmin)) {
+    return (
+      <div className="min-h-screen bg-background text-foreground w-full overflow-x-hidden">
+        <SyndicateDashboard onNavigate={handleTabChange} />
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-50 to-orange-50">
@@ -1292,7 +1301,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
                   <NotificationBell />
 
                   {/* User Profile Avatar Menu */}
-                  <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} />
+                  <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} onOpenProfile={() => handleTabChange('profile')} />
                 </div>
               </div>
               {activeTab !== 'feed' && <GlobalSearchBar />}
