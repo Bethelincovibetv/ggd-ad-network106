@@ -18,7 +18,6 @@ import {
   MapPin, 
   Loader2, 
   Paperclip, 
-  Image as ImageIcon,
   CheckCheck,
   Phone,
   Video,
@@ -77,11 +76,9 @@ export const PromoterNetworkChat: React.FC = () => {
   const [messages, setMessages] = useState<P2PMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [activeChatUserIds, setActiveChatUserIds] = useState<Set<string>>(new Set());
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     initPromoterNetwork();
@@ -264,27 +261,6 @@ export const PromoterNetworkChat: React.FC = () => {
       toast.error(err.message || "Failed to send message");
     } finally {
       setIsSending(false);
-    }
-  };
-
-  // Upload Image in Chat
-  const handleUploadChatImage = async (file: File) => {
-    if (!activePromoter || !file) return;
-    setUploadingImage(true);
-
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${me}_${Date.now()}.${fileExt}`;
-      const { error: uploadErr } = await supabase.storage.from('task_proofs').upload(fileName, file, { upsert: true });
-
-      if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage.from('task_proofs').getPublicUrl(fileName);
-      await sendMessage('', publicUrl, 'image');
-    } catch (err: any) {
-      toast.error(err.message || "Image upload failed");
-    } finally {
-      setUploadingImage(false);
     }
   };
 
@@ -504,24 +480,6 @@ export const PromoterNetworkChat: React.FC = () => {
 
               {/* Chat Input Bar */}
               <div className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0">
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={e => e.target.files?.[0] && handleUploadChatImage(e.target.files[0])}
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  type="button"
-                  disabled={uploadingImage}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-10 w-10 rounded-xl border-border cursor-pointer shrink-0"
-                  title="Attach Image"
-                >
-                  {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4 text-purple-600" />}
-                </Button>
 
                 <VoiceNoteRecorder
                   onRecorded={(audioUrl, duration) => sendMessage('Voice Note', audioUrl, 'voice', { duration })}

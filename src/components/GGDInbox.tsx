@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Send, Search, ArrowLeft, User, MessageCircle, Copy, ExternalLink,
-  CheckCircle2, Upload, Pin, Briefcase, Users, Globe, ShoppingBag, Store, Zap, Sparkles, X,
+  CheckCircle2, Pin, Briefcase, Users, Globe, ShoppingBag, Store, Zap, Sparkles, X,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
@@ -23,12 +23,8 @@ import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pu
 import { notifyNewEnquiry } from "@/services/automatedEmailNotificationService";
 import { CallButton } from "@/components/call/CallButton";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
-import { CloudSqlImageSenderModal, SharedChatMessageImage } from "@/components/chat/CloudSqlImageSenderModal";
-import { EphemeralImageSender } from "@/components/chat/EphemeralImageSender";
-import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
 import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
-import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
 import { Phone, PhoneCall } from "lucide-react";
 
@@ -97,7 +93,6 @@ const GGDInbox: React.FC = () => {
   const [me, setMe] = useState<string>("");
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [inboxView, setInboxView] = useState<"messages" | "calls">("messages");
-  const [ephemeralImages, setEphemeralImages] = useState<EphemeralImageRecord[]>([]);
   const [tab, setTab] = useState<"business" | "syndicate" | "global">("global");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeOther, setActiveOther] = useState<string | null>(null);
@@ -109,12 +104,10 @@ const GGDInbox: React.FC = () => {
   const [globalResults, setGlobalResults] = useState<Profile[]>([]);
   const [assignment, setAssignment] = useState<AssignmentMeta | null>(null);
   const [taskTitle, setTaskTitle] = useState<string>("");
-  const [uploading, setUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Msg | null>(null);
   const sendingRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [searchParams] = useSearchParams();
   const [activeInquiryTag, setActiveInquiryTag] = useState<{
@@ -689,48 +682,6 @@ const GGDInbox: React.FC = () => {
     }
   };
 
-  // ---- Upload proof screenshot & embed into chat ----
-  const uploadProof = async (file: File) => {
-    if (!activeOther || !activeTaskId) {
-      toast.error("Open a task chat before uploading proof");
-      return;
-    }
-    setUploading(true);
-    try {
-      const path = `${me}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      const { data, error } = await supabase.storage.from("syndicate-proofs").upload(path, file, { upsert: false });
-      if (error) throw error;
-      const { data: pub } = supabase.storage.from("syndicate-proofs").getPublicUrl(data.path);
-      const proofUrl = pub.publicUrl;
-
-      // Update the assignment record with proof if we own one
-      if (assignment) {
-        await supabase
-          .from("syndicate_task_assignments")
-          .update({ proof_url: proofUrl, status: "submitted" })
-          .eq("id", assignment.id);
-      }
-      // Inject the proof screenshot as a system-generated chat message
-      await supabase.from("p2p_messages").insert({
-        sender_id: me,
-        receiver_id: activeOther,
-        task_id: activeTaskId,
-        assignment_id: assignment?.id || null,
-        kind: "proof",
-        message: "Task proof submitted",
-        image_url: proofUrl,
-        action_type: "approve_pay",
-        action_payload: { assignment_id: assignment?.id || null, task_title: taskTitle },
-      });
-      toast.success("Proof sent");
-      if (activeTaskId) openThread(activeOther, activeTaskId);
-    } catch (e: any) {
-      toast.error(e.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   // ---- Approve & Pay flow (business owner clicks it) ----
   const approveAndPay = async (m: Msg) => {
     const asgId = m.action_payload?.assignment_id || assignment?.id;
@@ -1091,53 +1042,7 @@ const GGDInbox: React.FC = () => {
               )}
 
               <div className="flex gap-2 items-center">
-                {activeTaskId && (
-                  <>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.currentTarget.value = ""; }}
-                    />
-                    <Button
-                      variant="outline" size="icon"
-                      disabled={uploading}
-                      onClick={() => fileRef.current?.click()}
-                      title="Upload proof screenshot"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-
                 <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
-
-                <CloudSqlImageSenderModal
-                  currentUserId={me}
-                  recipientUserId={activeOther}
-                  recipientUserName={otherProfile?.business_name || otherProfile?.display_name || "Contact"}
-                  taskId={activeTaskId}
-                  onImageSent={(rec: SharedChatMessageImage) => {
-                    const newMsg: Msg = {
-                      id: rec.id,
-                      sender_id: me,
-                      receiver_id: activeOther,
-                      task_id: activeTaskId || null,
-                      assignment_id: null,
-                      kind: 'image',
-                      message: rec.caption || null,
-                      image_url: rec.imageUrl,
-                      action_type: null,
-                      action_payload: null,
-                      is_read: false,
-                      created_at: rec.createdAt,
-                    };
-                    setMessages((prev) => [...prev, newMsg]);
-                    playMessageSentSound();
-                  }}
-                  disabled={isSending}
-                />
 
                 <Input
                   value={input}
