@@ -26,6 +26,8 @@ import { CallHistoryList } from "@/components/call/CallHistoryList";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
 import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 import { p2pImageTransfer } from "@/services/webrtcDataChannel";
+import { getEphemeralImagesForPeer, EphemeralImageRecord } from "@/utils/ephemeralImageDB";
+import { EphemeralImageBubble } from "@/components/chat/EphemeralImageBubble";
 import { Phone, PhoneCall } from "lucide-react";
 
 type Kind = "text" | "proof" | "system" | "action" | "voice" | "image";
@@ -99,6 +101,7 @@ const GGDInbox: React.FC = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [otherProfile, setOtherProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [ephemeralImages, setEphemeralImages] = useState<EphemeralImageRecord[]>([]);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [globalResults, setGlobalResults] = useState<Profile[]>([]);
