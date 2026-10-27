@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote, Video, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import WatchVideoAds from "@/components/WatchVideoAd";
+import AdDisplayPreview from "@/components/AdDisplayPreview";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 interface HomeDashboardProps {
@@ -204,6 +205,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Action Center Banner Advert Slot */}
+      {isEnabled('action_center_banners') && isEnabled('banner_ads') && isEnabled('ads') && (
+        <div className="rounded-2xl overflow-hidden border border-border/60 bg-card p-1 shadow-sm">
+          <AdDisplayPreview />
+        </div>
       )}
 
       {/* Watch & Earn (YouTube ads) */}

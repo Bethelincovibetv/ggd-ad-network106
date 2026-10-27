@@ -136,6 +136,21 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
+    key: 'action_center_banners',
+    label: 'Action Center Banner Adverts',
+    group: 'Ads & Banners',
+    defaultState: true,
+    canDisable: true,
+    description: 'Display commercial banner advert rotators and promotional hero sliders on the Action Center (Home Dashboard).',
+    keywords: [
+      'Action Center Banner',
+      'Action Center Ads',
+      'Home Banner Ads',
+      'Dashboard Banners',
+      'Action Center Advert',
+    ],
+  },
+  {
     key: 'featured_slider',
     label: 'Featured Hero Slider',
     group: 'Ads & Banners',
@@ -868,6 +883,7 @@ export const WHATSAPP_SYNDICATE_FOCUS_PRESET: Record<string, boolean> = {
 
   // Turn off all other non-core features
   banner_ads: false,
+  action_center_banners: false,
   featured_slider: false,
   slide_manager: false,
   credit_tasks: false,

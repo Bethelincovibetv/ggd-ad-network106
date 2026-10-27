@@ -763,12 +763,12 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
         return (
           <div className="space-y-4">
             {/* Slider directly under the search bar */}
-            {isEnabled('featured_slider') && isEnabled('slides') && <SlideCarousel />}
+            {isEnabled('action_center_banners') && isEnabled('featured_slider') && isEnabled('slides') && <SlideCarousel />}
 
             <HomeDashboard credits={credits} walletBalance={walletBalance} isAdmin={isAdmin} onNavigate={handleTabChange} />
 
             {/* Ad Display Preview */}
-            {isEnabled('banner_ads') && isEnabled('ads') && <AdDisplayPreview />}
+            {isEnabled('action_center_banners') && isEnabled('banner_ads') && isEnabled('ads') && <AdDisplayPreview />}
           </div>
         );
 
