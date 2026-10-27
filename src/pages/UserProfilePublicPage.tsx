@@ -243,11 +243,11 @@ const UserProfilePublicPage: React.FC = () => {
         getUserVerificationRecord(resolvedId),
       ]);
 
-      // Fallback: If user profile not found, synthesize from business_profiles
+      // Fallback: If user profile not found, synthesize from business_profiles or create standard profile
       const effectiveProfile = p.data || (b.data ? {
         user_id: resolvedId,
-        display_name: b.data.business_name || 'Enterprise Business',
-        business_name: b.data.business_name || 'Enterprise Business',
+        display_name: b.data.business_name || 'GGD Member',
+        business_name: b.data.business_name || 'GGD Member',
         avatar_url: b.data.logo_url,
         business_logo_url: b.data.logo_url,
         business_description: b.data.description,
@@ -259,7 +259,22 @@ const UserProfilePublicPage: React.FC = () => {
         created_at: b.data.created_at || new Date().toISOString(),
         is_verified: b.data.is_verified || false,
         verification_status: b.data.is_verified ? 'VERIFIED' : 'UNVERIFIED'
-      } : null);
+      } : {
+        user_id: resolvedId,
+        display_name: `GGD User (${resolvedId.slice(0, 6)})`,
+        business_name: 'GGD Network Member',
+        avatar_url: null,
+        business_logo_url: null,
+        business_description: 'Active GGD Ad Network member profile.',
+        business_category: 'Member',
+        business_location: 'Nigeria',
+        business_phone: '',
+        business_website: '',
+        business_slug: resolvedId,
+        created_at: new Date().toISOString(),
+        is_verified: false,
+        verification_status: 'UNVERIFIED'
+      });
 
       setProfile(effectiveProfile);
       setSyndicate(s.data);
@@ -325,10 +340,10 @@ const UserProfilePublicPage: React.FC = () => {
     </div>
   );
 
-  if (!profile || !sitesEnabled) return (
+  if (!profile) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 text-slate-800 p-4">
       <Store className="h-12 w-12 text-slate-400" />
-      <p className="text-slate-600 text-center font-medium">{!sitesEnabled ? 'Business sites are currently disabled by network administrator.' : 'Business storefront not found.'}</p>
+      <p className="text-slate-600 text-center font-medium">Business storefront or user profile not found.</p>
       <Button onClick={() => navigate('/')} className="bg-orange-600 hover:bg-orange-700 text-white font-bold gap-2">
         <ArrowLeft className="h-4 w-4" /> Return to GGD Home
       </Button>

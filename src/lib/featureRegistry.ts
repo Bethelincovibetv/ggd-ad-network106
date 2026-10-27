@@ -625,6 +625,35 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
       'Platform Co-Owner',
     ],
   },
+  {
+    key: 'save_favorite',
+    label: 'Save Favorite Feature',
+    group: 'Marketplace & Growth',
+    defaultState: true,
+    canDisable: true,
+    description: 'Enables saving and bookmarking favorite storefronts, ads, and listings. When OFF, the Save Favorite button is hidden everywhere.',
+    navTabIds: ['favorites'],
+    keywords: ['Save Favorite', 'Bookmark', 'Favorites', 'Saved Items'],
+  },
+  {
+    key: 'wallet_transfer',
+    label: 'Wallet & Credit Transfer',
+    group: 'Core System',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows users to transfer money or credits between wallets and users. When OFF, transfer buttons and backend transfer actions are blocked.',
+    keywords: ['Wallet Transfer', 'Credit Transfer', 'Transfer Funds', 'Send Money'],
+  },
+  {
+    key: 'credit_wallet',
+    label: 'Credit Wallet Engine',
+    group: 'Credit & Tasks Economy',
+    defaultState: true,
+    canDisable: true,
+    description: 'Enables the Credit Wallet alongside Naira Wallet. When OFF, system operates strictly on ONE WALLET (Naira Wallet), hiding all Credit Wallet balances and options.',
+    navTabIds: ['fund-credits', 'task_wallet'],
+    keywords: ['Credit Wallet', 'Credit Balance', 'GGG Credits', 'Points Wallet'],
+  },
 ];
 
 /**

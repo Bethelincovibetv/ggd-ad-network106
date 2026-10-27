@@ -71,11 +71,11 @@ const App = () => (
                 />
                 <Route
                   path="/user/:id"
-                  element={<FeatureRoute feature="storefronts" element={<UserProfilePublicPage />} />}
+                  element={<UserProfilePublicPage />}
                 />
                 <Route
                   path="/b/:slug"
-                  element={<FeatureRoute feature="storefronts" element={<UserProfilePublicPage />} />}
+                  element={<UserProfilePublicPage />}
                 />
                 <Route
                   path="/industry/:slug"
