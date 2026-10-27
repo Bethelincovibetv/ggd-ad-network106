@@ -852,12 +852,28 @@ export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
     navTabId: 'guide',
   },
   {
+    key: 'nav_support',
+    label: 'Support & Live Chat',
+    section: 'Help & Account',
+    defaultState: true,
+    description: 'Help navigation item for Customer Care & Live Support',
+    navTabId: 'support',
+  },
+  {
     key: 'nav_about',
     label: 'About GGD',
     section: 'Help & Account',
     defaultState: true,
     description: 'Help navigation item for Platform Info & Legal Terms',
     navTabId: 'about',
+  },
+  {
+    key: 'create_fab',
+    label: 'Create Quick FAB Button',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Floating action create button shown in lower navigation bar',
+    navTabId: 'create-fab',
   },
 ];
 

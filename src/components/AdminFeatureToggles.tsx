@@ -422,8 +422,9 @@ const AdminFeatureToggles = () => {
     );
   }
 
-  const groups: (FeatureGroup | 'All')[] = [
+  const groups: (FeatureGroup | 'Menu Navigation' | 'All')[] = [
     'All',
+    'Menu Navigation',
     'Syndicate & Channels',
     'Ads & Banners',
     'Credit & Tasks Economy',
@@ -758,6 +759,110 @@ const AdminFeatureToggles = () => {
                 );
               })}
             </div>
+
+            {/* Menu Navigation Items Section rendered directly on main view */}
+            {(selectedGroup === 'All' || selectedGroup === 'Menu Navigation') && (
+              <div className="pt-6 border-t border-border/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                      <Menu className="h-4 w-4 text-orange-500" />
+                      Menu Navigation Item Toggles ({MENU_TOGGLE_REGISTRY.length})
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Show or hide individual navigation items across sidebars, headers, and footers.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAllMenusState(true)}
+                      disabled={applyingPreset}
+                      className="h-8 text-xs font-bold rounded-lg border-emerald-500/30 text-emerald-600 hover:bg-emerald-50"
+                    >
+                      Show All
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAllMenusState(false)}
+                      disabled={applyingPreset}
+                      className="h-8 text-xs font-bold rounded-lg border-border text-muted-foreground hover:bg-muted"
+                    >
+                      Hide All
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredMenuToggles.map(menu => {
+                    const isEnabled = getFeatureState(menu.key);
+
+                    return (
+                      <div
+                        key={menu.key}
+                        className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                          isEnabled
+                            ? 'bg-card border-border/80 shadow-xs'
+                            : 'bg-muted/20 border-dashed border-border/50 opacity-75'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Label
+                              className="text-xs font-bold text-foreground cursor-pointer"
+                              onClick={() =>
+                                toggleFeature({
+                                  id: menu.key,
+                                  feature_key: menu.key,
+                                  feature_name: menu.label,
+                                  is_enabled: isEnabled,
+                                  description: menu.description,
+                                })
+                              }
+                            >
+                              {menu.label}
+                            </Label>
+
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-orange-500/10 text-orange-600 uppercase">
+                              {menu.section}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                            {menu.description}
+                          </p>
+
+                          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <span>Target tab:</span>
+                            <code className="px-1.5 py-0.5 rounded bg-muted font-mono font-bold text-foreground">
+                              {menu.navTabId}
+                            </code>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 pt-0.5">
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={() =>
+                              toggleFeature({
+                                id: menu.key,
+                                feature_key: menu.key,
+                                feature_name: menu.label,
+                                is_enabled: isEnabled,
+                                description: menu.description,
+                              })
+                            }
+                            className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           /* Menu Navigation Toggles Grid */
