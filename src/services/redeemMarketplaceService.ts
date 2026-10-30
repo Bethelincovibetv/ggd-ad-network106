@@ -176,19 +176,15 @@ export const DEFAULT_REDEEM_OFFERS: RedeemOffer[] = [
   },
 ];
 
+import { safeStorage } from '@/utils/safeStorage';
+
 // Helper to get local backup offers
 function getLocalFallbackOffers(): RedeemOffer[] {
-  try {
-    const raw = localStorage.getItem('ggd_redeem_offers');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return DEFAULT_REDEEM_OFFERS;
+  return safeStorage.getJSON<RedeemOffer[]>('ggd_redeem_offers', DEFAULT_REDEEM_OFFERS);
 }
 
 function saveLocalFallbackOffers(offers: RedeemOffer[]) {
-  try {
-    localStorage.setItem('ggd_redeem_offers', JSON.stringify(offers));
-  } catch {}
+  safeStorage.setJSON('ggd_redeem_offers', offers);
 }
 
 /**
@@ -511,11 +507,7 @@ export async function getGlobalRewardLogo(): Promise<string | null> {
     }
   } catch {}
 
-  try {
-    return localStorage.getItem(REDEEM_GLOBAL_LOGO_KEY);
-  } catch {
-    return null;
-  }
+  return safeStorage.getItem(REDEEM_GLOBAL_LOGO_KEY);
 }
 
 /**
@@ -531,9 +523,7 @@ export async function setGlobalRewardLogo(logoUrl: string): Promise<void> {
     console.warn('Failed to save reward logo to database:', err);
   }
 
-  try {
-    localStorage.setItem(REDEEM_GLOBAL_LOGO_KEY, logoUrl);
-  } catch {}
+  safeStorage.setItem(REDEEM_GLOBAL_LOGO_KEY, logoUrl);
 }
 
 /**
@@ -612,19 +602,11 @@ export async function getUserRedeemedOfferIds(userId: string): Promise<string[]>
     const fromDb = (data || []).map(r => r.app_id);
     
     // Also check local storage for instant responsiveness
-    try {
-      const local = JSON.parse(localStorage.getItem(`ggd_redeemed_${userId}`) || '[]');
-      return Array.from(new Set([...fromDb, ...local]));
-    } catch {
-      return fromDb;
-    }
+    const local = safeStorage.getJSON<string[]>(`ggd_redeemed_${userId}`, []);
+    return Array.from(new Set([...fromDb, ...local]));
   } catch (err) {
     console.error('Error fetching user redemptions:', err);
-    try {
-      return JSON.parse(localStorage.getItem(`ggd_redeemed_${userId}`) || '[]');
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON<string[]>(`ggd_redeemed_${userId}`, []);
   }
 }
 
@@ -687,14 +669,14 @@ export async function redeemOfferWithCredits(
     };
 
     // Update local storage
-    const localUserList = JSON.parse(localStorage.getItem(`ggd_redeemed_${userId}`) || '[]');
+    const localUserList = safeStorage.getJSON<string[]>(`ggd_redeemed_${userId}`, []);
     if (!localUserList.includes(offer.id)) {
       localUserList.push(offer.id);
-      localStorage.setItem(`ggd_redeemed_${userId}`, JSON.stringify(localUserList));
+      safeStorage.setJSON(`ggd_redeemed_${userId}`, localUserList);
     }
 
-    const localHistory = JSON.parse(localStorage.getItem(`ggd_redeem_history_${userId}`) || '[]');
-    localStorage.setItem(`ggd_redeem_history_${userId}`, JSON.stringify([logItem, ...localHistory]));
+    const localHistory = safeStorage.getJSON<UserRedemptionRecord[]>(`ggd_redeem_history_${userId}`, []);
+    safeStorage.setJSON(`ggd_redeem_history_${userId}`, [logItem, ...localHistory]);
 
     // Also push to platform logs in app_settings if possible
     const currentLogsRes = await supabase
@@ -763,11 +745,7 @@ export async function getUserRedemptionHistory(userId: string): Promise<UserRede
     }
   } catch {}
 
-  try {
-    return JSON.parse(localStorage.getItem(`ggd_redeem_history_${userId}`) || '[]');
-  } catch {
-    return [];
-  }
+  return safeStorage.getJSON<UserRedemptionRecord[]>(`ggd_redeem_history_${userId}`, []);
 }
 
 // Helpers

@@ -1,48 +1,58 @@
-# Comprehensive QA Audit & Full-Stack Remediation Plan
+# Comprehensive QA Audit & Production Remediation Summary
 
-This plan establishes a complete, production-grade audit and remediation roadmap across all layers of the application, incorporating strict validation, crash resilience, and architectural preservation.
-
----
-
-## 1. Audit Findings & Target Areas
-
-### A. Frontend & Crash Resilience
-- **Missing Global & Route Error Boundaries:** An uncaught runtime error in any child route or module causes a complete white screen collapse of the React tree. A resilient `ErrorBoundary` component with automatic reload and fallback recovery is needed in `src/App.tsx`.
-- **Search UI Dismiss Action:** In `src/components/CommunityFeed.tsx`, the `CommunitySearchResults` component had its `onClose` prop omitted, preventing the "Close Results" button from clearing the search overlay.
-- **Defensive Storage in View Tracking:** In `src/services/realtimeViewsService.ts`, direct `sessionStorage` calls need defensive guards for environments where storage access is restricted (e.g. private browsing or strict cookie sandboxes).
-
-### B. Backend & API Validation Hardening
-- **Link Preview Scraping Guardrails:** Ensure URL inputs in `/api/link-preview` reject localhost/private network IPs (SSRF protection) and enforce maximum payload sizes.
-- **Upload File Validation:** Ensure `/api/upload` enforces MIME-type whitelist, maximum byte size boundaries, and sanitizes filenames before filesystem persistence.
-- **Cloud SQL & In-Memory Synchronization:** Ensure view counters and chat endpoints handle transient database disconnections without throwing 500 errors to the client.
-
-### C. Performance & Mobile UI
-- **Zero-Pill and High-Contrast Search Overlays:** Ensure Facebook-style search tabs maintain solid, fully opaque contrast across both light and dark themes with full keyboard escape support.
-- **Component Warning Cleanup:** Clean up empty catch blocks and fast-refresh warning patterns in high-traffic components.
+This report documents the resolution of the GGD Inbox issues, platform-wide localStorage hardening, and broken page routing fixes.
 
 ---
 
-## 2. Remediation Plan
+## 1. GGD Inbox & Chat Architecture Fixes
 
-### Phase 1: Application-Level Error Boundary
-- Create `src/components/ErrorBoundary.tsx` styled to match the dark/light design system with clear error reporting and recovery buttons.
-- Wrap `<Routes>` and lazy-loaded routes in `src/App.tsx` with `<ErrorBoundary>`.
+### A. Query Parameter Normalization & Target User Resolution
+- **Issue:** Email notifications, push alerts, and direct seller buttons generated `/inbox?chat=${id}` or `?chatWith=${id}`, but `GGDInbox.tsx` was only reading `searchParams.get("chatWith")`. This prevented incoming links from automatically opening the conversation thread.
+- **Fix:** Updated `GGDInbox.tsx` to accept all parameter variants:
+  `searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("userId") || searchParams.get("u")`
+  in both initial thread load (`loadThreads`) and query parameter synchronization (`useEffect`).
 
-### Phase 2: Search UI & Interaction Fixes
-- Wire `onClose={() => setFilterQuery('')}` in `src/components/CommunityFeed.tsx`.
-- Add an Escape key listener in `CommunitySearchResults.tsx` to dismiss search results immediately.
+### B. PostgREST Syntax Crash on Uninitialized User Session
+- **Issue:** When a user landed directly on `/inbox?chat=...`, `openThread` was called before the user's session (`me`) finished loading. This caused PostgREST to construct:
+  `.or("and(sender_id.eq.,receiver_id.eq.abc),and(sender_id.eq.abc,receiver_id.eq.)")`
+  which resulted in a fatal 400 Postgres syntax error.
+- **Fix:**
+  1. Integrated `getCurrentUser()` from `@/services/authService` with fallback to `supabase.auth.getUser()` to resolve user ID instantly from memory or local session.
+  2. Guarded `openThread`: if `me` is not yet populated, it awaits `getCurrentUser()` before executing queries; if `currentUid` or `otherId` is empty, it returns safely without firing an invalid query.
 
-### Phase 3: Defensive Real-Time Views Service
-- In `src/services/realtimeViewsService.ts`, add safe memory-fallback storage when `sessionStorage` is unavailable or throws.
-- Ensure the live subscriber Map prevents memory leaks when components unmount.
+### C. Direct Route Resolution for Deep Links
+- **Issue:** Direct URLs such as `/inbox`, `/chat`, `/messages`, `/wallet`, `/feed`, `/tasks`, `/campaigns`, `/directory`, `/marketplace`, `/favorites`, and `/my-business` previously hit `<Route path="*" element={<NotFound />} />`, rendering a blank or broken page.
+- **Fix:** Added explicit route bindings in `App.tsx` mapped to `<Index initialTab="..." />` and configured `Dashboard.tsx` to accept `initialTab` and check `window.location.pathname`.
 
-### Phase 4: API & Security Hardening in `server.ts`
-- Add SSRF protection in `/api/link-preview` to prevent requesting internal IP ranges (`127.0.0.1`, `10.*`, `192.168.*`, `169.254.*`).
-- Add defensive file extension and size validation in `/api/upload`.
-- Add robust fallback responses in `/api/posts/:id/view` so that any database downtime falls back to the in-memory cache transparently.
+---
 
-### Phase 5: Verification & Testing
-- Run `npx tsc --noEmit` to verify type safety.
-- Run `lint_applet` to verify zero fatal errors.
-- Run `compile_applet` to confirm a successful build.
-- Test server endpoints using `curl` to verify response codes and error handling.
+## 2. Platform-Wide Safe Storage Engine
+
+### A. Resilient Storage Utility (`src/utils/safeStorage.ts`)
+- Created a hardened `safeStorage` engine that wraps all web storage operations (`getItem`, `setItem`, `removeItem`, `clear`).
+- Includes an in-memory `Map<string, string>` fallback when `localStorage` throws `SecurityError` (e.g. sandboxed preview iframes, third-party cookie restrictions, private browsing mode).
+- Implements `safeStorage.getJSON<T>()` and `safeStorage.setJSON()` to prevent unhandled `JSON.parse` crashes from corrupted or unexpected storage data.
+
+### B. Service-Layer Hardening
+- Replaced vulnerable raw `localStorage` calls with `safeStorage` across:
+  - `src/hooks/useFeatureToggles.ts` (cached feature toggles)
+  - `src/services/authService.ts` (session persistence)
+  - `src/services/favoritesService.ts` (user favorites caching)
+  - `src/services/referralService.ts` (referral code tracking)
+  - `src/services/realtimeSearchService.ts` (recent queries cache)
+  - `src/services/redeemMarketplaceService.ts` (redemption transactions)
+  - `src/lib/postViews.ts` (view deduplication state)
+  - `src/services/postGiftService.ts` (airtime and gift logs)
+  - `src/services/contactGainService.ts` (local configuration fallback)
+  - `src/services/guideService.ts` (guide progress state)
+  - `src/services/emailGatewayService.ts` (email gateway config)
+  - `src/services/vixoraBusinessAgentService.ts` (agent state cache)
+  - `src/components/Dashboard.tsx` (dashboard view preferences)
+  - `src/pages/Index.tsx` (landing page presentation cache)
+
+---
+
+## 3. Verification & Build Status
+- **TypeScript & Vite Production Build:** Succeeded (`npm run build`).
+- **ESLint Validation:** Succeeded with zero fatal errors (`0 errors`).
+- **Endpoint Status:** Verified that `/inbox`, `/chat`, and `/wallet` return HTTP 200 directly.

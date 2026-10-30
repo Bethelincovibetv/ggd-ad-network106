@@ -1,4 +1,5 @@
 import { FavoriteItem, FavoriteType, NewFavoriteInput } from '@/types/favorites';
+import { safeStorage } from '@/utils/safeStorage';
 
 const FAVORITES_STORAGE_KEY = 'ggd_user_favorites_v1';
 const FAVORITES_EVENT = 'ggd_favorites_changed';
@@ -7,31 +8,19 @@ const FAVORITES_EVENT = 'ggd_favorites_changed';
  * Safely reads favorites list from localStorage.
  */
 export const getStoredFavorites = (): FavoriteItem[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-    return [];
-  } catch (err) {
-    console.error('Error reading favorites from localStorage:', err);
-    return [];
-  }
+  const items = safeStorage.getJSON<FavoriteItem[]>(FAVORITES_STORAGE_KEY, []);
+  return Array.isArray(items) ? items : [];
 };
 
 /**
  * Persists favorites array to localStorage and notifies listeners.
  */
 const saveFavoritesToStorage = (items: FavoriteItem[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(FAVORITES_EVENT, { detail: items }));
-  } catch (err) {
-    console.error('Error saving favorites to localStorage:', err);
+  safeStorage.setJSON(FAVORITES_STORAGE_KEY, items);
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent(FAVORITES_EVENT, { detail: items }));
+    } catch {}
   }
 };
 
@@ -50,13 +39,8 @@ export const isFavorite = (targetId: string, type?: FavoriteType): boolean => {
 };
 
 const isFavoritesFeatureDisabled = (): boolean => {
-  try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('ggd_feature_toggles_v1') : null;
-    if (raw) {
-      const toggles = JSON.parse(raw);
-      if (toggles.save_favorite === false || toggles.favorites === false) return true;
-    }
-  } catch {}
+  const toggles = safeStorage.getJSON<Record<string, boolean>>('ggd_feature_toggles_v1', {});
+  if (toggles.save_favorite === false || toggles.favorites === false) return true;
   return false;
 };
 

@@ -11,6 +11,7 @@ import {
   Clock, PackageCheck, Palette, Megaphone, ShieldAlert
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUser } from '@/services/authService';
 import ggdLogo from '@/assets/ggd-logo.png';
 import AdDisplayPreview from '@/components/AdDisplayPreview';
 import { toast } from '@/hooks/use-toast';
@@ -119,13 +120,18 @@ const UserProfilePublicPage: React.FC = () => {
   };
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      setCurrentUser(data.user);
-      if (data.user) {
-        const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', data.user.id).eq('role', 'admin').maybeSingle();
+    (async () => {
+      let u: any = await getCurrentUser();
+      if (!u) {
+        const { data } = await supabase.auth.getUser();
+        u = data.user;
+      }
+      setCurrentUser(u);
+      if (u?.id) {
+        const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', u.id).eq('role', 'admin').maybeSingle();
         setIsAdmin(!!roleData);
       }
-    });
+    })();
   }, []);
 
   useEffect(() => {

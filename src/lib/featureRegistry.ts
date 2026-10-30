@@ -977,7 +977,8 @@ export const isFeatureEnabled = (
   if (key === 'marketing_apps_marketplace' && toggles['marketplace'] !== undefined) return Boolean(toggles['marketplace']);
   if (key === 'credit_airtime_redeem' && toggles['airtime_redeem'] !== undefined) return Boolean(toggles['airtime_redeem']);
   if (key === 'vixora_ai_studio' && toggles['vixora_ai'] !== undefined) return Boolean(toggles['vixora_ai']);
-  if (key === 'chat_and_calls' && toggles['p2p_chat'] !== undefined) return Boolean(toggles['p2p_chat']);
+  if ((key === 'chat_and_calls' || key === 'p2p_chat') && toggles['chat_and_calls'] !== undefined) return Boolean(toggles['chat_and_calls']);
+  if ((key === 'chat_and_calls' || key === 'p2p_chat') && toggles['p2p_chat'] !== undefined) return Boolean(toggles['p2p_chat']);
   if (key === 'premium_vip_upgrade' && toggles['premium_upgrade'] !== undefined) return Boolean(toggles['premium_upgrade']);
   if ((key === 'save_favorite' || key === 'favorites') && toggles['save_favorite'] !== undefined) return Boolean(toggles['save_favorite']);
   if ((key === 'save_favorite' || key === 'favorites') && toggles['favorites'] !== undefined) return Boolean(toggles['favorites']);

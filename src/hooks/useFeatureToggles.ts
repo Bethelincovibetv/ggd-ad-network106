@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isFeatureEnabled, FEATURE_REGISTRY_MAP } from '@/lib/featureRegistry';
+import { safeStorage } from '@/utils/safeStorage';
 
 const CACHE_KEY = 'ggd_feature_toggles_v1';
 
@@ -11,11 +12,8 @@ const listeners = new Set<(m: Record<string, boolean>) => void>();
 const loadCached = (): Record<string, boolean> | null => {
   if (cache) return cache;
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
-    if (raw) {
-      cache = JSON.parse(raw);
-      return cache;
-    }
+    cache = safeStorage.getJSON<Record<string, boolean> | null>(CACHE_KEY, null);
+    return cache;
   } catch {}
   return null;
 };
@@ -39,9 +37,7 @@ const fetchToggles = (): Promise<Record<string, boolean>> => {
       });
       // Safe merge: preserve existing keys, overwrite with remote states
       cache = { ...existing, ...fetchedMap };
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-      } catch {}
+      safeStorage.setJSON(CACHE_KEY, cache);
       listeners.forEach(l => l({ ...cache! }));
       return cache!;
     }
@@ -60,14 +56,14 @@ const fetchToggles = (): Promise<Record<string, boolean>> => {
 export const setFeatureToggleLocally = (key: string, enabled: boolean) => {
   if (!cache) cache = loadCached() || {};
   cache[key] = enabled;
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
+  safeStorage.setJSON(CACHE_KEY, cache);
   listeners.forEach(l => l({ ...cache! }));
 };
 
 export const setBatchFeatureTogglesLocally = (updates: Record<string, boolean>) => {
   if (!cache) cache = loadCached() || {};
   cache = { ...cache, ...updates };
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
+  safeStorage.setJSON(CACHE_KEY, cache);
   listeners.forEach(l => l({ ...cache! }));
 };
 

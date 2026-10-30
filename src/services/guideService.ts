@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { safeStorage } from "@/utils/safeStorage";
 
 const LOCAL_STORAGE_KEY_PREFIX = "ggd_guide_progress_";
 
@@ -28,11 +29,7 @@ export const guideService = {
           .filter((target): target is string => Boolean(target));
 
         // Cache locally for instant offline rendering
-        try {
-          localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(dbCompleted));
-        } catch {
-          // ignore localStorage errors
-        }
+        safeStorage.setJSON(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, dbCompleted);
 
         return dbCompleted;
       }
@@ -41,14 +38,7 @@ export const guideService = {
     }
 
     // Fallback to local cache if database query fails or offline
-    try {
-      const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // ignore
-    }
-
-    return [];
+    return safeStorage.getJSON<string[]>(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, []);
   },
 
   /**
@@ -89,16 +79,11 @@ export const guideService = {
       }
 
       // Update local storage cache
-      try {
-        const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`);
-        const currentList: string[] = cached ? JSON.parse(cached) : [];
-        const nextList = completed
-          ? Array.from(new Set([...currentList, stepId]))
-          : currentList.filter(id => id !== stepId);
-        localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(nextList));
-      } catch {
-        // ignore
-      }
+      const currentList = safeStorage.getJSON<string[]>(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, []);
+      const nextList = completed
+        ? Array.from(new Set([...currentList, stepId]))
+        : currentList.filter(id => id !== stepId);
+      safeStorage.setJSON(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, nextList);
 
       return true;
     } catch (err) {
@@ -134,11 +119,7 @@ export const guideService = {
       await supabase.from('profiles').update({ profile_setup_complete: true }).eq('user_id', userId);
 
       // Update local cache
-      try {
-        localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(stepIds));
-      } catch {
-        // ignore
-      }
+      safeStorage.setJSON(`${LOCAL_STORAGE_KEY_PREFIX}${userId}`, stepIds);
 
       return true;
     } catch (err) {

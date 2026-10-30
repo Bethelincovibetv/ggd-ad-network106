@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playMoneyTransferSound } from '@/utils/audio';
+import { safeStorage } from '@/utils/safeStorage';
 
 export interface ContactEntry {
   id: string;
@@ -123,11 +124,9 @@ export async function getContactGainSettings(): Promise<ContactGainSettings> {
     console.warn('Firestore settings fetch notice:', err);
   }
 
-  // Fallback to local storage
-  try {
-    const local = localStorage.getItem('ggd_contact_gain_settings');
-    if (local) return { ...DEFAULT_SETTINGS, ...JSON.parse(local) };
-  } catch {}
+  // Fallback to safe local storage
+  const local = safeStorage.getJSON<Partial<ContactGainSettings> | null>('ggd_contact_gain_settings', null);
+  if (local) return { ...DEFAULT_SETTINGS, ...local };
 
   return DEFAULT_SETTINGS;
 }
@@ -147,7 +146,7 @@ export async function updateContactGainSettings(settings: Partial<ContactGainSet
       updatedAt: new Date().toISOString(),
     }, { merge: true });
 
-    localStorage.setItem('ggd_contact_gain_settings', JSON.stringify(updated));
+    safeStorage.setJSON('ggd_contact_gain_settings', updated);
     return true;
   } catch (err) {
     console.error('Error saving contact gain settings to Firestore:', err);
@@ -158,17 +157,11 @@ export async function updateContactGainSettings(settings: Partial<ContactGainSet
 const LOCAL_CONTACTS_CACHE_KEY = 'ggd_verified_contacts_cache';
 
 function getLocalCachedContacts(): ContactEntry[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_CONTACTS_CACHE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
+  return safeStorage.getJSON<ContactEntry[]>(LOCAL_CONTACTS_CACHE_KEY, []);
 }
 
 function saveLocalCachedContacts(contacts: ContactEntry[]) {
-  try {
-    localStorage.setItem(LOCAL_CONTACTS_CACHE_KEY, JSON.stringify(contacts));
-  } catch {}
+  safeStorage.setJSON(LOCAL_CONTACTS_CACHE_KEY, contacts);
 }
 
 /**

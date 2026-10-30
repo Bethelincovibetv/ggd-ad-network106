@@ -9,6 +9,7 @@ import {
   Sparkles, Loader2, Clock, X, ExternalLink,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUser } from '@/services/authService';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
 import { sendQuickMessageNotification } from '@/services/pushNotificationService';
@@ -68,7 +69,11 @@ export const BusinessPublicChatModal: React.FC<BusinessPublicChatModalProps> = (
   // Check authenticated user
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      let user: any = await getCurrentUser();
+      if (!user) {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      }
       if (user) {
         setCurrentUserId(user.id);
         const { data: prof } = await supabase

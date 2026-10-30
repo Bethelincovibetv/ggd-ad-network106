@@ -26,10 +26,12 @@ export interface ReferredMember {
   created_at: string | null;
 }
 
+import { safeStorage } from "@/utils/safeStorage";
+
 const STORAGE_KEY = "ggd_referral_code";
 
 /**
- * Captures referral code from current URL and persists to localStorage.
+ * Captures referral code from current URL and persists to storage.
  * Always returns the active referral code if available.
  */
 export function captureAndGetReferralCode(): string | null {
@@ -40,11 +42,11 @@ export function captureAndGetReferralCode(): string | null {
     const codeFromUrl = urlParams.get("ref");
     if (codeFromUrl && codeFromUrl.trim()) {
       const clean = codeFromUrl.trim().toUpperCase();
-      localStorage.setItem(STORAGE_KEY, clean);
+      safeStorage.setItem(STORAGE_KEY, clean);
       return clean;
     }
 
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = safeStorage.getItem(STORAGE_KEY);
     return stored ? stored.trim().toUpperCase() : null;
   } catch {
     return null;
@@ -55,15 +57,10 @@ export function captureAndGetReferralCode(): string | null {
  * Manually sets the stored referral code.
  */
 export function setStoredReferralCode(code: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (code && code.trim()) {
-      localStorage.setItem(STORAGE_KEY, code.trim().toUpperCase());
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // Ignore storage errors
+  if (code && code.trim()) {
+    safeStorage.setItem(STORAGE_KEY, code.trim().toUpperCase());
+  } else {
+    safeStorage.removeItem(STORAGE_KEY);
   }
 }
 
@@ -71,12 +68,7 @@ export function setStoredReferralCode(code: string): void {
  * Clear stored referral code after successful attribution.
  */
 export function clearStoredReferralCode(): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Ignore
-  }
+  safeStorage.removeItem(STORAGE_KEY);
 }
 
 /**

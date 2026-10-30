@@ -100,27 +100,22 @@ export interface PostGiftRecord {
   createdAt: string;
 }
 
+import { safeStorage } from '@/utils/safeStorage';
+
 const LOCAL_GIFTS_CACHE_KEY = 'ggd_post_gifts_cache';
 
 /**
  * Reads local cached gift records for fast offline / immediate UI updates.
  */
 function getCachedGifts(): PostGiftRecord[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_GIFTS_CACHE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return safeStorage.getJSON<PostGiftRecord[]>(LOCAL_GIFTS_CACHE_KEY, []);
 }
 
 /**
  * Saves local cached gift records.
  */
 function saveCachedGifts(records: PostGiftRecord[]) {
-  try {
-    localStorage.setItem(LOCAL_GIFTS_CACHE_KEY, JSON.stringify(records.slice(-200)));
-  } catch {}
+  safeStorage.setJSON(LOCAL_GIFTS_CACHE_KEY, records.slice(-200));
 }
 
 /**

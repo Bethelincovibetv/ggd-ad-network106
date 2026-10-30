@@ -64,6 +64,19 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/admin" element={<AdminPage />} />
 
+                {/* Direct App Tab Destinations */}
+                <Route path="/inbox" element={<Index initialTab="inbox" />} />
+                <Route path="/chat" element={<Index initialTab="inbox" />} />
+                <Route path="/messages" element={<Index initialTab="inbox" />} />
+                <Route path="/wallet" element={<Index initialTab="wallet" />} />
+                <Route path="/feed" element={<Index initialTab="feed" />} />
+                <Route path="/tasks" element={<Index initialTab="tasks" />} />
+                <Route path="/campaigns" element={<Index initialTab="campaigns" />} />
+                <Route path="/directory" element={<Index initialTab="directory" />} />
+                <Route path="/marketplace" element={<Index initialTab="marketplace" />} />
+                <Route path="/favorites" element={<Index initialTab="favorites" />} />
+                <Route path="/my-business" element={<Index initialTab="my-business" />} />
+
                 {/* Business Directory & Storefronts */}
                 <Route
                   path="/business/:id"

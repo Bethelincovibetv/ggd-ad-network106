@@ -3,21 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { getLocalSession, resilientSignOut } from "@/services/authService";
+import { safeStorage } from "@/utils/safeStorage";
 import AuthForm from "@/components/AuthForm";
 import LandingPage from "@/components/LandingPage";
 import Dashboard from "@/components/Dashboard";
 import MetaTags from "@/components/MetaTags";
 
-const Index = () => {
+interface IndexProps {
+  initialTab?: string;
+}
+
+const Index: React.FC<IndexProps> = ({ initialTab }) => {
   const [session, setSession] = useState<any>(() => getLocalSession());
   const [showAuth, setShowAuth] = useState(false);
   const [loading, setLoading] = useState(() => !getLocalSession());
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('landing_whatsapp_positioning') === 'true';
-    } catch {
-      return false;
-    }
+    return safeStorage.getItem('landing_whatsapp_positioning') === 'true';
   });
   const [settingLoaded, setSettingLoaded] = useState(true);
 
@@ -42,37 +43,19 @@ const Index = () => {
           if (!error && data && data.value !== null) {
             const isEnabled = data.value === 'true';
             setWhatsappPositioning(isEnabled);
-            try {
-              localStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
-            } catch {}
+            safeStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
           } else {
             // Use cached value if exists, otherwise default to OFF
-            try {
-              const cached = localStorage.getItem('landing_whatsapp_positioning');
-              if (cached !== null) {
-                setWhatsappPositioning(cached === 'true');
-              } else {
-                setWhatsappPositioning(false);
-              }
-            } catch {
-              setWhatsappPositioning(false);
-            }
+            const cached = safeStorage.getItem('landing_whatsapp_positioning');
+            setWhatsappPositioning(cached === 'true');
           }
         }
       })
       .catch((err) => {
         console.warn("Failed fetching landing_whatsapp_positioning:", err);
         if (mounted) {
-          try {
-            const cached = localStorage.getItem('landing_whatsapp_positioning');
-            if (cached !== null) {
-              setWhatsappPositioning(cached === 'true');
-            } else {
-              setWhatsappPositioning(false);
-            }
-          } catch {
-            setWhatsappPositioning(false);
-          }
+          const cached = safeStorage.getItem('landing_whatsapp_positioning');
+          setWhatsappPositioning(cached === 'true');
         }
       })
       .finally(() => {
@@ -167,7 +150,7 @@ const Index = () => {
   }
 
   if (session) {
-    return <Dashboard onLogout={handleLogout} userEmail={session?.user?.email || ''} />;
+    return <Dashboard onLogout={handleLogout} userEmail={session?.user?.email || ''} initialTab={initialTab} />;
   }
 
   if (showAuth) {

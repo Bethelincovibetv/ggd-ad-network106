@@ -157,31 +157,19 @@ export async function fetchTrendingSearchTopics(): Promise<TrendingTopic[]> {
   ];
 }
 
+import { safeStorage } from '@/utils/safeStorage';
+
 export function getSearchHistory(): SearchHistoryItem[] {
-  try {
-    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+  return safeStorage.getJSON<SearchHistoryItem[]>(SEARCH_HISTORY_KEY, []);
 }
 
 export function saveToSearchHistory(item: SearchHistoryItem) {
-  try {
-    const history = getSearchHistory();
-    const filtered = history.filter(h => h.query.toLowerCase() !== item.query.toLowerCase());
-    const updated = [item, ...filtered].slice(0, 15);
-    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
-  } catch {
-    // Ignore storage issues
-  }
+  const history = getSearchHistory();
+  const filtered = history.filter(h => h.query.toLowerCase() !== item.query.toLowerCase());
+  const updated = [item, ...filtered].slice(0, 15);
+  safeStorage.setJSON(SEARCH_HISTORY_KEY, updated);
 }
 
 export function clearSearchHistory() {
-  try {
-    localStorage.removeItem(SEARCH_HISTORY_KEY);
-  } catch {
-    // Ignore storage issues
-  }
+  safeStorage.removeItem(SEARCH_HISTORY_KEY);
 }

@@ -14,6 +14,7 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
 import { getCurrentUser } from "@/services/authService";
+import { safeStorage } from "@/utils/safeStorage";
 
 import MobileFooterMenu from "@/components/MobileFooterMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -101,6 +102,7 @@ interface ApiKey {
 interface DashboardProps {
   onLogout: () => void;
   userEmail: string;
+  initialTab?: string;
 }
 
 const AvatarMenuButton = ({ avatarUrl, displayName, email, onOpenProfile }: { avatarUrl: string | null; displayName: string; email: string; onOpenProfile: () => void }) => {
@@ -123,7 +125,7 @@ const AvatarMenuButton = ({ avatarUrl, displayName, email, onOpenProfile }: { av
   );
 };
 
-const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
+const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   const navigate = useNavigate();
   const [ads, setAds] = useState<Ad[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -146,11 +148,15 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
   const [adCostCredits, setAdCostCredits] = useState(5);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(() => {
+    if (initialTab) return initialTab;
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get('tab');
       if (tabParam) return tabParam === 'ads-create' ? 'campaigns' : tabParam;
-      const saved = localStorage.getItem('ggd_active_tab');
+      const path = window.location.pathname.replace(/^\//, '');
+      if (['inbox', 'chat', 'messages'].includes(path)) return 'inbox';
+      if (['wallet', 'feed', 'tasks', 'campaigns', 'directory', 'marketplace', 'favorites', 'my-business', 'support'].includes(path)) return path;
+      const saved = safeStorage.getItem('ggd_active_tab');
       if (saved) return saved;
     }
     return 'ads';
@@ -181,8 +187,8 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     if (['feed'].includes(tab)) {
       return isEnabled('community_feed') && isEnabled('community');
     }
-    if (['inbox'].includes(tab)) {
-      return isEnabled('chat_and_calls') && isEnabled('p2p_chat');
+    if (['inbox', 'chat', 'messages'].includes(tab)) {
+      return isEnabled('chat_and_calls') || isEnabled('p2p_chat') || isEnabled('nav_inbox');
     }
     if (['vixora', 'vixora-creator', 'creator', 'vixora-studio', 'studio'].includes(tab)) {
       return isEnabled('vixora_ai_studio') && isEnabled('vixora_ai');
@@ -215,7 +221,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
       setActiveTab('campaigns');
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('ggd_active_tab', 'campaigns');
+          safeStorage.setItem('ggd_active_tab', 'campaigns');
           const url = new URL(window.location.href);
           url.searchParams.set('tab', 'campaigns');
           window.history.replaceState(null, '', url.toString());
@@ -227,7 +233,7 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
     setActiveTab(target);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('ggd_active_tab', target);
+        safeStorage.setItem('ggd_active_tab', target);
         const url = new URL(window.location.href);
         url.searchParams.set('tab', target);
         window.history.replaceState(null, '', url.toString());
@@ -1087,7 +1093,9 @@ const Dashboard = ({ onLogout, userEmail }: DashboardProps) => {
           : disabled;
 
       case 'inbox':
-        return isEnabled('p2p_chat') ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+      case 'chat':
+      case 'messages':
+        return (isEnabled('chat_and_calls') || isEnabled('p2p_chat') || isEnabled('nav_inbox')) ? <GGDInbox /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'vixora':
       case 'vixora-creator':

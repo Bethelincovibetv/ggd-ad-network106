@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
+import { safeStorage } from "@/utils/safeStorage";
 
 export interface BusinessListingItem {
   id: string;
@@ -89,14 +90,11 @@ export function getUserBusinessMemory(userId: string): BusinessAgentMemory {
   if (agentMemoryCache.has(userId)) {
     return agentMemoryCache.get(userId)!;
   }
-  try {
-    const raw = localStorage.getItem(`vixora_biz_memory_${userId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      agentMemoryCache.set(userId, parsed);
-      return parsed;
-    }
-  } catch {}
+  const cached = safeStorage.getJSON<BusinessAgentMemory | null>(`vixora_biz_memory_${userId}`, null);
+  if (cached) {
+    agentMemoryCache.set(userId, cached);
+    return cached;
+  }
   const fallback: BusinessAgentMemory = {
     brandVoice: 'naija_energetic',
     targetAudience: 'African shoppers, WhatsApp buyers, and wholesale clients',
@@ -121,9 +119,7 @@ export async function fetchUserBusinessMemoryFromServer(userId: string): Promise
       const data = await res.json();
       if (data.success && data.memory) {
         agentMemoryCache.set(userId, data.memory);
-        try {
-          localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(data.memory));
-        } catch {}
+        safeStorage.setJSON(`vixora_biz_memory_${userId}`, data.memory);
         return data.memory;
       }
     }
@@ -144,9 +140,7 @@ export async function saveUserBusinessMemoryAsync(userId: string, update: Partia
     lastUpdated: new Date().toISOString()
   };
   agentMemoryCache.set(userId, updated);
-  try {
-    localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
-  } catch {}
+  safeStorage.setJSON(`vixora_biz_memory_${userId}`, updated);
 
   const res = await fetch('/api/ai/business-memories', {
     method: 'POST',
@@ -176,9 +170,7 @@ export function saveUserBusinessMemory(userId: string, update: Partial<BusinessA
     lastUpdated: new Date().toISOString()
   };
   agentMemoryCache.set(userId, updated);
-  try {
-    localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
-  } catch {}
+  safeStorage.setJSON(`vixora_biz_memory_${userId}`, updated);
 
   // Asynchronously synchronize to persistent database on backend
   saveUserBusinessMemoryAsync(userId, update).catch(e => console.warn('Server memory sync notice:', e));
@@ -198,9 +190,7 @@ export async function deleteUserBusinessMemoryNote(userId: string, noteText: str
     lastUpdated: new Date().toISOString()
   };
   agentMemoryCache.set(userId, updated);
-  try {
-    localStorage.setItem(`vixora_biz_memory_${userId}`, JSON.stringify(updated));
-  } catch {}
+  safeStorage.setJSON(`vixora_biz_memory_${userId}`, updated);
 
   try {
     await fetch('/api/ai/business-memories', {

@@ -21,6 +21,8 @@ import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
 import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pushNotificationService";
 import { notifyNewEnquiry } from "@/services/automatedEmailNotificationService";
+import { getCurrentUser } from "@/services/authService";
+import { safeStorage } from "@/utils/safeStorage";
 import { CallButton } from "@/components/call/CallButton";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
 import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator";
@@ -123,7 +125,7 @@ const GGDInbox: React.FC = () => {
 
   // Parse search params for direct seller chat or product inquiry
   useEffect(() => {
-    const targetUid = searchParams.get("chatWith");
+    const targetUid = searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("userId") || searchParams.get("u");
     const tType = searchParams.get("tagType");
     const tTitle = searchParams.get("tagTitle");
     const tPrice = searchParams.get("tagPrice");
@@ -145,26 +147,46 @@ const GGDInbox: React.FC = () => {
       );
     }
 
-    if (targetUid && me && targetUid !== me) {
-      openThread(targetUid, null);
+    if (targetUid) {
+      if (me) {
+        if (targetUid !== me) {
+          openThread(targetUid, null);
+        }
+      } else {
+        getCurrentUser().then((currentUser) => {
+          if (currentUser?.id && targetUid !== currentUser.id) {
+            setMe(currentUser.id);
+            openThread(targetUid, null);
+          }
+        });
+      }
     }
   }, [searchParams, me]);
 
   // ---- Init & load threads ----
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
-      setMe(data.user.id);
+      let uid = "";
+      const currentUser = await getCurrentUser();
+      if (currentUser?.id) {
+        uid = currentUser.id;
+      } else {
+        const { data } = await supabase.auth.getUser();
+        if (data.user?.id) {
+          uid = data.user.id;
+        }
+      }
+      if (!uid) return;
+      setMe(uid);
       
       const { data: myProf } = await supabase
         .from("profiles")
         .select("user_id, email, display_name, avatar_url, business_name")
-        .eq("user_id", data.user.id)
+        .eq("user_id", uid)
         .maybeSingle();
       if (myProf) setMyProfile(myProf as Profile);
 
-      await loadThreads(data.user.id);
+      await loadThreads(uid);
     })();
   }, []);
 
@@ -309,7 +331,7 @@ const GGDInbox: React.FC = () => {
 
 
     // If chatWith was provided via searchParams, ensure it appears in thread list
-    const targetUid = searchParams.get("chatWith");
+    const targetUid = searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("userId") || searchParams.get("u");
     if (targetUid && targetUid !== uid && !built.some((t) => t.otherId === targetUid)) {
       const { data: targetProf } = await supabase
         .from("profiles")
@@ -351,6 +373,15 @@ const GGDInbox: React.FC = () => {
 
   // ---- Open conversation ----
   const openThread = async (otherId: string, taskId?: string | null) => {
+    if (!otherId) return;
+    let currentUid = me;
+    if (!currentUid) {
+      const u = await getCurrentUser();
+      currentUid = u?.id || "";
+      if (currentUid) setMe(currentUid);
+    }
+    if (!currentUid) return;
+
     setActiveOther(otherId);
     setActiveTaskId(taskId || null);
     setAssignment(null);
@@ -371,18 +402,23 @@ const GGDInbox: React.FC = () => {
       console.warn("Could not load ephemeral images:", e);
     }
 
-    let msgQuery = supabase
-      .from("p2p_messages")
-      .select("*")
-      .or(`and(sender_id.eq.${me},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${me})`)
-      .order("created_at", { ascending: true });
-    if (taskId) msgQuery = msgQuery.eq("task_id", taskId);
-    const { data: msgs } = await msgQuery;
-    let initialMsgs = (msgs as any) || [];
+    let initialMsgs: any[] = [];
+    try {
+      let msgQuery = supabase
+        .from("p2p_messages")
+        .select("*")
+        .or(`and(sender_id.eq.${currentUid},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${currentUid})`)
+        .order("created_at", { ascending: true });
+      if (taskId) msgQuery = msgQuery.eq("task_id", taskId);
+      const { data: msgs } = await msgQuery;
+      initialMsgs = (msgs as any) || [];
+    } catch (msgErr) {
+      console.warn("Notice fetching p2p messages:", msgErr);
+    }
 
     // Also fetch Cloud SQL messages to guarantee all shared images are present
     try {
-      const sqlRes = await fetch(`/api/chat/messages?user1=${encodeURIComponent(me)}&user2=${encodeURIComponent(otherId)}${taskId ? `&taskId=${encodeURIComponent(taskId)}` : ''}`);
+      const sqlRes = await fetch(`/api/chat/messages?user1=${encodeURIComponent(currentUid)}&user2=${encodeURIComponent(otherId)}${taskId ? `&taskId=${encodeURIComponent(taskId)}` : ''}`);
       if (sqlRes.ok) {
         const sqlData = await sqlRes.json();
         if (sqlData.success && Array.isArray(sqlData.messages)) {
@@ -421,7 +457,7 @@ const GGDInbox: React.FC = () => {
       .from("p2p_messages")
       .update({ is_read: true })
       .eq("sender_id", otherId)
-      .eq("receiver_id", me)
+      .eq("receiver_id", currentUid)
       .eq("is_read", false);
 
     if (taskId) {

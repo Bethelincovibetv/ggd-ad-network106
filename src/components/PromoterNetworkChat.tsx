@@ -30,6 +30,7 @@ import VoiceNoteRecorder from "@/components/chat/VoiceNoteRecorder";
 import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
 import { CallButton } from "@/components/call/CallButton";
 import { CallHistoryList } from "@/components/call/CallHistoryList";
+import { getCurrentUser } from "@/services/authService";
 import GGDInbox from "@/components/GGDInbox";
 
 interface PromoterProfile {
@@ -87,7 +88,11 @@ export const PromoterNetworkChat: React.FC = () => {
   const initPromoterNetwork = async () => {
     setLoadingPromoters(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      let user: any = await getCurrentUser();
+      if (!user) {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      }
       if (!user) return;
       setMe(user.id);
 

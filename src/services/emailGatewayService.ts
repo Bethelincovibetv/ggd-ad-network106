@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { safeStorage } from '@/utils/safeStorage';
 
 export interface ConnectedEmailAccount {
   id: string;
@@ -137,7 +138,7 @@ export async function getConnectedEmailAccounts(): Promise<ConnectedEmailAccount
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.accounts) && data.accounts.length > 0) {
-        localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(data.accounts));
+        safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, data.accounts);
         return data.accounts;
       }
     }
@@ -155,7 +156,7 @@ export async function getConnectedEmailAccounts(): Promise<ConnectedEmailAccount
         snap.forEach((doc) => {
           accounts.push({ id: doc.id, ...(doc.data() as any) });
         });
-        localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(accounts));
+        safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, accounts);
         return accounts;
       }
     }
@@ -164,18 +165,13 @@ export async function getConnectedEmailAccounts(): Promise<ConnectedEmailAccount
   }
 
   // Local storage fallback
-  try {
-    const cached = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {}
+  const cached = safeStorage.getJSON<ConnectedEmailAccount[] | null>(STORAGE_KEY_ACCOUNTS, null);
+  if (Array.isArray(cached) && cached.length > 0) {
+    return cached;
+  }
 
   // Initialize defaults with goodgiftdigital@gmail.com
-  try {
-    localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(DEFAULT_CONNECTED_ACCOUNTS));
-  } catch {}
+  safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, DEFAULT_CONNECTED_ACCOUNTS);
   return DEFAULT_CONNECTED_ACCOUNTS;
 }
 
@@ -189,7 +185,7 @@ export async function getEmailGatewaySettings(): Promise<EmailGatewaySettings> {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data() as EmailGatewaySettings;
-        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(data));
+        safeStorage.setJSON(STORAGE_KEY_SETTINGS, data);
         return data;
       }
     }
@@ -197,14 +193,7 @@ export async function getEmailGatewaySettings(): Promise<EmailGatewaySettings> {
     console.warn('Firestore email gateway settings fetch note:', err);
   }
 
-  try {
-    const cached = localStorage.getItem(STORAGE_KEY_SETTINGS);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch {}
-
-  return DEFAULT_SETTINGS;
+  return safeStorage.getJSON<EmailGatewaySettings>(STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
 }
 
 /**
@@ -212,7 +201,7 @@ export async function getEmailGatewaySettings(): Promise<EmailGatewaySettings> {
  */
 export async function saveEmailGatewaySettings(settings: EmailGatewaySettings): Promise<boolean> {
   try {
-    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+    safeStorage.setJSON(STORAGE_KEY_SETTINGS, settings);
     if (db) {
       const docRef = doc(db, 'system_settings', 'email_gateway');
       await setDoc(docRef, settings, { merge: true });
@@ -245,7 +234,7 @@ export async function setActiveSendingAccount(accountId: string): Promise<Connec
   }));
 
   try {
-    localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+    safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, updated);
     if (db) {
       for (const acc of updated) {
         const docRef = doc(db, 'email_gateways', acc.id);
@@ -372,7 +361,7 @@ export async function connectGoogleGmailAccount(newAccountData?: Partial<Connect
 
   const updated = [...accounts, newAccount];
   try {
-    localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+    safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, updated);
     if (db) {
       const docRef = doc(db, 'email_gateways', newAccount.id);
       await setDoc(docRef, newAccount);
@@ -396,7 +385,7 @@ export async function removeConnectedEmailAccount(accountId: string): Promise<Co
   }
 
   try {
-    localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+    safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, updated);
     if (db) {
       const docRef = doc(db, 'email_gateways', accountId);
       await deleteDoc(docRef);
@@ -416,7 +405,7 @@ export async function toggleAccountUserAccess(accountId: string, allowed: boolea
   const updated = accounts.map((acc) => (acc.id === accountId ? { ...acc, allowedForUsers: allowed } : acc));
 
   try {
-    localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+    safeStorage.setJSON(STORAGE_KEY_ACCOUNTS, updated);
     if (db) {
       const docRef = doc(db, 'email_gateways', accountId);
       await updateDoc(docRef, { allowedForUsers: allowed });

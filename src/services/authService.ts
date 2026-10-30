@@ -26,29 +26,19 @@ export interface AppSession {
   access_token?: string;
 }
 
+import { safeStorage } from "@/utils/safeStorage";
+
 const LOCAL_SESSION_KEY = "ggd_auth_session";
 
 export function getLocalSession(): AppSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(LOCAL_SESSION_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return safeStorage.getJSON<AppSession | null>(LOCAL_SESSION_KEY, null);
 }
 
 export function setLocalSession(session: AppSession | null): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (session) {
-      localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session));
-    } else {
-      localStorage.removeItem(LOCAL_SESSION_KEY);
-    }
-  } catch {
-    // ignore
+  if (session) {
+    safeStorage.setJSON(LOCAL_SESSION_KEY, session);
+  } else {
+    safeStorage.removeItem(LOCAL_SESSION_KEY);
   }
 }
 

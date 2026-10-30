@@ -3,23 +3,18 @@
 const VIEWS_STORAGE_KEY = 'ggd_post_views_cache_v1';
 const VIEWED_POSTS_SESSION_KEY = 'ggd_viewed_posts_session_v1';
 
+import { safeStorage } from '@/utils/safeStorage';
+
 interface PostViewsCache {
   [postId: string]: number;
 }
 
 function getViewsCache(): PostViewsCache {
-  try {
-    const raw = localStorage.getItem(VIEWS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+  return safeStorage.getJSON<PostViewsCache>(VIEWS_STORAGE_KEY, {});
 }
 
 function saveViewsCache(cache: PostViewsCache) {
-  try {
-    localStorage.setItem(VIEWS_STORAGE_KEY, JSON.stringify(cache));
-  } catch {}
+  safeStorage.setJSON(VIEWS_STORAGE_KEY, cache);
 }
 
 function getSessionViewed(): Set<string> {
