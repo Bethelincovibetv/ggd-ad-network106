@@ -139,39 +139,36 @@ export const SyndicateProofs: React.FC<SyndicateProofsProps> = ({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1 p-1 bg-muted rounded-xl border border-border">
-            <Button
-              size="sm"
-              variant={statusFilter === 'pending' ? 'default' : 'ghost'}
-              onClick={() => setStatusFilter('pending')}
-              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'pending' ? 'bg-amber-600 text-white' : ''}`}
-            >
-              Pending
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'approved' ? 'default' : 'ghost'}
-              onClick={() => setStatusFilter('approved')}
-              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'approved' ? 'bg-emerald-600 text-white' : ''}`}
-            >
-              Approved
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'rejected' ? 'default' : 'ghost'}
-              onClick={() => setStatusFilter('rejected')}
-              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'rejected' ? 'bg-red-600 text-white' : ''}`}
-            >
-              Rejected
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'all' ? 'default' : 'ghost'}
-              onClick={() => setStatusFilter('all')}
-              className={`h-7 sm:h-8 text-[11px] sm:text-xs font-bold rounded-lg px-2 sm:px-3 ${statusFilter === 'all' ? 'bg-background text-foreground shadow-xs' : ''}`}
-            >
-              All
-            </Button>
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-secondary/70 rounded-xl border border-border">
+            {[
+              { key: 'pending', label: 'Pending', icon: Clock, count: assignments.filter(a => a.status === 'submitted' || a.status === 'pending').length, color: 'from-amber-500 to-orange-600' },
+              { key: 'approved', label: 'Approved', icon: CheckCircle, count: assignments.filter(a => a.status === 'approved' || a.status === 'paid').length, color: 'from-emerald-600 to-teal-600' },
+              { key: 'rejected', label: 'Rejected', icon: XCircle, count: assignments.filter(a => a.status === 'rejected').length, color: 'from-red-600 to-rose-600' },
+              { key: 'all', label: 'All', icon: Eye, count: assignments.length, color: 'from-purple-600 to-indigo-600' },
+            ].map(f => {
+              const Icon = f.icon;
+              const isActive = statusFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setStatusFilter(f.key as any)}
+                  className={`h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                    isActive
+                      ? `bg-gradient-to-r ${f.color} text-white shadow-xs ring-1 ring-white/30`
+                      : 'bg-card text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{f.label}</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                    isActive ? 'bg-white/25 text-white' : 'bg-secondary text-foreground'
+                  }`}>
+                    {f.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

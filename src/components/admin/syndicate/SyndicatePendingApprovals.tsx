@@ -215,44 +215,35 @@ export const SyndicatePendingApprovals: React.FC<SyndicatePendingApprovalsProps>
           </p>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border">
-          <button
-            type="button"
-            onClick={() => setFilterType('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              filterType === 'all' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            All ({totalPending})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('proofs')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              filterType === 'proofs' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Proofs ({pendingProofs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('bank')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              filterType === 'bank' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Bank Requests ({pendingBanks.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('applications')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              filterType === 'applications' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Applications ({pendingApps.length})
-          </button>
+        {/* TACTILE CATEGORY BUTTONS */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-secondary/70 p-1.5 rounded-2xl border border-border">
+          {[
+            { key: 'all', label: 'All Pending', count: totalPending, color: 'from-purple-600 to-indigo-600' },
+            { key: 'proofs', label: 'Campaign Proofs', count: pendingProofs.length, color: 'from-amber-500 to-orange-600' },
+            { key: 'bank', label: 'Bank Requests', count: pendingBanks.length, color: 'from-blue-600 to-cyan-600' },
+            { key: 'applications', label: 'Applications', count: pendingApps.length, color: 'from-emerald-600 to-teal-600' },
+          ].map(f => {
+            const isActive = filterType === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilterType(f.key as any)}
+                className={`h-9 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                  isActive
+                    ? `bg-gradient-to-r ${f.color} text-white shadow-xs ring-1 ring-white/30 scale-[1.02]`
+                    : 'bg-card text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80'
+                }`}
+              >
+                <span>{f.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-secondary text-foreground'
+                }`}>
+                  {f.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

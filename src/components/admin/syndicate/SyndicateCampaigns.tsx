@@ -244,17 +244,25 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
             ))}
           </select>
 
-          <select
-            aria-label="Filter Status"
-            value={statusFilter}
-            onChange={(e: any) => setStatusFilter(e.target.value)}
-            className="h-9 text-xs font-semibold rounded-xl border border-input bg-card px-2.5 focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="completed">Completed</option>
-          </select>
+          <div className="flex items-center gap-1 bg-secondary/70 p-1 rounded-xl border border-border">
+            {(['all', 'active', 'paused', 'completed'] as const).map(s => {
+              const isActive = statusFilter === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer active:scale-95 ${
+                    isActive
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

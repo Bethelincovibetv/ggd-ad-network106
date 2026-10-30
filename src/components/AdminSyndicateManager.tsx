@@ -60,7 +60,9 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   const [withdrawalFilter, setWithdrawalFilter] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
   const [campaignSearch, setCampaignSearch] = useState('');
   const [campaignStatusFilter, setCampaignStatusFilter] = useState<'all' | 'active' | 'paused' | 'completed'>('all');
+  const [platformCategoryFilter, setPlatformCategoryFilter] = useState<string>('all');
   const [submissionFilter, setSubmissionFilter] = useState<'all' | 'submitted' | 'approved' | 'rejected' | 'assigned'>('all');
+  const [submissionPlatformFilter, setSubmissionPlatformFilter] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState(false);
   const [syndicatePayoutPercentage, setSyndicatePayoutPercentage] = useState<number>(70);
   const [savingPercentage, setSavingPercentage] = useState(false);
@@ -641,46 +643,46 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
       </div>
 
       <Tabs defaultValue="tasks" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 h-11 rounded-xl bg-secondary/80 p-1">
-          <TabsTrigger value="tasks" className="text-xs rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white font-bold">
-            Campaigns
+        <TabsList className="w-full flex overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl bg-secondary/80 border border-border/50">
+          <TabsTrigger value="tasks" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
+            <Briefcase className="h-3.5 w-3.5 mr-1.5" /> Campaigns ({allTasks.length})
           </TabsTrigger>
-          <TabsTrigger value="applications" className="text-xs rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white font-bold">
-            Apps {pendingApps.length > 0 && <Badge className="ml-1 h-4 px-1.5 text-[9px] bg-red-500 border-0">{pendingApps.length}</Badge>}
+          <TabsTrigger value="applications" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
+            <Clock className="h-3.5 w-3.5 mr-1.5 text-amber-300" /> Applications {pendingApps.length > 0 && <Badge className="ml-1.5 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0 font-black animate-pulse">{pendingApps.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="syndicates" className="text-xs rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white font-bold">
-            Team ({syndicates.length})
+          <TabsTrigger value="syndicates" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
+            <Users className="h-3.5 w-3.5 mr-1.5" /> Team ({syndicates.length})
           </TabsTrigger>
-          <TabsTrigger value="withdrawals" className="text-xs rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white font-bold">
-            Payouts {pendingWithdrawals.length > 0 && <Badge className="ml-1 h-4 px-1.5 text-[9px] bg-red-500 border-0">{pendingWithdrawals.length}</Badge>}
+          <TabsTrigger value="withdrawals" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
+            <Wallet className="h-3.5 w-3.5 mr-1.5 text-cyan-300" /> Payouts {pendingWithdrawals.length > 0 && <Badge className="ml-1.5 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0 font-black animate-pulse">{pendingWithdrawals.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="pricing" className="text-xs rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white font-bold">
-            Pricing
+          <TabsTrigger value="pricing" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
+            <DollarSign className="h-3.5 w-3.5 mr-1.5" /> Pricing
           </TabsTrigger>
         </TabsList>
 
         {/* CAMPAIGNS & PRODUCT DETAILS TAB */}
         <TabsContent value="tasks" className="space-y-4">
           {viewingTaskId && selectedCampaign ? (
-            /* ================= EXPANDED PRODUCT DETAILS & SUBMISSIONS VIEW ================= */
-            <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Back button & quick navigation */}
-              <div className="flex items-center justify-between">
+            /* ================= EXPANDED PRODUCT DETAILS & SUBMISSIONS VIEW (STRICT MOBILE-FRIENDLY) ================= */
+            <div className="w-full max-w-full overflow-x-hidden min-w-0 space-y-4 animate-in fade-in duration-200">
+              {/* Back button & quick navigation bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 w-full min-w-0">
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => setViewingTaskId(null)}
-                  className="rounded-xl text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
+                  className="rounded-xl text-xs font-bold gap-1.5 text-foreground bg-card hover:bg-muted border-border/80 h-9 px-3.5 shadow-xs active:scale-95 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4" /> Back to All Campaigns
+                  <ChevronLeft className="h-4 w-4 text-purple-600" /> Back to All Campaigns
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => toggleCampaignStatus(selectedCampaign)}
-                    className="rounded-xl text-xs font-semibold h-8"
+                    className="rounded-xl text-xs font-bold h-9 px-3 border-border/80 shadow-xs active:scale-95 cursor-pointer"
                   >
                     {selectedCampaign.status === 'paused' ? (
                       <>
@@ -696,17 +698,17 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                     size="sm"
                     variant="outline"
                     onClick={() => viewTaskSubmissions(selectedCampaign.id)}
-                    className="rounded-xl text-xs font-semibold h-8"
+                    className="rounded-xl text-xs font-bold h-9 px-3 border-border/80 shadow-xs active:scale-95 cursor-pointer"
                   >
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+                    <RefreshCw className="h-3.5 w-3.5 mr-1 text-purple-600" /> Refresh
                   </Button>
                 </div>
               </div>
 
               {/* RICH PRODUCT DETAILS CARD */}
-              <Card className="border-purple-500/40 bg-card rounded-2xl overflow-hidden shadow-lg">
-                <div className="bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900 p-5 text-white">
-                  <div className="flex flex-col md:flex-row gap-4 items-start">
+              <Card className="border-purple-500/40 bg-card rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
+                <div className="bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900 p-4 sm:p-5 text-white w-full max-w-full">
+                  <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start w-full min-w-0">
                     {/* Product Flyer Image */}
                     {selectedCampaign.flyer_url ? (
                       <div
@@ -714,7 +716,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                           setImageModalUrl(selectedCampaign.flyer_url);
                           setImageModalTitle(selectedCampaign.title);
                         }}
-                        className="h-28 w-28 rounded-xl overflow-hidden border-2 border-white/25 bg-black/20 shrink-0 cursor-pointer group relative shadow-md"
+                        className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border-2 border-white/25 bg-black/20 shrink-0 cursor-pointer group relative shadow-md self-center sm:self-start"
                       >
                         <img
                           src={selectedCampaign.flyer_url}
@@ -727,51 +729,52 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                         </div>
                       </div>
                     ) : (
-                      <div className="h-28 w-28 rounded-xl border border-white/20 bg-white/10 shrink-0 flex items-center justify-center text-purple-200">
+                      <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border border-white/20 bg-white/10 shrink-0 flex items-center justify-center text-purple-200 self-center sm:self-start">
                         <ImageIcon className="h-10 w-10 opacity-60" />
                       </div>
                     )}
 
                     {/* Product Info */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex-1 min-w-0 w-full space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-lg font-black text-white">{selectedCampaign.title}</h2>
-                        <Badge className={`text-[10px] font-bold border-0 ${
+                        <h2 className="text-base sm:text-lg font-black text-white break-words">{selectedCampaign.title}</h2>
+                        <Badge className={`text-[10px] font-bold border-0 shadow-xs ${
                           selectedCampaign.status === 'active' ? 'bg-emerald-500 text-white' :
                           selectedCampaign.status === 'completed' ? 'bg-blue-500 text-white' :
                           'bg-amber-500 text-white'
                         }`}>
                           {selectedCampaign.status?.toUpperCase() || 'ACTIVE'}
                         </Badge>
-                        <span className="text-[10px] font-mono opacity-70 bg-black/20 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-mono opacity-80 bg-black/30 px-2 py-0.5 rounded-md">
                           ID: {selectedCampaign.id.substring(0, 8)}
                         </span>
                       </div>
 
-                      <p className="text-xs text-purple-100 leading-relaxed">
+                      <p className="text-xs text-purple-100 leading-relaxed break-words">
                         {selectedCampaign.description || 'No description provided.'}
                       </p>
 
                       {/* Destination / Target link */}
                       {selectedCampaign.share_link && (
-                        <div className="flex items-center gap-2 pt-1">
-                          <span className="text-[11px] font-semibold text-purple-200">Target URL:</span>
-                          <a
-                            href={selectedCampaign.share_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-yellow-300 hover:underline flex items-center gap-1 font-mono truncate max-w-xs sm:max-w-md"
-                          >
-                            <ExternalLink className="h-3 w-3 shrink-0" />
-                            {selectedCampaign.share_link}
-                          </a>
-                          <button
-                            onClick={() => copyShareLink(selectedCampaign.share_link)}
-                            className="text-purple-200 hover:text-white p-1 rounded hover:bg-white/10"
-                            title="Copy link"
-                          >
-                            {copiedLink ? <Check className="h-3.5 w-3.5 text-green-300" /> : <Copy className="h-3.5 w-3.5" />}
-                          </button>
+                        <div className="flex items-center gap-1.5 pt-1.5 min-w-0 max-w-full flex-wrap">
+                          <span className="text-[11px] font-bold text-purple-200 shrink-0">Target URL:</span>
+                          <div className="flex items-center gap-1.5 bg-black/30 border border-white/15 px-2.5 py-1 rounded-xl min-w-0 max-w-full">
+                            <a
+                              href={selectedCampaign.share_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-yellow-300 hover:underline font-mono truncate max-w-[180px] sm:max-w-xs md:max-w-md break-all"
+                            >
+                              {selectedCampaign.share_link}
+                            </a>
+                            <button
+                              onClick={() => copyShareLink(selectedCampaign.share_link)}
+                              className="text-purple-200 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 active:scale-95 cursor-pointer"
+                              title="Copy link"
+                            >
+                              {copiedLink ? <Check className="h-3.5 w-3.5 text-green-300" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -779,10 +782,10 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                 </div>
 
                 {/* Meta details & budget metrics */}
-                <CardContent className="p-4 sm:p-5 space-y-4">
+                <CardContent className="p-3.5 sm:p-5 space-y-4 w-full min-w-0">
                   {/* Channels & Location badges */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-4">
-                    <div className="space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-4 w-full min-w-0">
+                    <div className="space-y-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Required Social Channels</p>
                       <div className="flex flex-wrap gap-1.5">
                         {(selectedCampaign.placements || []).map((p: string) => (
@@ -793,29 +796,29 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                       </div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Geographic Target</p>
                       <Badge variant="outline" className="text-xs rounded-lg px-2.5 py-1 font-semibold flex items-center gap-1 border-border">
-                        <MapPin className="h-3.5 w-3.5 text-purple-600" />
-                        {selectedCampaign.target_state ? `Target: ${selectedCampaign.target_state}` : 'National (All Nigeria)'}
+                        <MapPin className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                        <span className="truncate">{selectedCampaign.target_state ? `Target: ${selectedCampaign.target_state}` : 'National (All Nigeria)'}</span>
                       </Badge>
                     </div>
 
                     {/* Business Advertiser Card */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Merchant / Advertiser</p>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-7 w-7 border border-border">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-7 w-7 border border-border shrink-0">
                           <AvatarImage src={selectedCampaign._businessProfile?.avatar_url} />
                           <AvatarFallback className="text-[10px] bg-purple-600 text-white font-bold">
                             {(selectedCampaign._businessProfile?.display_name || selectedCampaign._businessProfile?.email || 'M').slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="text-xs">
-                          <p className="font-bold text-foreground leading-tight">
+                        <div className="text-xs min-w-0 truncate">
+                          <p className="font-bold text-foreground leading-tight truncate">
                             {selectedCampaign._businessProfile?.display_name || 'Business User'}
                           </p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground truncate">
                             {selectedCampaign._businessProfile?.email || selectedCampaign.business_user_id?.substring(0, 8)}
                           </p>
                         </div>
@@ -824,32 +827,32 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                   </div>
 
                   {/* Financial & Slots KPI row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="rounded-xl bg-secondary/40 p-3 border border-border/50">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Campaign Budget</p>
-                      <p className="text-lg font-black text-foreground mt-0.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 w-full min-w-0">
+                    <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 min-w-0">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground truncate">Campaign Budget</p>
+                      <p className="text-base sm:text-lg font-black text-foreground mt-0.5 truncate">
                         ₦{Number(selectedCampaign.total_cost || 0).toLocaleString()}
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-secondary/40 p-3 border border-border/50">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Payout per Promoter</p>
-                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 min-w-0">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground truncate">Promoter Payout</p>
+                      <p className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
                         ₦{Number(selectedCampaign.payout_amount || selectedCampaign.cost_per_syndicate || 0).toLocaleString()}
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-secondary/40 p-3 border border-border/50">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Slots Capacity</p>
-                      <p className="text-lg font-black text-foreground mt-0.5">
+                    <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 min-w-0">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground truncate">Slots Capacity</p>
+                      <p className="text-base sm:text-lg font-black text-foreground mt-0.5 truncate">
                         {taskAssignments.length} / {selectedCampaign.max_syndicates || '∞'}
                       </p>
                     </div>
 
-                    <div className="rounded-xl bg-secondary/40 p-3 border border-border/50">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">Approved & Settled</p>
-                      <p className="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5">
-                        {taskAssignments.filter(a => a.status === 'approved').length} completed
+                    <div className="rounded-xl bg-secondary/50 p-3 border border-border/60 min-w-0">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground truncate">Approved & Paid</p>
+                      <p className="text-base sm:text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5 truncate">
+                        {taskAssignments.filter(a => a.status === 'approved').length} settled
                       </p>
                     </div>
                   </div>
@@ -857,37 +860,52 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
               </Card>
 
               {/* PROOFS & SUBMISSIONS SECTION */}
-              <div className="space-y-3 pt-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2">
-                  <div>
+              <div className="space-y-3 pt-2 w-full min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2 w-full min-w-0">
+                  <div className="min-w-0">
                     <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-purple-600" />
-                      Promoter Submissions & Proofs ({taskAssignments.length})
+                      <ShieldCheck className="h-4 w-4 text-purple-600 shrink-0" />
+                      <span>Promoter Submissions & Proofs ({taskAssignments.length})</span>
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Review screenshots submitted by verified promoters. Approving automatically disburses funds to their wallet.
                     </p>
                   </div>
+                </div>
 
-                  {/* Filter pills */}
-                  <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs self-start sm:self-auto">
+                {/* TACTILE CATEGORY BUTTONS: Submission Status (Active styled buttons, not ordinary text) */}
+                <div className="w-full overflow-x-auto no-scrollbar py-1">
+                  <div className="flex items-center gap-2 min-w-max">
                     {[
-                      { key: 'all', label: 'All' },
-                      { key: 'submitted', label: `Pending (${taskAssignments.filter(a => a.status === 'submitted').length})` },
-                      { key: 'approved', label: 'Approved' },
-                      { key: 'rejected', label: 'Rejected' },
-                      { key: 'assigned', label: 'In Progress' },
-                    ].map(f => (
-                      <button
-                        key={f.key}
-                        onClick={() => setSubmissionFilter(f.key as any)}
-                        className={`text-[10px] px-2.5 py-1 rounded-lg font-bold transition ${
-                          submissionFilter === f.key ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
+                      { key: 'all', label: 'All Proofs', icon: Eye, count: taskAssignments.length, color: 'from-purple-600 to-indigo-600' },
+                      { key: 'submitted', label: 'Pending Review', icon: Clock, count: taskAssignments.filter(a => a.status === 'submitted').length, color: 'from-amber-500 to-orange-600' },
+                      { key: 'approved', label: 'Approved & Paid', icon: CheckCircle, count: taskAssignments.filter(a => a.status === 'approved').length, color: 'from-emerald-600 to-teal-600' },
+                      { key: 'rejected', label: 'Rejected', icon: XCircle, count: taskAssignments.filter(a => a.status === 'rejected').length, color: 'from-red-600 to-rose-600' },
+                      { key: 'assigned', label: 'In Progress', icon: RotateCw, count: taskAssignments.filter(a => a.status === 'accepted' || a.status === 'assigned').length, color: 'from-blue-600 to-cyan-600' },
+                    ].map(f => {
+                      const Icon = f.icon;
+                      const isActive = submissionFilter === f.key;
+                      return (
+                        <button
+                          key={f.key}
+                          type="button"
+                          onClick={() => setSubmissionFilter(f.key as any)}
+                          className={`h-10 px-3.5 rounded-xl font-bold text-xs flex items-center gap-2 shrink-0 transition-all duration-200 cursor-pointer active:scale-95 ${
+                            isActive
+                              ? `bg-gradient-to-r ${f.color} text-white shadow-md ring-2 ring-white/30 scale-[1.02]`
+                              : 'bg-card text-foreground/80 hover:text-foreground hover:bg-muted border border-border shadow-xs'
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                          <span>{f.label}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                            isActive ? 'bg-white/25 text-white' : 'bg-secondary text-foreground'
+                          }`}>
+                            {f.count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1076,31 +1094,95 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
             </div>
           ) : (
             /* ================= ALL CAMPAIGNS / PRODUCTS LIST VIEW ================= */
-            <div className="space-y-4">
-              {/* Search and Filters */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="relative flex-1">
+            <div className="space-y-4 w-full max-w-full overflow-x-hidden min-w-0">
+              {/* Search input & Header Filters */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full min-w-0">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Search campaigns by product title, advertiser, or location..."
                     value={campaignSearch}
                     onChange={e => setCampaignSearch(e.target.value)}
-                    className="h-10 pl-9 text-xs rounded-xl bg-muted/20"
+                    className="h-10 pl-9 text-xs rounded-xl bg-card border-border/80 w-full"
                   />
                 </div>
+              </div>
 
-                <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl text-xs self-start sm:self-auto">
-                  {(['all', 'active', 'paused', 'completed'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setCampaignStatusFilter(s)}
-                      className={`text-[11px] px-3 py-1.5 rounded-lg font-bold capitalize transition ${
-                        campaignStatusFilter === s ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+              {/* TACTILE CATEGORY BUTTONS: Status Filters (Shown as tactile active buttons, not ordinary text) */}
+              <div className="w-full overflow-x-auto no-scrollbar py-1">
+                <div className="flex items-center gap-2 min-w-max">
+                  {[
+                    { key: 'all', label: 'All Campaigns', icon: Briefcase, count: allTasks.length, color: 'from-purple-600 to-indigo-600' },
+                    { key: 'active', label: 'Active', icon: PlayCircle, count: allTasks.filter(t => t.status === 'active' || !t.status).length, color: 'from-emerald-600 to-teal-600' },
+                    { key: 'paused', label: 'Paused', icon: PauseCircle, count: allTasks.filter(t => t.status === 'paused').length, color: 'from-amber-500 to-orange-600' },
+                    { key: 'completed', label: 'Completed', icon: CheckCircle, count: allTasks.filter(t => t.status === 'completed').length, color: 'from-blue-600 to-indigo-600' },
+                  ].map(s => {
+                    const Icon = s.icon;
+                    const isActive = campaignStatusFilter === s.key;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setCampaignStatusFilter(s.key as any)}
+                        className={`h-10 px-3.5 rounded-xl font-bold text-xs flex items-center gap-2 shrink-0 transition-all duration-200 cursor-pointer active:scale-95 ${
+                          isActive
+                            ? `bg-gradient-to-r ${s.color} text-white shadow-md ring-2 ring-white/30 scale-[1.02]`
+                            : 'bg-card text-foreground/80 hover:text-foreground hover:bg-muted border border-border shadow-xs'
+                        }`}
+                      >
+                        <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                        <span>{s.label}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                          isActive ? 'bg-white/25 text-white' : 'bg-secondary text-foreground'
+                        }`}>
+                          {s.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* TACTILE SOCIAL PLATFORM CATEGORY BUTTONS */}
+              <div className="w-full overflow-x-auto no-scrollbar py-1">
+                <div className="flex items-center gap-1.5 min-w-max">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1 shrink-0">Category / Platform:</span>
+                  {[
+                    { key: 'all', label: 'All Platforms' },
+                    { key: 'whatsapp', label: 'WhatsApp Status' },
+                    { key: 'whatsapp_group', label: 'WhatsApp Group' },
+                    { key: 'whatsapp_channel', label: 'WhatsApp Channel' },
+                    { key: 'facebook', label: 'Facebook' },
+                    { key: 'telegram', label: 'Telegram' },
+                    { key: 'tiktok', label: 'TikTok' },
+                    { key: 'instagram', label: 'Instagram' },
+                    { key: 'twitter', label: 'Twitter/X' },
+                  ].map(plat => {
+                    const isSelected = platformCategoryFilter === plat.key;
+                    const matchCount = plat.key === 'all'
+                      ? allTasks.length
+                      : allTasks.filter(t => (t.placements || []).some((p: string) => p.toLowerCase().includes(plat.key.toLowerCase()))).length;
+
+                    return (
+                      <button
+                        key={plat.key}
+                        type="button"
+                        onClick={() => setPlatformCategoryFilter(plat.key)}
+                        className={`h-8 px-3 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
+                          isSelected
+                            ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400'
+                            : 'bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        <span>{plat.label}</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                          isSelected ? 'bg-white/25 text-white' : 'bg-background/80 text-foreground'
+                        }`}>
+                          {matchCount}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1118,23 +1200,28 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                     campaignStatusFilter === 'active' ? (t.status === 'active' || !t.status) :
                     t.status === campaignStatusFilter;
 
-                  return matchesSearch && matchesStatus;
+                  const matchesCategory = platformCategoryFilter === 'all' ||
+                    (t.placements && Array.isArray(t.placements) && t.placements.some((p: string) =>
+                      p.toLowerCase().replace(/_/g, ' ').includes(platformCategoryFilter.toLowerCase().replace(/_/g, ' '))
+                    ));
+
+                  return matchesSearch && matchesStatus && matchesCategory;
                 });
 
                 if (filteredCampaigns.length === 0) {
                   return (
-                    <Card className="border-dashed border-border/60 bg-muted/10 p-12 text-center rounded-2xl">
+                    <Card className="border-dashed border-border/60 bg-muted/10 p-10 text-center rounded-2xl w-full">
                       <Briefcase className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-                      <p className="text-sm font-bold text-foreground">No syndicate campaigns found</p>
+                      <p className="text-sm font-bold text-foreground">No syndicate campaigns found in this category</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {campaignSearch ? 'Try a different search term' : 'When businesses launch syndicate campaigns, they appear here.'}
+                        {campaignSearch || platformCategoryFilter !== 'all' ? 'Try changing your category filter or search query' : 'When businesses launch syndicate campaigns, they appear here.'}
                       </p>
                     </Card>
                   );
                 }
 
                 return (
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full min-w-0">
                     {filteredCampaigns.map(task => {
                       const isActive = task.status === 'active' || !task.status;
                       const pendingProofs = task._stats?.pending || 0;
@@ -1142,19 +1229,19 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                       return (
                         <Card
                           key={task.id}
-                          className="border border-border/70 shadow-xs hover:shadow-md transition-all rounded-2xl overflow-hidden bg-card"
+                          className="border border-border/70 shadow-xs hover:shadow-md transition-all rounded-2xl overflow-hidden bg-card w-full max-w-full"
                         >
-                          <CardContent className="p-4 sm:p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <CardContent className="p-3.5 sm:p-5 w-full min-w-0">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                               {/* Product Thumbnail & Core Info */}
-                              <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                              <div className="flex items-start gap-3 sm:gap-3.5 flex-1 min-w-0 w-full">
                                 {task.flyer_url ? (
                                   <div
                                     onClick={() => {
                                       setImageModalUrl(task.flyer_url);
                                       setImageModalTitle(task.title);
                                     }}
-                                    className="h-20 w-20 rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 cursor-pointer group relative shadow-xs"
+                                    className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 cursor-pointer group relative shadow-xs"
                                   >
                                     <img
                                       src={task.flyer_url}
@@ -1163,19 +1250,19 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                       referrerPolicy="no-referrer"
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                      <Eye className="h-5 w-5 text-white" />
+                                      <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="h-20 w-20 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 flex items-center justify-center border border-purple-500/20">
-                                    <Megaphone className="h-8 w-8" />
+                                  <div className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 flex items-center justify-center border border-purple-500/20">
+                                    <Megaphone className="h-7 w-7" />
                                   </div>
                                 )}
 
                                 <div className="flex-1 min-w-0 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-sm font-bold text-foreground truncate">{task.title}</h3>
-                                    <Badge className={`text-[9px] font-bold border-0 ${
+                                    <h3 className="text-sm font-bold text-foreground truncate max-w-full">{task.title}</h3>
+                                    <Badge className={`text-[9px] font-bold border-0 shadow-xs ${
                                       isActive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' :
                                       task.status === 'completed' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' :
                                       'bg-amber-500/15 text-amber-700 dark:text-amber-300'
@@ -1189,7 +1276,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                     )}
                                   </div>
 
-                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed break-words">
                                     {task.description}
                                   </p>
 
@@ -1206,14 +1293,14 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                       </span>
                                     )}
                                     {task._businessProfile && (
-                                      <span className="text-muted-foreground">
+                                      <span className="text-muted-foreground truncate max-w-[200px]">
                                         • By: <strong className="text-foreground">{task._businessProfile.display_name || task._businessProfile.email}</strong>
                                       </span>
                                     )}
                                   </div>
 
                                   {/* Budget & Slots Bar */}
-                                  <div className="flex items-center gap-3 pt-1 text-xs">
+                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 text-xs">
                                     <span className="font-bold text-foreground">
                                       ₦{Number(task.total_cost || 0).toLocaleString()} budget
                                     </span>
@@ -1227,12 +1314,12 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                 </div>
                               </div>
 
-                              {/* Action Buttons */}
-                              <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                              {/* Action Buttons: strictly mobile-friendly */}
+                              <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
                                 <Button
                                   size="sm"
                                   onClick={() => viewTaskSubmissions(task.id)}
-                                  className="h-9 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm"
+                                  className="flex-1 md:flex-none h-9 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm active:scale-95 cursor-pointer"
                                 >
                                   <Eye className="h-3.5 w-3.5 mr-1.5" /> View Product & Proofs
                                 </Button>
@@ -1241,7 +1328,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                   size="sm"
                                   variant="outline"
                                   onClick={() => toggleCampaignStatus(task)}
-                                  className="h-9 rounded-xl text-xs font-semibold"
+                                  className="h-9 px-3 rounded-xl text-xs font-semibold active:scale-95 cursor-pointer"
                                 >
                                   {isActive ? 'Pause' : 'Resume'}
                                 </Button>

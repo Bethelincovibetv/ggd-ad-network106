@@ -284,7 +284,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
   };
 
   const options = [
-    ...(isEnabled("community_feed") && isEnabled("community") && isEnabled("create_post")
+    ...(isEnabled("create_blog") && isEnabled("community_feed")
       ? [
           {
             id: "blog",
@@ -298,6 +298,10 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
               setTimeout(() => window.dispatchEvent(new CustomEvent("ggd-open-blog-composer")), 250);
             },
           },
+        ]
+      : []),
+    ...(isEnabled("create_post") && isEnabled("community_feed")
+      ? [
           {
             id: "post",
             icon: Sparkles,
@@ -311,7 +315,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
           },
         ]
       : []),
-    ...(isEnabled("credit_tasks") && isEnabled("tasks") && isEnabled("social_tasks") && isEnabled("nav_social_tasks") && isEnabled("nav_credit_tasks") && isEnabled("create_credit_task")
+    ...(isEnabled("create_credit_task") && isEnabled("credit_tasks")
       ? [{
           id: "task",
           icon: ClipboardList,
@@ -324,7 +328,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
           },
         }]
       : []),
-    ...(isEnabled("banner_ads") && isEnabled("ads") && isEnabled("create_banner_ad")
+    ...(isEnabled("create_banner_ad") && isEnabled("banner_ads")
       ? [{
           id: "ad",
           icon: Megaphone,
@@ -334,7 +338,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
           run: () => onNavigate("ads-create"),
         }]
       : []),
-    ...(isEnabled("syndicate") && isEnabled("business_tasks") && isEnabled("create_syndicate_campaign")
+    ...(isEnabled("create_syndicate_campaign") && isEnabled("syndicate_core")
       ? [{
           id: "syndicate",
           icon: Users,
@@ -346,7 +350,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
       : []),
   ];
 
-  if (options.length === 0 || isAiActive) return null;
+  if (!isEnabled("create_fab") || options.length === 0 || isAiActive) return null;
 
   return (
     <>

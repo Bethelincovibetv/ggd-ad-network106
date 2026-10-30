@@ -44,21 +44,21 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
       grad: 'from-pink-500 via-fuchsia-500 to-purple-600',
       matches: ['feed']
     }] : []),
-    ...(isEnabled('credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') && isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') ? [{
+    ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{
       id: 'tasks',
       icon: CheckSquare,
       label: 'Tasks',
       grad: 'from-emerald-500 via-green-500 to-teal-600',
       matches: ['tasks']
     }] : []),
-    ...(isEnabled('banner_ads') && isEnabled('ads') && isEnabled('nav_campaigns') ? [{
+    ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{
       id: 'campaigns',
       icon: BarChart2,
       label: 'Ads',
       grad: 'from-amber-500 via-orange-500 to-red-500',
       matches: ['campaigns', 'ads-create']
     }] : []),
-    ...(isEnabled('syndicate_portal') && isEnabled('syndicate') ? [{
+    ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') && isEnabled('nav_syndicate') ? [{
       id: isSyndicate ? 'syndicate' : 'business-tasks',
       icon: Users,
       label: 'Syndicate',
@@ -81,10 +81,10 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
     }] : []),
   ];
 
-  // If user is admin, add admin destination
+  // If user is admin, add admin destination (respects nav_mobile_admin toggle)
   const items = [
     ...baseItems,
-    ...(isAdmin ? [{
+    ...(isAdmin && isEnabled('nav_mobile_admin') ? [{
       id: 'admin',
       icon: Shield,
       label: 'Admin',

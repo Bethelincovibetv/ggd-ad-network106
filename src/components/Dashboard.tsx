@@ -1312,16 +1312,18 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
                   />
 
                   {/* Saved & Favorites Quick Drawer/Modal Trigger */}
-                  <FavoritesQuickButton onNavigateTab={(tab) => handleTabChange(tab)} />
+                  {(isEnabled('save_favorite') || isEnabled('favorites')) && isEnabled('nav_favorites') && (
+                    <FavoritesQuickButton onNavigateTab={(tab) => handleTabChange(tab)} />
+                  )}
 
                   {/* Notifications */}
-                  <NotificationBell />
+                  {isEnabled('nav_notifications') && <NotificationBell />}
 
                   {/* User Profile Avatar Menu */}
                   <AvatarMenuButton avatarUrl={avatarUrl} displayName={displayName} email={userEmail} onOpenProfile={() => handleTabChange('profile')} />
                 </div>
               </div>
-              {activeTab !== 'feed' && <GlobalSearchBar />}
+              {activeTab !== 'feed' && isEnabled('nav_global_search') && <GlobalSearchBar />}
             </div>
           </header>
 

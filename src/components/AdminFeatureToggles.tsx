@@ -452,7 +452,9 @@ const AdminFeatureToggles = () => {
     const row = features.find(f => f.feature_key === key);
     if (row) return row.is_enabled;
     const def = FEATURE_REGISTRY_MAP[key];
-    return def ? def.defaultState : true;
+    if (def) return def.defaultState;
+    const menuDef = MENU_TOGGLE_MAP[key];
+    return menuDef ? menuDef.defaultState : true;
   };
 
   const menuSections: (MenuSection | 'All')[] = [

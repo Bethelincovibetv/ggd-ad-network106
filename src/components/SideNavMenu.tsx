@@ -51,19 +51,19 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
     ...(isEnabled('chat_and_calls') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
-    ...(isEnabled('premium_vip_upgrade') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
+    ...(isEnabled('premium_vip_upgrade') && isEnabled('nav_premium') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
   ];
 
   const work = [
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
     ...(isEnabled('nav_growth') ? [{ id: 'growth', icon: Rocket, label: 'Business Growth' }] : []),
-    ...(isEnabled('syndicate_core') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
-    ...(isEnabled('syndicate_core') && isEnabled('nav_syndicate') && isEnabled('syndicate_portal') ? (isSyndicate ? [
-      { id: 'syndicate', icon: Users, label: 'Syndicate Hub' },
-    ] : [
-      { id: 'syndicate-join', icon: Users, label: 'Join Syndicate' },
-    ]) : []),
-    ...(!isBusiness && !isSyndicate && isEnabled('co_owner_upgrade') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('nav_business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') ? (isSyndicate ? (
+      isEnabled('nav_syndicate') ? [{ id: 'syndicate', icon: Users, label: 'Syndicate Hub' }] : []
+    ) : (
+      isEnabled('nav_syndicate_join') ? [{ id: 'syndicate-join', icon: Users, label: 'Join Syndicate' }] : []
+    )) : []),
+    ...(!isBusiness && !isSyndicate && isEnabled('co_owner_upgrade') && isEnabled('nav_upgrade') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
   ];
 
   const discover = [
@@ -76,7 +76,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   ];
 
   const help = [
-    { id: 'support', icon: Headphones, label: 'Support & Live Chat' },
+    ...(isEnabled('nav_support') ? [{ id: 'support', icon: Headphones, label: 'Support & Live Chat' }] : []),
     ...(isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'GGD Guide' }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD' }] : []),
   ];

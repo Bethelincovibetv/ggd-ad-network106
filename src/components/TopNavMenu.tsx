@@ -18,30 +18,30 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
   const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
 
   const items = [
-    { id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] },
-    ...(isEnabled('community') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed'] }] : []),
-    ...(isEnabled('ads') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
-    { id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] },
-    { id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] },
-    ...(isEnabled('nav_social_tasks') && isEnabled('nav_credit_tasks') && isEnabled('tasks') && isEnabled('social_tasks') ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
-    ...(isEnabled('syndicate') ? [{
+    ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] }] : []),
+    ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed'] }] : []),
+    ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
+    ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] }] : []),
+    ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] }] : []),
+    ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') ? [{
       id: isSyndicate ? 'syndicate' : 'syndicate-join',
       icon: Users,
       label: isSyndicate ? 'Syndicate Hub' : 'Join Syndicate',
       matches: ['syndicate', 'syndicate-join', 'business-tasks']
     }] : []),
-    ...(isEnabled('promotional_content') || isEnabled('referral_system') ? [{
+    ...(isEnabled('nav_share_earn') ? [{
       id: 'share-earn',
       icon: Share2,
       label: 'Share & Earn',
       matches: ['share-earn', 'promo', 'referrals']
     }] : []),
-    ...(isEnabled('directory') ? [{ id: 'directory', icon: Building2, label: 'Directory', matches: ['directory'] }] : []),
-    ...(isEnabled('marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Apps', matches: ['marketplace'] }] : []),
-    { id: 'premium', icon: Crown, label: 'VIP Premium', matches: ['premium', 'upgrade'] },
-    ...((isPremium || isAdmin) && isEnabled('api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys', matches: ['api-keys'] }] : []),
-    ...(isEnabled('quick_guide') ? [{ id: 'guide', icon: BookOpen, label: 'User Guide', matches: ['guide'] }] : []),
-    { id: 'about', icon: Info, label: 'About GGD', matches: ['about'] },
+    ...(isEnabled('business_directory') && isEnabled('nav_directory') ? [{ id: 'directory', icon: Building2, label: 'Directory', matches: ['directory'] }] : []),
+    ...(isEnabled('marketing_apps_marketplace') && isEnabled('nav_marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Apps', matches: ['marketplace'] }] : []),
+    ...(isEnabled('premium_vip_upgrade') && isEnabled('nav_premium') ? [{ id: 'premium', icon: Crown, label: 'VIP Premium', matches: ['premium', 'upgrade'] }] : []),
+    ...((isPremium || isAdmin) && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys', matches: ['api-keys'] }] : []),
+    ...(isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'User Guide', matches: ['guide'] }] : []),
+    ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD', matches: ['about'] }] : []),
   ];
 
   return (

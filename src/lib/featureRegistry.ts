@@ -875,6 +875,118 @@ export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
     description: 'Floating action create button shown in lower navigation bar',
     navTabId: 'create-fab',
   },
+  {
+    key: 'nav_premium',
+    label: 'VIP Membership Button',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Navigation menu item for VIP Membership & Premium perks in sidebars & headers',
+    navTabId: 'premium',
+  },
+  {
+    key: 'nav_business_tasks',
+    label: 'Syndicate Campaigns (Work Menu)',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for launching and managing Syndicate Campaigns',
+    navTabId: 'business-tasks',
+  },
+  {
+    key: 'nav_syndicate_join',
+    label: 'Join Syndicate Button',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation button for non-promoters to apply and join the Syndicate team',
+    navTabId: 'syndicate-join',
+  },
+  {
+    key: 'nav_upgrade',
+    label: 'Upgrade Tier / Co-Owner Button',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for Co-Owner profit share upgrade tier',
+    navTabId: 'upgrade',
+  },
+  {
+    key: 'nav_social_tasks',
+    label: 'Social Tasks (Top/Mobile Bar)',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Tasks shortcut button in top navigation and mobile bottom bar',
+    navTabId: 'tasks',
+  },
+  {
+    key: 'nav_mobile_admin',
+    label: 'Mobile Bottom Admin Button',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Admin button shown on the mobile bottom navigation bar for administrator accounts',
+    navTabId: 'admin',
+  },
+  {
+    key: 'action_center_banners',
+    label: 'Action Center Hero Banners',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Commercial & promotional banner ad rotator displayed on Home Action Center',
+    navTabId: 'ads',
+  },
+  {
+    key: 'nav_notifications',
+    label: 'Notification Bell & Alerts',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Top header notification bell icon button and activity drawer',
+    navTabId: 'notifications',
+  },
+  {
+    key: 'nav_global_search',
+    label: 'Global Realtime Search Bar',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Header global realtime search input across all platform items',
+    navTabId: 'search',
+  },
+  {
+    key: 'create_post',
+    label: 'FAB: Community Post Option',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Quick create option in floating button to post to community feed',
+    navTabId: 'create-post',
+  },
+  {
+    key: 'create_blog',
+    label: 'FAB: Editorial Blog Option',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Quick create option in floating button to write VIP blog article',
+    navTabId: 'create-blog',
+  },
+  {
+    key: 'create_credit_task',
+    label: 'FAB: Credit Task Option',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Quick create option in floating button to launch paid credit earn tasks',
+    navTabId: 'create-task',
+  },
+  {
+    key: 'create_banner_ad',
+    label: 'FAB: Banner Ad Option',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Quick create option in floating button to create commercial banner ads',
+    navTabId: 'create-ad',
+  },
+  {
+    key: 'create_syndicate_campaign',
+    label: 'FAB: Syndicate Campaign Option',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Quick create option in floating button to launch social syndicate campaigns',
+    navTabId: 'create-syndicate',
+  },
 ];
 
 export const MENU_TOGGLE_MAP: Record<string, MenuToggleDefinition> = {};
@@ -986,6 +1098,14 @@ export const isFeatureEnabled = (
   if ((key === 'wallet_transfer' || key === 'credit_transfer') && toggles['credit_transfer'] !== undefined) return Boolean(toggles['credit_transfer']);
   if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['credit_wallet'] !== undefined) return Boolean(toggles['credit_wallet']);
   if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['task_wallet'] !== undefined) return Boolean(toggles['task_wallet']);
+  if (key === 'nav_premium' && toggles['nav_premium'] !== undefined) return Boolean(toggles['nav_premium']);
+  if (key === 'nav_business_tasks' && toggles['nav_business_tasks'] !== undefined) return Boolean(toggles['nav_business_tasks']);
+  if (key === 'nav_syndicate_join' && toggles['nav_syndicate_join'] !== undefined) return Boolean(toggles['nav_syndicate_join']);
+  if (key === 'nav_upgrade' && toggles['nav_upgrade'] !== undefined) return Boolean(toggles['nav_upgrade']);
+  if (key === 'nav_social_tasks' && toggles['nav_social_tasks'] !== undefined) return Boolean(toggles['nav_social_tasks']);
+  if (key === 'nav_mobile_admin' && toggles['nav_mobile_admin'] !== undefined) return Boolean(toggles['nav_mobile_admin']);
+  if (key === 'nav_notifications' && toggles['nav_notifications'] !== undefined) return Boolean(toggles['nav_notifications']);
+  if (key === 'nav_global_search' && toggles['nav_global_search'] !== undefined) return Boolean(toggles['nav_global_search']);
 
   if (menuDef) return menuDef.defaultState;
   return def ? def.defaultState : true;
