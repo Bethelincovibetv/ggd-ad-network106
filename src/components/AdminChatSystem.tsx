@@ -21,16 +21,38 @@ const AdminChatSystem = () => {
   const [newMessage, setNewMessage] = useState('');
   const [searchParams] = useSearchParams();
   const [adminId, setAdminId] = useState('');
+  const [allAdminIds, setAllAdminIds] = useState<string[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setAdminId(user.id);
+      const currentUid = user?.id || '';
+      if (currentUid) setAdminId(currentUid);
+
+      // Resolve all admin user IDs across the network
+      const adminIdsSet = new Set<string>();
+      if (currentUid) adminIdsSet.add(currentUid);
+
+      try {
+        const [{ data: roles }, { data: profs }] = await Promise.all([
+          supabase.from('user_roles').select('user_id').eq('role', 'admin'),
+          supabase.from('profiles').select('user_id').or('email.eq.goodgiftdigital@gmail.com,email.eq.accessa787@gmail.com,email.eq.bethelincovibetv@gmail.com'),
+        ]);
+
+        roles?.forEach((r: any) => adminIdsSet.add(r.user_id));
+        profs?.forEach((p: any) => adminIdsSet.add(p.user_id));
+      } catch (err) {
+        console.warn('Notice resolving admin IDs:', err);
+      }
+
+      const resolved = Array.from(adminIdsSet);
+      setAllAdminIds(resolved);
+      await fetchUsersWithChats(resolved);
     };
+
     init();
-    fetchUsersWithChats();
   }, []);
 
   // Automatically select target user if userId query param is provided
@@ -44,11 +66,11 @@ const AdminChatSystem = () => {
     }
   }, [searchParams, users]);
 
+  // Real-time channel for selected conversation & overall support messages
   useEffect(() => {
-    if (!selectedUser || !adminId) return;
-    fetchMessages();
+    if (!adminId) return;
 
-    const channelName = `admin-chat-${selectedUser.user_id}-${Math.random().toString(36).slice(2, 9)}`;
+    const channelName = `admin-support-chat-hub-${adminId.slice(0, 8)}`;
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', {
@@ -58,17 +80,26 @@ const AdminChatSystem = () => {
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const msg = payload.new as any;
-          if (
-            (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
+          const isForAdmin = allAdminIds.length > 0 ? allAdminIds.includes(msg.receiver_id) : msg.receiver_id === adminId;
+          
+          if (selectedUser && (
+            (msg.sender_id === selectedUser.user_id && isForAdmin) ||
             (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
-          ) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
+          )) {
+            setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             if (msg.sender_id === selectedUser.user_id) {
               supabase.from('p2p_messages').update({ is_read: true }).eq('id', msg.id);
             }
+          }
+
+          if (isForAdmin && msg.sender_id !== adminId) {
+            setUnreadCounts(prev => ({
+              ...prev,
+              [msg.sender_id]: (prev[msg.sender_id] || 0) + 1
+            }));
+            toast.info(`💬 New Support Message`, {
+              description: msg.message?.slice(0, 80) || 'Support inquiry received',
+            });
           }
         } else if (payload.eventType === 'UPDATE') {
           const updated = payload.new as any;
@@ -84,81 +115,111 @@ const AdminChatSystem = () => {
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const msg = payload.new as any;
-          if (
-            (msg.sender_id === selectedUser.user_id && msg.receiver_id === adminId) ||
+          const isForAdmin = allAdminIds.length > 0 ? allAdminIds.includes(msg.receiver_id) : msg.receiver_id === adminId;
+          
+          if (selectedUser && (
+            (msg.sender_id === selectedUser.user_id && isForAdmin) ||
             (msg.sender_id === adminId && msg.receiver_id === selectedUser.user_id)
-          ) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
+          )) {
+            setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             if (msg.sender_id === selectedUser.user_id) {
               supabase.from('admin_chat_messages').update({ is_read: true }).eq('id', msg.id);
             }
+          }
+
+          if (isForAdmin && msg.sender_id !== adminId) {
+            setUnreadCounts(prev => ({
+              ...prev,
+              [msg.sender_id]: (prev[msg.sender_id] || 0) + 1
+            }));
           }
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedUser, adminId]);
+  }, [selectedUser, adminId, allAdminIds]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const fetchUsersWithChats = async () => {
+  const fetchUsersWithChats = async (adminIdsList?: string[]) => {
+    const adminTargets = adminIdsList && adminIdsList.length > 0 ? adminIdsList : (allAdminIds.length > 0 ? allAdminIds : [adminId]);
+    
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('user_id, email, display_name, avatar_url')
+      .select('user_id, email, display_name, avatar_url, business_name')
       .order('created_at', { ascending: false });
     const userList = profiles || [];
-    setUsers(userList);
+
+    // Get unread counts from both p2p_messages and admin_chat_messages for ALL admin accounts
+    let p2pUnread: any[] = [];
+    let adminUnread: any[] = [];
+
+    if (adminTargets.length > 0) {
+      try {
+        const [res1, res2] = await Promise.all([
+          supabase
+            .from('p2p_messages')
+            .select('sender_id, receiver_id')
+            .in('receiver_id', adminTargets)
+            .eq('is_read', false),
+          supabase
+            .from('admin_chat_messages')
+            .select('sender_id, receiver_id')
+            .in('receiver_id', adminTargets)
+            .eq('is_read', false),
+        ]);
+        p2pUnread = res1.data || [];
+        adminUnread = res2.data || [];
+      } catch (err) {
+        console.warn('Notice fetching unread admin chats:', err);
+      }
+    }
+
+    const counts: Record<string, number> = {};
+    p2pUnread.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
+    adminUnread.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
+    setUnreadCounts(counts);
+
+    // Sort users so those with unread support messages appear at the top
+    const sortedUsers = [...userList].sort((a, b) => {
+      const uA = counts[a.user_id] || 0;
+      const uB = counts[b.user_id] || 0;
+      return uB - uA;
+    });
+
+    setUsers(sortedUsers);
 
     // If userId query param present, select right away
     const targetUserId = searchParams.get('userId');
     if (targetUserId) {
-      const match = userList.find(u => u.user_id === targetUserId);
+      const match = sortedUsers.find(u => u.user_id === targetUserId);
       if (match) setSelectedUser(match);
-    }
-
-    // Get unread counts from both p2p_messages and admin_chat_messages
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const [{ data: p2pUnread }, { data: adminUnread }] = await Promise.all([
-        supabase
-          .from('p2p_messages')
-          .select('sender_id')
-          .eq('receiver_id', user.id)
-          .eq('is_read', false),
-        supabase
-          .from('admin_chat_messages')
-          .select('sender_id')
-          .eq('receiver_id', user.id)
-          .eq('is_read', false),
-      ]);
-      const counts: Record<string, number> = {};
-      p2pUnread?.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
-      adminUnread?.forEach(m => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
-      setUnreadCounts(counts);
     }
   };
 
   const fetchMessages = async () => {
     if (!selectedUser || !adminId) return;
+    const adminTargets = allAdminIds.length > 0 ? allAdminIds : [adminId];
+
+    // Build OR filters for all admin IDs
+    const adminReceivers = adminTargets.map(id => `receiver_id.eq.${id}`).join(',');
+    const adminSenders = adminTargets.map(id => `sender_id.eq.${id}`).join(',');
     
     // Fetch from p2p_messages (the standard in-app messages table connected to /inbox)
     const { data: p2pData } = await supabase
       .from('p2p_messages')
       .select('*')
-      .or(`and(sender_id.eq.${adminId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${adminId})`)
+      .or(`and(sender_id.eq.${selectedUser.user_id},or(${adminReceivers})),and(or(${adminSenders}),receiver_id.eq.${selectedUser.user_id})`)
       .order('created_at', { ascending: true });
 
     // Also fetch legacy admin_chat_messages to preserve past conversation history
     const { data: legacyData } = await supabase
       .from('admin_chat_messages')
       .select('*')
-      .or(`and(sender_id.eq.${adminId},receiver_id.eq.${selectedUser.user_id}),and(sender_id.eq.${selectedUser.user_id},receiver_id.eq.${adminId})`)
+      .or(`and(sender_id.eq.${selectedUser.user_id},or(${adminReceivers})),and(or(${adminSenders}),receiver_id.eq.${selectedUser.user_id})`)
       .order('created_at', { ascending: true });
 
     // Deduplicate and combine messages

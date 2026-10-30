@@ -188,42 +188,8 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
   // User & Admin Chat States
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const [allAdminIds, setAllAdminIds] = useState<string[]>([]);
   const [adminProfile, setAdminProfile] = useState<any>(null);
-  const [chatMessages, setChatMessages] = useState<SupportMsg[]>([]);
-  const [chatInput, setChatInput] = useState<string>('');
-  const [isSendingChat, setIsSendingChat] = useState<boolean>(false);
-  const [loadingChat, setLoadingChat] = useState<boolean>(true);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Ticket Tracker State
-  const [tickets, setTickets] = useState<SupportTicketTrackerItem[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'In Progress' | 'Resolved'>('all');
-
-  // Ticket Form State
-  const [ticketCategory, setTicketCategory] = useState('WhatsApp Status Campaign');
-  const [ticketSubject, setTicketSubject] = useState('');
-  const [ticketMessage, setTicketMessage] = useState('');
-  const [submittingTicket, setSubmittingTicket] = useState(false);
-  const [ticketSent, setTicketSent] = useState(false);
-
-  // Check landing_whatsapp_positioning setting from DB/localStorage
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem('landing_whatsapp_positioning');
-      if (cached !== null) setWhatsappPositioning(cached === 'true');
-    } catch {}
-
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'landing_whatsapp_positioning')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && data.value !== null) {
-          setWhatsappPositioning(data.value === 'true');
-        }
-      });
-  }, []);
 
   // Initialize Support System & Admin lookup
   useEffect(() => {
@@ -240,49 +206,59 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       }
       setCurrentUserId(user.id);
 
-      // Reliable Admin User ID Resolution
-      let foundAdminId: string | null = null;
-      let foundAdminProf: any = null;
+      // Collect ALL Admin User IDs
+      const adminIdsSet = new Set<string>();
 
-      // 1. Query user_roles table
+      // 1. Query user_roles table for role='admin'
       const { data: adminRoles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'admin')
-        .limit(1);
+        .eq('role', 'admin');
 
-      if (adminRoles && adminRoles.length > 0) {
-        foundAdminId = adminRoles[0].user_id;
+      if (adminRoles) {
+        adminRoles.forEach((r) => r.user_id && adminIdsSet.add(r.user_id));
       }
 
-      // 2. Fallback to admin email profile lookup
-      if (!foundAdminId) {
-        const { data: profs } = await supabase
-          .from('profiles')
-          .select('user_id, display_name, email, avatar_url, business_name')
-          .or('email.eq.goodgiftdigital@gmail.com,email.eq.accessa787@gmail.com')
-          .limit(1);
+      // 2. Query known admin profiles by email
+      const knownAdminEmails = [
+        'goodgiftdigital@gmail.com',
+        'accessa787@gmail.com',
+        'bethelincovibetv@gmail.com',
+      ];
+      const { data: knownAdminProfs } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, email, avatar_url, business_name')
+        .in('email', knownAdminEmails);
 
-        if (profs && profs.length > 0) {
-          foundAdminId = profs[0].user_id;
-          foundAdminProf = profs[0];
-        }
-      } else {
+      let foundAdminProf: any = null;
+      if (knownAdminProfs) {
+        knownAdminProfs.forEach((p) => {
+          if (p.user_id) adminIdsSet.add(p.user_id);
+          if (!foundAdminProf) foundAdminProf = p;
+        });
+      }
+
+      const adminIdsArray = Array.from(adminIdsSet);
+      setAllAdminIds(adminIdsArray);
+
+      let primaryAdminId: string | null = adminIdsArray[0] || null;
+
+      if (!foundAdminProf && primaryAdminId) {
         const { data: prof } = await supabase
           .from('profiles')
           .select('user_id, display_name, email, avatar_url, business_name')
-          .eq('user_id', foundAdminId)
+          .eq('user_id', primaryAdminId)
           .maybeSingle();
         if (prof) foundAdminProf = prof;
       }
 
-      if (foundAdminId) {
-        setAdminUserId(foundAdminId);
+      if (primaryAdminId) {
+        setAdminUserId(primaryAdminId);
         setAdminProfile(foundAdminProf || {
           display_name: 'GGD Support Desk Admin',
           email: SUPPORT_EMAIL,
         });
-        await loadSupportMessagesAndTickets(user.id, foundAdminId);
+        await loadSupportMessagesAndTickets(user.id, adminIdsArray, primaryAdminId);
       }
     } catch (err) {
       console.warn('Error initializing support system:', err);
@@ -291,20 +267,24 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     }
   };
 
-  const loadSupportMessagesAndTickets = async (uid: string, adminId: string) => {
+  const loadSupportMessagesAndTickets = async (uid: string, adminIds: string[], primaryAdminId: string) => {
     try {
-      // 1. Fetch p2p_messages
+      if (!adminIds.length) return;
+
+      const adminFilterStr = adminIds.map((id) => `'${id}'`).join(',');
+
+      // 1. Fetch p2p_messages for any admin
       const { data: p2pData } = await supabase
         .from('p2p_messages')
         .select('*')
-        .or(`and(sender_id.eq.${uid},receiver_id.eq.${adminId}),and(sender_id.eq.${adminId},receiver_id.eq.${uid})`)
+        .or(`and(sender_id.eq.${uid},receiver_id.in.(${adminFilterStr})),and(sender_id.in.(${adminFilterStr}),receiver_id.eq.${uid})`)
         .order('created_at', { ascending: true });
 
-      // 2. Fetch admin_chat_messages
+      // 2. Fetch admin_chat_messages for any admin
       const { data: legacyData } = await supabase
         .from('admin_chat_messages')
         .select('*')
-        .or(`and(sender_id.eq.${uid},receiver_id.eq.${adminId}),and(sender_id.eq.${adminId},receiver_id.eq.${uid})`)
+        .or(`and(sender_id.eq.${uid},receiver_id.in.(${adminFilterStr})),and(sender_id.in.(${adminFilterStr}),receiver_id.eq.${uid})`)
         .order('created_at', { ascending: true });
 
       const existingMap = new Map<string, SupportMsg>();
@@ -330,20 +310,20 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       setChatMessages(list);
 
       // Derive Tickets & Statuses
-      deriveTicketsFromMessages(list, uid, adminId);
+      deriveTicketsFromMessages(list, uid, adminIds);
 
-      // Mark unread messages from admin as read
+      // Mark unread messages from any admin as read
       await Promise.all([
         supabase
           .from('p2p_messages')
           .update({ is_read: true })
-          .eq('sender_id', adminId)
+          .in('sender_id', adminIds)
           .eq('receiver_id', uid)
           .eq('is_read', false),
         supabase
           .from('admin_chat_messages')
           .update({ is_read: true })
-          .eq('sender_id', adminId)
+          .in('sender_id', adminIds)
           .eq('receiver_id', uid)
           .eq('is_read', false),
       ]);
@@ -352,7 +332,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     }
   };
 
-  const deriveTicketsFromMessages = (msgs: SupportMsg[], uid: string, adminId: string) => {
+  const deriveTicketsFromMessages = (msgs: SupportMsg[], uid: string, adminIds: string[]) => {
     if (msgs.length === 0) {
       setTickets([]);
       return;
@@ -360,7 +340,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
     // Group or extract tickets/threads
     const userSentMsgs = msgs.filter((m) => m.sender_id === uid);
-    const adminRepliedMsgs = msgs.filter((m) => m.sender_id === adminId);
+    const adminRepliedMsgs = msgs.filter((m) => adminIds.includes(m.sender_id));
 
     // Look for explicit status updates from admin
     const statusUpdateMsgs = msgs.filter((m) => m.action_type === 'ticket_status_update' && m.action_payload?.status);
@@ -407,9 +387,9 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     setTickets(ticketList);
   };
 
-  // Realtime subscription for incoming support messages & status changes
+  // Realtime subscription for incoming support messages & status changes across all admins
   useEffect(() => {
-    if (!currentUserId || !adminUserId) return;
+    if (!currentUserId || !allAdminIds.length) return;
 
     const channel = supabase
       .channel(`user-support-chat-${currentUserId}`)
@@ -419,10 +399,12 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const m = payload.new as any;
-            if (
-              (m.sender_id === currentUserId && m.receiver_id === adminUserId) ||
-              (m.sender_id === adminUserId && m.receiver_id === currentUserId)
-            ) {
+            const isUserSender = m.sender_id === currentUserId;
+            const isAdminSender = allAdminIds.includes(m.sender_id);
+            const isUserReceiver = m.receiver_id === currentUserId;
+            const isAdminReceiver = allAdminIds.includes(m.receiver_id);
+
+            if ((isUserSender && isAdminReceiver) || (isAdminSender && isUserReceiver)) {
               const formatted: SupportMsg = {
                 id: m.id,
                 sender_id: m.sender_id,
@@ -441,15 +423,15 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                 if (idx !== -1) {
                   const copy = [...prev];
                   copy[idx] = formatted;
-                  deriveTicketsFromMessages(copy, currentUserId, adminUserId);
+                  deriveTicketsFromMessages(copy, currentUserId, allAdminIds);
                   return copy;
                 }
                 const updated = [...prev, formatted];
-                deriveTicketsFromMessages(updated, currentUserId, adminUserId);
+                deriveTicketsFromMessages(updated, currentUserId, allAdminIds);
                 return updated;
               });
 
-              if (m.sender_id === adminUserId && payload.eventType === 'INSERT') {
+              if (isAdminSender && payload.eventType === 'INSERT') {
                 playMessageReceivedSound();
                 supabase
                   .from('p2p_messages')
@@ -465,7 +447,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, adminUserId]);
+  }, [currentUserId, allAdminIds]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
