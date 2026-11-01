@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GoogleGenAI, Modality, LiveServerMessage, Type, FunctionDeclaration } from "@google/genai";
+import { generateBannerAdvertCanvas } from './services/vixoraBannerEngine';
 import { UserProfile, Bank, Project } from './types';
 import { VideoSequencer, SourcedVideo } from './components/VideoSequencer';
 import { VixoraContentMaster } from './components/VixoraContentMaster';
