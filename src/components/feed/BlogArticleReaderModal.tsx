@@ -126,7 +126,7 @@ export const BlogArticleReaderModal: React.FC<BlogArticleReaderModalProps> = ({
     }
   };
 
-  const totalReactions: number = Object.values(post?.reactions || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
+  const totalReactions: number = Object.values((post?.reactions || {}) as Record<string, number>).reduce((a: number, b: any) => a + Number(b || 0), 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

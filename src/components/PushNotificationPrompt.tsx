@@ -32,6 +32,12 @@ const safeRemove = (key: string): void => {
   } catch {}
 };
 
+const safeSessionRemove = (key: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) sessionStorage.removeItem(key);
+  } catch {}
+};
+
 const safeSessionGet = (key: string): string | null => {
   try {
     return typeof window !== 'undefined' && window.sessionStorage ? sessionStorage.getItem(key) : null;

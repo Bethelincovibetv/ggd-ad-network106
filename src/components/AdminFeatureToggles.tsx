@@ -203,7 +203,7 @@ const AdminFeatureToggles = () => {
   const logToggleChange = async (key: string, enabled: boolean) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('admin_audit_logs').insert({
+      await supabase.from('admin_audit_logs' as any).insert({
         admin_id: user?.id || 'admin',
         admin_email: user?.email || currentAdminEmail,
         action: 'UPDATE_FEATURE_TOGGLE',
