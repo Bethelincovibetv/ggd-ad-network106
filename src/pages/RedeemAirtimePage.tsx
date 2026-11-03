@@ -38,7 +38,6 @@ const RedeemAirtimePage: React.FC = () => {
       <MetaTags
         title="Airtime & Data Redeem Marketplace — GGD Network"
         description="Redeem your earned wallet credits for high-speed mobile data bundles and instant airtime recharge tools on MTN, Airtel, Glo, and 9mobile."
-        canonicalUrl="/redeem"
       />
 
       {/* Header Bar */}

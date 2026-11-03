@@ -230,7 +230,7 @@ const AdminSettings = () => {
     if (!newPromo.title.trim()) { toast.error('Enter title'); return; }
     await supabase.from('promotional_materials' as any).insert(newPromo);
     toast.success('Promotional material added!');
-    setNewPromo({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users' });
+    setNewPromo({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users', is_active: true });
     fetchPromos();
   };
 

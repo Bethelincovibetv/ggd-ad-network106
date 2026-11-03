@@ -200,7 +200,7 @@ export const WhatsAppCheckoutModal: React.FC<WhatsAppCheckoutModalProps> = ({
         const { data: { user } } = await supabase.auth.getUser();
         if (user && product.id) {
           // Log order inquiry for analytics and notification
-          await (supabase.from('product_inquiries') as any).insert({
+          await supabase.from('product_inquiries' as any).insert({
             product_id: product.id,
             buyer_id: user.id,
             seller_id: product.user_id || null,

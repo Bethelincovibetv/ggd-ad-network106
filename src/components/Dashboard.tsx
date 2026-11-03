@@ -211,6 +211,15 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
     return true;
   };
 
+  const startCreateAd = () => {
+    setIsCreating(true);
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  };
+
   const handleTabChange = (tab: string) => {
     let target = tab;
     if (!isTabAllowed(target)) {
@@ -389,7 +398,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
           profile = (ensured as any)?.profile || ensured;
         } catch {}
       }
-      const isSyndicateMember = hasSyndicateAccess || profile?.syndicate_status === 'active';
+      const isSyndicateMember = isSyndicate || profile?.syndicate_status === 'active';
       if (isSyndicateMember) {
         setIsSyndicate(true);
         // Automatic Login Redirect: registered Syndicate members land straight on Syndicate Portal dashboard

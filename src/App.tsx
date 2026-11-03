@@ -62,6 +62,9 @@ const App = () => (
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/index" element={<Index />} />
+                <Route path="/dashboard" element={<Index />} />
+                <Route path="/auth" element={<Index />} />
                 <Route path="/admin" element={<AdminPage />} />
 
                 {/* Direct App Tab Destinations */}

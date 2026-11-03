@@ -487,7 +487,7 @@ export const PromoterNetworkChat: React.FC = () => {
               <div className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0">
 
                 <VoiceNoteRecorder
-                  onRecorded={(audioUrl, duration) => sendMessage('Voice Note', audioUrl, 'voice', { duration })}
+                  onSendVoice={(audioUrl, duration) => sendMessage('Voice Note', audioUrl, 'voice', { duration })}
                   disabled={isSending}
                 />
 

@@ -348,7 +348,7 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
           supabase.from('profiles').select('user_id, display_name, email, credits').or(`display_name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`).limit(3),
           supabase.from('ads').select('id, title, impressions, is_active').ilike('title', `%${trimmed}%`).limit(3),
           (supabase.from('business_listings') as any).select('id, title, price, listing_type').ilike('title', `%${trimmed}%`).limit(3),
-          (supabase.from('syndicate_campaigns') as any).select('id, title, status, budget').ilike('title', `%${trimmed}%`).limit(3)
+          supabase.from('syndicate_campaigns' as any).select('id, title, status, budget').ilike('title', `%${trimmed}%`).limit(3)
         ]);
 
         const dynamicEntries: SearchEntry[] = [];
