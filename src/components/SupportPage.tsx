@@ -191,6 +191,23 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
   const [allAdminIds, setAllAdminIds] = useState<string[]>([]);
   const [adminProfile, setAdminProfile] = useState<any>(null);
 
+  // Support chat state
+  const [loadingChat, setLoadingChat] = useState<boolean>(true);
+  const [chatMessages, setChatMessages] = useState<SupportMsg[]>([]);
+  const [chatInput, setChatInput] = useState<string>('');
+  const [isSendingChat, setIsSendingChat] = useState<boolean>(false);
+  const [tickets, setTickets] = useState<SupportTicketTrackerItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'In Progress' | 'Resolved'>('all');
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Ticket form state
+  const [ticketSent, setTicketSent] = useState<boolean>(false);
+  const [ticketCategory, setTicketCategory] = useState<string>('WhatsApp Status Campaign');
+  const [ticketSubject, setTicketSubject] = useState<string>('');
+  const [ticketMessage, setTicketMessage] = useState<string>('');
+  const [submittingTicket, setSubmittingTicket] = useState<boolean>(false);
+
+
   // Initialize Support System & Admin lookup
   useEffect(() => {
     initSupportSystem();
