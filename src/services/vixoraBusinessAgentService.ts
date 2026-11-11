@@ -290,9 +290,9 @@ export async function fetchUserBusinessContext(userId: string): Promise<Business
   return {
     userId,
     userEmail: userProfileRes.data?.email || '',
-    displayName: userProfileRes.data?.display_name || userProfileRes.data?.full_name || 'Business Owner',
+    displayName: userProfileRes.data?.display_name || (userProfileRes.data as any)?.full_name || 'Business Owner',
     credits: Number(userProfileRes.data?.credits) || 0,
-    walletBalance: Number(userProfileRes.data?.wallet_balance) || 0,
+    walletBalance: Number((userProfileRes.data as any)?.wallet_balance) || 0,
     referralCode: userProfileRes.data?.referral_code || undefined,
     isVerified: !!userProfileRes.data?.is_verified || !!profile?.is_verified,
     profile,
@@ -324,7 +324,7 @@ export async function createProductOrService(userId: string, data: {
       .maybeSingle();
 
     if (!bizProfile) {
-      const { data: userProfile } = await supabase.from('profiles').select('display_name, phone_number').eq('user_id', userId).maybeSingle();
+      const { data: userProfile }: any = await supabase.from('profiles').select('display_name, phone_number' as any).eq('user_id', userId).maybeSingle();
       const newBizName = userProfile?.display_name ? `${userProfile.display_name}'s Store` : 'My GGD Business';
       
       const { data: createdBiz, error: createBizErr } = await (supabase.from('business_profiles') as any)
@@ -535,7 +535,7 @@ export async function updateBusinessProfileDetails(userId: string, data: {
     }
 
     if (data.phone_number) {
-      await supabase.from('profiles').update({ phone_number: data.phone_number }).eq('user_id', userId);
+      await supabase.from('profiles').update({ phone_number: data.phone_number } as any).eq('user_id', userId);
     }
 
     return {

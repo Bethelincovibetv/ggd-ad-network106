@@ -935,7 +935,7 @@ const VixoraCreatorApp: React.FC<VixoraCreatorAppProps> = ({ embedded = false, o
           text: text.slice(0, 400),
           voiceModel: chosenVoice,
           format: 'mp3'
-        });
+        } as any) as any;
         if (fishResult.audioUrl) {
           return { audioUrl: fishResult.audioUrl, duration: fishResult.duration || 15 };
         }
@@ -993,12 +993,12 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
             supabase.from('profiles').select('credits, full_name, email').eq('id', currentUserId).maybeSingle(),
             supabase.from('ads').select('id', { count: 'exact' }).eq('user_id', currentUserId),
             supabase.from('tasks').select('id', { count: 'exact' }).eq('creator_id', currentUserId),
-            supabase.from('listings').select('id', { count: 'exact' }).eq('user_id', currentUserId),
+            (supabase.from('listings' as any) as any).select('id', { count: 'exact' }).eq('user_id', currentUserId),
             supabase.from('notifications').select('id', { count: 'exact' }).eq('user_id', currentUserId).eq('is_read', false),
             supabase.from('task_wallets').select('balance').eq('user_id', currentUserId).maybeSingle()
           ]);
 
-          if (profRes.data) profileCredits = profRes.data.credits || 0;
+          if (profRes.data) profileCredits = (profRes.data as any).credits || 0;
           if (wallRes.data) walletNaira = wallRes.data.balance || 0;
           adsCount = adsRes.count || 0;
           tasksCount = tasksRes.count || 0;
@@ -1035,8 +1035,8 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const { data } = await supabase.from('listings').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false });
-          if (data && data.length > 0) return data;
+          const { data } = await (supabase.from('listings' as any) as any).select('*').eq('user_id', authUser.id).order('created_at', { ascending: false });
+          if (data && data.length > 0) return data as any;
         }
       } catch (e) {}
       return [
@@ -1048,7 +1048,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          const { data, error } = await supabase.from('listings').insert({
+          const { data, error } = await (supabase.from('listings' as any) as any).insert({
             user_id: authUser.id,
             title: productData.title,
             price: productData.price,
@@ -1069,7 +1069,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
           const { data } = await supabase.from('ads').select('id, title, impressions, clicks, is_active').eq('user_id', authUser.id);
-          if (data && data.length > 0) return data;
+          if (data && data.length > 0) return data as any;
         }
       } catch (e) {}
       return [
