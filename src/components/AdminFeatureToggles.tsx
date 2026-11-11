@@ -262,6 +262,9 @@ const AdminFeatureToggles = () => {
           },
           { onConflict: 'feature_key' }
         );
+      if (feature.feature_key === 'banner_ads') {
+        await supabase.from('feature_toggles').update({ is_enabled: nextState }).eq('feature_key', 'ads');
+      }
 
       await logToggleChange(feature.feature_key, nextState);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
