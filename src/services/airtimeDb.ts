@@ -322,7 +322,7 @@ export async function updateAirtimeRedemption(
           apiResponse: updated.apiResponse || null,
           updatedAt: updated.updatedAt,
         })
-        .eq(airtimeRedemptions.id, id);
+        .where(eq(airtimeRedemptions.id, id));
     } catch (err) {
       console.warn('Could not update airtime redemption in Cloud SQL:', err);
     }

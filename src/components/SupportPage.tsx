@@ -490,7 +490,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
     const nextList = [...chatMessages, optimisticMsg];
     setChatMessages(nextList);
-    deriveTicketsFromMessages(nextList, currentUserId, adminUserId);
+    deriveTicketsFromMessages(nextList, currentUserId, allAdminIds);
     playMessageSentSound();
 
     try {
@@ -512,7 +512,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (inserted) {
         setChatMessages((prev) => {
           const list = prev.map((m) => (m.id === tmpId ? (inserted as any) : m));
-          deriveTicketsFromMessages(list, currentUserId, adminUserId);
+          deriveTicketsFromMessages(list, currentUserId, allAdminIds);
           return list;
         });
       }
@@ -572,7 +572,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
 
     const nextList = [...chatMessages, optimisticMsg];
     setChatMessages(nextList);
-    deriveTicketsFromMessages(nextList, currentUserId, adminUserId);
+    deriveTicketsFromMessages(nextList, currentUserId, allAdminIds);
     playMessageSentSound();
 
     try {
@@ -595,7 +595,7 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (inserted) {
         setChatMessages((prev) => {
           const list = prev.map((m) => (m.id === tmpId ? (inserted as any) : m));
-          deriveTicketsFromMessages(list, currentUserId, adminUserId);
+          deriveTicketsFromMessages(list, currentUserId, allAdminIds);
           return list;
         });
       }
@@ -1075,8 +1075,8 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
                           >
                             {m.kind === 'voice' || m.action_payload?.audio_url ? (
                               <VoiceNotePlayer
-                                audioUrl={m.action_payload?.audio_url || m.image_url || ''}
-                                durationSeconds={m.action_payload?.duration}
+                                src={m.action_payload?.audio_url || m.image_url || ''}
+                                duration={m.action_payload?.duration}
                                 isMine={isMine}
                               />
                             ) : (
