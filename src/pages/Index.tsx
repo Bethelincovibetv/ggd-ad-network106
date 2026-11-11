@@ -33,11 +33,11 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
     }
 
     // Authoritative fetch of landing_whatsapp_positioning from database
-    supabase
+    Promise.resolve(supabase
       .from('app_settings')
       .select('value')
       .eq('key', 'landing_whatsapp_positioning')
-      .maybeSingle()
+      .maybeSingle())
       .then(({ data, error }) => {
         if (mounted) {
           if (!error && data && data.value !== null) {
