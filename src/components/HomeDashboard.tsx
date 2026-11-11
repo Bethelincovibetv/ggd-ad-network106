@@ -208,7 +208,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       )}
 
       {/* Action Center Banner Advert Slot */}
-      {isEnabled('action_center_banners') && isEnabled('banner_ads') && isEnabled('ads') && (
+      {isEnabled('action_center_banners') && (isEnabled('banner_ads') || isEnabled('ads')) && (
         <div className="rounded-2xl overflow-hidden border border-border/60 bg-card p-1 shadow-sm">
           <AdDisplayPreview />
         </div>

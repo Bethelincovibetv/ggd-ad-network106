@@ -176,7 +176,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
 
   const isTabAllowed = (tab: string): boolean => {
     if (['ads-create', 'campaigns', 'advertising'].includes(tab)) {
-      return isEnabled('banner_ads') && isEnabled('ads');
+      return isEnabled('banner_ads') || isEnabled('ads');
     }
     if (['tasks'].includes(tab)) {
       return isEnabled('credit_tasks') && isEnabled('tasks');
@@ -783,13 +783,13 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
             <HomeDashboard credits={credits} walletBalance={walletBalance} isAdmin={isAdmin} onNavigate={handleTabChange} />
 
             {/* Ad Display Preview */}
-            {isEnabled('action_center_banners') && isEnabled('banner_ads') && isEnabled('ads') && <AdDisplayPreview />}
+            {isEnabled('action_center_banners') && (isEnabled('banner_ads') || isEnabled('ads')) && <AdDisplayPreview />}
           </div>
         );
 
       case 'advertising':
       case 'campaigns':
-        if (!isEnabled('nav_campaigns') && !isEnabled('ads')) {
+        if (!isEnabled('banner_ads') && !isEnabled('ads')) {
           return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
         }
         if (analyticsAdId) {
@@ -799,7 +799,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
           <div className="space-y-4">
             <CampaignsHub onNavigate={handleTabChange} />
 
-            {isEnabled('ads') && (<>
+            {(isEnabled('banner_ads') || isEnabled('ads')) && (<>
             {/* My Campaigns - compact pro-style */}
             <div className="flex justify-between items-center pt-1">
               <h2 className="text-base font-black text-foreground">My Campaigns</h2>

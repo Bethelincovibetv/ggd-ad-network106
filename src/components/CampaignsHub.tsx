@@ -71,7 +71,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
     ]);
     setBalances({ wallet: Number(walletRow?.balance || 0), credits: Number(profileRow?.credits || 0) });
 
-    const { data: ads } = isEnabled("ads") ? await supabase
+    const { data: ads } = (isEnabled("banner_ads") || isEnabled("ads")) ? await supabase
       .from("ads")
       .select("id, title, description, image_url, target_url, created_at, is_active, expires_at, impressions, clicks, budget_credits")
       .eq("user_id", uid) : { data: [] as any[] };
@@ -263,7 +263,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([
           { id: "all", label: "All Campaigns" },
-          ...(isEnabled("ads") ? [{ id: "ad", label: "Banner Adverts" }] : []),
+          ...((isEnabled("banner_ads") || isEnabled("ads")) ? [{ id: "ad", label: "Banner Adverts" }] : []),
           ...(isEnabled("tasks") ? [{ id: "task", label: "Earn Tasks" }] : []),
           ...(isEnabled("syndicate") ? [{ id: "syndicate", label: "Syndicate Campaigns" }] : []),
         ] as { id: Kind | "all"; label: string }[]).map(k => (
