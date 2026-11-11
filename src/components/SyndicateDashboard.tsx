@@ -386,10 +386,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       // Notify Admins
       try {
         await notifyAdminsOfApprovalRequired({
-          taskId: task.id,
-          taskTitle: task.title,
-          syndicateUserId: user.id,
-          syndicateName: mainProfile?.display_name || userEmail.split('@')[0],
+          title: 'Syndicate proof submitted',
+          message: `${mainProfile?.display_name || userEmail.split('@')[0]} submitted proof for "${task.title}"`,
+          tab: 'verification',
         });
       } catch (e) {
         console.warn('Admin notification non-blocking:', e);
