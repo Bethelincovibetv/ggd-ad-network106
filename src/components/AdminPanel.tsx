@@ -29,7 +29,6 @@ import AdminAdManager from "@/components/AdminAdManager";
 import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
-import AdminRealtimeSearchBar from "@/components/admin/AdminRealtimeSearchBar";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
 import { MessageSquare, LayoutGrid, Package } from "lucide-react";
 
@@ -57,14 +56,6 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-4 w-full max-w-full overflow-x-hidden">
-      {/* Real-time Search Navigation Command Bar */}
-      <div className="w-full bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs">
-        <AdminRealtimeSearchBar
-          onNavigate={(sectionId) => setActiveModule(sectionId)}
-          className="max-w-none w-full"
-        />
-      </div>
-
       {/* Mobile-Friendly Horizontal Pill Navigation with 3D tactile buttons */}
       <div className="w-full overflow-x-auto no-scrollbar py-1">
         <div className="flex items-center gap-2.5 min-w-max px-1">

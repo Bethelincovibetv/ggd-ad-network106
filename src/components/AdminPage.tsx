@@ -31,7 +31,6 @@ import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
-import AdminRealtimeSearchBar from "@/components/admin/AdminRealtimeSearchBar";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 import { Package } from "lucide-react";
@@ -342,17 +341,6 @@ const AdminPage = () => {
               </SheetTitle>
             </SheetHeader>
 
-            {/* Mobile Real-time Search Bar */}
-            <div className="p-3 border-b border-border bg-muted/20">
-              <AdminRealtimeSearchBar
-                onNavigate={(sec, extra) => {
-                  setMobileMenuOpen(false);
-                  navigateToSection(sec, extra);
-                }}
-                className="max-w-none w-full"
-              />
-            </div>
-
             <ScrollArea className="flex-1 px-3 py-3">
               <div className="space-y-4">
                 {navGroups.map((group) => (
@@ -390,19 +378,6 @@ const AdminPage = () => {
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
         <div className="w-full max-w-[1700px] min-w-0 mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-4 sm:space-y-5 overflow-x-hidden">
-          {/* Top Real-time Navigation Command Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs w-full min-w-0">
-            <div className="flex-1 min-w-0">
-              <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-none w-full" />
-            </div>
-            <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground font-medium shrink-0 px-2">
-              <span className="inline-flex items-center gap-1 bg-secondary/80 px-2 py-1 rounded-md text-[11px] font-mono border border-border">
-                <kbd className="font-sans">⌘</kbd>K
-              </span>
-              <span>Quick jump anywhere in portal</span>
-            </div>
-          </div>
-
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
             <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3 w-full min-w-0 overflow-hidden`}>
