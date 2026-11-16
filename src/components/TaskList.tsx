@@ -1238,8 +1238,6 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                     </div>
                   ) : !completed && myProofs[task.id]?.status === 'pending' ? (
                     <span className="text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2.5 py-1 rounded-full shrink-0">Under review ⏳</span>
-                  ) : !completed && !isYouTube && myProofs[task.id]?.status !== 'rejected' && verifyingTaskId === null && shareTarget === null && false ? (
-                    null
                   ) : isVerifying ? (
                     <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full shrink-0">
                       <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
