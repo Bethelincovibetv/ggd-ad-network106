@@ -17,6 +17,7 @@ import {
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
+import TaskProofReviewList from "@/components/taskproof/TaskProofReviewList";
 import AdminSyndicateManager from "@/components/AdminSyndicateManager";
 import AdminSettings from "@/components/AdminSettings";
 import AdminUserManager from "@/components/AdminUserManager";
@@ -52,6 +53,7 @@ const ADMIN_MODULES = [
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
   { id: 'features', label: 'Toggles', icon: Settings2, color: 'from-fuchsia-600 to-purple-600' },
   { id: 'tasks', label: 'Credit Tasks', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },
+  { id: 'task-proofs', label: 'Task Proofs', icon: ShieldCheck, color: 'from-emerald-600 to-teal-600', badge: 'Review' },
   { id: 'slides', label: 'Banners', icon: Image, color: 'from-violet-600 to-indigo-600' },
   { id: 'api', label: 'API Keys', icon: Key, color: 'from-amber-600 to-yellow-600' },
   { id: 'apps', label: 'Apps', icon: LayoutGrid, color: 'from-rose-600 to-pink-600' },
@@ -150,6 +152,13 @@ const AdminPanel = () => {
           />
         )}
         {activeModule === 'tasks' && <TaskManager />}
+        {activeModule === 'task-proofs' && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-bold">Credit Task Proofs</h2>
+            <p className="text-sm text-muted-foreground">Review proofs for every credit task. Unreviewed proofs are approved automatically after 48 hours.</p>
+            <TaskProofReviewList />
+          </div>
+        )}
         {activeModule === 'slides' && <SlideManager />}
         {activeModule === 'api' && <AdminApiManager />}
         {activeModule === 'apps' && <AdminMarketingApps />}

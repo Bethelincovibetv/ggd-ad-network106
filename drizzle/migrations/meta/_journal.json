@@ -29,6 +29,13 @@
       "when": 1791471369657,
       "tag": "0003_create_ggd_ai_chat_threads",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794847775327,
+      "tag": "0004_task_proof_submissions",
+      "breakpoints": true
     }
   ]
 }
