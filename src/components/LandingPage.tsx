@@ -28,6 +28,11 @@ import howItWorks4Img from '@/assets/images/how_it_works_4_1793015086090.jpg';
 import stateTargetingImg from '@/assets/images/landing_state_map_1793015085850.jpg';
 import promoterTeamImg from '@/assets/images/landing_promoter_team_1793015086506.jpg';
 import ctaBannerImg from '@/assets/images/landing_cta_photo_1793015086490.jpg';
+import growthFlyerImg from '@/assets/images/flyer_guide_growth_1789298441003.jpg';
+import tasksFlyerImg from '@/assets/images/flyer_guide_tasks_1789298456727.jpg';
+import bannerAdsFlyerImg from '@/assets/images/flyer_guide_bannerads_1789298482554.jpg';
+import syndicateFlyerImg from '@/assets/images/flyer_guide_syndicate_1789298469399.jpg';
+import viralGrowthImg from '@/assets/images/viral_growth_banner_1786110948420.jpg';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -558,15 +563,60 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                 Everything your business needs to establish a presence, attract audiences, and drive real outcomes.
               </p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {coreCapabilities.map((item, i) => (
-                <Card key={i} className="bg-[#1c1c1c] border-[#333] hover:border-[#e67e22]/40 transition-all duration-300 group hover:-translate-y-1">
-                  <CardContent className="p-5 space-y-3">
-                    <div className={`p-3 rounded-xl w-fit ${item.color}`}>
-                      <item.icon className="h-6 w-6" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+              {[
+                {
+                  title: "Community & Social Feed",
+                  desc: "Connect with local entrepreneurs, share business updates, build brand loyalty, and engage in community discussions.",
+                  img: growthFlyerImg,
+                  badge: "Community"
+                },
+                {
+                  title: "Credit Tasks & Earning",
+                  desc: "Watch videos, complete engagement tasks, and earn GGG credits to fund free business promotion.",
+                  img: tasksFlyerImg,
+                  badge: "Tasks"
+                },
+                {
+                  title: "Banner Ads & Visibility",
+                  desc: "Run high-visibility commercial banner ad campaigns across GGD and partner sites for instant customer reach.",
+                  img: bannerAdsFlyerImg,
+                  badge: "Ads"
+                },
+                {
+                  title: "Wallet & Cash Rewards",
+                  desc: "Manage Naira cash balances, earnings from syndicate campaigns, and instant airtime redemptions seamlessly.",
+                  img: syndicateFlyerImg,
+                  badge: "Wallet"
+                },
+                {
+                  title: "Marketing Apps Marketplace",
+                  desc: "Access admin-curated marketing apps, AI tools, and growth engines designed to scale Nigerian businesses.",
+                  img: viralGrowthImg,
+                  badge: "Marketplace"
+                },
+                {
+                  title: "Syndicate Promoter Network",
+                  desc: "Partner with verified professional promoters to amplify your brand across high-intent WhatsApp audiences.",
+                  img: promoterTeamImg,
+                  badge: "Syndicate"
+                }
+              ].map((card, idx) => (
+                <Card key={idx} className="bg-[#1c1c1c] border-[#333] overflow-hidden hover:border-[#e67e22]/50 transition-all duration-300 group hover:-translate-y-1.5 shadow-lg flex flex-col">
+                  <div className="relative h-44 w-full overflow-hidden bg-[#121212]">
+                    <img 
+                      src={card.img} 
+                      alt={card.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-3 left-3 bg-[#e67e22] text-white font-black text-[10px] px-2.5 py-1 rounded-lg shadow-md uppercase tracking-wider">
+                      {card.badge}
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors">{item.title}</h3>
-                    <p className="text-gray-400 text-xs leading-relaxed">{item.description}</p>
+                  </div>
+                  <CardContent className="p-5 space-y-2 flex-1 flex flex-col">
+                    <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors">{card.title}</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">{card.desc}</p>
                   </CardContent>
                 </Card>
               ))}

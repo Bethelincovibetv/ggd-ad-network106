@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, ExternalLink, MailOpen, Trash2, Volume2, ArrowRight,
-  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail,
+  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail, Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -290,6 +290,14 @@ const NotificationBell = () => {
               </div>
 
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                  title="Minimize notification popup"
+                >
+                  <Minimize2 className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   onClick={playSound}
