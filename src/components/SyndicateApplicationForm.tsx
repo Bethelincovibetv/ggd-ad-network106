@@ -9,12 +9,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 
 interface SyndicateApplicationFormProps {
   onApplied: () => void;
 }
 
 const SyndicateApplicationForm = ({ onApplied }: SyndicateApplicationFormProps) => {
+  const { requireActivation } = useActivationStatus();
   const [application, setApplication] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +36,7 @@ const SyndicateApplicationForm = ({ onApplied }: SyndicateApplicationFormProps) 
   };
 
   const submit = async () => {
+    if (!requireActivation('join Syndicate campaigns')) return;
     const hasInfluence = [form.whatsapp_influence, form.facebook_influence, form.telegram_influence, form.tiktok_influence, form.twitter_influence].some(v => v.trim());
     if (!hasInfluence) { toast.error("Please provide at least one platform influence detail"); return; }
     if (!form.state) { toast.error("Please select your state"); return; }

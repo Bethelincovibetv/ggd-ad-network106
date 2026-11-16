@@ -28,9 +28,11 @@ import {
   MessageSquare,
   ShieldCheck,
   Zap,
+  ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
+import { parseTaskSubmissionNotification } from '@/lib/taskNotificationLink';
 
 export interface FullNotificationData {
   id: string;
@@ -68,23 +70,28 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
   const type = notification.type || 'system';
   const isRead = notification.is_read ?? true;
 
+  const isTaskSubmission = parseTaskSubmissionNotification(notification).isTaskSubmission;
+
   const isTransfer =
-    type === 'credit_transfer' ||
+    !isTaskSubmission &&
+    (type === 'credit_transfer' ||
     type === 'credit' ||
     type === 'transfer_credited' ||
     title.toLowerCase().includes('credit') ||
-    title.toLowerCase().includes('transfer');
+    title.toLowerCase().includes('transfer'));
 
   const isGuide =
-    type === 'guide_step_completion' ||
+    !isTaskSubmission &&
+    (type === 'guide_step_completion' ||
     title.toLowerCase().includes('guide') ||
-    notification.nav_target?.toLowerCase().includes('guide');
+    notification.nav_target?.toLowerCase().includes('guide'));
 
   const isChat =
-    type === 'chat' ||
+    !isTaskSubmission &&
+    (type === 'chat' ||
     type === 'message' ||
     type === 'urgent_message' ||
-    title.toLowerCase().includes('message');
+    title.toLowerCase().includes('message'));
 
   // Extract clickable URLs
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -156,7 +163,9 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
                     : 'bg-gradient-to-br from-orange-500 to-red-600 text-white'
                 }`}
               >
-                {isTransfer ? (
+                {isTaskSubmission ? (
+                  <ClipboardList className="h-5 w-5" />
+                ) : isTransfer ? (
                   <Receipt className="h-5 w-5" />
                 ) : isGuide ? (
                   <BookOpen className="h-5 w-5" />
@@ -180,6 +189,11 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
                     </Badge>
                   )}
 
+                  {isTaskSubmission && (
+                    <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30 text-[10px] font-bold">
+                      Task Submission
+                    </Badge>
+                  )}
                   {isTransfer && (
                     <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
                       Money / Transfer
@@ -195,7 +209,7 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
                       Direct Message
                     </Badge>
                   )}
-                  {!isTransfer && !isGuide && !isChat && (
+                  {!isTaskSubmission && !isTransfer && !isGuide && !isChat && (
                     <Badge className="bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-500/30 text-[10px] font-bold">
                       System Alert
                     </Badge>
@@ -322,12 +336,14 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
           </div>
 
           <div className="flex items-center gap-2">
-            {(notification.nav_target || primaryUrl || isTransfer || isGuide || isChat) && (
+            {(notification.nav_target || primaryUrl || isTaskSubmission || isTransfer || isGuide || isChat) && (
               <Button
                 type="button"
                 onClick={handleMainAction}
                 className={`rounded-xl text-xs font-bold gap-1.5 h-9 text-white shadow-sm ${
-                  isTransfer
+                  isTaskSubmission
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700'
+                    : isTransfer
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : isGuide
                     ? 'bg-indigo-600 hover:bg-indigo-700'
@@ -336,7 +352,11 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
                     : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700'
                 }`}
               >
-                {isTransfer ? (
+                {isTaskSubmission ? (
+                  <>
+                    <ClipboardList className="h-3.5 w-3.5" /> Manage Task &amp; Review <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                ) : isTransfer ? (
                   <>
                     <Receipt className="h-3.5 w-3.5" /> View Receipt
                   </>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, ExternalLink, MailOpen, Trash2, Volume2, ArrowRight,
-  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail, Minimize2,
+  ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail, Minimize2, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { playNotificationChime, cancelOngoingSpeech } from "@/utils/audio";
 import { showPushNotification } from "@/services/pushNotificationService";
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
+import { parseTaskSubmissionNotification, navigateToTaskManagement } from '@/lib/taskNotificationLink';
 
 
 const NotificationBell = () => {
@@ -205,6 +206,12 @@ const NotificationBell = () => {
 
     setOpen(false);
 
+    // Task creator submission alert -> route straight to Creator Task Management for that task
+    if (parseTaskSubmissionNotification(n).isTaskSubmission) {
+      navigateToTaskManagement(n);
+      return;
+    }
+
     // Transfer receipt handling
     if (
       n.type === 'credit_transfer' ||
@@ -333,18 +340,19 @@ const NotificationBell = () => {
               ) : (
                 notifications.map(n => {
                   const link = n.link_url || extractLink(n.message);
+                  const isTaskSubmission = parseTaskSubmissionNotification(n).isTaskSubmission;
                   const isTransfer =
-                    n.type === 'credit_transfer' ||
+                    !isTaskSubmission &&
+                    (n.type === 'credit_transfer' ||
                     n.type === 'credit' ||
                     n.type === 'transfer_credited' ||
-                    n.title?.toLowerCase().includes('credit');
+                    n.title?.toLowerCase().includes('credit'));
 
                   const isGuide =
-                    n.type === 'guide_step_completion' ||
+                    !isTaskSubmission &&
+                    (n.type === 'guide_step_completion' ||
                     n.title?.toLowerCase().includes('guide') ||
-                    n.nav_target?.toLowerCase().includes('guide');
-
-                  const hasAction = !!(n.nav_target || link || isTransfer || isGuide);
+                    n.nav_target?.toLowerCase().includes('guide'));
 
                   return (
                     <div
@@ -359,14 +367,18 @@ const NotificationBell = () => {
                         {/* Icon */}
                         <div
                           className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm ${
-                            isTransfer
+                            isTaskSubmission
+                              ? 'bg-orange-500/20 text-orange-500'
+                              : isTransfer
                               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                               : isGuide
                               ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
                               : 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
                           }`}
                         >
-                          {isTransfer ? (
+                          {isTaskSubmission ? (
+                            <ClipboardList className="h-4 w-4" />
+                          ) : isTransfer ? (
                             <ArrowDownLeft className="h-4 w-4" />
                           ) : isGuide ? (
                             <BookOpen className="h-4 w-4" />
@@ -395,6 +407,11 @@ const NotificationBell = () => {
                             <h4 className={`text-xs sm:text-sm leading-tight ${!n.is_read ? 'font-black text-foreground' : 'font-semibold text-foreground/80'}`}>
                               {n.title}
                             </h4>
+                            {isTaskSubmission && (
+                              <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-300 border-none text-[9px] font-black px-1.5 py-0">
+                                📋 Submission
+                              </Badge>
+                            )}
                             {isTransfer && (
                               <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-none text-[9px] font-black px-1.5 py-0">
                                 💰 Money
@@ -423,6 +440,12 @@ const NotificationBell = () => {
                               })}
                             </span>
 
+                            {isTaskSubmission && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500 hover:underline">
+                                <ClipboardList className="h-3 w-3" /> Manage Task &amp; Review <ArrowRight className="h-3 w-3" />
+                              </span>
+                            )}
+
                             {isTransfer && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline">
                                 <Receipt className="h-3 w-3" /> View Receipt
@@ -435,7 +458,7 @@ const NotificationBell = () => {
                               </span>
                             )}
 
-                            {!isTransfer && !isGuide && (
+                            {!isTaskSubmission && !isTransfer && !isGuide && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:underline">
                                 Read full message <ArrowRight className="h-3 w-3" />
                               </span>

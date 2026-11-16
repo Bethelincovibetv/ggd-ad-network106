@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Coins, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { CREDIT_TASK_GOALS, findGoal } from './creditTaskGoals';
+import { useActivationStatus } from '@/hooks/useActivationStatus';
 
 export interface CreditTaskPrefill {
   title?: string;
@@ -29,6 +30,7 @@ interface Props {
  *  Writes to the same `tasks` table used by the Task Feed — the existing
  *  reward, funding and completion engine is reused unchanged. */
 const CreditTaskComposer: React.FC<Props> = ({ open, onClose, credits, onCreated, prefill }) => {
+  const { requireActivation } = useActivationStatus();
   const [goal, setGoal] = useState<string>('flyer_link');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -93,6 +95,7 @@ const CreditTaskComposer: React.FC<Props> = ({ open, onClose, credits, onCreated
   };
 
   const submit = async () => {
+    if (!requireActivation('create credit task adverts')) return;
     if (!title.trim()) { toast.error('Give your task a title'); return; }
     if (goal === 'flyer_link' && !url.trim()) { toast.error('Destination link is required'); return; }
     if (goal === 'description' && !description.trim()) { toast.error('Description / copy text is required'); return; }

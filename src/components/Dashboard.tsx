@@ -11,6 +11,7 @@ import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Lo
 import { toast } from "sonner";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
 import { getCurrentUser } from "@/services/authService";
@@ -128,6 +129,7 @@ const AvatarMenuButton = ({ avatarUrl, displayName, email, onOpenProfile }: { av
 
 const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   const navigate = useNavigate();
+  const { requireActivation } = useActivationStatus();
   const [ads, setAds] = useState<Ad[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -578,6 +580,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   };
 
   const createAd = async () => {
+    if (!requireActivation('create adverts & campaigns')) return;
     if (!newAd.title.trim() || !newAd.target_url.trim()) { toast.error("Title and target URL are required"); return; }
     const duration = parseInt(newAd.duration);
     if (duration > maxAdDays && !isAdmin) {
@@ -651,6 +654,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   };
 
   const convertAdToTask = async (ad: Ad) => {
+    if (!requireActivation('create adverts & earn-tasks')) return;
     const { error } = await supabase.from('tasks').insert({
       title: `Share: ${ad.title}`,
       description: ad.description || `Share this ad and earn credits!`,

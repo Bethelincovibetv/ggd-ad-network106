@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio, AlertCircle, Briefcase } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio, AlertCircle, Briefcase, Clock } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,10 @@ import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
 import TaskProofSubmitDialog from "@/components/taskproof/TaskProofSubmitDialog";
 import TaskProofReviewList from "@/components/taskproof/TaskProofReviewList";
 import TaskWorkstationModal, { AcceptedTaskRecord } from "@/components/TaskWorkstationModal";
+import TaskPerformancePanel, { TaskFilterSection, TaskPerformanceStats } from "@/components/TaskPerformancePanel";
+import TaskCreatorManager from "@/components/TaskCreatorManager";
+import { PENDING_MANAGE_TASK_STORAGE_KEY } from "@/lib/taskNotificationLink";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
 
 interface TaskListProps {
@@ -30,10 +34,24 @@ interface TaskListProps {
 
 type TaskType = 'flyer_link' | 'description' | 'share' | 'youtube' | 'social';
 
+type MyProofInfo = {
+  status: string;
+  reason?: string | null;
+  proofUrl?: string | null;
+  proofText?: string | null;
+  createdAt?: string;
+  expiresAt?: string;
+  reviewedAt?: string | null;
+  autoApproved?: boolean;
+};
+
 const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const { isEnabled } = useFeatureToggles();
+  const { requireActivation } = useActivationStatus();
   const [tasks, setTasks] = useState<any[]>([]);
+  const [historyTasks, setHistoryTasks] = useState<Record<string, any>>({});
   const [completions, setCompletions] = useState<string[]>([]);
+  const [completedAtMap, setCompletedAtMap] = useState<Record<string, string>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType | null>(null);
   const [isBusiness, setIsBusiness] = useState(false);
@@ -45,7 +63,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
   const [proofTask, setProofTask] = useState<any | null>(null);
   const [reviewTask, setReviewTask] = useState<any | null>(null);
-  const [myProofs, setMyProofs] = useState<Record<string, { status: string; reason?: string | null }>>({});
+  const [myProofs, setMyProofs] = useState<Record<string, MyProofInfo>>({});
   const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
@@ -53,6 +71,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [acceptedTasks, setAcceptedTasks] = useState<Record<string, AcceptedTaskRecord>>({});
   const [workstationTask, setWorkstationTask] = useState<any | null>(null);
+  const [activeSection, setActiveSection] = useState<TaskFilterSection>('all');
+  const [selectedManageTaskId, setSelectedManageTaskId] = useState<string | null>(null);
+  const [creatorPendingCount, setCreatorPendingCount] = useState<number>(0);
 
   // YouTube Dedicated Engagement State
   const [ytActiveTask, setYtActiveTask] = useState<any | null>(null);
@@ -243,23 +264,90 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     setUid(user.id);
     const localAccepted = loadAcceptedTasks(user.id);
 
+    // Run 48h auto-approval before reading completion & submission records
+    await callRpc('auto_approve_expired_task_proofs', {});
+
     // Owner Mode: a user's own campaigns are shown with management tools,
     // never with "do this task" actions.
-    const [{ data: othersData }, { data: mineData }] = await Promise.all([
+    // Also fetch completed tasks & submitted proofs joined with tasks(*) so closed
+    // campaigns remain counted in earnings analytics and status sections.
+    const [
+      { data: othersData },
+      { data: mineData },
+      { data: comps },
+      { data: proofs },
+    ] = await Promise.all([
       supabase.from('tasks').select('*').eq('is_active', true).neq('creator_id', user.id).order('created_at', { ascending: false }),
       supabase.from('tasks').select('*').eq('creator_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('task_completions').select('task_id, created_at, tasks(*)').eq('user_id', user.id),
+      (supabase.from as any)('task_proof_submissions')
+        .select('id, task_id, status, rejection_reason, proof_url, proof_text, auto_approved, created_at, reviewed_at, expires_at, tasks(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true }),
     ]);
-    setTasks([...(mineData || []), ...(othersData || [])]);
-    const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
-    const completedIds = (comps || []).map(c => c.task_id);
-    setCompletions(completedIds);
-    await callRpc('auto_approve_expired_task_proofs', {});
-    const { data: proofs } = await (supabase.from as any)('task_proof_submissions')
-      .select('task_id, status, rejection_reason, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
-    const pm: Record<string, { status: string; reason?: string | null }> = {};
-    (proofs || []).forEach((p: any) => { pm[p.task_id] = { status: p.status, reason: p.rejection_reason }; });
+
+    const currentTasks = [...(mineData || []), ...(othersData || [])];
+    setTasks(currentTasks);
+
+    const myTaskIds = (mineData || []).map((t: any) => t.id).filter(Boolean);
+    if (myTaskIds.length > 0) {
+      const { count: pendingCreatorCount } = await (supabase.from as any)('task_proof_submissions')
+        .select('id', { count: 'exact', head: true })
+        .in('task_id', myTaskIds)
+        .eq('status', 'pending');
+      setCreatorPendingCount(pendingCreatorCount || 0);
+    } else {
+      setCreatorPendingCount(0);
+    }
+
+    const histMap: Record<string, any> = {};
+    const compAtMap: Record<string, string> = {};
+    const completedIds: string[] = [];
+
+    (comps || []).forEach((c: any) => {
+      if (!c?.task_id) return;
+      completedIds.push(c.task_id);
+      if (c.created_at) compAtMap[c.task_id] = c.created_at;
+      if (c.tasks) histMap[c.task_id] = c.tasks;
+    });
+
+    const pm: Record<string, MyProofInfo> = {};
+    (proofs || []).forEach((p: any) => {
+      if (!p?.task_id) return;
+      pm[p.task_id] = {
+        status: p.status,
+        reason: p.rejection_reason,
+        proofUrl: p.proof_url,
+        proofText: p.proof_text,
+        createdAt: p.created_at,
+        expiresAt: p.expires_at,
+        reviewedAt: p.reviewed_at,
+        autoApproved: p.auto_approved,
+      };
+      if (p.tasks) histMap[p.task_id] = p.tasks;
+    });
+
+    // Preserve task metadata for accepted drafts whose campaign may have paused/filled
+    const knownIds = new Set([
+      ...currentTasks.map((t: any) => t.id),
+      ...Object.keys(histMap),
+    ]);
+    const missingAcceptedIds = Object.keys(localAccepted).filter(
+      (tid) => localAccepted[tid]?.status === 'in_progress' && !knownIds.has(tid)
+    );
+    if (missingAcceptedIds.length > 0) {
+      const { data: extraTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .in('id', missingAcceptedIds);
+      (extraTasks || []).forEach((t: any) => {
+        histMap[t.id] = t;
+      });
+    }
+
+    setHistoryTasks(histMap);
+    setCompletions(Array.from(new Set(completedIds)));
+    setCompletedAtMap(compAtMap);
     setMyProofs(pm);
 
     // Sync database completion and submission status with localStorage accepted state
@@ -272,7 +360,10 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       }
     });
     Object.entries(pm).forEach(([tid, info]) => {
-      if (info.status === 'pending' && synced[tid]?.status !== 'submitted') {
+      if (info.status === 'approved' && synced[tid]?.status !== 'completed') {
+        synced[tid] = { ...(synced[tid] || { acceptedAt: new Date().toISOString() }), status: 'completed' };
+        changed = true;
+      } else if (info.status === 'pending' && synced[tid]?.status !== 'submitted') {
         synced[tid] = { ...(synced[tid] || { acceptedAt: new Date().toISOString() }), status: 'submitted' };
         changed = true;
       } else if (info.status === 'rejected' && (synced[tid]?.status !== 'rejected' || synced[tid]?.rejectionReason !== info.reason)) {
@@ -329,6 +420,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   };
 
   const createTask = async () => {
+    if (!requireActivation('create credit task adverts')) return;
     if (!newTask.title.trim()) { toast.error("Task title required"); return; }
     
     // Type-specific validation
@@ -432,6 +524,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       return;
     }
 
+    if (!requireActivation('accept credit tasks & earn rewards')) return;
+
     if (completions.includes(task.id)) {
       toast.info("You have already completed this task!");
       return;
@@ -504,11 +598,13 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   };
 
   const handleOpenProofFromWorkstation = (task: any) => {
+    if (!requireActivation('submit credit task proofs')) return;
     setWorkstationTask(null);
     setProofTask(task);
   };
 
   const startVerification = (task: any, platformKey: string) => {
+    if (!requireActivation('submit credit task proofs')) return;
     openShare(task, platformKey);
     setShareTarget(null);
 
@@ -653,6 +749,182 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
   const totalCost = (parseInt(newTask.reward_credits) || 5) * (parseInt(newTask.max_completions) || 1);
 
+  const {
+    createdTasks,
+    displayedTasks,
+    performanceStats,
+  } = useMemo(() => {
+    const taskMap = new Map<string, any>();
+    tasks.forEach((t) => {
+      if (t?.id) taskMap.set(t.id, t);
+    });
+    Object.values(historyTasks).forEach((t) => {
+      if (t?.id && !taskMap.has(t.id)) {
+        taskMap.set(t.id, t);
+      }
+    });
+
+    const merged = Array.from(taskMap.values());
+    const ownerTasks: any[] = [];
+    const uncompletedTasks: any[] = [];
+    const pendingReviewTasks: any[] = [];
+    const completedTasks: any[] = [];
+    const availableTasks: any[] = [];
+
+    merged.forEach((task) => {
+      const isOwner = !!uid && task.creator_id === uid;
+      if (isOwner) {
+        ownerTasks.push(task);
+        return;
+      }
+      const isCompleted = completions.includes(task.id) || myProofs[task.id]?.status === 'approved';
+      if (isCompleted) {
+        completedTasks.push(task);
+        return;
+      }
+      const isPendingReview = myProofs[task.id]?.status === 'pending';
+      if (isPendingReview) {
+        pendingReviewTasks.push(task);
+        return;
+      }
+      const isRejected = myProofs[task.id]?.status === 'rejected';
+      const isInProgress = acceptedTasks[task.id]?.status === 'in_progress';
+      if (isRejected || isInProgress) {
+        uncompletedTasks.push(task);
+        return;
+      }
+      if (task.is_active) {
+        availableTasks.push(task);
+      }
+    });
+
+    // Sort completed & pending review newest-first by engagement timestamp
+    pendingReviewTasks.sort((a, b) => {
+      const ta = new Date(myProofs[a.id]?.createdAt || a.created_at || 0).getTime();
+      const tb = new Date(myProofs[b.id]?.createdAt || b.created_at || 0).getTime();
+      return tb - ta;
+    });
+    completedTasks.sort((a, b) => {
+      const ta = new Date(completedAtMap[a.id] || myProofs[a.id]?.reviewedAt || a.created_at || 0).getTime();
+      const tb = new Date(completedAtMap[b.id] || myProofs[b.id]?.reviewedAt || b.created_at || 0).getTime();
+      return tb - ta;
+    });
+
+    const sumRewards = (list: any[]) =>
+      list.reduce((sum, t) => sum + Number(t.reward_credits || 5), 0);
+
+    const stats: TaskPerformanceStats = {
+      availableCount: availableTasks.length,
+      uncompletedCount: uncompletedTasks.length,
+      uncompletedPotentialCredits: sumRewards(uncompletedTasks),
+      pendingReviewCount: pendingReviewTasks.length,
+      pendingReviewCredits: sumRewards(pendingReviewTasks),
+      completedCount: completedTasks.length,
+      totalEarnedCredits: sumRewards(completedTasks),
+      totalPerformedCount: completedTasks.length + pendingReviewTasks.length,
+      createdCount: ownerTasks.length,
+      creatorPendingReviewCount: creatorPendingCount,
+    };
+
+    let filtered: any[] = [];
+    if (activeSection === 'uncompleted') {
+      filtered = uncompletedTasks;
+    } else if (activeSection === 'pending_review') {
+      filtered = pendingReviewTasks;
+    } else if (activeSection === 'completed') {
+      filtered = completedTasks;
+    } else {
+      filtered = [
+        ...ownerTasks,
+        ...uncompletedTasks,
+        ...pendingReviewTasks,
+        ...availableTasks,
+        ...completedTasks,
+      ];
+    }
+
+    return {
+      createdTasks: ownerTasks,
+      displayedTasks: filtered,
+      performanceStats: stats,
+    };
+  }, [tasks, historyTasks, completions, completedAtMap, myProofs, acceptedTasks, uid, activeSection, creatorPendingCount]);
+
+  // Resolve deep-linked task management requests (from URL params, localStorage, or runtime notification click)
+  const applyManageTarget = (target: { taskId?: string | null; taskTitle?: string | null }) => {
+    const { taskId, taskTitle } = target;
+    setActiveSection('manage');
+    if (taskId) {
+      setSelectedManageTaskId(taskId);
+      return;
+    }
+    if (taskTitle) {
+      const normalized = taskTitle.trim().toLowerCase();
+      const matched = createdTasks.find(
+        (t) =>
+          (t.title || '').trim().toLowerCase() === normalized ||
+          (t.title || '').trim().toLowerCase().includes(normalized)
+      );
+      if (matched) {
+        setSelectedManageTaskId(matched.id);
+        return;
+      }
+    }
+    setSelectedManageTaskId(null);
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const urlTaskId = params.get('manageTask');
+    const urlTaskTitle = params.get('manageTaskTitle');
+    const urlSection = params.get('taskSection');
+
+    let stored: { taskId?: string | null; taskTitle?: string | null; requestedAt?: number } | null = null;
+    try {
+      const raw = localStorage.getItem(PENDING_MANAGE_TASK_STORAGE_KEY);
+      if (raw) stored = JSON.parse(raw);
+    } catch {
+      stored = null;
+    }
+
+    const effectiveTaskId = urlTaskId || stored?.taskId || null;
+    const effectiveTaskTitle = urlTaskTitle || stored?.taskTitle || null;
+    const shouldOpenManage = urlSection === 'manage' || Boolean(effectiveTaskId || effectiveTaskTitle);
+
+    if (shouldOpenManage) {
+      // Wait until createdTasks loaded if matching by title
+      if (!effectiveTaskId && effectiveTaskTitle && createdTasks.length === 0 && !uid) {
+        return;
+      }
+      applyManageTarget({ taskId: effectiveTaskId, taskTitle: effectiveTaskTitle });
+      try {
+        localStorage.removeItem(PENDING_MANAGE_TASK_STORAGE_KEY);
+        if (urlTaskId || urlTaskTitle || urlSection) {
+          params.delete('manageTask');
+          params.delete('manageTaskTitle');
+          params.delete('taskSection');
+          const qs = params.toString();
+          window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }, [createdTasks, uid]);
+
+  useEffect(() => {
+    const onManageEvent = (e: any) => {
+      const detail = e?.detail || {};
+      applyManageTarget({ taskId: detail.taskId, taskTitle: detail.taskTitle });
+      try {
+        localStorage.removeItem(PENDING_MANAGE_TASK_STORAGE_KEY);
+      } catch {}
+    };
+    window.addEventListener('ggd-manage-task', onManageEvent);
+    return () => window.removeEventListener('ggd-manage-task', onManageEvent);
+  }, [createdTasks]);
+
   return (
     <div className="space-y-4">
       {/* Slides at top of task feed */}
@@ -666,7 +938,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">Your Credits</p>
-            <p className="text-lg font-black leading-tight">{credits.toLocaleString()}</p>
+            <p className="text-lg font-black leading-tight tabular-nums">{credits.toLocaleString()}</p>
           </div>
         </div>
         <Button size="sm" onClick={() => { setShowCreate(!showCreate); setSelectedTaskType(null); }} className="bg-white text-orange-600 hover:bg-white/90 text-xs rounded-full px-4 font-bold shadow-md">
@@ -679,6 +951,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           <Gift className="h-5 w-5 text-orange-500" />Credit Tasks (Community Promotion)
         </h2>
       </div>
+
+      {/* Task Performance Analytics & Section Switcher */}
+      <TaskPerformancePanel
+        stats={performanceStats}
+        exchangeRate={exchangeRate}
+        activeSection={activeSection}
+        onSelectSection={setActiveSection}
+      />
 
       {/* Task Type Selector / Creator Options */}
       {showCreate && !selectedTaskType && (
@@ -1299,14 +1579,26 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         task={proofTask}
         onClose={() => setProofTask(null)}
         onSubmitted={(id) => {
-          setMyProofs(prev => ({ ...prev, [id]: { status: 'pending' } }));
+          const nowIso = new Date().toISOString();
+          const expiresIso = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+          setMyProofs(prev => ({
+            ...prev,
+            [id]: {
+              ...prev[id],
+              status: 'pending',
+              reason: null,
+              createdAt: nowIso,
+              expiresAt: expiresIso,
+            },
+          }));
           if (uid) {
             persistAcceptedTask(uid, id, {
               status: 'submitted',
-              submittedAt: new Date().toISOString(),
+              submittedAt: nowIso,
               rejectionReason: undefined,
             });
           }
+          fetchTasks();
         }}
       />
       <Dialog open={!!reviewTask} onOpenChange={(o) => { if (!o) { setReviewTask(null); fetchTasks(); } }}>
@@ -1319,11 +1611,67 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Community & Advertiser Tasks Feed */}
-      <div className="space-y-2.5">
-        {tasks.map(task => {
-          const completed = completions.includes(task.id) || myProofs[task.id]?.status === 'approved';
-          const proofStatus = myProofs[task.id]?.status;
+      {/* Task Creator Management Portal */}
+      {activeSection === 'manage' ? (
+        <TaskCreatorManager
+          createdTasks={createdTasks}
+          exchangeRate={exchangeRate}
+          selectedTaskId={selectedManageTaskId}
+          onSelectTask={setSelectedManageTaskId}
+          onToggleActive={toggleTaskActive}
+          onDeleteTask={deleteTask}
+          onOpenCreate={() => {
+            setShowCreate(true);
+            setSelectedTaskType(null);
+          }}
+          onRefreshParent={fetchTasks}
+          onPendingCountChange={setCreatorPendingCount}
+        />
+      ) : (
+        <>
+          {/* Contextual Section Header for Filtered Views */}
+          {activeSection !== 'all' && (
+            <div
+              className={`rounded-2xl border px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs ${
+                activeSection === 'uncompleted'
+                  ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
+                  : activeSection === 'pending_review'
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {activeSection === 'uncompleted' ? (
+                  <Briefcase className="h-4 w-4 text-orange-400 shrink-0" />
+                ) : activeSection === 'pending_review' ? (
+                  <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                )}
+                <p className="font-semibold truncate">
+                  {activeSection === 'uncompleted'
+                    ? 'Pending Uncompleted — Finish posting & upload proof to earn'
+                    : activeSection === 'pending_review'
+                    ? 'Completed Pending Review — Clears automatically within 48h'
+                    : 'Completed & Paid Tasks — Credits added to your wallet'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSection('all')}
+                className="text-[11px] font-bold underline underline-offset-2 shrink-0 opacity-90 hover:opacity-100"
+              >
+                View All
+              </button>
+            </div>
+          )}
+
+          {/* Community & Advertiser Tasks Feed */}
+          <div className="space-y-2.5">
+        {displayedTasks.map(task => {
+          const proofInfo = myProofs[task.id];
+          const completed = completions.includes(task.id) || proofInfo?.status === 'approved';
+          const proofStatus = proofInfo?.status;
           const acceptedRecord = acceptedTasks[task.id];
           const isPendingReview = !completed && proofStatus === 'pending';
           const isRejected = !completed && proofStatus === 'rejected';
@@ -1335,12 +1683,18 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
           const isVerifying = verifyingTaskId === task.id;
           const spotsLeft = task.max_completions ? Math.max(0, task.max_completions - (task.completions_count || 0)) : null;
           const isOwner = !!uid && task.creator_id === uid;
+          const hoursUntilAutoApprove = proofInfo?.expiresAt
+            ? Math.max(0, Math.round((new Date(proofInfo.expiresAt).getTime() - Date.now()) / 36e5))
+            : null;
+          const completedDateIso = completedAtMap[task.id] || proofInfo?.reviewedAt || null;
+
           return (
-            <Card key={task.id} className={`transition-all bg-card border-border ${completed && !isOwner ? 'opacity-70' : 'hover:shadow-md'} ${
+            <Card key={task.id} className={`transition-all bg-card border-border ${completed && !isOwner && activeSection === 'all' ? 'opacity-80' : 'hover:shadow-md'} ${
               isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' :
+              completed ? 'border-emerald-500/30' :
               isRejected ? 'border-red-500/40' :
               isInProgress ? 'border-amber-500/40' :
-              isPendingReview ? 'border-amber-500/30' :
+              isPendingReview ? 'border-amber-500/35' :
               isFlyerLink ? 'border-blue-500/20' :
               isDescription ? 'border-purple-500/20' :
               isYouTube ? 'border-red-500/20' :
@@ -1392,7 +1746,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                           </span>
                         </p>
                       </div>
-                      {spotsLeft !== null && (
+                      {spotsLeft !== null && !completed && !isPendingReview && (
                         <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full tabular-nums">
                           {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
                         </span>
@@ -1401,15 +1755,21 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   </div>
 
                   {isOwner ? (
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-full tabular-nums">
                         {task.completions_count || 0}/{task.max_completions || '∞'} done
                       </span>
-                      {!isYouTube && (
-                        <Button size="sm" variant="outline" className="h-8 text-xs rounded-full" onClick={() => setReviewTask(task)}>
-                          Review proofs
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs rounded-full border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                        onClick={() => {
+                          setSelectedManageTaskId(task.id);
+                          setActiveSection('manage');
+                        }}
+                      >
+                        Manage &amp; Performers
+                      </Button>
                     </div>
                   ) : isVerifying ? (
                     <div className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full shrink-0">
@@ -1417,7 +1777,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       <span className="text-[10px] text-amber-500 font-medium">Verifying...</span>
                     </div>
                   ) : completed ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20 shrink-0 text-[11px] font-semibold">
+                    <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shrink-0 text-[11px] font-semibold">
                       Done ✓
                     </Badge>
                   ) : isPendingReview ? (
@@ -1431,6 +1791,24 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   ) : null}
                 </div>
 
+                {/* Completed Verification Ledger Bar */}
+                {!isOwner && completed && (
+                  <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-semibold tabular-nums">
+                      <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        +{task.reward_credits} cr (₦{((task.reward_credits || 5) * exchangeRate).toLocaleString()}) credited
+                        {proofInfo?.autoApproved ? ' · Auto-approved (48h)' : ' · Verified'}
+                      </span>
+                    </div>
+                    {completedDateIso && (
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {new Date(completedDateIso).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Persistent Earner Workflow Action Machine */}
                 {!isOwner && !completed && !isVerifying && (
                   <>
@@ -1441,14 +1819,17 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                           <div className="text-xs text-red-300 leading-relaxed min-w-0">
                             <p className="font-bold text-red-400">Proof Rejected</p>
                             <p className="mt-0.5 break-words">
-                              {myProofs[task.id]?.reason || 'Not valid. Please share again and submit a clearer screenshot.'}
+                              {proofInfo?.reason || 'Not valid. Please share again and submit a clearer screenshot.'}
                             </p>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <Button
                             size="sm"
-                            onClick={() => setProofTask(task)}
+                            onClick={() => {
+                              if (!requireActivation('submit credit task proofs')) return;
+                              setProofTask(task);
+                            }}
                             className="w-full min-h-[42px] rounded-xl bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white font-bold text-xs shadow-md"
                           >
                             🔄 Re-submit Proof
@@ -1468,7 +1849,10 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <Button
                           size="sm"
-                          onClick={() => setProofTask(task)}
+                          onClick={() => {
+                            if (!requireActivation('submit credit task proofs')) return;
+                            setProofTask(task);
+                          }}
                           className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-orange-500/20"
                         >
                           📸 Submit Proof
@@ -1484,15 +1868,47 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                         </Button>
                       </div>
                     ) : isPendingReview ? (
-                      <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 flex items-center justify-between gap-2 text-[11px] text-amber-400">
-                        <span className="truncate">Proof submitted — awaiting creator or 48h auto-approval</span>
-                        <button
-                          type="button"
-                          onClick={() => setWorkstationTask(task)}
-                          className="text-orange-400 hover:underline font-semibold shrink-0"
-                        >
-                          View Kit
-                        </button>
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-2.5 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-amber-300 font-semibold min-w-0">
+                            <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">
+                              {hoursUntilAutoApprove !== null
+                                ? `Awaiting review · Auto-approves in ${hoursUntilAutoApprove}h`
+                                : 'Proof submitted — awaiting creator or 48h auto-approval'}
+                            </span>
+                          </div>
+                          <span className="text-[10.5px] font-bold text-amber-400 tabular-nums shrink-0">
+                            +{task.reward_credits} cr (₦{((task.reward_credits || 5) * exchangeRate).toLocaleString()}) clearing
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-500/20">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {proofInfo?.proofUrl && (
+                              <a
+                                href={proofInfo.proofUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-200 hover:text-white underline underline-offset-2 shrink-0"
+                              >
+                                <Eye className="h-3 w-3" />
+                                View Screenshot
+                              </a>
+                            )}
+                            {proofInfo?.createdAt && (
+                              <span className="text-[10px] text-muted-foreground tabular-nums truncate">
+                                Sent {new Date(proofInfo.createdAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setWorkstationTask(task)}
+                            className="text-[11px] text-orange-400 hover:underline font-semibold shrink-0"
+                          >
+                            View Kit
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <Button
@@ -1579,14 +1995,69 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
             </Card>
           );
         })}
-        {tasks.length === 0 && (
-          <div className="text-center py-10 text-muted-foreground">
-            <Gift className="h-12 w-12 mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-medium">No tasks available yet</p>
-            <p className="text-xs opacity-60">Create one or check back later!</p>
-          </div>
+
+        {displayedTasks.length === 0 && (
+          <Card className="border border-dashed border-border bg-card/50">
+            <CardContent className="text-center py-10 px-4 text-muted-foreground space-y-2.5">
+              {activeSection === 'uncompleted' ? (
+                <>
+                  <Briefcase className="h-10 w-10 mx-auto text-orange-400/50" />
+                  <p className="text-sm font-bold text-foreground">No pending uncompleted tasks</p>
+                  <p className="text-xs max-w-xs mx-auto">
+                    Accept a promotional task to download the flyer, copy the caption, and save your progress here.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveSection('all')}
+                    className="mt-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-xs font-bold"
+                  >
+                    Browse Available Tasks
+                  </Button>
+                </>
+              ) : activeSection === 'pending_review' ? (
+                <>
+                  <Clock className="h-10 w-10 mx-auto text-amber-400/50" />
+                  <p className="text-sm font-bold text-foreground">No tasks awaiting review</p>
+                  <p className="text-xs max-w-xs mx-auto">
+                    Once you upload a screenshot proof for an accepted task, it appears here until approved (or auto-approved in 48 hours).
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveSection('all')}
+                    className="mt-1 rounded-xl text-xs font-semibold"
+                  >
+                    Browse Available Tasks
+                  </Button>
+                </>
+              ) : activeSection === 'completed' ? (
+                <>
+                  <CheckCircle className="h-10 w-10 mx-auto text-emerald-400/50" />
+                  <p className="text-sm font-bold text-foreground">No completed tasks yet</p>
+                  <p className="text-xs max-w-xs mx-auto">
+                    Complete your first task and submit proof to track your verified GGD credit and Naira earnings here.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveSection('all')}
+                    className="mt-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-xs font-bold"
+                  >
+                    Start Earning Now
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Gift className="h-12 w-12 mx-auto opacity-20" />
+                  <p className="text-sm font-medium text-foreground">No tasks available yet</p>
+                  <p className="text-xs opacity-70">Create one or check back later!</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

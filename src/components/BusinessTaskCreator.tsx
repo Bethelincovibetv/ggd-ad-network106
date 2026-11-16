@@ -22,6 +22,7 @@ import { createSyndicateTask, reviewSyndicateAssignment } from "@/services/syndi
 import { NIGERIAN_STATES } from '@/utils/nigerianStates';
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import { ProductPhotoViewerModal } from "@/components/ProductPhotoViewerModal";
 
@@ -38,6 +39,7 @@ const DEFAULT_PLATFORMS = [
 
 const BusinessTaskCreator = () => {
   const { isEnabled } = useFeatureToggles();
+  const { requireActivation } = useActivationStatus();
   const allowNonWhatsapp = isEnabled('syndicate_non_whatsapp_channels');
   const [tasks, setTasks] = useState<any[]>([]);
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
@@ -184,6 +186,7 @@ const BusinessTaskCreator = () => {
   };
 
   const createTask = async () => {
+    if (!requireActivation('launch Syndicate advert campaigns')) return;
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     if (form.placements.length === 0) { toast.error("Select at least one placement"); return; }
 

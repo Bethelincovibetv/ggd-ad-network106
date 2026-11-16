@@ -115,14 +115,29 @@ Deno.serve(async (req) => {
         .maybeSingle()
 
       if (!existing) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_id, credits')
-          .eq('email', email)
-          .maybeSingle()
+        const metadataUserId = data.metadata?.user_id
+        let profile: { user_id: string; credits: number; is_activated?: boolean } | null = null
+
+        if (metadataUserId) {
+          const { data: byId } = await supabase
+            .from('profiles')
+            .select('user_id, credits, is_activated')
+            .eq('user_id', metadataUserId)
+            .maybeSingle()
+          profile = byId
+        }
+
+        if (!profile && email) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('user_id, credits, is_activated')
+            .ilike('email', email)
+            .maybeSingle()
+          profile = byEmail
+        }
 
         if (profile) {
-          await supabase.from('processed_payments').insert({
+          const { error: ledgerErr } = await supabase.from('processed_payments').insert({
             reference,
             user_id: profile.user_id,
             amount: amountNaira,
@@ -130,26 +145,61 @@ Deno.serve(async (req) => {
             metadata: data.metadata || {},
           })
 
-          if (type === 'credit_purchase') {
-            const { data: rateSetting } = await supabase
-              .from('app_settings')
-              .select('value')
-              .eq('key', 'credit_exchange_rate')
-              .maybeSingle()
+          if (!ledgerErr) {
+            if (type === 'user_activation') {
+              const { data: bonusSetting } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'activation_bonus_credits')
+                .maybeSingle()
 
-            const rate = parseInt(rateSetting?.value || '100') || 100
-            const creditsToAdd = Math.floor(amountNaira / rate)
+              const bonusCredits = Math.max(0, parseInt(bonusSetting?.value || '200', 10) || 200)
+              const { error: rpcErr } = await supabase.rpc('activate_user_account', {
+                p_user_id: profile.user_id,
+                p_bonus: bonusCredits,
+                p_source: 'paystack_webhook',
+                p_reference: reference,
+              })
 
-            await supabase.from('profiles')
-              .update({ credits: (profile.credits || 0) + creditsToAdd })
-              .eq('user_id', profile.user_id)
+              if (rpcErr && !profile.is_activated) {
+                await supabase
+                  .from('profiles')
+                  .update({
+                    is_activated: true,
+                    activated_at: new Date().toISOString(),
+                    credits: (profile.credits || 0) + bonusCredits,
+                  })
+                  .eq('user_id', profile.user_id)
+              }
 
-            await supabase.from('notifications').insert({
-              user_id: profile.user_id,
-              title: '💰 Credits Added!',
-              message: `${creditsToAdd} GGG credits added from ₦${amountNaira.toLocaleString()} payment.`,
-              type: 'payment',
-            })
+              await supabase.from('notifications').insert({
+                user_id: profile.user_id,
+                title: '🎉 Account Activated! Starter Pack Unlocked',
+                message: `Welcome! Your account is now activated and +${bonusCredits.toLocaleString()} GGG Starter Credits have been added from your ₦${amountNaira.toLocaleString()} payment.`,
+                type: 'activation',
+                nav_target: 'tasks',
+              })
+            } else if (type === 'credit_purchase') {
+              const { data: rateSetting } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'credit_exchange_rate')
+                .maybeSingle()
+
+              const rate = parseInt(rateSetting?.value || '100') || 100
+              const creditsToAdd = Math.floor(amountNaira / rate)
+
+              await supabase.from('profiles')
+                .update({ credits: (profile.credits || 0) + creditsToAdd })
+                .eq('user_id', profile.user_id)
+
+              await supabase.from('notifications').insert({
+                user_id: profile.user_id,
+                title: '💰 Credits Added!',
+                message: `${creditsToAdd} GGG credits added from ₦${amountNaira.toLocaleString()} payment.`,
+                type: 'payment',
+              })
+            }
           }
         }
       }

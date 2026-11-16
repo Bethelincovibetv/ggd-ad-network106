@@ -3,7 +3,7 @@ import {
   Search, X, ArrowRight, CornerDownLeft, BookOpen, TrendingUp, Briefcase, 
   Video, Sparkles, Megaphone, Mail, ClipboardList, Image, Shield, Users, 
   MessageSquare, Bell, Crown, Smartphone, Settings, Settings2, Key, 
-  ExternalLink, CheckCircle2, User, Flame, Package, Store, Menu, Layers
+  ExternalLink, CheckCircle2, User, Flame, Package, Store, Menu, Layers, ShieldCheck
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -182,6 +182,16 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
     keywords: ['verification', 'nin', 'cac', 'business verification', 'identity', 'kyc'],
     icon: Shield,
     color: 'from-emerald-500 to-teal-600'
+  },
+  {
+    id: 'activation-fee',
+    sectionId: 'activation-fee',
+    title: 'Activation Fee & Starter Pack',
+    category: 'USERS & COMMUNITY',
+    description: 'Configure onboarding fee, starter bonus credits, revenue metrics & manual user overrides',
+    keywords: ['activation', 'activation fee', 'onboarding', 'starter pack', 'mark activated', '1000', '200'],
+    icon: ShieldCheck,
+    color: 'from-orange-500 to-amber-600'
   },
   {
     id: 'user-management',

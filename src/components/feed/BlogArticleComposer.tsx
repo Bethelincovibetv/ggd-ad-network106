@@ -17,6 +17,7 @@ import BlogCreationSuccessModal from '@/components/feed/BlogCreationSuccessModal
 import BlogCoverStudioModal from '@/components/feed/BlogCoverStudioModal';
 import { BLOG_IMAGE_TEMPLATES, BLOG_TEMPLATE_CATEGORIES } from '@/data/blogImageTemplates';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import { useActivationStatus } from '@/hooks/useActivationStatus';
 import YouTubeEmbed from '@/components/YouTubeEmbed';
 import { Palette, Wand2 } from 'lucide-react';
 
@@ -54,6 +55,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
   onCancel,
 }) => {
   const { isEnabled } = useFeatureToggles();
+  const { requireActivation } = useActivationStatus();
   const isAiDrafterEnabled = isEnabled('blog_ai_drafter');
 
   const [title, setTitle] = useState('');
@@ -237,6 +239,7 @@ export const BlogArticleComposer: React.FC<BlogArticleComposerProps> = ({
 
   // Publish Blog Article
   const handlePublish = async () => {
+    if (!requireActivation('create community posts & articles')) return;
     if (!title.trim()) {
       toast.error('Please provide an article title');
       return;

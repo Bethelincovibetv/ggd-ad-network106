@@ -6,6 +6,7 @@ import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 
 interface Props {
   task: any | null;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 const TaskProofSubmitDialog: React.FC<Props> = ({ task, onClose, onSubmitted }) => {
+  const { requireActivation } = useActivationStatus();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -31,6 +33,7 @@ const TaskProofSubmitDialog: React.FC<Props> = ({ task, onClose, onSubmitted }) 
 
   const submit = async () => {
     if (!task) return;
+    if (!requireActivation('submit credit task proofs')) return;
     if (!file) { toast.error("Please upload a screenshot as proof"); return; }
     setBusy(true);
     try {

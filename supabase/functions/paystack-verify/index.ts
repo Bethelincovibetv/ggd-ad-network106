@@ -70,12 +70,27 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Find user by email
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('user_id, credits')
-      .eq('email', email)
-      .maybeSingle()
+    // Find user by metadata.user_id first (exact) or email fallback
+    const metadataUserId = txData.metadata?.user_id
+    let profile: { user_id: string; credits: number; is_activated?: boolean } | null = null
+
+    if (metadataUserId) {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('user_id, credits, is_activated')
+        .eq('user_id', metadataUserId)
+        .maybeSingle()
+      profile = byId
+    }
+
+    if (!profile && email) {
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('user_id, credits, is_activated')
+        .ilike('email', email)
+        .maybeSingle()
+      profile = byEmail
+    }
 
     if (!profile) {
       return new Response(JSON.stringify({ success: false, message: 'User not found for payment' }), {
@@ -104,7 +119,57 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to record payment ledger: ${ledgerError.message}`)
     }
 
-    if (type === 'credit_purchase') {
+    if (type === 'user_activation') {
+      const { data: bonusSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'activation_bonus_credits')
+        .maybeSingle()
+
+      const bonusCredits = Math.max(0, parseInt(bonusSetting?.value || '200', 10) || 200)
+      let newCredits = (profile.credits || 0) + bonusCredits
+
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('activate_user_account', {
+        p_user_id: profile.user_id,
+        p_bonus: bonusCredits,
+        p_source: 'paystack',
+        p_reference: reference,
+      })
+
+      if (!rpcErr && rpcRes?.success) {
+        newCredits = Number(rpcRes.new_credits ?? newCredits)
+      } else {
+        // Fallback direct update if RPC has not yet been deployed
+        if (!profile.is_activated) {
+          await supabase
+            .from('profiles')
+            .update({
+              is_activated: true,
+              activated_at: new Date().toISOString(),
+              credits: newCredits,
+            })
+            .eq('user_id', profile.user_id)
+        }
+      }
+
+      await supabase.from('notifications').insert({
+        user_id: profile.user_id,
+        title: '🎉 Account Activated! Starter Pack Unlocked',
+        message: `Welcome! Your account is now activated and +${bonusCredits.toLocaleString()} GGG Starter Credits have been added from your ₦${amountNaira.toLocaleString()} payment.`,
+        type: 'activation',
+        nav_target: 'tasks',
+      })
+
+      return new Response(JSON.stringify({
+        success: true,
+        type: 'user_activation',
+        activated: true,
+        bonus_credits: bonusCredits,
+        new_credits: newCredits,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    } else if (type === 'credit_purchase') {
       // Get exchange rate
       const { data: rateSetting } = await supabase
         .from('app_settings')

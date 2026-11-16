@@ -46,6 +46,7 @@ import SyndicateWallet from "@/components/SyndicateWallet";
 import SyndicateGuide from "@/components/SyndicateGuide";
 import PromoterNetworkChat from "@/components/PromoterNetworkChat";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 import ggdLogo from '@/assets/ggd-logo.png';
 
@@ -80,6 +81,7 @@ interface NavItem {
 }
 
 const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) => {
+  const { requireActivation } = useActivationStatus();
   const [tasks, setTasks] = useState<any[]>([]);
   const [myAssignments, setMyAssignments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -289,6 +291,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   };
 
   const handleProofFileSelect = (taskId: string, file: File) => {
+    if (!requireActivation('participate in Syndicate campaigns')) return;
     setProofFiles(prev => ({ ...prev, [taskId]: file }));
     if (file.type.startsWith('image/')) {
       const previewUrl = URL.createObjectURL(file);
@@ -297,6 +300,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   };
 
   const submitProofDirect = async (task: any) => {
+    if (!requireActivation('participate in Syndicate campaigns')) return;
     const file = proofFiles[task.id];
     const postLink = proofLinks[task.id] || '';
 

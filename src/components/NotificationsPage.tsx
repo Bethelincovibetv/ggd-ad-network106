@@ -8,12 +8,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bell, CheckCircle2, Check, Mail, MailOpen, Trash2, Volume2, Search, ArrowRight,
   ExternalLink, ArrowDownLeft, ArrowUpRight, BookOpen, Sparkles, Filter,
-  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck,
+  ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck, ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import NotificationMessageDetailModal, { FullNotificationData } from '@/components/NotificationMessageDetailModal';
+import { parseTaskSubmissionNotification, navigateToTaskManagement } from '@/lib/taskNotificationLink';
 import { getTransferHistory, TransferRecord } from '@/services/transferService';
 import {
   isPushSupported,
@@ -418,6 +419,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     markAsRead(n.id);
 
     const navTarget: string | null = n.nav_target || null;
+
+    if (parseTaskSubmissionNotification(n).isTaskSubmission) {
+      navigateToTaskManagement(n, onNavigate);
+      return;
+    }
+
     const isGuide =
       n.type === 'guide_step_completion' ||
       n.title?.toLowerCase().includes('guide') ||
@@ -889,17 +896,20 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
       ) : (
         <div className="space-y-3">
           {filteredNotifications.map((n) => {
+            const isTaskSubmission = parseTaskSubmissionNotification(n).isTaskSubmission;
             const isTransfer =
-              n.type === 'credit_transfer' ||
+              !isTaskSubmission &&
+              (n.type === 'credit_transfer' ||
               n.type === 'credit' ||
               n.type === 'transfer_credited' ||
               n.title?.toLowerCase().includes('credit') ||
-              n.title?.toLowerCase().includes('transfer');
+              n.title?.toLowerCase().includes('transfer'));
 
             const isGuide =
-              n.type === 'guide_step_completion' ||
+              !isTaskSubmission &&
+              (n.type === 'guide_step_completion' ||
               n.title?.toLowerCase().includes('guide') ||
-              n.nav_target?.toLowerCase().includes('guide');
+              n.nav_target?.toLowerCase().includes('guide'));
 
             const isRead = Boolean(n.is_read);
 
@@ -921,7 +931,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                     {/* Icon Badge */}
                     <div
                       className={`h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
-                        isTransfer
+                        isTaskSubmission
+                          ? 'bg-orange-500/20 text-orange-500'
+                          : isTransfer
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                           : isGuide
                           ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
@@ -930,7 +942,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
-                      {isTransfer ? (
+                      {isTaskSubmission ? (
+                        <ClipboardList className="h-5 w-5" />
+                      ) : isTransfer ? (
                         <ArrowDownLeft className="h-5 w-5" />
                       ) : isGuide ? (
                         <BookOpen className="h-5 w-5" />
@@ -964,6 +978,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                         </h4>
 
                         {/* Category tag */}
+                        {isTaskSubmission && (
+                          <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/25 text-[10px] font-bold">
+                            📋 Task Submission
+                          </Badge>
+                        )}
                         {isTransfer && (
                           <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 text-[10px] font-bold">
                             Money Received
@@ -1036,6 +1055,16 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             <Sparkles className="h-3 w-3 text-orange-500" /> Read
                           </Button>
 
+                          {isTaskSubmission && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAction(n)}
+                              className="h-8 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white gap-1.5 px-3 shadow-xs"
+                            >
+                              <ClipboardList className="h-3.5 w-3.5" /> Manage Task <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          )}
+
                           {isTransfer && (
                             <Button
                               size="sm"
@@ -1057,7 +1086,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             </Button>
                           )}
 
-                          {!isTransfer && !isGuide && (n.nav_target || n.link_url) && (
+                          {!isTaskSubmission && !isTransfer && !isGuide && (n.nav_target || n.link_url) && (
                             <Button
                               size="sm"
                               variant="outline"

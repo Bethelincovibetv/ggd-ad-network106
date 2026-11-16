@@ -11,9 +11,11 @@ import { useNavigate } from 'react-router-dom';
 import ggdLogo from '@/assets/ggd-logo.png';
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
 import MetaTags from "@/components/MetaTags";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 
 const SyndicateRegister = () => {
   const navigate = useNavigate();
+  const { requireActivation } = useActivationStatus();
   const [step, setStep] = useState<'info' | 'register' | 'application' | 'done'>('info');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +72,7 @@ const SyndicateRegister = () => {
   };
 
   const handleApplication = async () => {
+    if (!requireActivation('join Syndicate campaigns')) return;
     const hasInfluence = [form.whatsapp_influence, form.facebook_influence, form.telegram_influence, form.tiktok_influence, form.twitter_influence].some(v => v.trim());
     if (!hasInfluence) { toast.error("Provide at least one platform influence detail"); return; }
     if (!form.state) { toast.error("Please select your state"); return; }

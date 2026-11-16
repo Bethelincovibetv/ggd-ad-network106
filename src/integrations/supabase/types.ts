@@ -1088,6 +1088,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          activated_at: string | null
           avatar_url: string | null
           business_category: string | null
           business_description: string | null
@@ -1103,6 +1104,7 @@ export type Database = {
           email: string | null
           id: string
           industry: string | null
+          is_activated: boolean
           is_banned: boolean | null
           is_verified: boolean
           last_credit_date: string | null
@@ -1119,6 +1121,7 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          activated_at?: string | null
           avatar_url?: string | null
           business_category?: string | null
           business_description?: string | null
@@ -1134,6 +1137,7 @@ export type Database = {
           email?: string | null
           id?: string
           industry?: string | null
+          is_activated?: boolean
           is_banned?: boolean | null
           is_verified?: boolean
           last_credit_date?: string | null
@@ -1150,6 +1154,7 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          activated_at?: string | null
           avatar_url?: string | null
           business_category?: string | null
           business_description?: string | null
@@ -1165,6 +1170,7 @@ export type Database = {
           email?: string | null
           id?: string
           industry?: string | null
+          is_activated?: boolean
           is_banned?: boolean | null
           is_verified?: boolean
           last_credit_date?: string | null

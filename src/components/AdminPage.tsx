@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   BookOpen, TrendingUp, Users, Settings, Settings2, Briefcase, 
   Image, ClipboardList, Key, Megaphone, Video, ArrowLeft, Shield,
-  Menu, X, Bell, MessageSquare, Crown, Mail, Smartphone, Sparkles
+  Menu, X, Bell, MessageSquare, Crown, Mail, Smartphone, Sparkles, ShieldCheck
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
@@ -32,6 +32,7 @@ import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
+import AdminActivationManager from "@/components/admin/AdminActivationManager";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { AdminRealtimeSearchBar } from "@/components/admin/AdminRealtimeSearchBar";
 import { getCurrentUser } from "@/services/authService";
@@ -86,6 +87,7 @@ const navGroups: NavGroup[] = [
     title: 'USERS & COMMUNITY',
     items: [
       { id: 'verification', icon: Shield, label: 'Business Verification', sublabel: 'Automated NIN & CAC Engine', color: 'text-white', gradient: 'from-emerald-500 to-teal-600' },
+      { id: 'activation-fee', icon: ShieldCheck, label: 'Activation Fee', sublabel: 'Onboarding fee, bonus & overrides', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'users', icon: Users, label: 'User Management', sublabel: 'Profiles, roles and credits', color: 'text-white', gradient: 'from-orange-500 to-red-600' },
       { id: 'contact-gain', icon: Users, label: 'Contact Gain System', sublabel: 'Daily VCF/CSV & Contact Tasks', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'chat', icon: MessageSquare, label: 'User Chat', sublabel: 'Direct support & messaging', color: 'text-white', gradient: 'from-lime-500 to-green-600' },
@@ -250,6 +252,7 @@ const AdminPage = () => {
       case 'guide': return <AdminGuide />;
       case 'analytics': return <AdminAnalytics />;
       case 'users': return <AdminUserManager />;
+      case 'activation-fee': return <AdminActivationManager />;
       case 'verification': return <AdminVerificationManager />;
       case 'syndicate': return (
         <AdminSyndicateManager 

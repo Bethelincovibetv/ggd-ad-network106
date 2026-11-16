@@ -38,6 +38,7 @@ import {
   verifySecurityPin
 } from "@/utils/paystackBank";
 import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
+import { useActivationStatus } from "@/hooks/useActivationStatus";
 
 const maskAccountNumber = (acc?: string | null) => {
   if (!acc) return '—';
@@ -47,6 +48,7 @@ const maskAccountNumber = (acc?: string | null) => {
 };
 
 const SyndicateWallet = () => {
+  const { requireActivation, requiresActivation } = useActivationStatus();
   const [credits, setCredits] = useState<number>(0);
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [cooldownHours, setCooldownHours] = useState<number>(48);
@@ -101,6 +103,11 @@ const SyndicateWallet = () => {
   const [changeReason, setChangeReason] = useState('');
   const [submittingChange, setSubmittingChange] = useState(false);
   const [pendingChangeRequest, setPendingChangeRequest] = useState<any>(null);
+
+  // Naira Withdrawal Request State
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawPin, setWithdrawPin] = useState('');
+  const [requestingWithdrawal, setRequestingWithdrawal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -480,6 +487,59 @@ const SyndicateWallet = () => {
       toast.error(err.message || "Failed to submit change request");
     } finally {
       setSubmittingChange(false);
+    }
+  };
+
+  const handleRequestWithdrawal = async () => {
+    if (!requireActivation('request Naira wallet withdrawals')) return;
+
+    if (!profile?.bank_name || !profile?.account_number) {
+      toast.error("Please verify and lock your Nigerian bank account below before requesting a withdrawal.");
+      return;
+    }
+
+    const amountNum = Number(withdrawAmount);
+    if (!Number.isFinite(amountNum) || amountNum < 500) {
+      toast.error("Enter a valid Naira withdrawal amount (minimum ₦500).");
+      return;
+    }
+
+    const availableNaira = credits * exchangeRate;
+    if (amountNum > availableNaira) {
+      toast.error(`Insufficient balance. You currently have ₦${availableNaira.toLocaleString()} available.`);
+      return;
+    }
+
+    if (profile?.withdraw_pin_hash && !withdrawPin.trim()) {
+      toast.error("Please enter your Security PIN to authorize this withdrawal.");
+      return;
+    }
+
+    setRequestingWithdrawal(true);
+    try {
+      const pinHash = withdrawPin.trim() ? await hashSecurityPin(withdrawPin.trim()) : null;
+      const { data, error } = await (supabase as any).rpc('request_syndicate_withdrawal', {
+        p_amount: amountNum,
+        p_bank_name: profile.bank_name,
+        p_account_number: profile.account_number,
+        p_account_name: profile.account_name || 'Verified Account',
+        p_pin_hash: pinHash,
+        p_bank_code: profile.bank_code || null,
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Withdrawal request could not be completed.");
+        return;
+      }
+
+      toast.success(`✅ Withdrawal request of ₦${amountNum.toLocaleString()} submitted!`);
+      setWithdrawAmount('');
+      setWithdrawPin('');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to request withdrawal");
+    } finally {
+      setRequestingWithdrawal(false);
     }
   };
 
@@ -1050,6 +1110,66 @@ const SyndicateWallet = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Request Naira Withdrawal Card */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden bg-card">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-orange-500" />
+            Request Naira Wallet Withdrawal
+          </CardTitle>
+          {requiresActivation && (
+            <Badge className="bg-orange-500/15 text-orange-500 border border-orange-500/30 text-[10px] font-bold">
+              <Lock className="h-3 w-3 mr-1" /> Activation Required
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="p-4 pt-1 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-foreground">Withdrawal Amount (₦)</Label>
+              <Input
+                type="number"
+                min={500}
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                placeholder="e.g. 2000 (min ₦500)"
+                className="mt-1 h-11 text-sm font-bold tabular-nums rounded-xl"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-foreground">
+                Security PIN {profile?.withdraw_pin_hash ? '(Required)' : '(If Set)'}
+              </Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={withdrawPin}
+                onChange={(e) => setWithdrawPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="••••"
+                className="mt-1 h-11 text-center font-mono text-base tracking-widest font-bold rounded-xl"
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            disabled={requestingWithdrawal}
+            onClick={handleRequestWithdrawal}
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-[#e67e22] to-orange-600 hover:from-orange-500 hover:to-amber-600 text-white font-bold text-xs shadow-md"
+          >
+            {requestingWithdrawal ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ArrowRight className="h-4 w-4 mr-2" />
+            )}
+            Request Naira Withdrawal
+          </Button>
+          <p className="text-[11px] text-muted-foreground text-center">
+            Cooldown: 1 request per {cooldownHours}h · Auto-payout threshold: ₦{maxAutoPayout.toLocaleString()}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Payout History */}
       <Card className="border-0 shadow-md rounded-2xl overflow-hidden">

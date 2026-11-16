@@ -22,6 +22,7 @@ import EmojiReactionBar from '@/components/EmojiReactionBar';
 import GifPickerPopover from '@/components/chat/GifPickerPopover';
 import { getOrCreateTaskShareUrl } from '@/lib/taskShare';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
+import { useActivationStatus } from '@/hooks/useActivationStatus';
 import CreditTaskComposer, { type CreditTaskPrefill } from '@/components/feed/CreditTaskComposer';
 import SponsoredAdCard from '@/components/feed/SponsoredAdCard';
 import FeaturedListingCard from '@/components/feed/FeaturedListingCard';
@@ -179,6 +180,7 @@ interface CommunityFeedProps {
 
 const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const { isEnabled } = useFeatureToggles();
+  const { requireActivation } = useActivationStatus();
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [taskPosts, setTaskPosts] = useState<any[]>([]);
@@ -302,6 +304,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   // Shared reward path — identical rules to the Task Feed engine.
   const awardTask = async (task: any): Promise<boolean> => {
+    if (!requireActivation('accept credit tasks & earn rewards')) return false;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
     const { error } = await supabase.from('task_completions').insert({ task_id: task.id, user_id: user.id });
@@ -333,6 +336,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   // Same share → verify → reward flow used by the Task Feed.
   const startTaskVerification = async (task: any, platformKey: string) => {
+    if (!requireActivation('accept & submit credit tasks')) return;
     const platform = FEED_SHARE_PLATFORMS.find(p => p.key === platformKey);
     setShareTarget(null);
     if (!platform) return;
@@ -427,6 +431,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
   const submitPost = async () => {
     if (!me) { toast.error('Please sign in to post'); return; }
+    if (!requireActivation('create community posts')) return;
     const text = content.trim();
     const hasMedia = Boolean(imageFile || imagePreview || linkUrl.trim() || videoUrl.trim());
     if (!text && !hasMedia) {
@@ -1076,7 +1081,10 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
             task={item.data}
             completed={completedTaskIds.includes(item.data.id)}
             verifying={verifyingTaskId === item.data.id}
-            onStart={(t) => setShareTarget(t)}
+            onStart={(t) => {
+              if (!requireActivation('accept credit tasks & earn rewards')) return;
+              setShareTarget(t);
+            }}
             onNativeComplete={completeInFeedTask}
           />
         ))

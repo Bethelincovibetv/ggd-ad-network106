@@ -14,6 +14,7 @@ import { CallModal } from "@/components/call/CallModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Feature } from "@/lib/featureRegistry";
+import ActivationGateHost from "@/components/ActivationGateHost";
 
 /**
  * Retries dynamic chunk imports on transient network/cache failures so navigating
@@ -221,6 +222,7 @@ const App = () => (
             <PushNotificationPrompt />
             <IncomingCallBanner />
             <CallModal />
+            <ActivationGateHost />
           </CallProvider>
         </BrowserRouter>
       </TooltipProvider>
