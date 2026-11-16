@@ -1822,6 +1822,59 @@ export type Database = {
           },
         ]
       }
+      task_proof_submissions: {
+        Row: {
+          auto_approved: boolean
+          created_at: string
+          expires_at: string
+          id: string
+          proof_text: string | null
+          proof_url: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          auto_approved?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          proof_text?: string | null
+          proof_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          auto_approved?: boolean
+          created_at?: string
+          expires_at?: string
+          id?: string
+          proof_text?: string | null
+          proof_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_proof_submissions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_share_clicks: {
         Row: {
           country: string | null
@@ -2392,6 +2445,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _approve_task_proof: {
+        Args: { p_auto: boolean; p_id: string; p_reviewer: string }
+        Returns: Json
+      }
       admin_adjust_user_credits: {
         Args: { p_amount: number; p_reason?: string; p_target_id: string }
         Returns: Json
@@ -2408,6 +2465,8 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      auto_approve_expired_task_proofs: { Args: never; Returns: number }
+      complete_credit_task: { Args: { p_task_id: string }; Returns: Json }
       create_whatsapp_campaign: {
         Args: {
           p_budget_credits: number
@@ -2452,6 +2511,10 @@ export type Database = {
         }
         Returns: Json
       }
+      review_task_proof: {
+        Args: { p_approve: boolean; p_reason?: string; p_submission_id: string }
+        Returns: Json
+      }
       review_whatsapp_application: {
         Args: {
           p_application_id: string
@@ -2473,6 +2536,10 @@ export type Database = {
         Returns: Json
       }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
+      submit_task_proof: {
+        Args: { p_proof_text?: string; p_proof_url: string; p_task_id: string }
+        Returns: Json
+      }
       submit_whatsapp_promotion: {
         Args: {
           p_application_id: string
