@@ -20,7 +20,7 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(() => {
     return safeStorage.getItem('landing_whatsapp_positioning') === 'true';
   });
-  const [settingLoaded, setSettingLoaded] = useState(true);
+  const [settingLoaded, setSettingLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -40,12 +40,12 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
       .maybeSingle())
       .then(({ data, error }) => {
         if (mounted) {
-          if (!error && data && data.value !== null) {
-            const isEnabled = data.value === 'true';
+          if (!error) {
+            const isEnabled = data?.value === 'true';
             setWhatsappPositioning(isEnabled);
             safeStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
           } else {
-            // Use cached value if exists, otherwise default to OFF
+            // If fetch fails, use cached localStorage value if exists, otherwise default to OFF
             const cached = safeStorage.getItem('landing_whatsapp_positioning');
             setWhatsappPositioning(cached === 'true');
           }

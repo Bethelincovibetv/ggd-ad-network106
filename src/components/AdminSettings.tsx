@@ -38,8 +38,20 @@ const AdminSettings = () => {
   const [newPromo, setNewPromo] = useState({ title: '', description: '', image_url: '', type: 'flyer', target_audience: 'users', is_active: true });
   const [editingPromo, setEditingPromo] = useState<any | null>(null);
   const [uploadingPromoReplace, setUploadingPromoReplace] = useState(false);
+  const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false);
 
-  useEffect(() => { fetchSettings(); fetchPromos(); }, []);
+  useEffect(() => {
+    fetchSettings();
+    fetchPromos();
+    const syncHandler = (e: any) => {
+      const enabled = e?.detail?.enabled;
+      if (typeof enabled === 'boolean') {
+        setSettings(p => ({ ...p, landing_whatsapp_positioning: enabled ? 'true' : 'false' }));
+      }
+    };
+    window.addEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+    return () => window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+  }, []);
 
   const fetchSettings = async () => {
     try {
@@ -111,8 +123,6 @@ const AdminSettings = () => {
         'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template',
         'default_business_website_template',
         'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours',
-        // Landing WhatsApp Promoter Positioning
-        'landing_whatsapp_positioning',
         // Founder & CEO Profile Keys
         'show_ceo_on_about_page',
         'ceo_name', 'ceo_role', 'ceo_location', 'ceo_background', 'ceo_focus',
@@ -288,22 +298,39 @@ const AdminSettings = () => {
   };
 
   const toggleWhatsappPositioning = async (checked: boolean) => {
+    if (savingWhatsappToggle) return;
     const val = checked ? 'true' : 'false';
     const previousVal = settings.landing_whatsapp_positioning || 'false';
 
     // Optimistically set toggle
     setSettings(p => ({ ...p, landing_whatsapp_positioning: val }));
+    setSavingWhatsappToggle(true);
+
+    const getValidToken = async (forceRefresh = false): Promise<string | null> => {
+      if (forceRefresh) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        return refreshed?.session?.access_token || null;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+      const isNearExpiry = expiresAtMs > 0 && expiresAtMs < Date.now() + 60_000;
+      if (!session?.access_token || isNearExpiry) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session?.access_token) {
+          return refreshed.session.access_token;
+        }
+      }
+      return session?.access_token || getLocalSession()?.access_token || null;
+    };
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
+      let token = await getValidToken(false);
       if (!token) {
         throw new Error('Active session token missing. Please sign in as administrator.');
       }
 
       // 1. Authoritative server function call verifying admin role from session token
-      const resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+      let resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,6 +338,21 @@ const AdminSettings = () => {
         },
         body: JSON.stringify({ enabled: checked }),
       });
+
+      // Retry once with refreshed token if session just expired
+      if (resp.status === 401) {
+        const freshToken = await getValidToken(true);
+        if (freshToken) {
+          resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${freshToken}`,
+            },
+            body: JSON.stringify({ enabled: checked }),
+          });
+        }
+      }
 
       const data = await resp.json().catch(() => ({ success: false, error: 'Server communication error' }));
 
@@ -323,6 +365,8 @@ const AdminSettings = () => {
         localStorage.setItem('landing_whatsapp_positioning', val);
       } catch {}
 
+      window.dispatchEvent(new CustomEvent('ggd-whatsapp-positioning-changed', { detail: { enabled: checked } }));
+
       toast.success(checked 
         ? 'WhatsApp Promoter Positioning enabled on Landing Page!' 
         : 'WhatsApp Promoter Positioning disabled (Default general copy restored)'
@@ -331,6 +375,8 @@ const AdminSettings = () => {
       // Revert toggle state, show error toast, do not write to localStorage
       setSettings(p => ({ ...p, landing_whatsapp_positioning: previousVal }));
       toast.error('Failed to change setting: ' + (err.message || 'Permission denied'));
+    } finally {
+      setSavingWhatsappToggle(false);
     }
   };
 
@@ -417,6 +463,7 @@ const AdminSettings = () => {
                 <Switch
                   checked={settings.landing_whatsapp_positioning === 'true'}
                   onCheckedChange={toggleWhatsappPositioning}
+                  disabled={savingWhatsappToggle}
                   className="data-[state=checked]:bg-emerald-600 cursor-pointer"
                 />
               </div>

@@ -46,9 +46,18 @@ const AdminFeatureToggles = () => {
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string>('');
   const [applyingPreset, setApplyingPreset] = useState(false);
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(false);
+  const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false);
 
   useEffect(() => {
     checkAdminAndFetch();
+    const syncHandler = (e: any) => {
+      const enabled = e?.detail?.enabled;
+      if (typeof enabled === 'boolean') {
+        setWhatsappPositioning(enabled);
+      }
+    };
+    window.addEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+    return () => window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
   }, []);
 
   const checkAdminAndFetch = async () => {
@@ -96,22 +105,39 @@ const AdminFeatureToggles = () => {
   };
 
   const toggleWhatsappPositioning = async (checked: boolean) => {
+    if (savingWhatsappToggle) return;
     const val = checked ? 'true' : 'false';
     const previousState = whatsappPositioning;
 
     // Optimistically update toggle state
     setWhatsappPositioning(checked);
+    setSavingWhatsappToggle(true);
+
+    const getValidToken = async (forceRefresh = false): Promise<string | null> => {
+      if (forceRefresh) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        return refreshed?.session?.access_token || null;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+      const isNearExpiry = expiresAtMs > 0 && expiresAtMs < Date.now() + 60_000;
+      if (!session?.access_token || isNearExpiry) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session?.access_token) {
+          return refreshed.session.access_token;
+        }
+      }
+      return session?.access_token || getLocalSession()?.access_token || null;
+    };
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
+      let token = await getValidToken(false);
       if (!token) {
         throw new Error('Active session token missing. Please sign in as administrator.');
       }
 
       // 1. Authoritative server function call verifying admin role from session token
-      const resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+      let resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,6 +145,21 @@ const AdminFeatureToggles = () => {
         },
         body: JSON.stringify({ enabled: checked }),
       });
+
+      // Retry once with refreshed token if session just expired
+      if (resp.status === 401) {
+        const freshToken = await getValidToken(true);
+        if (freshToken) {
+          resp = await fetch('/api/admin/settings/landing_whatsapp_positioning', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${freshToken}`,
+            },
+            body: JSON.stringify({ enabled: checked }),
+          });
+        }
+      }
 
       const data = await resp.json().catch(() => ({ success: false, error: 'Server communication error' }));
 
@@ -131,6 +172,8 @@ const AdminFeatureToggles = () => {
         localStorage.setItem('landing_whatsapp_positioning', val);
       } catch {}
 
+      window.dispatchEvent(new CustomEvent('ggd-whatsapp-positioning-changed', { detail: { enabled: checked } }));
+
       toast.success(checked 
         ? 'Enable WhatsApp Promoter Positioning: ON' 
         : 'Enable WhatsApp Promoter Positioning: OFF'
@@ -139,6 +182,8 @@ const AdminFeatureToggles = () => {
       // Revert toggle state, show error toast, do not write to localStorage
       setWhatsappPositioning(previousState);
       toast.error('Failed to change setting: ' + (err.message || 'Permission denied'));
+    } finally {
+      setSavingWhatsappToggle(false);
     }
   };
 
@@ -676,6 +721,7 @@ const AdminFeatureToggles = () => {
                   <Switch
                     checked={whatsappPositioning}
                     onCheckedChange={toggleWhatsappPositioning}
+                    disabled={savingWhatsappToggle}
                     className="data-[state=checked]:bg-emerald-600 cursor-pointer"
                   />
                 </div>

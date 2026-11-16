@@ -11,6 +11,14 @@ try {
   }
 } catch {}
 
+// Normalize Supabase env vars that may contain injected whitespace/newlines
+if (process.env.VITE_SUPABASE_URL) {
+  process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL.trim();
+}
+if (process.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY.trim().replace(/\s+/g, '');
+}
+
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
@@ -69,8 +77,49 @@ let serverFeatureCache: Record<string, boolean> = {};
 let lastCacheFetchTime = 0;
 const CACHE_TTL_MS = 10000; // 10s TTL
 
-const SUPABASE_URL_DEFAULT = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
-const SUPABASE_KEY_DEFAULT = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+const FALLBACK_SUPABASE_URL = "https://sdgxpquruczhkpyhjaxn.supabase.co";
+const FALLBACK_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+
+function cleanJwtKey(raw?: string): string {
+  return (raw || '').trim().replace(/\s+/g, '');
+}
+
+function extractJwtProjectRef(jwt: string): string | null {
+  try {
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return null;
+    const decoded = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return typeof decoded?.ref === 'string' ? decoded.ref : null;
+  } catch {
+    return null;
+  }
+}
+
+function getServerSupabaseConfig(): { url: string; key: string } {
+  const rawUrl = (process.env.VITE_SUPABASE_URL || FALLBACK_SUPABASE_URL).trim();
+  const url = (!rawUrl || rawUrl.includes('placeholder') || rawUrl.includes('cilkybiebptqtuhbopyz'))
+    ? FALLBACK_SUPABASE_URL
+    : rawUrl;
+  const urlMatch = url.match(/^https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  const expectedRef = urlMatch ? urlMatch[1] : null;
+
+  const envKey = cleanJwtKey(process.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+  const keyRef = envKey ? extractJwtProjectRef(envKey) : null;
+  const isKeyValidForUrl = Boolean(
+    envKey &&
+    !envKey.includes('placeholder') &&
+    envKey.split('.').length === 3 &&
+    (!expectedRef || !keyRef || keyRef === expectedRef)
+  );
+
+  return {
+    url,
+    key: isKeyValidForUrl ? envKey : FALLBACK_SUPABASE_ANON_KEY,
+  };
+}
+
+const SUPABASE_URL_DEFAULT = getServerSupabaseConfig().url;
+const SUPABASE_KEY_DEFAULT = getServerSupabaseConfig().key;
 
 async function refreshServerFeatureToggles(): Promise<Record<string, boolean>> {
   const now = Date.now();
@@ -78,10 +127,11 @@ async function refreshServerFeatureToggles(): Promise<Record<string, boolean>> {
     return serverFeatureCache;
   }
   try {
-    const resp = await fetch(`${SUPABASE_URL_DEFAULT}/rest/v1/feature_toggles?select=feature_key,is_enabled`, {
+    const { url, key } = getServerSupabaseConfig();
+    const resp = await fetch(`${url}/rest/v1/feature_toggles?select=feature_key,is_enabled`, {
       headers: {
-        'apikey': SUPABASE_KEY_DEFAULT,
-        'Authorization': `Bearer ${SUPABASE_KEY_DEFAULT}`,
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
       },
     });
     if (resp.ok) {
@@ -198,8 +248,7 @@ async function getCandidateGeminiKeys(explicitKey?: string): Promise<string[]> {
   if (isValidApiKeyFormat(customGeminiKey)) keys.push(customGeminiKey.trim());
 
   try {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
-    const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+    const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
     const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=in.(gemini_api_key,admin_gemini_key,google_ai_key,ai_api_key)&select=*`, {
       headers: {
         'apikey': supabaseKey,
@@ -1769,7 +1818,7 @@ async function isAuthorizedAdmin(req: express.Request): Promise<boolean> {
  * Requires a cryptographically verified Supabase Auth JWT token in Authorization: Bearer <token>,
  * and verifies that the authentic user ID possesses role='admin' in user_roles or is super-admin.
  */
-async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: boolean; userId?: string; email?: string; error?: string; status: number }> {
+async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: boolean; userId?: string; email?: string; token?: string; error?: string; status: number }> {
   const superAdminEmails = [
     'goodgiftdigital@gmail.com',
     'accessa787@gmail.com',
@@ -1786,8 +1835,7 @@ async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: 
     return { isAdmin: false, error: 'Unauthorized: Session token is missing or empty.', status: 401 };
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
-  const supabaseKey = (process.env.VITE_SUPABASE_PUBLISHABLE_KEY || SUPABASE_KEY_DEFAULT).trim();
+  const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
 
   try {
     // Cryptographically verify session token against Supabase Auth
@@ -1799,6 +1847,8 @@ async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: 
     });
 
     if (!userRes.ok) {
+      const errText = await userRes.text().catch(() => '');
+      console.warn('[verifyServerAdminToken] /auth/v1/user rejected token:', userRes.status, errText);
       return { isAdmin: false, error: 'Unauthorized: Session token is invalid or expired. Please sign in again.', status: 401 };
     }
 
@@ -1811,21 +1861,21 @@ async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: 
     }
 
     if (superAdminEmails.includes(userEmail)) {
-      return { isAdmin: true, userId, email: userEmail, status: 200 };
+      return { isAdmin: true, userId, email: userEmail, token, status: 200 };
     }
 
     // Verify admin role in user_roles table
     const roleRes = await fetch(`${supabaseUrl}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=role`, {
       headers: {
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
+        'Authorization': `Bearer ${token}`,
       },
     });
 
     if (roleRes.ok) {
       const roles = await roleRes.json();
       if (Array.isArray(roles) && roles.length > 0) {
-        return { isAdmin: true, userId, email: userEmail, status: 200 };
+        return { isAdmin: true, userId, email: userEmail, token, status: 200 };
       }
     }
 
@@ -1840,8 +1890,7 @@ async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: 
 // ----------------------------------------------------
 app.get('/api/app-settings/landing_whatsapp_positioning', async (req, res) => {
   try {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
-    const supabaseKey = (process.env.VITE_SUPABASE_PUBLISHABLE_KEY || SUPABASE_KEY_DEFAULT).trim();
+    const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
 
     const resp = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.landing_whatsapp_positioning&select=value`, {
       headers: {
@@ -1861,10 +1910,13 @@ app.get('/api/app-settings/landing_whatsapp_positioning', async (req, res) => {
       });
     }
 
-    return res.json({
+    const errText = await resp.text().catch(() => '');
+    console.warn('[app-settings GET] Supabase returned non-OK:', resp.status, errText);
+    return res.status(502).json({
       key: 'landing_whatsapp_positioning',
       value: 'false',
       isEnabled: false,
+      error: `Upstream database returned ${resp.status}`,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -1877,10 +1929,10 @@ app.get('/api/app-settings/landing_whatsapp_positioning', async (req, res) => {
 // ----------------------------------------------------
 app.post('/api/admin/settings/landing_whatsapp_positioning', async (req, res) => {
   const authCheck = await verifyServerAdminToken(req);
-  if (!authCheck.isAdmin) {
+  if (!authCheck.isAdmin || !authCheck.token) {
     return res.status(authCheck.status).json({
       success: false,
-      error: authCheck.error,
+      error: authCheck.error || 'Unauthorized',
     });
   }
 
@@ -1888,26 +1940,60 @@ app.post('/api/admin/settings/landing_whatsapp_positioning', async (req, res) =>
     const isEnabled = req.body?.enabled === true || req.body?.value === 'true' || req.body?.value === true;
     const valString = isEnabled ? 'true' : 'false';
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://sdgxpquruczhkpyhjaxn.supabase.co";
-    const supabaseKey = (process.env.VITE_SUPABASE_PUBLISHABLE_KEY || SUPABASE_KEY_DEFAULT).trim();
+    const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
+    const serviceRoleKey = cleanJwtKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const writeAuthToken = serviceRoleKey || authCheck.token;
 
-    const writeRes = await fetch(`${supabaseUrl}/rest/v1/app_settings`, {
+    // 1. Try PATCH first if row already exists (cleanly satisfies UPDATE RLS policy)
+    const patchRes = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.landing_whatsapp_positioning`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${writeAuthToken}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify({
+        value: valString,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+
+    if (patchRes.ok) {
+      const patchedRows = await patchRes.json().catch(() => []);
+      if (Array.isArray(patchedRows) && patchedRows.length > 0) {
+        return res.json({
+          success: true,
+          key: 'landing_whatsapp_positioning',
+          value: valString,
+          isEnabled,
+          updatedBy: authCheck.email,
+        });
+      }
+    }
+
+    // 2. Otherwise UPSERT via POST with on_conflict=key
+    const writeRes = await fetch(`${supabaseUrl}/rest/v1/app_settings?on_conflict=key`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
+        'Authorization': `Bearer ${writeAuthToken}`,
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
+        'Prefer': 'resolution=merge-duplicates,return=representation',
       },
       body: JSON.stringify({
         key: 'landing_whatsapp_positioning',
         value: valString,
+        updated_at: new Date().toISOString(),
       }),
     });
 
     if (!writeRes.ok) {
       const errText = await writeRes.text();
-      return res.status(500).json({ success: false, error: `Database write error: ${errText}` });
+      return res.status(writeRes.status === 401 || writeRes.status === 403 ? writeRes.status : 500).json({
+        success: false,
+        error: `Database write error: ${errText}`,
+      });
     }
 
     return res.json({

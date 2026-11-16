@@ -941,34 +941,34 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                         const isInProgress = a.status === 'accepted' || a.status === 'assigned';
 
                         return (
-                          <Card key={a.id} className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-                            <CardContent className="p-4 space-y-3">
+                          <Card key={a.id} className="border border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card w-full max-w-full">
+                            <CardContent className="p-3.5 sm:p-4 space-y-3 w-full min-w-0">
                               {/* Header: Promoter Profile + Status */}
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-3">
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10 border border-border">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-3 min-w-0">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <Avatar className="h-10 w-10 border border-border shrink-0">
                                     <AvatarImage src={a._profile?.avatar_url} />
                                     <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-bold text-xs">
                                       {(a._profile?.display_name || a._profile?.email || 'P').slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div>
-                                    <div className="flex items-center gap-1.5">
-                                      <p className="text-xs font-bold text-foreground">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="text-xs font-bold text-foreground truncate">
                                         {a._profile?.display_name || 'Promoter'}
                                       </p>
                                       {a._syndicateProfile?.ranking_score && (
-                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 dark:text-amber-400 font-semibold border-amber-500/30">
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-600 dark:text-amber-400 font-semibold border-amber-500/30 shrink-0">
                                           ★ {a._syndicateProfile.ranking_score}
                                         </Badge>
                                       )}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground">{a._profile?.email}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">{a._profile?.email}</p>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                  <Badge className={`rounded-full text-[10px] px-3 py-0.5 border-0 font-bold ${
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge className={`rounded-full text-[10px] px-3 py-0.5 border-0 font-bold shrink-0 ${
                                     isApproved ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' :
                                     isRejected ? 'bg-red-500/15 text-red-700 dark:text-red-300' :
                                     isPending ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' :
@@ -986,7 +986,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                               </div>
 
                               {/* Proof Content */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center w-full min-w-0">
                                 {/* Proof Screenshot */}
                                 <div className="md:col-span-1">
                                   {a.proof_url ? (
@@ -1015,24 +1015,24 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                 </div>
 
                                 {/* Proof Link & Meta */}
-                                <div className="md:col-span-2 space-y-2 text-xs">
+                                <div className="md:col-span-2 space-y-2 text-xs min-w-0 w-full">
                                   {a.proof_link && (
-                                    <div className="flex items-center gap-1.5 bg-secondary/30 p-2.5 rounded-xl">
-                                      <span className="text-[11px] font-semibold text-muted-foreground">Live Post Link:</span>
+                                    <div className="flex items-center gap-1.5 bg-secondary/30 p-2.5 rounded-xl min-w-0 max-w-full">
+                                      <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Live Post Link:</span>
                                       <a
                                         href={a.proof_link}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-mono truncate"
+                                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-mono truncate min-w-0 flex-1"
                                       >
-                                        <ExternalLink className="h-3 w-3" />
-                                        {a.proof_link}
+                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{a.proof_link}</span>
                                       </a>
                                     </div>
                                   )}
 
                                   {isRejected && a.rejection_reason && (
-                                    <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-2.5 text-xs text-red-700 dark:text-red-300 space-y-0.5">
+                                    <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-2.5 text-xs text-red-700 dark:text-red-300 space-y-0.5 break-words">
                                       <p className="font-bold">Rejection Reason:</p>
                                       <p className="text-[11px]">{a.rejection_reason}</p>
                                     </div>
@@ -1040,31 +1040,31 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
                                   {isApproved && (
                                     <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                                      <CheckCircle className="h-4 w-4" />
-                                      Paid ₦{Number(a.payout_amount || selectedCampaign.payout_amount || 0).toLocaleString()} to promoter
+                                      <CheckCircle className="h-4 w-4 shrink-0" />
+                                      <span>Paid ₦{Number(a.payout_amount || selectedCampaign.payout_amount || 0).toLocaleString()} to promoter</span>
                                     </div>
                                   )}
 
                                   {/* Review Actions */}
                                   {isPending && (
-                                    <div className="flex gap-2 pt-1">
+                                    <div className="flex flex-col sm:flex-row gap-2 pt-1 w-full">
                                       <Button
                                         size="sm"
                                         disabled={processingReview}
-                                        className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs rounded-xl h-10 shadow-md font-bold"
+                                        className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs rounded-xl h-10 shadow-md font-bold"
                                         onClick={() => handleApproveAssignment(a.id)}
                                       >
-                                        <CheckCircle className="h-4 w-4 mr-1.5" />
-                                        Approve & Pay (₦{Number(selectedCampaign.payout_amount || selectedCampaign.cost_per_syndicate || 0).toLocaleString()})
+                                        <CheckCircle className="h-4 w-4 mr-1.5 shrink-0" />
+                                        <span className="truncate">Approve & Pay (₦{Number(selectedCampaign.payout_amount || selectedCampaign.cost_per_syndicate || 0).toLocaleString()})</span>
                                       </Button>
                                       <Button
                                         size="sm"
                                         variant="destructive"
                                         disabled={processingReview}
-                                        className="flex-1 text-xs rounded-xl h-10 font-bold"
+                                        className="w-full sm:w-auto text-xs rounded-xl h-10 font-bold shrink-0"
                                         onClick={() => openRejectModal(a)}
                                       >
-                                        <XCircle className="h-4 w-4 mr-1.5" /> Reject Proof
+                                        <XCircle className="h-4 w-4 mr-1.5 shrink-0" /> Reject Proof
                                       </Button>
                                     </div>
                                   )}

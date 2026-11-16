@@ -56,7 +56,7 @@ const AdminPanel = () => {
   const [activeModule, setActiveModule] = useState('syndicate');
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="space-y-4 w-full max-w-full overflow-x-hidden">
       {/* Real-time Search Navigation Command Bar */}
       <div className="w-full bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs">
         <AdminRealtimeSearchBar
@@ -100,7 +100,7 @@ const AdminPanel = () => {
       </div>
 
       {/* Module Content Container */}
-      <div className="w-full">
+      <div className="w-full min-w-0 max-w-full">
         {activeModule === 'digital-products' && <AdminDigitalProductsManager />}
         {activeModule === 'vixora-admin' && <AdminVixoraManager />}
         {activeModule === 'business-agent' && <AdminBusinessAgentManager />}
