@@ -190,7 +190,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Compact Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-card border border-border shadow-xs">
         <div className="flex items-center gap-2.5">
@@ -267,9 +267,9 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
       </div>
 
       {/* Full-Width Large Campaigns Table / Mobile Card List */}
-      <Card className="border border-border shadow-xs rounded-2xl overflow-hidden bg-card">
+      <Card className="border border-border shadow-xs rounded-2xl overflow-hidden bg-card w-full max-w-full min-w-0">
         {/* Mobile View: Cards */}
-        <div className="md:hidden divide-y divide-border/60">
+        <div className="md:hidden divide-y divide-border/60 w-full min-w-0">
           {filteredCampaigns.map((camp) => {
             const settlementBase = Number(camp.total_cost || ((camp.cost_per_syndicate || 50) * (camp.max_syndicates || 1)));
             const pool = Math.round(settlementBase * (payoutPct / 100));
@@ -278,30 +278,33 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
             const payoutPerMember = explicit > 0 ? explicit : Math.max(1, Math.round(pool / slots));
 
             return (
-              <div key={camp.id} className="p-3.5 sm:p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
+              <div key={camp.id} className="p-3 sm:p-4 space-y-2.5 w-full min-w-0 overflow-hidden">
+                <div className="flex items-start justify-between gap-2.5 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     {camp.flyer_url ? (
-                      <img 
-                        src={camp.flyer_url} 
-                        alt={camp.title} 
-                        className="h-12 w-12 object-cover rounded-xl border border-border flex-shrink-0" 
-                      />
+                      <div className="w-14 h-14 aspect-square rounded-xl overflow-hidden border border-border shrink-0 bg-muted/30">
+                        <img
+                          src={camp.flyer_url}
+                          alt={camp.title}
+                          className="h-full w-full object-cover object-center block"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                     ) : (
-                      <div className="h-12 w-12 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold flex-shrink-0">
+                      <div className="w-14 h-14 aspect-square rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center font-bold shrink-0">
                         <Briefcase className="h-5 w-5" />
                       </div>
                     )}
-                    <div className="min-w-0">
-                      <p className="font-bold text-foreground text-sm truncate">{camp.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-foreground text-sm line-clamp-2 [overflow-wrap:anywhere]">{camp.title}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3 text-purple-600" />
-                        <span>{camp.campaign_date || camp.created_at?.split('T')[0]}</span>
+                        <Calendar className="h-3 w-3 text-purple-600 shrink-0" />
+                        <span className="truncate">{camp.campaign_date || camp.created_at?.split('T')[0]}</span>
                       </div>
                     </div>
                   </div>
 
-                  <Badge className={`text-[10px] font-bold flex-shrink-0 ${
+                  <Badge className={`text-[10px] font-bold shrink-0 ${
                     camp.status === 'active' ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' :
                     'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                   }`}>
@@ -310,34 +313,34 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2.5 rounded-xl">
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold block">Target State</span>
-                    <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3 text-muted-foreground" />
-                      {camp.target_state || 'Nationwide'}
+                    <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5 truncate">
+                      <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate">{camp.target_state || 'Nationwide'}</span>
                     </span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-muted-foreground uppercase font-bold block">Budget Pool</span>
-                    <span className="font-bold text-foreground mt-0.5 block">₦{settlementBase.toLocaleString()}</span>
+                    <span className="font-bold text-foreground mt-0.5 block tabular-nums truncate">₦{settlementBase.toLocaleString()}</span>
                   </div>
-                  <div className="col-span-2 flex items-center justify-between pt-1 border-t border-border/40">
+                  <div className="col-span-2 flex items-center justify-between gap-2 pt-1 border-t border-border/40">
                     <span className="text-xs text-muted-foreground">Member Payout:</span>
-                    <Badge className="bg-emerald-600 text-white font-bold text-xs">
+                    <Badge className="bg-emerald-600 text-white font-bold text-xs tabular-nums shrink-0">
                       ₦{payoutPerMember.toLocaleString()} / member
                     </Badge>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 w-full min-w-0">
+                  <div className="flex flex-wrap gap-1 min-w-0">
                     {(camp.placements || []).map((p: string) => (
                       <Badge key={p} variant="secondary" className="text-[9px] px-1.5 py-0">
                         {p}
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 ml-auto shrink-0">
                     <Button
                       size="sm"
                       variant="outline"
@@ -652,7 +655,7 @@ export const SyndicateCampaigns: React.FC<SyndicateCampaignsProps> = ({
       {/* CAMPAIGN INSPECT & SETTLEMENT DRAWER */}
       {viewingCampaign && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <Card className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-background border border-border shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden my-3 sm:my-6 mx-1 sm:mx-0">
+          <Card className="w-[calc(100vw-1rem)] max-w-4xl max-h-[92vh] flex flex-col bg-background border border-border shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden my-3 sm:my-6">
             <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-3.5 sm:p-5 text-white flex items-center justify-between gap-3 shrink-0">
               <div className="min-w-0">
                 <h3 className="font-black text-sm sm:text-lg truncate">{viewingCampaign.title}</h3>

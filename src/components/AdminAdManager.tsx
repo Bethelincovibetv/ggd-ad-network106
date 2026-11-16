@@ -347,47 +347,50 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
       ) : (
         <>
           {/* Mobile Card View (< md) */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
+          <div className="grid grid-cols-1 gap-3 md:hidden w-full min-w-0">
             {filtered.map(ad => {
               const isExp = !!ad.expires_at && new Date(ad.expires_at) < new Date();
               const statusLabel = isExp ? 'Expired' : ad.is_active ? 'Live' : !ad.approved && !ad.rejection_reason ? 'Pending' : ad.rejection_reason ? 'Rejected' : 'Paused';
               const statusVariant = isExp ? 'destructive' : ad.is_active ? 'default' : 'secondary';
               
               return (
-                <div key={ad.id} className="rounded-2xl border border-border/90 bg-card p-3.5 shadow-sm space-y-3">
-                  <div className="flex items-start gap-3">
+                <div key={ad.id} className="rounded-2xl border border-border/90 bg-card p-3 sm:p-3.5 shadow-sm space-y-3 w-full max-w-full min-w-0 overflow-hidden">
+                  <div className="flex items-start gap-3 min-w-0 w-full">
                     {ad.image_url ? (
-                      <img 
-                        loading="lazy" 
-                        src={ad.image_url} 
-                        alt="" 
-                        className="h-16 w-16 rounded-xl object-cover border border-border shrink-0 bg-muted"
-                      />
+                      <div className="w-16 h-16 aspect-square rounded-xl overflow-hidden border border-border shrink-0 bg-muted">
+                        <img
+                          loading="lazy"
+                          src={ad.image_url}
+                          alt={ad.title || ''}
+                          className="h-full w-full object-cover object-center block"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                     ) : (
-                      <div className="h-16 w-16 rounded-xl bg-muted border border-border flex items-center justify-center shrink-0 text-muted-foreground">
+                      <div className="w-16 h-16 aspect-square rounded-xl bg-muted border border-border flex items-center justify-center shrink-0 text-muted-foreground">
                         <ImageIcon className="h-6 w-6 opacity-40" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <Badge variant={statusVariant} className="text-[10px] px-2 py-0.5 font-bold">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <Badge variant={statusVariant} className="text-[10px] px-2 py-0.5 font-bold shrink-0">
                           {statusLabel}
                         </Badge>
-                        <Badge variant={ad.source === 'api' ? 'default' : 'outline'} className="text-[10px] px-1.5 py-0.5">
+                        <Badge variant={ad.source === 'api' ? 'default' : 'outline'} className="text-[10px] px-1.5 py-0.5 shrink-0">
                           {ad.source === 'api' ? '🌐 API' : '🖥️ Direct'}
                         </Badge>
                       </div>
-                      <h3 className="text-xs font-bold text-foreground line-clamp-2">{ad.title}</h3>
+                      <h3 className="text-xs font-bold text-foreground line-clamp-2 [overflow-wrap:anywhere]">{ad.title}</h3>
                       <p className="text-[10px] text-muted-foreground truncate">{ad.owner_email}</p>
                     </div>
                   </div>
 
                   {/* Stats & Metadata Strip */}
-                  <div className="grid grid-cols-3 gap-1.5 py-1 px-2 bg-muted/40 rounded-xl text-[10px] text-muted-foreground font-medium">
-                    <div>
+                  <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 bg-muted/40 rounded-xl text-[10px] text-muted-foreground font-medium tabular-nums">
+                    <div className="truncate">
                       <span className="text-foreground font-bold">{ad.impressions || 0}</span> views
                     </div>
-                    <div>
+                    <div className="truncate">
                       <span className="text-foreground font-bold">{ad.clicks || 0}</span> clicks
                     </div>
                     <div className="truncate">
@@ -404,8 +407,8 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
                   </div>
 
                   {/* Actions Bar */}
-                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-border/60">
-                    <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-border/60 w-full min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {!ad.approved && !ad.rejection_reason && (
                         <Button 
                           size="sm" 
@@ -564,7 +567,7 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
 
       {/* Ad Detail Dialog - Mobile Optimized & Scrollable */}
       <Dialog open={!!selectedAd} onOpenChange={(open) => !open && setSelectedAd(null)}>
-        <DialogContent className="w-[94vw] max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl p-4 sm:p-6 border-border bg-card shadow-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden rounded-3xl p-4 sm:p-6 border-border bg-card shadow-2xl">
           <DialogHeader className="pb-2 border-b border-border/80">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base sm:text-lg font-bold">Advertisement Details</DialogTitle>
@@ -575,14 +578,17 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
           </DialogHeader>
 
           {selectedAd && (
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4 pt-2 min-w-0">
               {selectedAd.image_url && (
-                <img 
-                  loading="lazy" 
-                  src={selectedAd.image_url} 
-                  alt={selectedAd.title} 
-                  className="w-full h-44 sm:h-52 object-cover rounded-2xl border border-border shadow-sm bg-muted" 
-                />
+                <div className="w-full aspect-[16/10] max-h-52 rounded-2xl overflow-hidden border border-border shadow-sm bg-muted">
+                  <img
+                    loading="lazy"
+                    src={selectedAd.image_url}
+                    alt={selectedAd.title}
+                    className="w-full h-full object-cover object-center block"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
               )}
 
               {selectedAd.ad_type === 'watch' && selectedAd.youtube_url && (

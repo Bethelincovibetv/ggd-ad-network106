@@ -94,6 +94,12 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   const [showResetBanksModal, setShowResetBanksModal] = useState(false);
   const [resettingBanks, setResettingBanks] = useState(false);
   const [resettingMemberId, setResettingMemberId] = useState<string | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+
+  const markImageBroken = (url?: string | null) => {
+    if (!url) return;
+    setBrokenImages(prev => (prev[url] ? prev : { ...prev, [url]: true }));
+  };
 
   useEffect(() => { fetchData(); }, []);
 
@@ -574,47 +580,49 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   const selectedCampaign = viewingTaskId ? allTasks.find(t => t.id === viewingTaskId) : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5 w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Global Pause Control */}
-      <Card className="border-amber-500/40 bg-amber-500/10 rounded-2xl shadow-xs">
-        <CardContent className="p-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+      <Card className="border-amber-500/40 bg-amber-500/10 rounded-2xl shadow-xs w-full max-w-full overflow-hidden">
+        <CardContent className="p-3 sm:p-3.5 flex items-center justify-between gap-3 w-full min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             {paused ? (
-              <PauseCircle className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0" />
+              <PauseCircle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400 shrink-0" />
             ) : (
-              <PlayCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
             )}
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-foreground truncate">
                 {paused ? 'All Syndicate Tasks Globally Paused' : 'Syndicate Network Live & Active'}
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
+              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                 {paused ? 'Promoters cannot claim new tasks until unpaused' : 'Promoters are actively claiming and submitting verified social posts'}
               </p>
             </div>
           </div>
-          <Switch checked={paused} onCheckedChange={togglePauseAll} />
+          <Switch checked={paused} onCheckedChange={togglePauseAll} className="shrink-0" />
         </CardContent>
       </Card>
 
       {/* Top Stats Overview */}
-      <div className="rounded-2xl bg-gradient-to-br from-purple-700 via-purple-800 to-indigo-900 p-5 text-white relative overflow-hidden shadow-xl">
-        <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-6 -bottom-6 h-32 w-32 rounded-full bg-fuchsia-400/20 blur-2xl" />
-        <div className="flex items-center justify-between relative">
-          <div>
-            <h3 className="text-base font-black flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-yellow-300" /> Syndicate Management Console
+      <div className="rounded-2xl bg-gradient-to-br from-purple-700 via-purple-800 to-indigo-900 p-4 sm:p-5 text-white relative overflow-hidden shadow-xl w-full max-w-full min-w-0">
+        <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-6 -bottom-6 h-32 w-32 rounded-full bg-fuchsia-400/20 blur-2xl pointer-events-none" />
+        <div className="flex items-start justify-between gap-2 relative min-w-0">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm sm:text-base font-black flex items-center gap-2 min-w-0">
+              <Megaphone className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-300 shrink-0" />
+              <span className="truncate">Syndicate Management Console</span>
             </h3>
-            <p className="text-xs text-purple-200 mt-0.5">Paid promoter network, campaigns, product details & payouts</p>
+            <p className="text-[11px] sm:text-xs text-purple-200 mt-0.5 line-clamp-2">Paid promoter network, campaigns, product details & payouts</p>
           </div>
           <Button
             size="sm"
             variant="ghost"
             onClick={fetchData}
-            className="text-white hover:bg-white/15 h-8 text-xs rounded-xl"
+            className="text-white hover:bg-white/15 h-8 px-2.5 text-xs rounded-xl shrink-0"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+            <RefreshCw className="h-3.5 w-3.5 sm:mr-1" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
 
@@ -642,8 +650,8 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
         </div>
       </div>
 
-      <Tabs defaultValue="tasks" className="space-y-4">
-        <TabsList className="w-full flex overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl bg-secondary/80 border border-border/50">
+      <Tabs defaultValue="tasks" className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+        <TabsList className="w-full max-w-full justify-start flex overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl bg-secondary/80 border border-border/50">
           <TabsTrigger value="tasks" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
             <Briefcase className="h-3.5 w-3.5 mr-1.5" /> Campaigns ({allTasks.length})
           </TabsTrigger>
@@ -662,7 +670,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
         </TabsList>
 
         {/* CAMPAIGNS & PRODUCT DETAILS TAB */}
-        <TabsContent value="tasks" className="space-y-4">
+        <TabsContent value="tasks" className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
           {viewingTaskId && selectedCampaign ? (
             /* ================= EXPANDED PRODUCT DETAILS & SUBMISSIONS VIEW (STRICT MOBILE-FRIENDLY) ================= */
             <div className="w-full max-w-full overflow-x-hidden min-w-0 space-y-4 animate-in fade-in duration-200">
@@ -706,68 +714,72 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
               </div>
 
               {/* RICH PRODUCT DETAILS CARD */}
-              <Card className="border-purple-500/40 bg-card rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
-                <div className="bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900 p-4 sm:p-5 text-white w-full max-w-full">
-                  <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 items-start w-full min-w-0">
-                    {/* Product Flyer Image */}
-                    {selectedCampaign.flyer_url ? (
+              <Card className="border-purple-500/40 bg-card rounded-2xl overflow-hidden shadow-lg w-full max-w-full min-w-0">
+                <div className="bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900 p-3.5 sm:p-5 text-white w-full max-w-full overflow-hidden">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-center sm:items-start w-full min-w-0">
+                    {/* Product Flyer Image - balanced locked frame irrespective of natural image size */}
+                    {selectedCampaign.flyer_url && !brokenImages[selectedCampaign.flyer_url] ? (
                       <div
                         onClick={() => {
                           setImageModalUrl(selectedCampaign.flyer_url);
                           setImageModalTitle(selectedCampaign.title);
                         }}
-                        className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border-2 border-white/25 bg-black/20 shrink-0 cursor-pointer group relative shadow-md self-center sm:self-start"
+                        className="w-full max-w-[220px] aspect-[16/10] sm:w-28 sm:h-28 sm:aspect-square rounded-xl overflow-hidden border-2 border-white/25 bg-black/25 shrink-0 cursor-pointer group relative shadow-md"
                       >
                         <img
                           src={selectedCampaign.flyer_url}
                           alt={selectedCampaign.title}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                          className="h-full w-full object-cover object-center block group-hover:scale-105 transition-transform"
                           referrerPolicy="no-referrer"
+                          onError={() => markImageBroken(selectedCampaign.flyer_url)}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Eye className="h-6 w-6 text-white" />
                         </div>
                       </div>
                     ) : (
-                      <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border border-white/20 bg-white/10 shrink-0 flex items-center justify-center text-purple-200 self-center sm:self-start">
-                        <ImageIcon className="h-10 w-10 opacity-60" />
+                      <div className="w-24 h-20 sm:w-28 sm:h-28 rounded-xl border border-white/20 bg-white/10 shrink-0 flex items-center justify-center text-purple-200">
+                        <ImageIcon className="h-9 w-9 opacity-60" />
                       </div>
                     )}
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0 w-full space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-base sm:text-lg font-black text-white break-words">{selectedCampaign.title}</h2>
-                        <Badge className={`text-[10px] font-bold border-0 shadow-xs ${
-                          selectedCampaign.status === 'active' ? 'bg-emerald-500 text-white' :
-                          selectedCampaign.status === 'completed' ? 'bg-blue-500 text-white' :
-                          'bg-amber-500 text-white'
-                        }`}>
-                          {selectedCampaign.status?.toUpperCase() || 'ACTIVE'}
-                        </Badge>
-                        <span className="text-[10px] font-mono opacity-80 bg-black/30 px-2 py-0.5 rounded-md">
-                          ID: {selectedCampaign.id.substring(0, 8)}
-                        </span>
+                      <div className="flex items-start justify-between gap-2 flex-wrap min-w-0">
+                        <h2 className="text-sm sm:text-lg font-black text-white [overflow-wrap:anywhere] min-w-0 flex-1">{selectedCampaign.title}</h2>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge className={`text-[10px] font-bold border-0 shadow-xs ${
+                            selectedCampaign.status === 'active' ? 'bg-emerald-500 text-white' :
+                            selectedCampaign.status === 'completed' ? 'bg-blue-500 text-white' :
+                            'bg-amber-500 text-white'
+                          }`}>
+                            {selectedCampaign.status?.toUpperCase() || 'ACTIVE'}
+                          </Badge>
+                          <span className="text-[10px] font-mono opacity-80 bg-black/30 px-2 py-0.5 rounded-md">
+                            ID: {selectedCampaign.id.substring(0, 8)}
+                          </span>
+                        </div>
                       </div>
 
-                      <p className="text-xs text-purple-100 leading-relaxed break-words">
+                      <p className="text-xs text-purple-100 leading-relaxed [overflow-wrap:anywhere] min-w-0">
                         {selectedCampaign.description || 'No description provided.'}
                       </p>
 
                       {/* Destination / Target link */}
                       {selectedCampaign.share_link && (
-                        <div className="flex items-center gap-1.5 pt-1.5 min-w-0 max-w-full flex-wrap">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 pt-1.5 min-w-0 max-w-full">
                           <span className="text-[11px] font-bold text-purple-200 shrink-0">Target URL:</span>
-                          <div className="flex items-center gap-1.5 bg-black/30 border border-white/15 px-2.5 py-1 rounded-xl min-w-0 max-w-full">
+                          <div className="flex items-center gap-1.5 bg-black/30 border border-white/15 px-2.5 py-1 rounded-xl w-full sm:w-auto max-w-full min-w-0 overflow-hidden">
                             <a
                               href={selectedCampaign.share_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-yellow-300 hover:underline font-mono truncate max-w-[180px] sm:max-w-xs md:max-w-md break-all"
+                              className="text-xs text-yellow-300 hover:underline font-mono truncate min-w-0 flex-1"
                             >
                               {selectedCampaign.share_link}
                             </a>
                             <button
+                              type="button"
                               onClick={() => copyShareLink(selectedCampaign.share_link)}
                               className="text-purple-200 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 active:scale-95 cursor-pointer"
                               title="Copy link"
@@ -874,7 +886,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                 </div>
 
                 {/* TACTILE CATEGORY BUTTONS: Submission Status (Active styled buttons, not ordinary text) */}
-                <div className="w-full overflow-x-auto no-scrollbar py-1">
+                <div className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar py-1">
                   <div className="flex items-center gap-2 min-w-max">
                     {[
                       { key: 'all', label: 'All Proofs', icon: Eye, count: taskAssignments.length, color: 'from-purple-600 to-indigo-600' },
@@ -989,19 +1001,20 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center w-full min-w-0">
                                 {/* Proof Screenshot */}
                                 <div className="md:col-span-1">
-                                  {a.proof_url ? (
+                                  {a.proof_url && !brokenImages[a.proof_url] ? (
                                     <div
                                       onClick={() => {
                                         setImageModalUrl(a.proof_url);
                                         setImageModalTitle(`Proof from ${a._profile?.display_name || 'Promoter'}`);
                                       }}
-                                      className="group relative rounded-xl overflow-hidden border border-border/60 bg-muted/20 aspect-video flex items-center justify-center cursor-pointer shadow-xs"
+                                      className="group relative rounded-xl overflow-hidden border border-border/60 bg-muted/20 aspect-video max-h-48 w-full flex items-center justify-center cursor-pointer shadow-xs"
                                     >
                                       <img
                                         src={a.proof_url}
                                         alt="Proof Screenshot"
-                                        className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                        className="h-full w-full object-cover object-center block group-hover:scale-105 transition-transform"
                                         referrerPolicy="no-referrer"
+                                        onError={() => markImageBroken(a.proof_url)}
                                       />
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <Eye className="h-6 w-6 text-white" />
@@ -1109,7 +1122,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
               </div>
 
               {/* TACTILE CATEGORY BUTTONS: Status Filters (Shown as tactile active buttons, not ordinary text) */}
-              <div className="w-full overflow-x-auto no-scrollbar py-1">
+              <div className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar py-1">
                 <div className="flex items-center gap-2 min-w-max">
                   {[
                     { key: 'all', label: 'All Campaigns', icon: Briefcase, count: allTasks.length, color: 'from-purple-600 to-indigo-600' },
@@ -1144,7 +1157,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
               </div>
 
               {/* TACTILE SOCIAL PLATFORM CATEGORY BUTTONS */}
-              <div className="w-full overflow-x-auto no-scrollbar py-1">
+              <div className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar py-1">
                 <div className="flex items-center gap-1.5 min-w-max">
                   <span className="text-[10px] font-bold uppercase text-muted-foreground mr-1 shrink-0">Category / Platform:</span>
                   {[
@@ -1221,74 +1234,81 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                 }
 
                 return (
-                  <div className="space-y-3 w-full min-w-0">
+                  <div className="space-y-3 w-full max-w-full min-w-0">
                     {filteredCampaigns.map(task => {
                       const isActive = task.status === 'active' || !task.status;
                       const pendingProofs = task._stats?.pending || 0;
+                      const hasValidFlyer = Boolean(task.flyer_url) && !brokenImages[task.flyer_url];
 
                       return (
                         <Card
                           key={task.id}
-                          className="border border-border/70 shadow-xs hover:shadow-md transition-all rounded-2xl overflow-hidden bg-card w-full max-w-full"
+                          className="border border-border/70 shadow-xs hover:shadow-md transition-all rounded-2xl overflow-hidden bg-card w-full max-w-full min-w-0"
                         >
-                          <CardContent className="p-3.5 sm:p-5 w-full min-w-0">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
-                              {/* Product Thumbnail & Core Info */}
-                              <div className="flex items-start gap-3 sm:gap-3.5 flex-1 min-w-0 w-full">
-                                {task.flyer_url ? (
+                          <CardContent className="p-3 sm:p-4 w-full max-w-full min-w-0 overflow-hidden">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full min-w-0">
+                              {/* Left: Balanced Fixed-Ratio Thumbnail + Core Copy */}
+                              <div className="flex items-start gap-3 flex-1 min-w-0 w-full">
+                                {hasValidFlyer ? (
                                   <div
                                     onClick={() => {
                                       setImageModalUrl(task.flyer_url);
                                       setImageModalTitle(task.title);
                                     }}
-                                    className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 cursor-pointer group relative shadow-xs"
+                                    className="w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-xl overflow-hidden border border-border/60 bg-muted/30 shrink-0 cursor-pointer group relative shadow-xs"
                                   >
                                     <img
                                       src={task.flyer_url}
                                       alt={task.title}
-                                      className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                      className="h-full w-full object-cover object-center block group-hover:scale-105 transition-transform"
                                       referrerPolicy="no-referrer"
+                                      onError={() => markImageBroken(task.flyer_url)}
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                       <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 flex items-center justify-center border border-purple-500/20">
-                                    <Megaphone className="h-7 w-7" />
+                                  <div className="w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 flex items-center justify-center border border-purple-500/20">
+                                    <Megaphone className="h-6 w-6 sm:h-7 sm:w-7" />
                                   </div>
                                 )}
 
                                 <div className="flex-1 min-w-0 space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-sm font-bold text-foreground truncate max-w-full">{task.title}</h3>
-                                    <Badge className={`text-[9px] font-bold border-0 shadow-xs ${
+                                  <div className="flex items-start justify-between gap-2 min-w-0">
+                                    <h3 className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 [overflow-wrap:anywhere] min-w-0 flex-1">
+                                      {task.title}
+                                    </h3>
+                                    <Badge className={`text-[9px] font-bold border-0 shadow-xs shrink-0 ${
                                       isActive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' :
                                       task.status === 'completed' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' :
                                       'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                                     }`}>
                                       {task.status?.toUpperCase() || 'ACTIVE'}
                                     </Badge>
-                                    {pendingProofs > 0 && (
-                                      <Badge className="bg-red-500 text-white text-[9px] font-black border-0 animate-pulse">
-                                        {pendingProofs} Proofs To Review
-                                      </Badge>
-                                    )}
                                   </div>
 
-                                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed break-words">
+                                  {pendingProofs > 0 && (
+                                    <div className="flex items-center">
+                                      <Badge className="bg-red-500 text-white text-[9px] font-black border-0">
+                                        {pendingProofs} Proofs To Review
+                                      </Badge>
+                                    </div>
+                                  )}
+
+                                  <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 leading-snug [overflow-wrap:anywhere] min-w-0">
                                     {task.description}
                                   </p>
 
-                                  {/* Channel tags & Location */}
-                                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
+                                  {/* Desktop inline metadata (compact grid shown below on mobile) */}
+                                  <div className="hidden sm:flex flex-wrap items-center gap-1.5 pt-1 text-[10px] min-w-0">
                                     {(task.placements || []).map((p: string) => (
                                       <span key={p} className="bg-secondary px-2 py-0.5 rounded-md font-semibold text-foreground">
                                         {p.replace(/_/g, ' ')}
                                       </span>
                                     ))}
                                     {task.target_state && (
-                                      <span className="text-muted-foreground flex items-center gap-0.5">
+                                      <span className="text-muted-foreground flex items-center gap-0.5 shrink-0">
                                         <MapPin className="h-3 w-3 text-purple-600" /> {task.target_state}
                                       </span>
                                     )}
@@ -1299,8 +1319,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                     )}
                                   </div>
 
-                                  {/* Budget & Slots Bar */}
-                                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 text-xs">
+                                  <div className="hidden sm:flex flex-wrap items-center gap-3 pt-1 text-xs tabular-nums">
                                     <span className="font-bold text-foreground">
                                       ₦{Number(task.total_cost || 0).toLocaleString()} budget
                                     </span>
@@ -1314,21 +1333,69 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
                                 </div>
                               </div>
 
-                              {/* Action Buttons: strictly mobile-friendly */}
-                              <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
+                              {/* Mobile Packaged Metadata & Financial Strip */}
+                              <div className="sm:hidden space-y-2 w-full min-w-0">
+                                <div className="grid grid-cols-3 gap-1.5 bg-secondary/40 rounded-xl p-2 text-center border border-border/40">
+                                  <div className="min-w-0">
+                                    <p className="text-[9px] uppercase font-bold text-muted-foreground truncate">Budget</p>
+                                    <p className="text-xs font-black text-foreground tabular-nums truncate">
+                                      ₦{Number(task.total_cost || 0).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="min-w-0 border-x border-border/50 px-1">
+                                    <p className="text-[9px] uppercase font-bold text-muted-foreground truncate">Per Post</p>
+                                    <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
+                                      ₦{Number(task.payout_amount || task.cost_per_syndicate || 0).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[9px] uppercase font-bold text-muted-foreground truncate">Slots</p>
+                                    <p className="text-xs font-black text-foreground tabular-nums truncate">
+                                      {task._stats?.total || 0}/{task.max_syndicates || '∞'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] min-w-0 w-full">
+                                  {(task.placements || []).slice(0, 3).map((p: string) => (
+                                    <span key={p} className="bg-secondary px-1.5 py-0.5 rounded-md font-semibold text-foreground max-w-full truncate">
+                                      {p.replace(/_/g, ' ')}
+                                    </span>
+                                  ))}
+                                  {(task.placements || []).length > 3 && (
+                                    <span className="bg-secondary px-1.5 py-0.5 rounded-md font-semibold text-muted-foreground">
+                                      +{task.placements.length - 3}
+                                    </span>
+                                  )}
+                                  {task.target_state && (
+                                    <span className="text-muted-foreground inline-flex items-center gap-0.5 shrink-0">
+                                      <MapPin className="h-3 w-3 text-purple-600" /> {task.target_state}
+                                    </span>
+                                  )}
+                                  {task._businessProfile && (
+                                    <span className="text-muted-foreground truncate max-w-full">
+                                      • {task._businessProfile.display_name || task._businessProfile.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Action Buttons: mobile-packaged touch targets */}
+                              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
                                 <Button
                                   size="sm"
                                   onClick={() => viewTaskSubmissions(task.id)}
-                                  className="flex-1 md:flex-none h-9 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm active:scale-95 cursor-pointer"
+                                  className="flex-1 min-w-[140px] md:flex-none h-9 px-3.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm active:scale-95 cursor-pointer"
                                 >
-                                  <Eye className="h-3.5 w-3.5 mr-1.5" /> View Product & Proofs
+                                  <Eye className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                                  <span className="truncate">View Product & Proofs</span>
                                 </Button>
 
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => toggleCampaignStatus(task)}
-                                  className="h-9 px-3 rounded-xl text-xs font-semibold active:scale-95 cursor-pointer"
+                                  className="h-9 px-3.5 rounded-xl text-xs font-semibold active:scale-95 cursor-pointer shrink-0"
                                 >
                                   {isActive ? 'Pause' : 'Resume'}
                                 </Button>
@@ -1815,26 +1882,26 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* LIGHTBOX / IMAGE ZOOM MODAL */}
       <Dialog open={!!imageModalUrl} onOpenChange={open => !open && setImageModalUrl(null)}>
-        <DialogContent className="max-w-2xl p-2 rounded-2xl bg-black/95 border-border/40 text-white">
-          <div className="flex justify-between items-center px-3 py-2 border-b border-white/10">
-            <h4 className="text-xs font-bold truncate">{imageModalTitle || 'Image Preview'}</h4>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-2xl p-2.5 sm:p-3 rounded-2xl bg-black/95 border-border/40 text-white overflow-hidden">
+          <div className="flex justify-between items-center gap-2 px-2 py-2 border-b border-white/10 min-w-0">
+            <h4 className="text-xs font-bold truncate min-w-0 flex-1">{imageModalTitle || 'Image Preview'}</h4>
             {imageModalUrl && (
               <a
                 href={imageModalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+                className="text-xs text-blue-400 hover:underline flex items-center gap-1 shrink-0"
               >
                 <ExternalLink className="h-3 w-3" /> Full View
               </a>
             )}
           </div>
           {imageModalUrl && (
-            <div className="p-2 flex items-center justify-center max-h-[75vh] overflow-auto">
+            <div className="p-2 flex items-center justify-center max-h-[70vh] w-full overflow-hidden">
               <img
                 src={imageModalUrl}
                 alt="Enlarged"
-                className="max-h-[70vh] w-auto object-contain rounded-lg"
+                className="max-h-[65vh] max-w-full w-auto h-auto object-contain rounded-lg block mx-auto"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -1844,7 +1911,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* PROOF REJECTION MODAL */}
       <Dialog open={!!rejectingAssignment} onOpenChange={open => !open && setRejectingAssignment(null)}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base text-destructive flex items-center gap-2">
               <AlertCircle className="h-5 w-5" /> Reject Promoter Proof
@@ -1905,7 +1972,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* SUSPEND SYNDICATE MEMBER MODAL */}
       <Dialog open={!!suspendingSyndicate} onOpenChange={open => !open && setSuspendingSyndicate(null)}>
-        <DialogContent className="max-w-sm rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base text-destructive flex items-center gap-2">
               <Ban className="h-5 w-5" /> Suspend Syndicate Member
@@ -1941,7 +2008,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* WITHDRAWAL REJECTION MODAL */}
       <Dialog open={!!rejectingWithdrawal} onOpenChange={open => !open && setRejectingWithdrawal(null)}>
-        <DialogContent className="max-w-sm rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base text-destructive flex items-center gap-2">
               <XCircle className="h-5 w-5" /> Reject Withdrawal Request
@@ -1977,7 +2044,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* REASSIGN TASK CONFIRM MODAL */}
       <Dialog open={!!reassignAssignmentId} onOpenChange={open => !open && setReassignAssignmentId(null)}>
-        <DialogContent className="max-w-sm rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2">
               <RotateCw className="h-5 w-5 text-amber-500" /> Release Slot for Reassignment?
@@ -2000,7 +2067,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
 
       {/* RESET ALL SYNDICATE BANKS CONFIRMATION MODAL */}
       <Dialog open={showResetBanksModal} onOpenChange={open => !open && !resettingBanks && setShowResetBanksModal(false)}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" /> Reset All Syndicate Member Banks?

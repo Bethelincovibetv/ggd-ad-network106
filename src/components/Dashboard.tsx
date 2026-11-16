@@ -1336,7 +1336,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
             </div>
           </header>
 
-          <main className={`flex-1 px-3 sm:px-4 py-4 ${activeTab === 'feed' || activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto`}>
+          <main className={`flex-1 min-w-0 px-3 sm:px-4 py-4 ${activeTab === 'feed' || activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto overflow-x-hidden`}>
             {isPremium && (
               <PremiumRenewalBanner
                 expiresAt={premiumExpiresAt}

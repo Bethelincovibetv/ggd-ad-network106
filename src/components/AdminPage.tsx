@@ -389,9 +389,9 @@ const AdminPage = () => {
 
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
-        <div className="w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-5">
+        <div className="w-full max-w-[1700px] min-w-0 mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-4 sm:space-y-5 overflow-x-hidden">
           {/* Top Real-time Navigation Command Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 shadow-xs w-full min-w-0">
             <div className="flex-1 min-w-0">
               <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-none w-full" />
             </div>
@@ -405,19 +405,19 @@ const AdminPage = () => {
 
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
-            <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3`}>
-              <div className="flex items-center gap-3">
-                <activeItem.icon className="h-6 w-6 text-white drop-shadow" />
-                <div>
-                  <h1 className="text-base md:text-xl font-black drop-shadow">{activeItem.label}</h1>
-                  <p className="text-xs text-white/80">{activeItem.sublabel}</p>
+            <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3 w-full min-w-0 overflow-hidden`}>
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <activeItem.icon className="h-6 w-6 text-white drop-shadow shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-base md:text-xl font-black drop-shadow truncate">{activeItem.label}</h1>
+                  <p className="text-xs text-white/80 truncate">{activeItem.sublabel}</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Render Active Content */}
-          <div className="w-full min-w-0">
+          <div className="w-full min-w-0 max-w-full overflow-x-hidden">
             {renderContent()}
           </div>
         </div>
