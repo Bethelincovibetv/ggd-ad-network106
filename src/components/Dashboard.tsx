@@ -23,6 +23,7 @@ import SlideCarousel from "@/components/SlideCarousel";
 import TaskList from "@/components/TaskList";
 import SupportPage from "@/components/SupportPage";
 import SideNavMenu from "@/components/SideNavMenu";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BusinessTaskCreator from "@/components/BusinessTaskCreator";
@@ -1350,7 +1351,9 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
                 onUpgrade={() => handleTabChange('premium')}
               />
             )}
-            {renderContent()}
+            <ErrorBoundary resetKey={activeTab} sectionName="Dashboard Section" inline>
+              {renderContent()}
+            </ErrorBoundary>
           </main>
 
           {activeTab !== 'feed' && activeTab !== 'directory' && (

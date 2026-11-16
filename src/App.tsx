@@ -1,6 +1,6 @@
-import { lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,20 +15,57 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Feature } from "@/lib/featureRegistry";
 
-const AdminPage = lazy(() => import("./components/AdminPage"));
-const BusinessDetailPage = lazy(() => import("./pages/BusinessDetailPage"));
-const UserProfilePublicPage = lazy(() => import("./pages/UserProfilePublicPage"));
-const RedirectPage = lazy(() => import("./pages/RedirectPage"));
-const SyndicateRegister = lazy(() => import("./pages/SyndicateRegister"));
-const SharePreviewPage = lazy(() => import("./pages/SharePreviewPage"));
-const ProductDetailPage = lazy(() => import("./pages/ProductDetailPage"));
-const IndustryPage = lazy(() => import("./pages/IndustryPage"));
-const NotificationsDedicatedPage = lazy(() => import("./pages/NotificationsDedicatedPage"));
-const GuideDedicatedPage = lazy(() => import("./pages/GuideDedicatedPage"));
-const SupportDedicatedPage = lazy(() => import("./pages/SupportDedicatedPage"));
-const VixoraCreatorPage = lazy(() => import("./pages/VixoraCreatorPage"));
-const RedeemAirtimePage = lazy(() => import("./pages/RedeemAirtimePage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+/**
+ * Retries dynamic chunk imports on transient network/cache failures so navigating
+ * to lazy-loaded routes (including Admin Portal) never shows a false page error.
+ */
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  importer: () => Promise<{ default: T }>,
+  chunkName: string
+) {
+  return lazy(async () => {
+    const reloadKey = `ggd_chunk_retry_${chunkName}`;
+    try {
+      const mod = await importer();
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage?.removeItem(reloadKey);
+        }
+      } catch {}
+      return mod;
+    } catch (err) {
+      // Retry once immediately in case of transient network blip
+      try {
+        return await importer();
+      } catch {
+        // Reload once if a new build invalidated old hashed chunks
+        try {
+          if (typeof window !== "undefined" && !window.sessionStorage?.getItem(reloadKey)) {
+            window.sessionStorage?.setItem(reloadKey, "1");
+            window.location.reload();
+            return await new Promise<never>(() => {});
+          }
+        } catch {}
+        throw err;
+      }
+    }
+  });
+}
+
+const AdminPage = lazyWithRetry(() => import("./components/AdminPage"), "AdminPage");
+const BusinessDetailPage = lazyWithRetry(() => import("./pages/BusinessDetailPage"), "BusinessDetailPage");
+const UserProfilePublicPage = lazyWithRetry(() => import("./pages/UserProfilePublicPage"), "UserProfilePublicPage");
+const RedirectPage = lazyWithRetry(() => import("./pages/RedirectPage"), "RedirectPage");
+const SyndicateRegister = lazyWithRetry(() => import("./pages/SyndicateRegister"), "SyndicateRegister");
+const SharePreviewPage = lazyWithRetry(() => import("./pages/SharePreviewPage"), "SharePreviewPage");
+const ProductDetailPage = lazyWithRetry(() => import("./pages/ProductDetailPage"), "ProductDetailPage");
+const IndustryPage = lazyWithRetry(() => import("./pages/IndustryPage"), "IndustryPage");
+const NotificationsDedicatedPage = lazyWithRetry(() => import("./pages/NotificationsDedicatedPage"), "NotificationsDedicatedPage");
+const GuideDedicatedPage = lazyWithRetry(() => import("./pages/GuideDedicatedPage"), "GuideDedicatedPage");
+const SupportDedicatedPage = lazyWithRetry(() => import("./pages/SupportDedicatedPage"), "SupportDedicatedPage");
+const VixoraCreatorPage = lazyWithRetry(() => import("./pages/VixoraCreatorPage"), "VixoraCreatorPage");
+const RedeemAirtimePage = lazyWithRetry(() => import("./pages/RedeemAirtimePage"), "RedeemAirtimePage");
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"), "NotFound");
 
 const queryClient = new QueryClient();
 
@@ -51,6 +88,15 @@ const FeatureRoute = ({ feature, element }: { feature: string; element: React.Re
   return <>{element}</>;
 };
 
+const RouteErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  return (
+    <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+      {children}
+    </ErrorBoundary>
+  );
+};
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -59,13 +105,15 @@ const App = () => (
           <CallProvider>
             <Toaster />
             <Sonner />
-            <Suspense fallback={<RouteFallback />}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/index" element={<Index />} />
-                <Route path="/dashboard" element={<Index />} />
-                <Route path="/auth" element={<Index />} />
-                <Route path="/admin" element={<AdminPage />} />
+            <RouteErrorBoundary>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/index" element={<Index />} />
+                  <Route path="/dashboard" element={<Index />} />
+                  <Route path="/auth" element={<Index />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/*" element={<AdminPage />} />
 
                 {/* Direct App Tab Destinations */}
                 <Route path="/inbox" element={<Index initialTab="inbox" />} />
@@ -153,10 +201,11 @@ const App = () => (
                   />
                 ))}
 
-                {/* Catch-All */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                  {/* Catch-All */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </RouteErrorBoundary>
 
             {/* Floating GGD AI Assistant / Support Widget (gated by ggd_ai_chat) */}
             <Feature name="ggd_ai_chat">

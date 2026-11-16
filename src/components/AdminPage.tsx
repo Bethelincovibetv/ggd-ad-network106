@@ -31,9 +31,11 @@ import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { getCurrentUser } from "@/services/authService";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
-import { Package } from "lucide-react";
+import { Package, AlertTriangle, RefreshCw } from "lucide-react";
 
 interface NavGroup {
   title: string;
@@ -108,20 +110,46 @@ const AdminPage = () => {
   const [syndicateProps, setSyndicateProps] = useState<{ initialCampaignId?: string; initialTab?: any }>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeSection] });
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/'); return; }
-      const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+  const verifyAdminAccess = async () => {
+    setLoading(true);
+    setAdminCheckError(null);
+    try {
+      const user = await getCurrentUser();
+      if (!user) {
+        navigate('/');
+        return;
+      }
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+
+      if (error) {
+        setAdminCheckError(error.message || 'Could not verify admin permissions.');
+        setLoading(false);
+        return;
+      }
+
       const hasAdmin = roles?.some(r => r.role === 'admin');
-      if (!hasAdmin) { navigate('/'); return; }
+      if (!hasAdmin) {
+        navigate('/');
+        return;
+      }
       setIsAdmin(true);
       setLoading(false);
-    };
-    checkAdmin();
+    } catch (err: any) {
+      setAdminCheckError(err?.message || 'Unable to verify admin portal access.');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    verifyAdminAccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   // Sync with URL query parameters (e.g. ?section=syndicate&tab=verification&id=...)
@@ -168,6 +196,30 @@ const AdminPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (adminCheckError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">
+        <div className="max-w-md w-full bg-card border border-border rounded-2xl p-6 text-center space-y-4 shadow-xl">
+          <div className="h-12 w-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-black">Admin Portal Verification Failed</h2>
+            <p className="text-xs text-muted-foreground">{adminCheckError}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/')} className="flex-1 h-9 text-xs rounded-xl font-bold">
+              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Back Home
+            </Button>
+            <Button onClick={verifyAdminAccess} className="flex-1 h-9 text-xs rounded-xl font-bold bg-orange-600 hover:bg-orange-700 text-white">
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -393,7 +445,9 @@ const AdminPage = () => {
 
           {/* Render Active Content */}
           <div className="w-full min-w-0 max-w-full overflow-x-hidden">
-            {renderContent()}
+            <ErrorBoundary resetKey={activeSection} sectionName={activeItem?.label || 'Admin Section'} inline>
+              {renderContent()}
+            </ErrorBoundary>
           </div>
         </div>
       </main>

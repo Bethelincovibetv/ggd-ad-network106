@@ -24,8 +24,12 @@ import nodemailer from 'nodemailer';
 import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
 import { registerAirtimeRoutes } from './src/server/airtimeRoutes';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const resolvedDirname =
+  typeof __dirname !== 'undefined'
+    ? __dirname
+    : (typeof import.meta !== 'undefined' && import.meta.url
+        ? path.dirname(fileURLToPath(import.meta.url))
+        : process.cwd());
 
 const app = express();
 
@@ -3601,8 +3605,8 @@ app.use(async (req, res, next) => {
 function getDistPaths() {
   const candidates = [
     path.resolve(process.cwd(), 'dist'),
-    path.resolve(__dirname, 'dist'),
-    path.resolve(__dirname),
+    path.resolve(resolvedDirname, 'dist'),
+    path.resolve(resolvedDirname),
     path.resolve(process.cwd(), 'build'),
   ];
   for (const dir of candidates) {
@@ -3640,16 +3644,15 @@ async function startServer() {
     // Serve production static assets from the resolved dist folder
     app.use(express.static(distPath));
 
-    // SPA fallback: Route all non-API GET requests to index.html
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api')) {
+    // SPA fallback: Route all non-API GET requests to index.html (Express 5 compatible)
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api')) {
         return next();
       }
       if (fs.existsSync(indexHtmlPath)) {
-        res.sendFile(indexHtmlPath);
-      } else {
-        res.status(404).send('Frontend bundle (index.html) not found in build directory. Run npm run build first.');
+        return res.sendFile(indexHtmlPath);
       }
+      return res.status(404).send('Frontend bundle (index.html) not found in build directory. Run npm run build first.');
     });
   } else {
     // Development mode: Mount Vite middleware with HMR attached to the HTTP server
