@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
 import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
+import TaskProofSubmitDialog from "@/components/taskproof/TaskProofSubmitDialog";
+import TaskProofReviewList from "@/components/taskproof/TaskProofReviewList";
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
 
 interface TaskListProps {
@@ -39,6 +41,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<{ task: any; sharedTo?: string } | null>(null);
+  const [proofTask, setProofTask] = useState<any | null>(null);
+  const [reviewTask, setReviewTask] = useState<any | null>(null);
+  const [myProofs, setMyProofs] = useState<Record<string, { status: string; reason?: string | null }>>({});
   const [myShortLinks, setMyShortLinks] = useState<any[]>([]);
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
@@ -194,6 +199,14 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const { data: comps } = await supabase.from('task_completions').select('task_id').eq('user_id', user.id);
     const completedIds = (comps || []).map(c => c.task_id);
     setCompletions(completedIds);
+    await callRpc('auto_approve_expired_task_proofs', {});
+    const { data: proofs } = await (supabase.from as any)('task_proof_submissions')
+      .select('task_id, status, rejection_reason, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+    const pm: Record<string, { status: string; reason?: string | null }> = {};
+    (proofs || []).forEach((p: any) => { pm[p.task_id] = { status: p.status, reason: p.rejection_reason }; });
+    setMyProofs(pm);
   };
 
   const toggleTaskActive = async (task: any) => {
@@ -362,6 +375,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const startVerification = (task: any, platformKey: string) => {
     openShare(task, platformKey);
     setShareTarget(null);
+
+    // Community/advertiser tasks: earner must upload proof; credits paid after review
+    if (!task.is_official) {
+      setTimeout(() => setProofTask(task), 600);
+      return;
+    }
 
     setVerifyingTaskId(task.id);
     toast.info("⏳ Sharing... Verifying in 15 seconds. Stay on the share page!", { duration: 15000 });
@@ -1123,9 +1142,24 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   );
                 })}
               </div>
-              <p className="text-[10px] text-orange-500 text-center font-medium">⏳ You'll earn credits 15s after sharing.</p>
+              <p className="text-[10px] text-orange-500 text-center font-medium">{shareTarget.task.is_official ? "⏳ You'll earn credits 15s after sharing." : "📸 After sharing, upload a screenshot as proof to earn."}</p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <TaskProofSubmitDialog
+        task={proofTask}
+        onClose={() => setProofTask(null)}
+        onSubmitted={(id) => setMyProofs(prev => ({ ...prev, [id]: { status: 'pending' } }))}
+      />
+      <Dialog open={!!reviewTask} onOpenChange={(o) => { if (!o) { setReviewTask(null); fetchTasks(); } }}>
+        <DialogContent className="max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">Proofs for "{reviewTask?.title}"</DialogTitle>
+            <DialogDescription className="text-xs">Approve to pay the earner. Proofs not reviewed within 48 hours are approved automatically.</DialogDescription>
+          </DialogHeader>
+          {reviewTask && <TaskProofReviewList taskId={reviewTask.id} />}
         </DialogContent>
       </Dialog>
 
@@ -1192,9 +1226,20 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   </div>
 
                   {isOwner ? (
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full shrink-0">
-                      {task.completions_count || 0}/{task.max_completions || '∞'} done
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                        {task.completions_count || 0}/{task.max_completions || '∞'} done
+                      </span>
+                      {!isYouTube && (
+                        <Button size="sm" variant="outline" className="h-8 text-xs rounded-full" onClick={() => setReviewTask(task)}>
+                          Review proofs
+                        </Button>
+                      )}
+                    </div>
+                  ) : !completed && myProofs[task.id]?.status === 'pending' ? (
+                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2.5 py-1 rounded-full shrink-0">Under review ⏳</span>
+                  ) : !completed && !isYouTube && myProofs[task.id]?.status !== 'rejected' && verifyingTaskId === null && shareTarget === null && false ? (
+                    null
                   ) : isVerifying ? (
                     <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full shrink-0">
                       <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
@@ -1220,6 +1265,11 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                   )}
                 </div>
 
+                {!isOwner && !completed && myProofs[task.id]?.status === 'rejected' && (
+                  <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-2.5 py-1.5">
+                    Proof rejected: {myProofs[task.id]?.reason || 'not valid'}. Share again and submit new proof.
+                  </p>
+                )}
                 {/* Description Text Box with 1-Click Copy */}
                 {task.description && (
                   <div className="bg-muted/40 rounded-xl p-2.5 border border-border/40 space-y-1.5">
