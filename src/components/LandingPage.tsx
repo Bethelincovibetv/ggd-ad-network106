@@ -6,7 +6,7 @@ import {
   Globe, Zap, BarChart3, Shield, Users, Smartphone, Star, MessageCircle, Menu, X, ArrowRight, 
   Briefcase, TrendingUp, Target, Building2, Store, Megaphone, Sparkles, Coins, CheckCircle2,
   Share2, Eye, PenTool, Layers, ShoppingBag, BadgeCheck, MapPin,
-  ExternalLink, Phone, ArrowUpRight, Check, Mail
+  ExternalLink, Phone, ArrowUpRight, Check, Mail, DollarSign, AlertTriangle
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import YouTubeEmbed from "@/components/YouTubeEmbed";
@@ -488,6 +488,141 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
           )}
         </div>
       </div>
+
+      {/* The Problem We Are Solving Section */}
+      <section id="problem-solving" className="relative border-b border-[#2a2a2a] bg-[#121212] py-16 md:py-20 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(230,126,34,0.08),transparent_55%)] pointer-events-none" />
+        <div className="container mx-auto px-4 relative z-10 max-w-6xl space-y-10">
+          {/* Editorial Section Header */}
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 pb-8 border-b border-[#262626]">
+            <div className="space-y-3 max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e67e22]">
+                The Problem We Are Solving
+              </p>
+              <h2 className="text-3xl sm:text-4xl md:text-[2.6rem] font-black text-white leading-[1.12] tracking-tight [text-wrap:balance]">
+                Built to Fix What Holds Nigerian Businesses &amp; Earners Back
+              </h2>
+            </div>
+            <p className="text-sm md:text-base text-gray-300 max-w-md leading-relaxed">
+              Foreign ad tools drain Naira budgets, daily online time rarely pays, and growth tools are scattered across disconnected apps. GGD replaces all three bottlenecks with one local network.
+            </p>
+          </div>
+
+          {/* 3 Problem -> Solution Rows */}
+          <div className="space-y-5">
+            {[
+              {
+                num: "01",
+                problemTitle: "High Dollar Ad Costs",
+                problemDesc:
+                  "Foreign ad platforms bill in USD with volatile exchange rates, bank card rejections, and inflated click costs that price out small and growing Nigerian businesses.",
+                problemIcon: DollarSign,
+                solutionTitle: "Peer-to-Peer Advertising in Naira",
+                solutionDesc:
+                  "Fund campaigns directly in Naira or earned GGG credits. Real Nigerian promoters share your offer across WhatsApp Status, groups, and geo-targeted state feeds—backed by verified screenshot proof.",
+                solutionHighlight: "Pay locally for real human views",
+                solutionIcon: Users,
+              },
+              {
+                num: "02",
+                problemTitle: "Lack of Easy Daily Online Income",
+                problemDesc:
+                  "Millions of Nigerians spend hours every day on WhatsApp and social media without a straightforward, reliable way to turn their active reach into consistent daily cash or credits.",
+                problemIcon: Smartphone,
+                solutionTitle: "Verified Credit Tasks & Daily Payouts",
+                solutionDesc:
+                  "Accept clear promotional tasks, share business flyers and captions with your audience, upload proof, and earn GGG credits and Naira payouts directly in your wallet.",
+                solutionHighlight: "Turn daily social reach into steady income",
+                solutionIcon: Coins,
+              },
+              {
+                num: "03",
+                problemTitle: "Painful App Fragmentation",
+                problemDesc:
+                  "Business owners waste hours bouncing between separate apps for product storefronts, banner ads, AI copywriting, link tracking, community marketing, and promoter payments.",
+                problemIcon: AlertTriangle,
+                solutionTitle: "One Unified Growth Ecosystem",
+                solutionDesc:
+                  "GGD brings Business Directory storefronts, Commercial Banner Ads, Credit Tasks, Syndicate Promoters, BlogMate AI, Smart Links, and dual Naira/Credit wallets together in one connected platform.",
+                solutionHighlight: "Promote, track, and earn in one workspace",
+                solutionIcon: Layers,
+              },
+            ].map((item) => {
+              const ProblemIcon = item.problemIcon;
+              const SolutionIcon = item.solutionIcon;
+              return (
+                <div
+                  key={item.num}
+                  className="grid lg:grid-cols-12 rounded-2xl border border-[#2a2a2a] bg-[#181818] overflow-hidden shadow-lg hover:border-[#e67e22]/40 transition-colors"
+                >
+                  {/* Left: The Problem */}
+                  <div className="lg:col-span-5 p-6 md:p-7 flex flex-col justify-between gap-4 border-b lg:border-b-0 lg:border-r border-[#262626] bg-[#161616]">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold tracking-wider text-gray-500 tabular-nums">
+                          {item.num} · THE CHALLENGE
+                        </span>
+                        <div className="h-9 w-9 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                          <ProblemIcon className="h-4 w-4" />
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-bold text-white leading-snug">
+                        {item.problemTitle}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">
+                        {item.problemDesc}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: The GGD Solution */}
+                  <div className="lg:col-span-7 p-6 md:p-7 bg-gradient-to-br from-[#201913] via-[#1b1917] to-[#171717] flex flex-col justify-between gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold tracking-wider text-[#e67e22]">
+                          GGD SOLUTION
+                        </span>
+                        <div className="h-9 w-9 rounded-xl bg-[#e67e22]/15 border border-[#e67e22]/30 text-[#e67e22] flex items-center justify-center shrink-0">
+                          <SolutionIcon className="h-4 w-4" />
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-bold text-white leading-snug">
+                        {item.solutionTitle}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                        {item.solutionDesc}
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>{item.solutionHighlight}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Section Decision CTA */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-[#e67e22]/30 bg-gradient-to-r from-[#221912] via-[#1c1a18] to-[#191919] p-6">
+            <div className="text-center sm:text-left space-y-1">
+              <p className="text-base sm:text-lg font-bold text-white">
+                Ready to advertise in Naira or earn daily on GGD?
+              </p>
+              <p className="text-xs sm:text-sm text-gray-400">
+                Create your free account to launch peer-powered campaigns or start completing verified credit tasks.
+              </p>
+            </div>
+            <Button
+              onClick={onGetStarted}
+              size="lg"
+              className="w-full sm:w-auto shrink-0 bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white font-bold px-7 py-5 rounded-xl shadow-lg shadow-[#e67e22]/20"
+            >
+              Get Started Free <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
 
       {/* Stats Bar */}
       {whatsappPositioning ? (
