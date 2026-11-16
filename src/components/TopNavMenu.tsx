@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare, Smartphone } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
@@ -19,11 +19,12 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, 
 
   const items = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] }] : []),
-    ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed'] }] : []),
+    ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed', 'community'] }] : []),
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] }] : []),
     ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
+    ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime', matches: ['redeem', 'redeem-airtime', 'airtime'] }] : []),
     ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') ? [{
       id: isSyndicate ? 'syndicate' : 'syndicate-join',
       icon: Users,

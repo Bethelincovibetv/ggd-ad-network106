@@ -95,7 +95,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
       });
     });
 
-    if (isEnabled("tasks")) {
+    if (isEnabled("credit_tasks")) {
       const { data: tasks } = await supabase
         .from("tasks")
         .select("id, title, created_at, is_active, completions_count, max_completions, reward_credits")
@@ -115,7 +115,7 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
       });
     }
 
-    if (isEnabled("syndicate")) {
+    if (isEnabled("syndicate_core")) {
       const { data: st } = await supabase
         .from("syndicate_tasks")
         .select("id, title, created_at, status, max_syndicates, total_cost")
@@ -263,9 +263,9 @@ const CampaignsHub: React.FC<{ onNavigate?: (tab: string) => void }> = ({ onNavi
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([
           { id: "all", label: "All Campaigns" },
-          ...((isEnabled("banner_ads") || isEnabled("ads")) ? [{ id: "ad", label: "Banner Adverts" }] : []),
-          ...(isEnabled("tasks") ? [{ id: "task", label: "Earn Tasks" }] : []),
-          ...(isEnabled("syndicate") ? [{ id: "syndicate", label: "Syndicate Campaigns" }] : []),
+          ...(isEnabled("banner_ads") ? [{ id: "ad", label: "Banner Adverts" }] : []),
+          ...(isEnabled("credit_tasks") ? [{ id: "task", label: "Earn Tasks" }] : []),
+          ...(isEnabled("syndicate_core") ? [{ id: "syndicate", label: "Syndicate Campaigns" }] : []),
         ] as { id: Kind | "all"; label: string }[]).map(k => (
           <button
             key={k.id}

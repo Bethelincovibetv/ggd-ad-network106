@@ -43,7 +43,7 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
   onNavigate,
 }) => {
   const { isEnabled } = useFeatureToggles();
-  const isRedeemEnabled = isEnabled('airtime_redeem');
+  const isRedeemEnabled = isEnabled('credit_airtime_redeem');
 
   const [user, setUser] = useState<any>(null);
   const [credits, setCredits] = useState<number>(propCredits ?? 0);

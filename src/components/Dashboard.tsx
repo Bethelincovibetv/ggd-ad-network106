@@ -154,9 +154,11 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get('tab');
       if (tabParam) return tabParam === 'ads-create' ? 'campaigns' : tabParam;
-      const path = window.location.pathname.replace(/^\//, '');
+      const path = window.location.pathname.replace(/^\//, '').replace(/\/+$/, '');
       if (['inbox', 'chat', 'messages'].includes(path)) return 'inbox';
-      if (['wallet', 'feed', 'tasks', 'campaigns', 'directory', 'marketplace', 'favorites', 'my-business', 'support'].includes(path)) return path;
+      if (['community', 'feed'].includes(path)) return 'feed';
+      if (['redeem', 'redeem-airtime', 'airtime'].includes(path)) return 'redeem-airtime';
+      if (['wallet', 'tasks', 'campaigns', 'directory', 'marketplace', 'favorites', 'my-business', 'support'].includes(path)) return path;
       const saved = safeStorage.getItem('ggd_active_tab');
       if (saved) return saved;
     }
@@ -175,39 +177,51 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   };
   const { isEnabled } = useFeatureToggles();
 
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const isTabAllowed = (tab: string): boolean => {
     if (['ads-create', 'campaigns', 'advertising'].includes(tab)) {
-      return isEnabled('banner_ads') || isEnabled('ads');
+      return isEnabled('banner_ads');
     }
     if (['tasks'].includes(tab)) {
-      return isEnabled('credit_tasks') && isEnabled('tasks');
+      return isEnabled('credit_tasks');
     }
     if (['redeem', 'redeem-airtime', 'airtime'].includes(tab)) {
-      return isEnabled('credit_airtime_redeem') && isEnabled('airtime_redeem');
+      return isEnabled('credit_airtime_redeem');
     }
-    if (['feed'].includes(tab)) {
-      return isEnabled('community_feed') && isEnabled('community');
+    if (['feed', 'community'].includes(tab)) {
+      return isEnabled('community_feed');
     }
     if (['inbox', 'chat', 'messages'].includes(tab)) {
-      return isEnabled('chat_and_calls') || isEnabled('p2p_chat') || isEnabled('nav_inbox');
+      return isEnabled('chat_and_calls') || isEnabled('nav_inbox');
     }
     if (['vixora', 'vixora-creator', 'creator', 'vixora-studio', 'studio'].includes(tab)) {
-      return isEnabled('vixora_ai_studio') && isEnabled('vixora_ai');
+      return isEnabled('vixora_ai_studio');
     }
     if (['directory'].includes(tab)) {
-      return isEnabled('business_directory') && isEnabled('directory');
+      return isEnabled('business_directory');
     }
     if (['marketplace'].includes(tab)) {
-      return isEnabled('marketing_apps_marketplace') && isEnabled('marketplace');
+      return isEnabled('marketing_apps_marketplace');
     }
     if (['smart-links'].includes(tab)) {
       return isEnabled('link_shortener');
     }
     if (['premium'].includes(tab)) {
-      return isEnabled('premium_vip_upgrade') && isEnabled('premium_upgrade');
+      return isEnabled('premium_vip_upgrade');
     }
     if (['upgrade'].includes(tab)) {
       return isEnabled('co_owner_upgrade');
+    }
+    if (['contact-gain', 'contacts', 'contact_gain'].includes(tab)) {
+      return isEnabled('contact_gain');
+    }
+    if (['favorites', 'saved', 'wishlist', 'bookmarks'].includes(tab)) {
+      return isEnabled('save_favorite');
     }
     return true;
   };
@@ -402,11 +416,13 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       const isSyndicateMember = isSyndicate || profile?.syndicate_status === 'active';
       if (isSyndicateMember) {
         setIsSyndicate(true);
-        // Automatic Login Redirect: registered Syndicate members land straight on Syndicate Portal dashboard
+        // Automatic Login Redirect: registered Syndicate members land straight on Syndicate Portal only on root/default entry
         if (typeof window !== 'undefined') {
           const urlParams = new URLSearchParams(window.location.search);
-          const hasExplicitTabInUrl = urlParams.has('tab');
-          if (!hasExplicitTabInUrl) {
+          const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+          const isDefaultEntryPath = ['/', '/index', '/dashboard', '/auth'].includes(pathname);
+          const hasExplicitDestination = Boolean(initialTab) || urlParams.has('tab') || !isDefaultEntryPath;
+          if (!hasExplicitDestination) {
             handleTabChange('syndicate');
           }
         }
@@ -1007,18 +1023,22 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
         );
 
       case 'tasks':
-        return <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} />;
+        return isEnabled('credit_tasks')
+          ? <TaskList onCreditsUpdate={setCredits} credits={credits} onNavigate={handleTabChange} />
+          : disabled;
 
       case 'redeem':
       case 'redeem-airtime':
       case 'airtime':
-        return (
-          <CreditRedeemAirtime
-            currentCredits={credits}
-            onCreditsUpdated={(c) => setCredits(c)}
-            onNavigate={handleTabChange}
-          />
-        );
+        return isEnabled('credit_airtime_redeem')
+          ? (
+            <CreditRedeemAirtime
+              currentCredits={credits}
+              onCreditsUpdated={(c) => setCredits(c)}
+              onNavigate={handleTabChange}
+            />
+          )
+          : disabled;
 
       case 'fund-credits':
       case 'transfer':
@@ -1035,10 +1055,10 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
         );
 
       case 'premium':
-        return isEnabled('premium_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        return isEnabled('premium_vip_upgrade') ? <PremiumUpgrade onUpgraded={handleUpgraded} credits={credits} isPremium={isPremium} /> : <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
 
       case 'marketplace':
-        return isEnabled('marketing_apps') && isEnabled('marketplace') ? <MarketingAppsMarketplace /> : disabled;
+        return isEnabled('marketing_apps_marketplace') ? <MarketingAppsMarketplace /> : disabled;
 
       case 'share-earn':
       case 'promo':
@@ -1111,7 +1131,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       case 'vixora-creator':
       case 'creator':
       case 'vixora-studio':
-        if (!isEnabled('vixora_ai') && !isAdmin) {
+        if (!isEnabled('vixora_ai_studio') && !isAdmin) {
           return disabled;
         }
         return (
@@ -1133,26 +1153,26 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       case 'saved':
       case 'wishlist':
       case 'bookmarks':
-        return (isEnabled('save_favorite') || isEnabled('favorites')) ? <FavoritesPage onNavigateTab={handleTabChange} /> : disabled;
+        return isEnabled('save_favorite') ? <FavoritesPage onNavigateTab={handleTabChange} /> : disabled;
 
       case 'directory':
-        return isEnabled('directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
+        return isEnabled('business_directory') ? <BusinessDirectory isBusiness={isBusiness} /> : disabled;
 
       case 'syndicate':
-        if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isEnabled('syndicate_core')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
         if (!isSyndicate && !isAdmin) return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
         return <SyndicateDashboard onNavigate={handleTabChange} />;
 
       case 'syndicate-join':
-        return isEnabled('syndicate') ? <SyndicateApplicationForm onApplied={() => initDashboard()} /> : disabled;
+        return isEnabled('syndicate_core') ? <SyndicateApplicationForm onApplied={() => initDashboard()} /> : disabled;
 
       case 'syndicate-wallet':
-        if (!isEnabled('syndicate')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
+        if (!isEnabled('syndicate_core')) return <div className="text-center py-8 text-muted-foreground">This feature is currently disabled.</div>;
         if (!isSyndicate && !isAdmin) return <SyndicateApplicationForm onApplied={() => initDashboard()} />;
         return <SyndicateWallet />;
 
       case 'upgrade':
-        return isEnabled('premium_upgrade') || isEnabled('co_owner_upgrade')
+        return isEnabled('premium_vip_upgrade') || isEnabled('co_owner_upgrade')
           ? <UpgradePage onUpgraded={handleUpgraded} credits={credits} onNavigate={setActiveTab} />
           : disabled;
 
@@ -1233,7 +1253,8 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
         );
 
       case 'feed':
-        return isEnabled('community') ? <CommunityFeed onNavigate={handleTabChange} /> : disabled;
+      case 'community':
+        return isEnabled('community_feed') ? <CommunityFeed onNavigate={handleTabChange} /> : disabled;
 
       case 'contact-gain':
       case 'contacts':
@@ -1337,7 +1358,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
             </div>
           </header>
 
-          <main className={`flex-1 min-w-0 px-3 sm:px-4 py-4 ${activeTab === 'feed' || activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto overflow-x-hidden`}>
+          <main className={`flex-1 min-w-0 px-3 sm:px-4 py-4 ${activeTab === 'directory' ? 'pb-12 md:pb-24' : 'pb-40 md:pb-24'} max-w-5xl w-full mx-auto overflow-x-hidden`}>
             {isPremium && (
               <PremiumRenewalBanner
                 expiresAt={premiumExpiresAt}
@@ -1356,7 +1377,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
             </ErrorBoundary>
           </main>
 
-          {activeTab !== 'feed' && activeTab !== 'directory' && (
+          {activeTab !== 'directory' && (
             <MobileFooterMenu
               activeTab={activeTab}
               onTabChange={handleTabChange}

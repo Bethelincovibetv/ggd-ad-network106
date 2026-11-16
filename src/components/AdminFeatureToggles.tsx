@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Settings2, Loader2, Search, CheckCircle2, ShieldAlert, Sparkles,
-  Smartphone, RotateCcw, AlertTriangle, Lock, Eye, History, Check
+  Smartphone, RotateCcw, AlertTriangle, Lock, Eye, History, Check, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,10 @@ import {
   MENU_TOGGLE_REGISTRY,
   MENU_TOGGLE_MAP,
   MenuSection,
+  FEATURE_LEGACY_ALIASES,
+  FEATURE_NAV_KEYS,
+  getRelatedFeatureKeys,
+  isFeatureEnabled,
 } from "@/lib/featureRegistry";
 import { Menu, Layers } from "lucide-react";
 
@@ -35,18 +39,40 @@ interface FeatureRow {
   description: string | null;
 }
 
-const AdminFeatureToggles = () => {
+interface AdminFeatureTogglesProps {
+  initialSearch?: string;
+  initialTab?: 'features' | 'menus';
+}
+
+const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
+  initialSearch,
+  initialTab,
+}) => {
   const [features, setFeatures] = useState<FeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch || '');
   const [selectedGroup, setSelectedGroup] = useState<string>('All');
   const [selectedMenuSection, setSelectedMenuSection] = useState<string>('All');
-  const [activeTab, setActiveTab] = useState<'features' | 'menus'>('features');
+  const [activeTab, setActiveTab] = useState<'features' | 'menus'>(initialTab || 'features');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string>('');
   const [applyingPreset, setApplyingPreset] = useState(false);
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(false);
   const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false);
+
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearch(initialSearch);
+      setSelectedGroup('All');
+      setSelectedMenuSection('All');
+    }
+  }, [initialSearch]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   useEffect(() => {
     checkAdminAndFetch();
@@ -187,6 +213,19 @@ const AdminFeatureToggles = () => {
     }
   };
 
+  const getDeduplicatedMasterDefinitions = () => {
+    const map = new Map<string, { key: string; label: string; description: string; defaultState: boolean }>();
+    FEATURE_REGISTRY.forEach(t => {
+      map.set(t.key, { key: t.key, label: t.label, description: t.description, defaultState: t.defaultState });
+    });
+    MENU_TOGGLE_REGISTRY.forEach(m => {
+      if (!map.has(m.key)) {
+        map.set(m.key, { key: m.key, label: m.label, description: m.description, defaultState: m.defaultState });
+      }
+    });
+    return Array.from(map.values());
+  };
+
   const fetchFeatures = async () => {
     try {
       const { data } = await supabase
@@ -197,11 +236,8 @@ const AdminFeatureToggles = () => {
       let currentFeatures: FeatureRow[] = (data as FeatureRow[]) || [];
       const existingKeys = new Set(currentFeatures.map(f => f.feature_key));
 
-      // Build defaults from our master FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
-      const allMasterDefinitions = [
-        ...FEATURE_REGISTRY.map(t => ({ key: t.key, label: t.label, description: t.description, defaultState: t.defaultState })),
-        ...MENU_TOGGLE_REGISTRY.map(m => ({ key: m.key, label: m.label, description: m.description, defaultState: m.defaultState })),
-      ];
+      // Build deduplicated defaults from FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
+      const allMasterDefinitions = getDeduplicatedMasterDefinitions();
 
       const missingToggles = allMasterDefinitions
         .filter(t => !existingKeys.has(t.key))
@@ -213,23 +249,24 @@ const AdminFeatureToggles = () => {
         }));
 
       if (missingToggles.length > 0) {
-        const { data: inserted } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from('feature_toggles')
-          .insert(missingToggles)
+          .upsert(missingToggles, { onConflict: 'feature_key' })
           .select('*');
 
-        if (inserted) {
-          currentFeatures = [...currentFeatures, ...(inserted as FeatureRow[])];
+        if (!insertError && inserted) {
+          const insertedKeys = new Set((inserted as FeatureRow[]).map(r => r.feature_key));
+          currentFeatures = [
+            ...currentFeatures.filter(r => !insertedKeys.has(r.feature_key)),
+            ...(inserted as FeatureRow[]),
+          ];
         }
       }
 
       setFeatures(currentFeatures);
     } catch (err) {
-      // Offline fallback using FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
-      const allMasterDefinitions = [
-        ...FEATURE_REGISTRY.map(t => ({ key: t.key, label: t.label, description: t.description, defaultState: t.defaultState })),
-        ...MENU_TOGGLE_REGISTRY.map(m => ({ key: m.key, label: m.label, description: m.description, defaultState: m.defaultState })),
-      ];
+      // Offline fallback using deduplicated FEATURE_REGISTRY and MENU_TOGGLE_REGISTRY
+      const allMasterDefinitions = getDeduplicatedMasterDefinitions();
       setFeatures(
         allMasterDefinitions.map((t, idx) => ({
           id: `default-${idx}`,
@@ -266,56 +303,147 @@ const AdminFeatureToggles = () => {
       return;
     }
 
-    const def = FEATURE_REGISTRY_MAP[feature.feature_key];
-    if (def && !def.canDisable) {
-      toast.info(`${def.label} is a protected core system feature and cannot be disabled.`);
+    const relatedKeys = getRelatedFeatureKeys(feature.feature_key);
+    const protectedDef = relatedKeys.map(k => FEATURE_REGISTRY_MAP[k]).find(d => d && !d.canDisable);
+    if (protectedDef) {
+      toast.info(`${protectedDef.label} is a protected core system feature and cannot be disabled.`);
       return;
     }
 
     const nextState = !feature.is_enabled;
-    // Optimistic local state update
-    setFeatures(prev =>
-      prev.map(f => (f.id === feature.id || f.feature_key === feature.feature_key ? { ...f, is_enabled: nextState } : f))
-    );
-    setFeatureToggleLocally(feature.feature_key, nextState);
+    const previousFeatures = features;
 
-    // Also update any paired aliases
-    if (feature.feature_key === 'syndicate_portal') setFeatureToggleLocally('nav_syndicate', nextState);
-    if (feature.feature_key === 'nav_syndicate') setFeatureToggleLocally('syndicate_portal', nextState);
-    if (feature.feature_key === 'banner_ads') setFeatureToggleLocally('ads', nextState);
-    if (feature.feature_key === 'credit_tasks') setFeatureToggleLocally('tasks', nextState);
-    if (feature.feature_key === 'community_feed') setFeatureToggleLocally('community', nextState);
-    if (feature.feature_key === 'business_directory') setFeatureToggleLocally('directory', nextState);
-    if (feature.feature_key === 'marketing_apps_marketplace') setFeatureToggleLocally('marketplace', nextState);
-    if (feature.feature_key === 'credit_airtime_redeem') setFeatureToggleLocally('airtime_redeem', nextState);
-    if (feature.feature_key === 'vixora_ai_studio') setFeatureToggleLocally('vixora_ai', nextState);
-    if (feature.feature_key === 'chat_and_calls') setFeatureToggleLocally('p2p_chat', nextState);
-    if (feature.feature_key === 'premium_vip_upgrade') setFeatureToggleLocally('premium_upgrade', nextState);
-    if (feature.feature_key === 'save_favorite') setFeatureToggleLocally('favorites', nextState);
-    if (feature.feature_key === 'wallet_transfer') setFeatureToggleLocally('credit_transfer', nextState);
-    if (feature.feature_key === 'credit_wallet') setFeatureToggleLocally('task_wallet', nextState);
+    // Collect canonical + legacy aliases + associated nav keys when turning ON
+    const navKeysToRestore = nextState
+      ? relatedKeys.flatMap(k => FEATURE_NAV_KEYS[k] || [])
+      : [];
+    const allAffectedKeys = Array.from(new Set([...relatedKeys, ...navKeysToRestore]));
+
+    // Special parity: nav_feed <-> community_feed, nav_airtime_redeem <-> credit_airtime_redeem
+    if (nextState) {
+      if (feature.feature_key === 'nav_feed') allAffectedKeys.push('community_feed', 'community');
+      if (feature.feature_key === 'nav_credit_tasks' || feature.feature_key === 'nav_social_tasks') {
+        allAffectedKeys.push('credit_tasks', 'tasks');
+      }
+      if (feature.feature_key === 'nav_airtime_redeem') {
+        allAffectedKeys.push('credit_airtime_redeem', 'airtime_redeem');
+      }
+    }
+
+    const uniqueKeys = Array.from(new Set(allAffectedKeys));
+    const localBatch: Record<string, boolean> = {};
+    uniqueKeys.forEach(k => {
+      localBatch[k] = nextState;
+    });
+
+    // Optimistic state update
+    setFeatures(prev => {
+      const existingSet = new Set(prev.map(f => f.feature_key));
+      const updated = prev.map(f =>
+        uniqueKeys.includes(f.feature_key) ? { ...f, is_enabled: nextState } : f
+      );
+      uniqueKeys.forEach(k => {
+        if (!existingSet.has(k)) {
+          const reg = FEATURE_REGISTRY_MAP[k] || MENU_TOGGLE_MAP[k];
+          updated.push({
+            id: k,
+            feature_key: k,
+            feature_name: reg?.label || feature.feature_name,
+            is_enabled: nextState,
+            description: reg?.description || feature.description,
+          });
+        }
+      });
+      return updated;
+    });
+
+    const rowsToUpsert = uniqueKeys.map(k => {
+      const reg = FEATURE_REGISTRY_MAP[k] || MENU_TOGGLE_MAP[k];
+      return {
+        feature_key: k,
+        feature_name: reg?.label || feature.feature_name,
+        is_enabled: nextState,
+        description: reg?.description || feature.description,
+      };
+    });
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('feature_toggles')
-        .upsert(
-          {
-            feature_key: feature.feature_key,
-            feature_name: feature.feature_name,
-            is_enabled: nextState,
-            description: feature.description,
-          },
-          { onConflict: 'feature_key' }
-        );
-      if (feature.feature_key === 'banner_ads') {
-        await supabase.from('feature_toggles').update({ is_enabled: nextState }).eq('feature_key', 'ads');
+        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
+
+      if (error) {
+        throw error;
       }
 
+      setBatchFeatureTogglesLocally(localBatch);
       await logToggleChange(feature.feature_key, nextState);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
       toast.success(`${feature.feature_name}: ${nextState ? 'Enabled' : 'Disabled'}`);
-    } catch (err) {
-      toast.error("Could not persist setting to remote database, saved locally.");
+    } catch (err: any) {
+      setFeatures(previousFeatures);
+      toast.error(`Failed to save ${feature.feature_name}: ${err?.message || 'Permission denied'}`);
+    }
+  };
+
+  // One-click restore for Community, Tasks, and Redeem Airtime & Data pages + menu items
+  const restoreCoreCommunityTasksAirtime = async () => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Admin privileges required.");
+      return;
+    }
+
+    setApplyingPreset(true);
+    const previousFeatures = features;
+    const keysToEnable = [
+      'community_feed', 'community', 'nav_feed',
+      'credit_tasks', 'tasks', 'nav_credit_tasks', 'nav_social_tasks',
+      'credit_airtime_redeem', 'airtime_redeem', 'nav_airtime_redeem',
+      'credit_wallet', 'task_wallet',
+    ];
+
+    const batchUpdates: Record<string, boolean> = {};
+    keysToEnable.forEach(k => {
+      batchUpdates[k] = true;
+    });
+
+    const rowsToUpsert = keysToEnable.map(k => {
+      const reg = FEATURE_REGISTRY_MAP[k] || MENU_TOGGLE_MAP[k];
+      return {
+        feature_key: k,
+        feature_name: reg?.label || k,
+        is_enabled: true,
+        description: reg?.description || 'Restored core user page and navigation item',
+      };
+    });
+
+    try {
+      const { error } = await supabase
+        .from('feature_toggles')
+        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
+
+      if (error) throw error;
+
+      setFeatures(prev => {
+        const existingSet = new Set(prev.map(f => f.feature_key));
+        const next = prev.map(f => (batchUpdates[f.feature_key] ? { ...f, is_enabled: true } : f));
+        rowsToUpsert.forEach(r => {
+          if (!existingSet.has(r.feature_key)) {
+            next.push({ id: r.feature_key, ...r });
+          }
+        });
+        return next;
+      });
+      setBatchFeatureTogglesLocally(batchUpdates);
+
+      await logToggleChange('RESTORE_COMMUNITY_TASKS_AIRTIME', true);
+      fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
+      toast.success("Community Page, Task Page & Redeem Airtime Page restored and enabled!");
+    } catch (err: any) {
+      setFeatures(previousFeatures);
+      toast.error("Failed restoring pages: " + (err?.message || 'Permission denied'));
+    } finally {
+      setApplyingPreset(false);
     }
   };
 
@@ -326,11 +454,25 @@ const AdminFeatureToggles = () => {
       return;
     }
     setApplyingPreset(true);
+    const previousFeatures = features;
     try {
       const updates: Record<string, boolean> = {};
       MENU_TOGGLE_REGISTRY.forEach(m => {
         updates[m.key] = enableAll;
       });
+
+      const rowsToUpsert = MENU_TOGGLE_REGISTRY.map(m => ({
+        feature_key: m.key,
+        feature_name: m.label,
+        is_enabled: enableAll,
+        description: m.description,
+      }));
+
+      const { error } = await supabase
+        .from('feature_toggles')
+        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
+
+      if (error) throw error;
 
       setFeatures(prev =>
         prev.map(f => {
@@ -342,21 +484,11 @@ const AdminFeatureToggles = () => {
       );
       setBatchFeatureTogglesLocally(updates);
 
-      const rowsToUpsert = MENU_TOGGLE_REGISTRY.map(m => ({
-        feature_key: m.key,
-        feature_name: m.label,
-        is_enabled: enableAll,
-        description: m.description,
-      }));
-
-      await supabase
-        .from('feature_toggles')
-        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
-
       await logToggleChange(`PRESET_SET_ALL_MENUS_${enableAll ? 'ON' : 'OFF'}`, enableAll);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
       toast.success(enableAll ? "All menu navigation items shown." : "All menu navigation items hidden.");
     } catch (err: any) {
+      setFeatures(previousFeatures);
       toast.error("Failed updating menu toggles: " + err.message);
     } finally {
       setApplyingPreset(false);
@@ -371,10 +503,30 @@ const AdminFeatureToggles = () => {
     }
 
     setApplyingPreset(true);
+    const previousFeatures = features;
     try {
-      const updates = { ...WHATSAPP_SYNDICATE_FOCUS_PRESET };
+      const updates: Record<string, boolean> = { ...WHATSAPP_SYNDICATE_FOCUS_PRESET };
+      // Propagate preset states to legacy aliases too so stale legacy keys don't conflict
+      Object.entries(WHATSAPP_SYNDICATE_FOCUS_PRESET).forEach(([canonical, enabled]) => {
+        (FEATURE_LEGACY_ALIASES[canonical] || []).forEach(alias => {
+          updates[alias] = enabled;
+        });
+      });
 
-      // Update state locally first
+      // Persist each toggle to database
+      const rowsToUpsert = Object.entries(updates).map(([k, v]) => ({
+        feature_key: k,
+        feature_name: FEATURE_REGISTRY_MAP[k]?.label || MENU_TOGGLE_MAP[k]?.label || k,
+        is_enabled: v,
+        description: FEATURE_REGISTRY_MAP[k]?.description || MENU_TOGGLE_MAP[k]?.description || null,
+      }));
+
+      const { error } = await supabase
+        .from('feature_toggles')
+        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
+
+      if (error) throw error;
+
       setFeatures(prev =>
         prev.map(f => {
           if (updates[f.feature_key] !== undefined) {
@@ -385,31 +537,20 @@ const AdminFeatureToggles = () => {
       );
       setBatchFeatureTogglesLocally(updates);
 
-      // Persist each toggle to database
-      const rowsToUpsert = Object.entries(updates).map(([k, v]) => ({
-        feature_key: k,
-        feature_name: FEATURE_REGISTRY_MAP[k]?.label || k,
-        is_enabled: v,
-        description: FEATURE_REGISTRY_MAP[k]?.description || null,
-      }));
-
-      await supabase
-        .from('feature_toggles')
-        .upsert(rowsToUpsert, { onConflict: 'feature_key' });
-
       // Audit log the preset activation
       await logToggleChange('PRESET_WHATSAPP_SYNDICATE_FOCUS', true);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
 
       toast.success("WhatsApp Syndicate Focus preset applied successfully! All secondary features hidden.");
     } catch (err: any) {
+      setFeatures(previousFeatures);
       toast.error("Failed to apply preset completely: " + err.message);
     } finally {
       setApplyingPreset(false);
     }
   };
 
-  // Reset all toggles to Default (All ON)
+  // Reset all toggles to Default (All ON including menu items & legacy aliases)
   const resetToAllOn = async () => {
     if (!isAdmin) {
       toast.error("Unauthorized: Admin privileges required.");
@@ -417,35 +558,82 @@ const AdminFeatureToggles = () => {
     }
 
     setApplyingPreset(true);
+    const previousFeatures = features;
     try {
       const allOnMap: Record<string, boolean> = {};
+      const rowMap = new Map<string, { feature_key: string; feature_name: string; is_enabled: boolean; description: string | null }>();
+
       FEATURE_REGISTRY.forEach(f => {
         allOnMap[f.key] = true;
+        rowMap.set(f.key, {
+          feature_key: f.key,
+          feature_name: f.label,
+          is_enabled: true,
+          description: f.description,
+        });
+        (FEATURE_LEGACY_ALIASES[f.key] || []).forEach(alias => {
+          allOnMap[alias] = true;
+          if (!rowMap.has(alias)) {
+            rowMap.set(alias, {
+              feature_key: alias,
+              feature_name: f.label,
+              is_enabled: true,
+              description: f.description,
+            });
+          }
+        });
       });
 
-      setFeatures(prev => prev.map(f => ({ ...f, is_enabled: true })));
-      setBatchFeatureTogglesLocally(allOnMap);
+      MENU_TOGGLE_REGISTRY.forEach(m => {
+        allOnMap[m.key] = true;
+        if (!rowMap.has(m.key)) {
+          rowMap.set(m.key, {
+            feature_key: m.key,
+            feature_name: m.label,
+            is_enabled: true,
+            description: m.description,
+          });
+        }
+      });
 
-      const rowsToUpsert = FEATURE_REGISTRY.map(f => ({
-        feature_key: f.key,
-        feature_name: f.label,
-        is_enabled: true,
-        description: f.description,
-      }));
+      const rowsToUpsert = Array.from(rowMap.values());
 
-      await supabase
+      const { error } = await supabase
         .from('feature_toggles')
         .upsert(rowsToUpsert, { onConflict: 'feature_key' });
 
+      if (error) throw error;
+
+      setFeatures(prev => {
+        const existingSet = new Set(prev.map(f => f.feature_key));
+        const next = prev.map(f => ({ ...f, is_enabled: true }));
+        rowsToUpsert.forEach(r => {
+          if (!existingSet.has(r.feature_key)) {
+            next.push({ id: r.feature_key, ...r });
+          }
+        });
+        return next;
+      });
+      setBatchFeatureTogglesLocally(allOnMap);
+
       await logToggleChange('PRESET_RESET_ALL_ON', true);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
-      toast.success("All features have been enabled across the platform.");
+      toast.success("All features and menu items have been enabled across the platform.");
     } catch (err: any) {
+      setFeatures(previousFeatures);
       toast.error("Failed to reset toggles: " + err.message);
     } finally {
       setApplyingPreset(false);
     }
   };
+
+  const liveToggleMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    features.forEach(f => {
+      map[f.feature_key] = f.is_enabled;
+    });
+    return map;
+  }, [features]);
 
   if (loading) {
     return (
@@ -483,13 +671,17 @@ const AdminFeatureToggles = () => {
     'Core System',
   ];
 
+  const normalizedQuery = search.trim().toLowerCase();
+
   const filteredFeatures = FEATURE_REGISTRY.filter(def => {
-    const row = features.find(f => f.feature_key === def.key);
     const matchesSearch =
-      !search ||
-      def.label.toLowerCase().includes(search.toLowerCase()) ||
-      def.key.toLowerCase().includes(search.toLowerCase()) ||
-      def.description.toLowerCase().includes(search.toLowerCase());
+      !normalizedQuery ||
+      def.label.toLowerCase().includes(normalizedQuery) ||
+      def.key.toLowerCase().includes(normalizedQuery) ||
+      def.description.toLowerCase().includes(normalizedQuery) ||
+      def.group.toLowerCase().includes(normalizedQuery) ||
+      (def.routes || []).some(r => r.toLowerCase().includes(normalizedQuery)) ||
+      (def.keywords || []).some(k => k.toLowerCase().includes(normalizedQuery));
 
     const matchesGroup = selectedGroup === 'All' || def.group === selectedGroup;
 
@@ -497,13 +689,16 @@ const AdminFeatureToggles = () => {
   });
 
   const getFeatureState = (key: string): boolean => {
-    const row = features.find(f => f.feature_key === key);
-    if (row) return row.is_enabled;
-    const def = FEATURE_REGISTRY_MAP[key];
-    if (def) return def.defaultState;
-    const menuDef = MENU_TOGGLE_MAP[key];
-    return menuDef ? menuDef.defaultState : true;
+    return isFeatureEnabled(key, liveToggleMap);
   };
+
+  const anyCoreRestorableOff =
+    !getFeatureState('community_feed') ||
+    !getFeatureState('nav_feed') ||
+    !getFeatureState('credit_tasks') ||
+    !getFeatureState('nav_credit_tasks') ||
+    !getFeatureState('credit_airtime_redeem') ||
+    !getFeatureState('nav_airtime_redeem');
 
   const menuSections: (MenuSection | 'All')[] = [
     'All',
@@ -515,10 +710,12 @@ const AdminFeatureToggles = () => {
 
   const filteredMenuToggles = MENU_TOGGLE_REGISTRY.filter(m => {
     const matchesSearch =
-      !search ||
-      m.label.toLowerCase().includes(search.toLowerCase()) ||
-      m.key.toLowerCase().includes(search.toLowerCase()) ||
-      m.description.toLowerCase().includes(search.toLowerCase());
+      !normalizedQuery ||
+      m.label.toLowerCase().includes(normalizedQuery) ||
+      m.key.toLowerCase().includes(normalizedQuery) ||
+      m.description.toLowerCase().includes(normalizedQuery) ||
+      m.navTabId.toLowerCase().includes(normalizedQuery) ||
+      m.section.toLowerCase().includes(normalizedQuery);
 
     const matchesSection = selectedMenuSection === 'All' || m.section === selectedMenuSection;
 
@@ -530,7 +727,7 @@ const AdminFeatureToggles = () => {
       <CardHeader className="pb-4 border-b border-border/50">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="p-1.5 rounded-xl bg-orange-500/10 text-orange-600">
                 <Settings2 className="h-5 w-5" />
               </span>
@@ -550,6 +747,20 @@ const AdminFeatureToggles = () => {
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             {activeTab === 'features' ? (
               <>
+                <Button
+                  size="sm"
+                  onClick={restoreCoreCommunityTasksAirtime}
+                  disabled={applyingPreset}
+                  variant={anyCoreRestorableOff ? 'default' : 'outline'}
+                  className={`h-9 px-3 text-xs font-bold rounded-xl gap-1.5 cursor-pointer ${
+                    anyCoreRestorableOff
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-sm'
+                      : 'border-orange-500/30 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30'
+                  }`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Restore Community, Tasks & Airtime
+                </Button>
                 <Button
                   size="sm"
                   onClick={applyWhatsAppSyndicateFocus}
@@ -597,7 +808,7 @@ const AdminFeatureToggles = () => {
         </div>
 
         {/* Master Dual Navigation Mode Switcher */}
-        <div className="pt-4 flex items-center gap-2 border-b border-border/40 pb-3">
+        <div className="pt-4 flex items-center gap-2 border-b border-border/40 pb-3 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('features')}
@@ -626,14 +837,24 @@ const AdminFeatureToggles = () => {
 
         {/* Search & Category Filter Pills */}
         <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative w-full md:w-72">
+          <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder={activeTab === 'features' ? "Search features..." : "Search menu items..."}
+              placeholder={activeTab === 'features' ? "Search features, routes, or keywords..." : "Search menu items or tabs..."}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-9 pl-9 text-xs rounded-xl bg-muted/40"
+              className="h-9 pl-9 pr-8 text-xs rounded-xl bg-muted/40"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md cursor-pointer"
+                aria-label="Clear feature search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
@@ -671,6 +892,30 @@ const AdminFeatureToggles = () => {
       </CardHeader>
 
       <CardContent className="pt-6 space-y-6">
+        {anyCoreRestorableOff && (
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-foreground">
+                  One or more restored user pages are currently switched OFF
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Community Page, Task Page, or Redeem Airtime & Data (or their menu links) are disabled. Click restore to turn all three back on immediately.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={restoreCoreCommunityTasksAirtime}
+              disabled={applyingPreset}
+              className="h-8 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 cursor-pointer"
+            >
+              Restore All Three Now
+            </Button>
+          </div>
+        )}
+
         {activeTab === 'features' ? (
           <>
             {/* Preset Explanation Callout */}
@@ -809,6 +1054,25 @@ const AdminFeatureToggles = () => {
                   </div>
                 );
               })}
+              {filteredFeatures.length === 0 && (
+                <div className="col-span-full py-10 text-center space-y-2 rounded-2xl border border-dashed border-border bg-muted/20">
+                  <Search className="h-6 w-6 text-muted-foreground/50 mx-auto" />
+                  <p className="text-xs font-bold text-foreground">No matching feature toggle found</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Try clearing your search or checking the Menu Navigation Items tab.
+                  </p>
+                  {search && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSearch('')}
+                      className="h-8 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Clear search filter
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Menu Navigation Items Section rendered directly on main view */}
@@ -982,6 +1246,22 @@ const AdminFeatureToggles = () => {
                 </div>
               );
             })}
+            {filteredMenuToggles.length === 0 && (
+              <div className="col-span-full py-10 text-center space-y-2 rounded-2xl border border-dashed border-border bg-muted/20">
+                <Search className="h-6 w-6 text-muted-foreground/50 mx-auto" />
+                <p className="text-xs font-bold text-foreground">No matching menu toggle found</p>
+                {search && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSearch('')}
+                    className="h-8 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Clear search filter
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

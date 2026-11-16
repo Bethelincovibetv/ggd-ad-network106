@@ -93,12 +93,16 @@ export const AdminRedeemManager: React.FC = () => {
     try {
       const { data } = await supabase
         .from('feature_toggles')
-        .select('is_enabled')
-        .eq('feature_key', 'airtime_redeem')
-        .maybeSingle();
+        .select('feature_key, is_enabled')
+        .in('feature_key', ['credit_airtime_redeem', 'airtime_redeem']);
 
-      if (data && data.is_enabled !== undefined) {
-        setIsFeatureEnabled(data.is_enabled);
+      if (data && data.length > 0) {
+        const canonical = data.find(d => d.feature_key === 'credit_airtime_redeem');
+        const legacy = data.find(d => d.feature_key === 'airtime_redeem');
+        const resolved = canonical?.is_enabled ?? legacy?.is_enabled;
+        if (typeof resolved === 'boolean') {
+          setIsFeatureEnabled(resolved);
+        }
       }
     } catch (err) {
       console.warn('Error reading feature toggle:', err);
@@ -107,33 +111,50 @@ export const AdminRedeemManager: React.FC = () => {
 
   const handleToggleMasterFeature = async () => {
     setTogglingMaster(true);
+    const prevState = isFeatureEnabled;
     const nextState = !isFeatureEnabled;
     setIsFeatureEnabled(nextState);
+    setFeatureToggleLocally('credit_airtime_redeem', nextState);
     setFeatureToggleLocally('airtime_redeem', nextState);
     setFeatureToggleLocally('nav_airtime_redeem', nextState);
 
     try {
-      // Upsert/update both airtime_redeem and nav_airtime_redeem
-      await Promise.all([
-        supabase.from('feature_toggles').upsert({
+      const { error } = await supabase.from('feature_toggles').upsert([
+        {
+          feature_key: 'credit_airtime_redeem',
+          feature_name: 'Redeem Airtime & Data Page',
+          is_enabled: nextState,
+          description: 'Redeem Airtime & Data Page where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
+        },
+        {
           feature_key: 'airtime_redeem',
           feature_name: 'Airtime & Data Redeem Marketplace',
           is_enabled: nextState,
           description: 'Master toggle for the Airtime & Data Redeem Marketplace.',
-        }, { onConflict: 'feature_key' }),
-        supabase.from('feature_toggles').upsert({
+        },
+        {
           feature_key: 'nav_airtime_redeem',
-          feature_name: 'Menu: Redeem Airtime & Data Button',
+          feature_name: 'Redeem Airtime & Data',
           is_enabled: nextState,
           description: 'Show or hide Redeem Airtime & Data button on navigation menus',
-        }, { onConflict: 'feature_key' }),
-      ]);
+        },
+      ], { onConflict: 'feature_key' });
+
+      if (error) {
+        throw error;
+      }
+
+      fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
 
       toast.success(nextState 
         ? '✅ Airtime & Data Marketplace is now ACTIVE for users' 
         : '⏸️ Airtime & Data Marketplace is now PAUSED (hidden from users)');
     } catch (err: any) {
-      toast.error('Failed to update feature toggle in database: ' + err.message);
+      setIsFeatureEnabled(prevState);
+      setFeatureToggleLocally('credit_airtime_redeem', prevState);
+      setFeatureToggleLocally('airtime_redeem', prevState);
+      setFeatureToggleLocally('nav_airtime_redeem', prevState);
+      toast.error('Failed to update feature toggle in database: ' + (err.message || 'Permission denied'));
     } finally {
       setTogglingMaster(false);
     }

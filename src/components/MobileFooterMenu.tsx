@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Shield, Users, Wallet, Sparkles, Store, BarChart2, CheckSquare, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Shield, Users, Wallet, Sparkles, Store, BarChart2, CheckSquare, MessageCircle, Smartphone } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
@@ -16,11 +16,10 @@ interface MobileFooterMenuProps {
 /**
  * Mobile Bottom Navigation:
  * - YouTube-style dynamic scrolling: disappears when scrolling down, reappears when scrolling up.
- * - 5 high-priority, clearly separated mobile destinations.
+ * - High-priority, clearly separated mobile destinations.
  * - Complies with >= 48px mobile touch target standards.
  * - Bold, easily legible typography (>= 11px font size).
  * - Tactile 3D gradient icon badges with active state indicators.
- * - Never squishes or truncates labels.
  */
 const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisible: controlledVisible }: MobileFooterMenuProps) => {
   const navigate = useNavigate();
@@ -37,12 +36,12 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
       grad: 'from-orange-500 via-orange-600 to-red-600',
       matches: ['ads']
     }] : []),
-    ...(isEnabled('community_feed') && isEnabled('community') ? [{
+    ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{
       id: 'feed',
       icon: Sparkles,
-      label: 'Feed',
+      label: 'Community',
       grad: 'from-pink-500 via-fuchsia-500 to-purple-600',
-      matches: ['feed']
+      matches: ['feed', 'community']
     }] : []),
     ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{
       id: 'tasks',
@@ -50,6 +49,13 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
       label: 'Tasks',
       grad: 'from-emerald-500 via-green-500 to-teal-600',
       matches: ['tasks']
+    }] : []),
+    ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{
+      id: 'redeem-airtime',
+      icon: Smartphone,
+      label: 'Airtime',
+      grad: 'from-amber-500 via-orange-500 to-yellow-600',
+      matches: ['redeem', 'redeem-airtime', 'airtime']
     }] : []),
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{
       id: 'campaigns',

@@ -67,12 +67,12 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
 
     const running =
       ads.filter((a: any) => a.is_active).length +
-      (isEnabled('tasks') ? tasks.filter((t: any) => t.is_active).length : 0) +
-      (isEnabled('syndicate') ? synd.filter((s: any) => s.status === 'active').length : 0);
+      (isEnabled('credit_tasks') ? tasks.filter((t: any) => t.is_active).length : 0) +
+      (isEnabled('syndicate_core') ? synd.filter((s: any) => s.status === 'active').length : 0);
     const completed =
       ads.filter((a: any) => !a.is_active).length +
-      (isEnabled('tasks') ? tasks.filter((t: any) => !t.is_active || (t.max_completions && (t.completions_count || 0) >= t.max_completions)).length : 0) +
-      (isEnabled('syndicate') ? synd.filter((s: any) => s.status === 'completed').length : 0);
+      (isEnabled('credit_tasks') ? tasks.filter((t: any) => !t.is_active || (t.max_completions && (t.completions_count || 0) >= t.max_completions)).length : 0) +
+      (isEnabled('syndicate_core') ? synd.filter((s: any) => s.status === 'completed').length : 0);
 
     const top = [...ads].sort((a: any, b: any) => (b.impressions || 0) - (a.impressions || 0))[0];
 
@@ -176,7 +176,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       </div>
 
       {/* Vixora AI Creator Studio Hero Card */}
-      {isEnabled('vixora_ai_studio') && isEnabled('vixora_ai') && (
+      {isEnabled('vixora_ai_studio') && (
         <Card
           className="border-0 bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-all overflow-hidden relative group"
           onClick={() => onNavigate('vixora-creator')}
@@ -208,7 +208,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       )}
 
       {/* Action Center Banner Advert Slot */}
-      {isEnabled('action_center_banners') && (isEnabled('banner_ads') || isEnabled('ads')) && (
+      {isEnabled('action_center_banners') && isEnabled('banner_ads') && (
         <div className="rounded-2xl overflow-hidden border border-border/60 bg-card p-1 shadow-sm">
           <AdDisplayPreview />
         </div>

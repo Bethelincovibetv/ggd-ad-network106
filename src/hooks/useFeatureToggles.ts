@@ -3,11 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { isFeatureEnabled, FEATURE_REGISTRY_MAP } from '@/lib/featureRegistry';
 import { safeStorage } from '@/utils/safeStorage';
 
-const CACHE_KEY = 'ggd_feature_toggles_v1';
+const CACHE_KEY = 'ggd_feature_toggles_v2';
+const LEGACY_CACHE_KEY = 'ggd_feature_toggles_v1';
 
 let cache: Record<string, boolean> | null = null;
 let inflight: Promise<Record<string, boolean>> | null = null;
 const listeners = new Set<(m: Record<string, boolean>) => void>();
+
+// Clear stale v1 cache once so restored pages aren't hidden by old cached flags
+try {
+  if (typeof window !== 'undefined' && window.localStorage?.getItem(LEGACY_CACHE_KEY)) {
+    window.localStorage.removeItem(LEGACY_CACHE_KEY);
+  }
+} catch {}
 
 const loadCached = (): Record<string, boolean> | null => {
   if (cache) return cache;
@@ -18,6 +26,10 @@ const loadCached = (): Record<string, boolean> | null => {
   return null;
 };
 
+export const getCachedFeatureToggles = (): Record<string, boolean> => {
+  return loadCached() || {};
+};
+
 // Immediately pre-seed cache on module import to ensure zero-flash synchronous hydration
 cache = loadCached();
 
@@ -25,23 +37,38 @@ const fetchToggles = (): Promise<Record<string, boolean>> => {
   if (inflight) return inflight;
   inflight = Promise.resolve(
     supabase.from('feature_toggles').select('feature_key, is_enabled')
-  ).then(({ data, error }) => {
-    inflight = null;
+  ).then(async ({ data, error }) => {
     const existing = loadCached() || {};
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       const fetchedMap: Record<string, boolean> = {};
       data.forEach((f: any) => {
         if (f && f.feature_key !== undefined) {
           fetchedMap[f.feature_key] = f.is_enabled;
         }
       });
-      // Safe merge: preserve existing keys, overwrite with remote states
       cache = { ...existing, ...fetchedMap };
       safeStorage.setJSON(CACHE_KEY, cache);
       listeners.forEach(l => l({ ...cache! }));
+      inflight = null;
       return cache!;
     }
-    // On network error or bad payload: keep existing cached state intact without resetting to empty
+
+    // Fallback to server cache endpoint when visitor is anonymous and RLS returns []
+    try {
+      const resp = await fetch('/api/feature-toggles');
+      if (resp.ok) {
+        const payload = await resp.json();
+        if (payload?.toggles && typeof payload.toggles === 'object' && Object.keys(payload.toggles).length > 0) {
+          cache = { ...existing, ...payload.toggles };
+          safeStorage.setJSON(CACHE_KEY, cache);
+          listeners.forEach(l => l({ ...cache! }));
+          inflight = null;
+          return cache!;
+        }
+      }
+    } catch {}
+
+    inflight = null;
     cache = existing;
     return existing;
   }).catch(() => {

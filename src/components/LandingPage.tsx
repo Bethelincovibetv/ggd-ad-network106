@@ -191,9 +191,9 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         { id: 'contact-info', label: 'Contact Us' },
       ]
     : [
-        ...(isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
+        ...(isEnabled('marketing_apps_marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
         { id: 'business', label: 'For Businesses' },
-        ...(isEnabled('credit_tasks') || isEnabled('syndicate') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
+        ...(isEnabled('credit_tasks') || isEnabled('syndicate_core') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
         { id: 'how-it-works', label: 'How It Works' },
         { id: 'faq', label: 'FAQ' },
         { id: 'contact-info', label: 'Contact Us' },
@@ -221,7 +221,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   ];
 
   const coreCapabilities = [
-    ...(isEnabled('business_directory') && isEnabled('directory') ? [{
+    ...(isEnabled('business_directory') ? [{
       icon: Building2,
       title: "Get Discovered",
       description: "Establish your presence in the GGD Business Directory with your brand profile, contact info, and WhatsApp link so customers can find you.",
@@ -233,13 +233,13 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       description: "Showcase physical products, digital goods, and service offerings with clear pricing and direct inquiry channels.",
       color: "text-emerald-400 bg-emerald-500/10"
     }] : []),
-    ...(isEnabled('banner_ads') && isEnabled('ads') ? [{
+    ...(isEnabled('banner_ads') ? [{
       icon: Megaphone,
       title: "Get Visibility",
       description: "Run high-visibility commercial Banner Ads across GGD and partner sites, plus unlock eligible featured exposure to drive traffic.",
       color: "text-orange-400 bg-orange-500/10"
     }] : []),
-    ...(isEnabled('credit_tasks') && isEnabled('tasks') ? [{
+    ...(isEnabled('credit_tasks') ? [{
       icon: Share2,
       title: "Promote & Reach",
       description: "Launch community Credit Tasks to gain video views, website visits, and social shares powered by the GGG credit economy.",
@@ -259,7 +259,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       description: "Use integrated marketing tools, including BlogMate AI, to craft compelling articles, social posts, ads, and sales copy.",
       color: "text-pink-400 bg-pink-500/10"
     }] : []),
-    ...(isEnabled('community_feed') && isEnabled('community') ? [{
+    ...(isEnabled('community_feed') ? [{
       icon: Globe,
       title: "Build Awareness",
       description: "Share updates, network with local entrepreneurs, and engage with the active GGD community to grow brand loyalty.",
@@ -649,7 +649,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
               {
                 step: "01",
                 title: "Get Discovered",
-                desc: isEnabled('business_directory') && isEnabled('directory')
+                desc: isEnabled('business_directory')
                   ? "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
                   : "Create your verified business profile with your logo, direct WhatsApp contact link, and product catalog."
               },
@@ -658,8 +658,8 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                 title: "Create & Promote",
                 desc: [
                   isEnabled('blogmate_ai') && "Craft marketing copy with BlogMate AI",
-                  isEnabled('banner_ads') && isEnabled('ads') && "launch Banner Ads",
-                  isEnabled('credit_tasks') && isEnabled('tasks') && "post promotional tasks",
+                  isEnabled('banner_ads') && "launch Banner Ads",
+                  isEnabled('credit_tasks') && "post promotional tasks",
                   "launch verified Syndicate campaigns"
                 ].filter(Boolean).join(", or ") + "."
               },
@@ -774,7 +774,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       )}
 
       {/* Hidden when whatsappPositioning is ON: Marketing Apps Marketplace */}
-      {!whatsappPositioning && isEnabled('marketing_apps_marketplace') && isEnabled('marketplace') && (
+      {!whatsappPositioning && isEnabled('marketing_apps_marketplace') && (
         <div id="marketing-apps" className="container mx-auto px-4 py-16 bg-[#161616]/80 border-y border-[#2a2a2a]">
           <div className="max-w-6xl mx-auto">
             <MarketingAppsMarketplace
@@ -814,7 +814,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
 
               <div className="grid sm:grid-cols-2 gap-4 pt-2">
                 {[
-                  ...(isEnabled('business_directory') && isEnabled('directory') ? [{
+                  ...(isEnabled('business_directory') ? [{
                     icon: Building2,
                     title: "Establish Your Presence",
                     desc: "Create a verified profile in the Business Directory with contact info, WhatsApp link, location, and brand description."
@@ -832,8 +832,8 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                     icon: Megaphone,
                     title: "Reach Targeted Customers",
                     desc: "Amplify your message through " + [
-                      isEnabled('banner_ads') && isEnabled('ads') && "commercial Banner Ads",
-                      isEnabled('credit_tasks') && isEnabled('tasks') && "community credit tasks",
+                      isEnabled('banner_ads') && "commercial Banner Ads",
+                      isEnabled('credit_tasks') && "community credit tasks",
                       "verified Syndicate promoter campaigns"
                     ].filter(Boolean).join(", ") + "."
                   },
@@ -871,19 +871,19 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
           <div className="text-center mb-12 space-y-2">
             <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-200">
               <Coins className="h-3.5 w-3.5 text-[#e67e22]" />
-              {isEnabled('credit_tasks') && isEnabled('tasks') ? 'Two Distinct Channels' : 'Verified Syndicate Network'}
+              {isEnabled('credit_tasks') ? 'Two Distinct Channels' : 'Verified Syndicate Network'}
             </div>
             <h2 className="text-3xl md:text-4xl font-black text-white">Promote & Earn on GGD</h2>
             <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
-              {isEnabled('credit_tasks') && isEnabled('tasks')
+              {isEnabled('credit_tasks')
                 ? 'GGD offers two separate pathways: community-driven Credit Tasks and verified Syndicate paid campaigns.'
                 : 'Partner with verified Syndicate promoters to amplify your message across targeted WhatsApp audiences with proof of delivery.'}
             </p>
           </div>
 
-          <div className={`gap-6 ${isEnabled('credit_tasks') && isEnabled('tasks') ? 'grid md:grid-cols-2 max-w-5xl mx-auto' : 'max-w-2xl mx-auto flex justify-center'}`}>
+          <div className={`gap-6 ${isEnabled('credit_tasks') ? 'grid md:grid-cols-2 max-w-5xl mx-auto' : 'max-w-2xl mx-auto flex justify-center'}`}>
             {/* Credit Tasks Card */}
-            {isEnabled('credit_tasks') && isEnabled('tasks') && (
+            {isEnabled('credit_tasks') && (
               <Card className="bg-gradient-to-br from-[#1c281e] via-[#162217] to-[#121c13] border-emerald-500/30 overflow-hidden flex flex-col">
                 <CardContent className="p-6 md:p-8 space-y-5 flex-1 flex flex-col">
                   <div className="flex items-center justify-between">

@@ -156,30 +156,49 @@ async function refreshServerFeatureToggles(): Promise<Record<string, boolean>> {
 }
 
 function isServerFeatureEnabled(key: string, toggles: Record<string, boolean>): boolean {
-  if (['wallet_funding', 'escrow', 'syndicate_campaigns', 'auth', 'support'].includes(key)) {
+  if (['wallet_funding', 'escrow', 'syndicate_campaigns', 'syndicate_core', 'auth', 'auth_system', 'support', 'support_system'].includes(key)) {
     return true;
   }
+
+  const canonicalToAliases: Record<string, string[]> = {
+    banner_ads: ['ads'],
+    credit_tasks: ['tasks'],
+    community_feed: ['community'],
+    business_directory: ['directory'],
+    marketing_apps_marketplace: ['marketplace', 'marketing_apps'],
+    credit_airtime_redeem: ['airtime_redeem'],
+    vixora_ai_studio: ['vixora_ai'],
+    chat_and_calls: ['p2p_chat'],
+    premium_vip_upgrade: ['premium_upgrade'],
+    wallet_transfer: ['credit_transfer'],
+    credit_wallet: ['task_wallet'],
+    save_favorite: ['favorites'],
+    storefronts: ['business_sites'],
+  };
+
+  let canonical = key;
+  for (const [canon, aliases] of Object.entries(canonicalToAliases)) {
+    if (canon === key || aliases.includes(key)) {
+      canonical = canon;
+      break;
+    }
+  }
+
+  if (toggles[canonical] !== undefined) return toggles[canonical] === true;
   if (toggles[key] !== undefined) return toggles[key] === true;
 
-  const legacyAliases: Record<string, string> = {
-    'banner_ads': 'ads',
-    'credit_tasks': 'tasks',
-    'community_feed': 'community',
-    'business_directory': 'directory',
-    'marketing_apps_marketplace': 'marketplace',
-    'credit_airtime_redeem': 'airtime_redeem',
-    'vixora_ai_studio': 'vixora_ai',
-    'chat_and_calls': 'p2p_chat',
-    'premium_vip_upgrade': 'premium_upgrade',
-    'wallet_transfer': 'credit_transfer',
-    'credit_wallet': 'task_wallet',
-    'save_favorite': 'favorites',
-  };
-  const alias = legacyAliases[key];
-  if (alias && toggles[alias] !== undefined) return toggles[alias] === true;
+  for (const alias of canonicalToAliases[canonical] || []) {
+    if (toggles[alias] !== undefined) return toggles[alias] === true;
+  }
 
   return true;
 }
+
+// Public non-sensitive endpoint returning current cached feature toggles
+app.get('/api/feature-toggles', async (_req, res) => {
+  const toggles = await refreshServerFeatureToggles();
+  return res.json({ toggles });
+});
 
 // Global server-side route feature gate middleware: returns 404 for disabled feature routes
 app.use(async (req, res, next) => {

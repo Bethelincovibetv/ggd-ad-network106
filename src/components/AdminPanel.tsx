@@ -30,7 +30,14 @@ import AdminChatSystem from "@/components/AdminChatSystem";
 import AdminVixoraManager from "@/components/AdminVixoraManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
-import { MessageSquare, LayoutGrid, Package } from "lucide-react";
+import AdminRedeemManager from "@/components/AdminRedeemManager";
+import AdminNotificationSender from "@/components/AdminNotificationSender";
+import AdminCoOwnerManager from "@/components/AdminCoOwnerManager";
+import AdminEmailStudio from "@/components/admin/AdminEmailStudio";
+import AdminContactGainManager from "@/components/AdminContactGainManager";
+import { AdminVerificationManager } from "@/components/admin/AdminVerificationManager";
+import { AdminRealtimeSearchBar } from "@/components/admin/AdminRealtimeSearchBar";
+import { MessageSquare, LayoutGrid, Package, Smartphone } from "lucide-react";
 
 const ADMIN_MODULES = [
   { id: 'digital-products', label: 'Digital Products', icon: Package, color: 'from-orange-500 via-amber-500 to-red-600', badge: 'Direct Buy' },
@@ -41,6 +48,7 @@ const ADMIN_MODULES = [
   { id: 'chat', label: 'Support & Chat', icon: MessageSquare, color: 'from-blue-600 to-indigo-600', badge: 'Live' },
   { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
   { id: 'users', label: 'Users & KYC', icon: Users, color: 'from-orange-600 to-red-600' },
+  { id: 'airtime', label: 'Airtime & Data', icon: Smartphone, color: 'from-orange-500 via-amber-500 to-red-600' },
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
   { id: 'features', label: 'Toggles', icon: Settings2, color: 'from-fuchsia-600 to-purple-600' },
   { id: 'tasks', label: 'Credit Tasks', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },
@@ -53,9 +61,31 @@ const ADMIN_MODULES = [
 
 const AdminPanel = () => {
   const [activeModule, setActiveModule] = useState('syndicate');
+  const [featureProps, setFeatureProps] = useState<{ featureSearch?: string; featureTab?: 'features' | 'menus' }>({});
+  const [syndicateProps, setSyndicateProps] = useState<{ initialCampaignId?: string; initialTab?: any }>({});
+
+  const handleNavigate = (sectionId: string, extraProps?: any) => {
+    if (sectionId === 'syndicate' && extraProps) {
+      setSyndicateProps(extraProps);
+    }
+    if (sectionId === 'features') {
+      setFeatureProps({
+        featureSearch: extraProps?.featureSearch ?? '',
+        featureTab: extraProps?.featureTab || 'features',
+      });
+    } else {
+      setFeatureProps({});
+    }
+    setActiveModule(sectionId);
+  };
 
   return (
     <div className="space-y-4 w-full max-w-full overflow-x-hidden">
+      {/* Search any feature, toggle, section, user, or campaign */}
+      <div className="w-full px-1">
+        <AdminRealtimeSearchBar onNavigate={handleNavigate} className="max-w-2xl" />
+      </div>
+
       {/* Mobile-Friendly Horizontal Pill Navigation with 3D tactile buttons */}
       <div className="w-full overflow-x-auto no-scrollbar py-1">
         <div className="flex items-center gap-2.5 min-w-max px-1">
@@ -65,7 +95,7 @@ const AdminPanel = () => {
             return (
               <button
                 key={mod.id}
-                onClick={() => setActiveModule(mod.id)}
+                onClick={() => handleNavigate(mod.id)}
                 className={`group flex items-center gap-2.5 h-12 px-3.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-200 ${
                   isActive
                     ? `bg-gradient-to-r ${mod.color} text-white shadow-[0_8px_16px_-4px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] scale-[1.02] border border-white/20`
@@ -95,13 +125,30 @@ const AdminPanel = () => {
         {activeModule === 'digital-products' && <AdminDigitalProductsManager />}
         {activeModule === 'vixora-admin' && <AdminVixoraManager />}
         {activeModule === 'business-agent' && <AdminBusinessAgentManager />}
-        {activeModule === 'syndicate' && <AdminSyndicateManager />}
+        {activeModule === 'syndicate' && (
+          <AdminSyndicateManager
+            initialCampaignId={syndicateProps.initialCampaignId}
+            initialTab={syndicateProps.initialTab}
+            onNavigateSection={handleNavigate}
+          />
+        )}
         {activeModule === 'ads' && <AdminAdManager />}
         {activeModule === 'chat' && <AdminChatSystem />}
         {activeModule === 'analytics' && <AdminAnalytics />}
         {activeModule === 'users' && <AdminUserManager />}
+        {activeModule === 'verification' && <AdminVerificationManager />}
+        {activeModule === 'contact-gain' && <AdminContactGainManager />}
+        {activeModule === 'email-studio' && <AdminEmailStudio />}
+        {activeModule === 'notifications' && <AdminNotificationSender />}
+        {activeModule === 'coowners' && <AdminCoOwnerManager />}
+        {(activeModule === 'airtime' || activeModule === 'redeem') && <AdminRedeemManager />}
         {activeModule === 'settings' && <AdminSettings />}
-        {activeModule === 'features' && <AdminFeatureToggles />}
+        {activeModule === 'features' && (
+          <AdminFeatureToggles
+            initialSearch={featureProps.featureSearch}
+            initialTab={featureProps.featureTab}
+          />
+        )}
         {activeModule === 'tasks' && <TaskManager />}
         {activeModule === 'slides' && <SlideManager />}
         {activeModule === 'api' && <AdminApiManager />}

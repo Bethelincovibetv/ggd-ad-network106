@@ -3,10 +3,11 @@ import {
   Search, X, ArrowRight, CornerDownLeft, BookOpen, TrendingUp, Briefcase, 
   Video, Sparkles, Megaphone, Mail, ClipboardList, Image, Shield, Users, 
   MessageSquare, Bell, Crown, Smartphone, Settings, Settings2, Key, 
-  ExternalLink, CheckCircle2, User, Flame, Package, Store
+  ExternalLink, CheckCircle2, User, Flame, Package, Store, Menu, Layers
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { FEATURE_REGISTRY, MENU_TOGGLE_REGISTRY } from "@/lib/featureRegistry";
 
 export interface SearchEntry {
   id: string;
@@ -235,12 +236,22 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
 
   // PLATFORM & CONFIG
   {
+    id: 'digital-products',
+    sectionId: 'digital-products',
+    title: 'Digital Products Store Manager',
+    category: 'ADVERTISING & CAMPAIGNS',
+    description: 'Manage direct purchase digital listings, downloads, and seller approvals',
+    keywords: ['digital products', 'ebooks', 'courses', 'downloads', 'direct buy'],
+    icon: Package,
+    color: 'from-orange-500 to-amber-600'
+  },
+  {
     id: 'airtime-marketplace',
     sectionId: 'airtime',
     title: 'Airtime & Data Redeem Marketplace',
     category: 'PLATFORM & CONFIG',
     description: 'Create and manage redeemable airtime, data bundles, and seed offers',
-    keywords: ['airtime', 'data', 'redeem', 'mtn', 'airtel', 'glo', '9mobile', 'gift cards'],
+    keywords: ['airtime', 'data', 'redeem', 'redeem airtime', 'mtn', 'airtel', 'glo', '9mobile', 'gift cards'],
     icon: Smartphone,
     color: 'from-orange-500 via-amber-500 to-red-600'
   },
@@ -269,8 +280,8 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
     sectionId: 'features',
     title: 'Feature Toggles (Module Controller)',
     category: 'PLATFORM & CONFIG',
-    description: 'Enable or disable platform features: Vixora AI, Syndicate, Tasks, Ads',
-    keywords: ['feature toggles', 'toggles', 'modules', 'disable', 'enable', 'switch off', 'vixora toggle'],
+    description: 'Enable or disable platform features: Community, Tasks, Redeem Airtime, Vixora AI, Syndicate',
+    keywords: ['feature toggles', 'toggles', 'modules', 'disable', 'enable', 'switch off', 'community', 'tasks', 'redeem airtime'],
     icon: Settings2,
     color: 'from-cyan-500 to-blue-600'
   },
@@ -284,6 +295,50 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
     icon: Key,
     color: 'from-yellow-500 to-amber-600'
   }
+];
+
+const FEATURE_TOGGLE_ENTRIES: SearchEntry[] = [
+  ...FEATURE_REGISTRY.map(f => ({
+    id: `feature_toggle_${f.key}`,
+    sectionId: 'features',
+    title: `Feature Toggle: ${f.label}`,
+    category: 'FEATURE TOGGLE',
+    description: `${f.group} • ${f.description}`,
+    keywords: [
+      f.key.toLowerCase(),
+      f.group.toLowerCase(),
+      'toggle',
+      'feature',
+      ...(f.routes || []).map(r => r.toLowerCase()),
+      ...(f.keywords || []).map(k => k.toLowerCase()),
+    ],
+    icon: Layers,
+    color: 'from-cyan-500 to-blue-600',
+    extraProps: { featureSearch: f.key, featureTab: 'features' as const },
+  })),
+  ...MENU_TOGGLE_REGISTRY.map(m => ({
+    id: `menu_toggle_${m.key}`,
+    sectionId: 'features',
+    title: `Menu Toggle: ${m.label}`,
+    category: 'MENU TOGGLE',
+    description: `${m.section} (${m.navTabId}) • ${m.description}`,
+    keywords: [
+      m.key.toLowerCase(),
+      m.section.toLowerCase(),
+      m.navTabId.toLowerCase(),
+      'menu',
+      'navigation',
+      'toggle',
+    ],
+    icon: Menu,
+    color: 'from-orange-500 to-amber-600',
+    extraProps: { featureSearch: m.key, featureTab: 'menus' as const },
+  })),
+];
+
+const ALL_ADMIN_ENTRIES: SearchEntry[] = [
+  ...STATIC_ADMIN_ENTRIES,
+  ...FEATURE_TOGGLE_ENTRIES,
 ];
 
 interface AdminRealtimeSearchBarProps {
@@ -304,14 +359,10 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Global Keyboard Shortcut: ⌘K or Ctrl+K
+  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        inputRef.current?.focus();
-        setIsOpen(true);
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         setIsOpen(false);
         inputRef.current?.blur();
       }
@@ -417,12 +468,12 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Filter static entries
+  // Filter static entries & all feature/menu toggles
   const filteredEntries = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return STATIC_ADMIN_ENTRIES.slice(0, 8);
 
-    return STATIC_ADMIN_ENTRIES.filter(item => {
+    return ALL_ADMIN_ENTRIES.filter(item => {
       if (item.title.toLowerCase().includes(trimmed)) return true;
       if (item.description.toLowerCase().includes(trimmed)) return true;
       if (item.category.toLowerCase().includes(trimmed)) return true;
@@ -475,12 +526,12 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
             setSelectedIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Navigate admin portal... (e.g. settings, ads, syndicate, users, vixora) ⌘K"
-          className="w-full h-10 sm:h-11 pl-10 pr-20 text-xs sm:text-sm font-medium rounded-2xl bg-secondary/60 hover:bg-secondary/80 focus:bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none placeholder:text-muted-foreground/80 shadow-xs"
+          placeholder="Search any feature, toggle, section, user, or campaign..."
+          className="w-full h-10 sm:h-11 pl-10 pr-10 text-xs sm:text-sm font-medium rounded-2xl bg-card hover:bg-muted/30 focus:bg-background border border-border focus:border-foreground/40 focus:ring-1 focus:ring-border transition-all outline-none placeholder:text-muted-foreground/80 shadow-xs"
         />
 
-        <div className="absolute right-3 flex items-center gap-1.5 pointer-events-none">
-          {query ? (
+        {query && (
+          <div className="absolute right-3 flex items-center">
             <button
               type="button"
               onClick={(e) => {
@@ -488,16 +539,13 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
                 setQuery('');
                 setIsOpen(false);
               }}
-              className="pointer-events-auto p-1 rounded-md text-muted-foreground hover:text-foreground"
+              className="p-1 rounded-md text-muted-foreground hover:text-foreground cursor-pointer"
+              aria-label="Clear admin search"
             >
               <X className="h-3.5 w-3.5" />
             </button>
-          ) : (
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-muted text-[10px] font-mono font-bold text-muted-foreground border border-border/80">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Real-time Results Popover Dropdown */}
@@ -505,11 +553,11 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
         <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl bg-card border border-border shadow-2xl overflow-hidden backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150">
           <div className="p-2 border-b border-border/60 bg-muted/30 flex items-center justify-between text-[11px] text-muted-foreground px-3">
             <span className="font-semibold flex items-center gap-1.5">
-              <Flame className="h-3.5 w-3.5 text-orange-500" />
-              {query ? `Search results for "${query}"` : 'Quick Navigation Shortcuts'}
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              {query ? `Search results for "${query}"` : 'Admin Sections & Feature Toggles'}
             </span>
             <span className="text-[10px]">
-              {allResults.length} {allResults.length === 1 ? 'destination' : 'destinations'} found
+              {allResults.length} {allResults.length === 1 ? 'result' : 'results'} found
             </span>
           </div>
 
@@ -518,10 +566,10 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
               <div className="py-8 text-center space-y-2">
                 <Search className="h-8 w-8 text-muted-foreground/40 mx-auto" />
                 <p className="text-xs font-semibold text-muted-foreground">
-                  No matching admin destination for "{query}"
+                  No matching feature or admin destination for "{query}"
                 </p>
                 <p className="text-[11px] text-muted-foreground/70">
-                  Try searching "syndicate", "ads", "settings", "ceo", "verification", or "users"
+                  Try searching "community", "tasks", "redeem airtime", "syndicate", "ads", "settings", or "users"
                 </p>
               </div>
             ) : (

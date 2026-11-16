@@ -121,6 +121,7 @@ const App = () => (
                 <Route path="/messages" element={<Index initialTab="inbox" />} />
                 <Route path="/wallet" element={<Index initialTab="wallet" />} />
                 <Route path="/feed" element={<Index initialTab="feed" />} />
+                <Route path="/community" element={<Index initialTab="feed" />} />
                 <Route path="/tasks" element={<Index initialTab="tasks" />} />
                 <Route path="/campaigns" element={<Index initialTab="campaigns" />} />
                 <Route path="/directory" element={<Index initialTab="directory" />} />
@@ -167,6 +168,10 @@ const App = () => (
                 />
                 <Route
                   path="/airtime"
+                  element={<FeatureRoute feature="credit_airtime_redeem" element={<RedeemAirtimePage />} />}
+                />
+                <Route
+                  path="/redeem-airtime"
                   element={<FeatureRoute feature="credit_airtime_redeem" element={<RedeemAirtimePage />} />}
                 />
 

@@ -39,8 +39,9 @@ export const isFavorite = (targetId: string, type?: FavoriteType): boolean => {
 };
 
 const isFavoritesFeatureDisabled = (): boolean => {
-  const toggles = safeStorage.getJSON<Record<string, boolean>>('ggd_feature_toggles_v1', {});
-  if (toggles.save_favorite === false || toggles.favorites === false) return true;
+  const toggles = safeStorage.getJSON<Record<string, boolean>>('ggd_feature_toggles_v2', {});
+  if (toggles.save_favorite !== undefined) return toggles.save_favorite === false;
+  if (toggles.favorites === false) return true;
   return false;
 };
 

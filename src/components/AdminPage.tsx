@@ -32,6 +32,7 @@ import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { AdminRealtimeSearchBar } from "@/components/admin/AdminRealtimeSearchBar";
 import { getCurrentUser } from "@/services/authService";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
@@ -108,6 +109,7 @@ const AdminPage = () => {
   const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState('syndicate');
   const [syndicateProps, setSyndicateProps] = useState<{ initialCampaignId?: string; initialTab?: any }>({});
+  const [featureProps, setFeatureProps] = useState<{ featureSearch?: string; featureTab?: 'features' | 'menus' }>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
@@ -230,6 +232,14 @@ const AdminPage = () => {
     if (sectionId === 'syndicate' && extraProps) {
       setSyndicateProps(extraProps);
     }
+    if (sectionId === 'features') {
+      setFeatureProps({
+        featureSearch: extraProps?.featureSearch ?? '',
+        featureTab: extraProps?.featureTab || 'features',
+      });
+    } else {
+      setFeatureProps({});
+    }
     setActiveSection(sectionId);
   };
 
@@ -251,7 +261,13 @@ const AdminPage = () => {
       case 'redeem':
         return <AdminRedeemManager />;
       case 'settings': return <AdminSettings />;
-      case 'features': return <AdminFeatureToggles />;
+      case 'features':
+        return (
+          <AdminFeatureToggles
+            initialSearch={featureProps.featureSearch}
+            initialTab={featureProps.featureTab}
+          />
+        );
       case 'slides': return <SlideManager />;
       case 'tasks': return <TaskManager />;
       case 'api': return <AdminApiManager />;
@@ -430,6 +446,11 @@ const AdminPage = () => {
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
         <div className="w-full max-w-[1700px] min-w-0 mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-4 sm:space-y-5 overflow-x-hidden">
+          {/* Admin Portal Search Bar for Features, Toggles, Sections, Users & Campaigns */}
+          <div className="w-full">
+            <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-2xl" />
+          </div>
+
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
             <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3 w-full min-w-0 overflow-hidden`}>

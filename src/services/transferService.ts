@@ -116,7 +116,7 @@ export async function executeTransfer(
 
   // Feature Toggle Check (Client Cache + Database Enforcement)
   try {
-    const rawCache = typeof localStorage !== 'undefined' ? localStorage.getItem('ggd_feature_toggles_v1') : null;
+    const rawCache = typeof localStorage !== 'undefined' ? localStorage.getItem('ggd_feature_toggles_v2') : null;
     if (rawCache) {
       const toggles = JSON.parse(rawCache);
       if (toggles.wallet_transfer === false || toggles.credit_transfer === false) {

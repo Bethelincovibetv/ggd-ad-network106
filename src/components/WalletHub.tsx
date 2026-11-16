@@ -20,15 +20,15 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
   const { isEnabled } = useFeatureToggles();
   const isCreditWalletEnabled = isEnabled('credit_wallet') && isEnabled('task_wallet');
   const isWalletTransferEnabled = isEnabled('wallet_transfer') && isEnabled('credit_transfer');
-  const isRedeemEnabled = isEnabled('airtime_redeem');
-  const isRedeemAllowed = isCreditWalletEnabled && isRedeemEnabled;
+  const isRedeemEnabled = isEnabled('credit_airtime_redeem');
+  const isRedeemAllowed = isRedeemEnabled;
   const isTransferAllowed = isCreditWalletEnabled && isWalletTransferEnabled;
 
   const [exchangeRate, setExchangeRate] = useState<number>(100);
   const [activeTab, setActiveTab] = useState<'task-wallet' | 'buy' | 'transfer' | 'redeem'>(() => {
+    if (initialTab === 'redeem' && isRedeemAllowed) return 'redeem';
     if (!isCreditWalletEnabled) return 'task-wallet';
     if (initialTab === 'transfer' && !isTransferAllowed) return 'task-wallet';
-    if (initialTab === 'redeem' && !isRedeemAllowed) return 'task-wallet';
     if (initialTab === 'buy' && !isCreditWalletEnabled) return 'task-wallet';
     return initialTab;
   });
@@ -38,11 +38,9 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
 
   // Keep activeTab valid if toggles change dynamically
   useEffect(() => {
-    if (!isCreditWalletEnabled && activeTab !== 'task-wallet') {
+    if (activeTab === 'redeem' && !isRedeemAllowed) {
       setActiveTab('task-wallet');
     } else if (activeTab === 'transfer' && !isTransferAllowed) {
-      setActiveTab('task-wallet');
-    } else if (activeTab === 'redeem' && !isRedeemAllowed) {
       setActiveTab('task-wallet');
     } else if (activeTab === 'buy' && !isCreditWalletEnabled) {
       setActiveTab('task-wallet');
@@ -51,11 +49,11 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
 
   useEffect(() => {
     if (initialTab) {
-      if (!isCreditWalletEnabled && initialTab !== 'task-wallet') {
+      if (initialTab === 'redeem') {
+        setActiveTab(isRedeemAllowed ? 'redeem' : 'task-wallet');
+      } else if (!isCreditWalletEnabled && initialTab !== 'task-wallet') {
         setActiveTab('task-wallet');
       } else if (initialTab === 'transfer' && !isTransferAllowed) {
-        setActiveTab('task-wallet');
-      } else if (initialTab === 'redeem' && !isRedeemAllowed) {
         setActiveTab('task-wallet');
       } else {
         setActiveTab(initialTab);

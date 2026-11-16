@@ -180,14 +180,16 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
   // --- CREDIT & TASKS ECONOMY ---
   {
     key: 'credit_tasks',
-    label: 'Credit Tasks Economy',
+    label: 'Task Page (Credit Tasks Economy)',
     group: 'Credit & Tasks Economy',
     defaultState: true,
     canDisable: true,
-    description: 'Community social tasks where users earn and spend GGG Credits for engagement, follows, likes, and shares.',
+    description: 'Task Page and community social tasks where users earn and spend GGG Credits for engagement, follows, likes, and shares.',
     navTabIds: ['tasks'],
-    routes: [],
+    routes: ['/tasks'],
     keywords: [
+      'Task Page',
+      'Tasks Page',
       'Credit Task',
       'Credit Tasks',
       'Social Task',
@@ -196,6 +198,7 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
       'credit economy',
       'reward tasks',
       'Earn-Task',
+      'Tasks',
     ],
   },
   {
@@ -228,12 +231,22 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
+    key: 'credit_wallet',
+    label: 'Credit Wallet Engine',
+    group: 'Credit & Tasks Economy',
+    defaultState: true,
+    canDisable: true,
+    description: 'Enables the Credit Wallet alongside Naira Wallet. When OFF, system operates strictly on Naira Wallet, hiding Credit Wallet balances and options.',
+    navTabIds: ['task-wallet', 'fund-credits'],
+    keywords: ['Credit Wallet', 'Task Wallet', 'Credit Balance', 'GGG Credits', 'Points Wallet', 'credits balance'],
+  },
+  {
     key: 'task_wallet',
     label: 'Task Credit Wallet UI',
     group: 'Credit & Tasks Economy',
     defaultState: true,
     canDisable: true,
-    description: 'Display Credit Wallet balance, credit transactions, and credit funding options in dashboard headers and wallet hubs.',
+    description: 'Display Task Credit Wallet balance, credit transactions, and credit funding options in dashboard headers and wallet hubs.',
     navTabIds: ['task-wallet', 'fund-credits'],
     keywords: [
       'Task Wallet',
@@ -243,24 +256,14 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
-    key: 'credit_wallet',
-    label: 'Credit Wallet UI',
-    group: 'Credit & Tasks Economy',
-    defaultState: true,
-    canDisable: true,
-    description: 'Display Credit Wallet balance, credit transactions, and credit funding options in headers and hubs.',
-    navTabIds: ['task-wallet', 'fund-credits'],
-    keywords: ['Credit Wallet', 'Task Wallet', 'credits balance'],
-  },
-  {
     key: 'wallet_transfer',
     label: 'Wallet & P2P Fund Transfer',
-    group: 'Credit & Tasks Economy',
+    group: 'Core System',
     defaultState: true,
     canDisable: true,
-    description: 'Transfer funds or GGG Credits peer-to-peer between registered members using email or user ID.',
+    description: 'Allows users to transfer money or GGG Credits peer-to-peer between registered members. When OFF, transfer buttons and backend transfers are blocked.',
     navTabIds: ['transfer'],
-    keywords: ['Wallet Transfer', 'Credit Transfer', 'Transfer Funds', 'P2P Transfer'],
+    keywords: ['Wallet Transfer', 'Credit Transfer', 'Transfer Funds', 'Send Money', 'P2P Transfer'],
   },
   {
     key: 'credit_transfer',
@@ -278,20 +281,22 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
   },
   {
     key: 'credit_airtime_redeem',
-    label: 'Airtime & Data Redemption',
+    label: 'Redeem Airtime & Data Page',
     group: 'Credit & Tasks Economy',
     defaultState: true,
     canDisable: true,
-    description: 'Redeem accumulated credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
+    description: 'Redeem Airtime & Data Page where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
     navTabIds: ['redeem', 'redeem-airtime', 'airtime'],
-    routes: ['/redeem', '/airtime'],
+    routes: ['/redeem', '/airtime', '/redeem-airtime'],
     keywords: [
-      'Airtime & Data',
+      'Redeem Airtime Page',
       'Redeem Airtime',
+      'Airtime & Data',
       'Airtime Marketplace',
       'Data Redeem',
       'Redeem Airtime & Data',
       'Airtime',
+      'Data Bundles',
     ],
   },
 
@@ -361,18 +366,21 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
   // --- COMMUNITY & MESSAGING ---
   {
     key: 'community_feed',
-    label: 'Community Feed & Discussions',
+    label: 'Community Page & Feed',
     group: 'Community & Messaging',
     defaultState: true,
     canDisable: true,
-    description: 'Social stream for business updates, blog articles, tips, comments, likes, and community discussions.',
-    navTabIds: ['feed'],
-    routes: [],
+    description: 'Community Page social stream for business updates, blog articles, tips, comments, likes, and community discussions.',
+    navTabIds: ['feed', 'community'],
+    routes: ['/feed', '/community'],
     keywords: [
+      'Community Page',
       'Community Feed',
+      'Community',
       'Social Feed',
       'Community Post',
       'Community Discussions',
+      'Blog Articles',
     ],
   },
   {
@@ -383,13 +391,29 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     canDisable: true,
     description: 'Peer-to-peer user messaging, image attachments, and WebRTC voice calls.',
     navTabIds: ['inbox'],
-    routes: [],
+    routes: ['/inbox'],
     keywords: [
       'GGD Inbox',
       'P2P Chat',
       'Voice Call',
       'Audio Calls',
       'WebRTC call',
+    ],
+  },
+  {
+    key: 'contact_gain',
+    label: 'Contact Gain Hub (VCF Drops)',
+    group: 'Community & Messaging',
+    defaultState: true,
+    canDisable: true,
+    description: 'Daily WhatsApp phonebook compilation, VCF/CSV contact drops, and audience growth tasks.',
+    navTabIds: ['contact-gain', 'contacts'],
+    routes: ['/contact-gain'],
+    keywords: [
+      'Contact Gain',
+      'VCF Drops',
+      'WhatsApp Contacts',
+      'Phonebook',
     ],
   },
   {
@@ -405,12 +429,25 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
+    key: 'live_activity',
+    label: 'Home Live Activity Stream',
+    group: 'Community & Messaging',
+    defaultState: true,
+    canDisable: true,
+    description: 'Live activity feed drawer displayed on the user Home Dashboard.',
+    keywords: [
+      'Live Activity',
+      'Activity Stream',
+      'Dashboard Activity',
+    ],
+  },
+  {
     key: 'save_favorite',
     label: 'Saved Items & Favorites',
     group: 'Community & Messaging',
     defaultState: true,
     canDisable: true,
-    description: 'Allow users to save ads, products, storefronts, and posts to their personal bookmarks and wishlist.',
+    description: 'Enables saving and bookmarking favorite storefronts, ads, products, and posts. When OFF, the Save Favorite button is hidden everywhere.',
     navTabIds: ['favorites', 'saved'],
     routes: ['/favorites'],
     keywords: [
@@ -641,33 +678,54 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
-    key: 'save_favorite',
-    label: 'Save Favorite Feature',
+    key: 'referral_system',
+    label: 'Share & Earn Referral System',
     group: 'Marketplace & Growth',
     defaultState: true,
     canDisable: true,
-    description: 'Enables saving and bookmarking favorite storefronts, ads, and listings. When OFF, the Save Favorite button is hidden everywhere.',
-    navTabIds: ['favorites'],
-    keywords: ['Save Favorite', 'Bookmark', 'Favorites', 'Saved Items'],
+    description: 'Member referral links, commission rewards, and promotional invite leaderboard.',
+    navTabIds: ['share-earn', 'referrals'],
+    keywords: ['Share & Earn', 'Referrals', 'Referral System', 'Affiliate'],
   },
   {
-    key: 'wallet_transfer',
-    label: 'Wallet & Credit Transfer',
+    key: 'promotional_content',
+    label: 'Promotional Flyers & Content Hub',
+    group: 'Marketplace & Growth',
+    defaultState: true,
+    canDisable: true,
+    description: 'Downloadable branded marketing flyers and promotional campaign templates.',
+    navTabIds: ['promo'],
+    keywords: ['Promotional Content', 'Flyers', 'Marketing Flyers'],
+  },
+  {
+    key: 'business_tasks',
+    label: 'Syndicate Business Campaign Creator',
+    group: 'Syndicate & Channels',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows businesses to launch paid Syndicate promoter campaigns from the Work menu.',
+    navTabIds: ['business-tasks'],
+    keywords: ['Business Tasks', 'Syndicate Campaigns', 'Create Syndicate Campaign'],
+  },
+  {
+    key: 'api_keys',
+    label: 'Developer API Keys & Embeds',
+    group: 'Business & Storefronts',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows premium businesses to generate API keys and ad embed widgets for external websites.',
+    navTabIds: ['api-keys'],
+    keywords: ['API Keys', 'Developer API', 'Ad Embed Code'],
+  },
+  {
+    key: 'setup_wizard',
+    label: 'Onboarding Setup Wizard',
     group: 'Core System',
     defaultState: true,
     canDisable: true,
-    description: 'Allows users to transfer money or credits between wallets and users. When OFF, transfer buttons and backend transfer actions are blocked.',
-    keywords: ['Wallet Transfer', 'Credit Transfer', 'Transfer Funds', 'Send Money'],
-  },
-  {
-    key: 'credit_wallet',
-    label: 'Credit Wallet Engine',
-    group: 'Credit & Tasks Economy',
-    defaultState: true,
-    canDisable: true,
-    description: 'Enables the Credit Wallet alongside Naira Wallet. When OFF, system operates strictly on ONE WALLET (Naira Wallet), hiding all Credit Wallet balances and options.',
-    navTabIds: ['fund-credits', 'task_wallet'],
-    keywords: ['Credit Wallet', 'Credit Balance', 'GGG Credits', 'Points Wallet'],
+    description: 'Guided onboarding checklist for newly registered business accounts.',
+    navTabIds: ['wizard'],
+    keywords: ['Setup Wizard', 'Onboarding', 'Getting Started'],
   },
 ];
 
@@ -1055,58 +1113,95 @@ export const WHATSAPP_SYNDICATE_FOCUS_PRESET: Record<string, boolean> = {
 };
 
 /**
- * Helper to check if a feature is enabled
+ * Canonical <-> Legacy alias mapping for consistent feature resolution & persistence.
+ */
+export const FEATURE_LEGACY_ALIASES: Record<string, string[]> = {
+  banner_ads: ['ads'],
+  credit_tasks: ['tasks'],
+  community_feed: ['community'],
+  business_directory: ['directory'],
+  marketing_apps_marketplace: ['marketplace', 'marketing_apps'],
+  credit_airtime_redeem: ['airtime_redeem'],
+  vixora_ai_studio: ['vixora_ai'],
+  chat_and_calls: ['p2p_chat'],
+  premium_vip_upgrade: ['premium_upgrade'],
+  save_favorite: ['favorites'],
+  wallet_transfer: ['credit_transfer'],
+  credit_wallet: ['task_wallet'],
+  storefronts: ['business_sites'],
+  syndicate_portal: ['nav_syndicate', 'syndicate'],
+};
+
+/**
+ * Navigation menu toggle keys associated with each canonical feature.
+ * Re-enabled automatically when restoring a feature ON so pages and links both appear.
+ */
+export const FEATURE_NAV_KEYS: Record<string, string[]> = {
+  community_feed: ['nav_feed'],
+  credit_tasks: ['nav_credit_tasks', 'nav_social_tasks'],
+  credit_airtime_redeem: ['nav_airtime_redeem'],
+  banner_ads: ['nav_campaigns'],
+  business_directory: ['nav_directory'],
+  marketing_apps_marketplace: ['nav_marketplace'],
+  vixora_ai_studio: ['nav_vixora_ai'],
+  chat_and_calls: ['nav_inbox'],
+  premium_vip_upgrade: ['nav_premium'],
+  save_favorite: ['nav_favorites'],
+  storefronts: ['nav_my_business'],
+  contact_gain: ['nav_contact_gain'],
+  business_tasks: ['nav_business_tasks'],
+  referral_system: ['nav_share_earn'],
+  api_keys: ['nav_api_keys'],
+};
+
+const LEGACY_TO_CANONICAL: Record<string, string> = {};
+Object.entries(FEATURE_LEGACY_ALIASES).forEach(([canonical, aliases]) => {
+  aliases.forEach(alias => {
+    if (!LEGACY_TO_CANONICAL[alias]) {
+      LEGACY_TO_CANONICAL[alias] = canonical;
+    }
+  });
+});
+
+export const getRelatedFeatureKeys = (key: string): string[] => {
+  const canonical = LEGACY_TO_CANONICAL[key] || key;
+  const aliases = FEATURE_LEGACY_ALIASES[canonical] || [];
+  return Array.from(new Set([canonical, key, ...aliases]));
+};
+
+/**
+ * Helper to check if a feature is enabled (bidirectional canonical <-> legacy lookup,
+ * with canonical key taking precedence when explicitly set).
  */
 export const isFeatureEnabled = (
   key: string,
   toggles: Record<string, boolean>
 ): boolean => {
-  const def = FEATURE_REGISTRY_MAP[key];
+  const canonicalKey = LEGACY_TO_CANONICAL[key] || key;
+  const def = FEATURE_REGISTRY_MAP[canonicalKey] || FEATURE_REGISTRY_MAP[key];
   if (def && !def.canDisable) {
     return true; // Protected core features cannot be disabled
   }
+
+  // Canonical key takes precedence if present
+  if (toggles[canonicalKey] !== undefined) {
+    return Boolean(toggles[canonicalKey]);
+  }
+
+  // Direct key check
   if (toggles[key] !== undefined) {
     return Boolean(toggles[key]);
   }
 
-  // Check menu toggles
+  // Fallback to any paired legacy aliases
+  const aliases = FEATURE_LEGACY_ALIASES[canonicalKey] || [];
+  for (const alias of aliases) {
+    if (toggles[alias] !== undefined) {
+      return Boolean(toggles[alias]);
+    }
+  }
+
   const menuDef = MENU_TOGGLE_MAP[key];
-  if (menuDef && toggles[key] !== undefined) {
-    return Boolean(toggles[key]);
-  }
-
-  // Check backward compatible aliases
-  if ((key === 'syndicate_portal' || key === 'nav_syndicate' || key === 'syndicate') && toggles['syndicate_portal'] !== undefined) {
-    return Boolean(toggles['syndicate_portal']);
-  }
-  if ((key === 'syndicate_portal' || key === 'nav_syndicate') && toggles['nav_syndicate'] !== undefined) {
-    return Boolean(toggles['nav_syndicate']);
-  }
-  if (key === 'banner_ads' && toggles['ads'] !== undefined) return Boolean(toggles['ads']);
-  if (key === 'credit_tasks' && toggles['tasks'] !== undefined) return Boolean(toggles['tasks']);
-  if (key === 'community_feed' && toggles['community'] !== undefined) return Boolean(toggles['community']);
-  if (key === 'business_directory' && toggles['directory'] !== undefined) return Boolean(toggles['directory']);
-  if (key === 'marketing_apps_marketplace' && toggles['marketplace'] !== undefined) return Boolean(toggles['marketplace']);
-  if (key === 'credit_airtime_redeem' && toggles['airtime_redeem'] !== undefined) return Boolean(toggles['airtime_redeem']);
-  if (key === 'vixora_ai_studio' && toggles['vixora_ai'] !== undefined) return Boolean(toggles['vixora_ai']);
-  if ((key === 'chat_and_calls' || key === 'p2p_chat') && toggles['chat_and_calls'] !== undefined) return Boolean(toggles['chat_and_calls']);
-  if ((key === 'chat_and_calls' || key === 'p2p_chat') && toggles['p2p_chat'] !== undefined) return Boolean(toggles['p2p_chat']);
-  if (key === 'premium_vip_upgrade' && toggles['premium_upgrade'] !== undefined) return Boolean(toggles['premium_upgrade']);
-  if ((key === 'save_favorite' || key === 'favorites') && toggles['save_favorite'] !== undefined) return Boolean(toggles['save_favorite']);
-  if ((key === 'save_favorite' || key === 'favorites') && toggles['favorites'] !== undefined) return Boolean(toggles['favorites']);
-  if ((key === 'wallet_transfer' || key === 'credit_transfer') && toggles['wallet_transfer'] !== undefined) return Boolean(toggles['wallet_transfer']);
-  if ((key === 'wallet_transfer' || key === 'credit_transfer') && toggles['credit_transfer'] !== undefined) return Boolean(toggles['credit_transfer']);
-  if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['credit_wallet'] !== undefined) return Boolean(toggles['credit_wallet']);
-  if ((key === 'credit_wallet' || key === 'task_wallet') && toggles['task_wallet'] !== undefined) return Boolean(toggles['task_wallet']);
-  if (key === 'nav_premium' && toggles['nav_premium'] !== undefined) return Boolean(toggles['nav_premium']);
-  if (key === 'nav_business_tasks' && toggles['nav_business_tasks'] !== undefined) return Boolean(toggles['nav_business_tasks']);
-  if (key === 'nav_syndicate_join' && toggles['nav_syndicate_join'] !== undefined) return Boolean(toggles['nav_syndicate_join']);
-  if (key === 'nav_upgrade' && toggles['nav_upgrade'] !== undefined) return Boolean(toggles['nav_upgrade']);
-  if (key === 'nav_social_tasks' && toggles['nav_social_tasks'] !== undefined) return Boolean(toggles['nav_social_tasks']);
-  if (key === 'nav_mobile_admin' && toggles['nav_mobile_admin'] !== undefined) return Boolean(toggles['nav_mobile_admin']);
-  if (key === 'nav_notifications' && toggles['nav_notifications'] !== undefined) return Boolean(toggles['nav_notifications']);
-  if (key === 'nav_global_search' && toggles['nav_global_search'] !== undefined) return Boolean(toggles['nav_global_search']);
-
   if (menuDef) return menuDef.defaultState;
   return def ? def.defaultState : true;
 };
