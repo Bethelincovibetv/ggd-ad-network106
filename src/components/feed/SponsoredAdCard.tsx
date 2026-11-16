@@ -34,7 +34,7 @@ const SponsoredAdCard: React.FC<Props> = ({ ad }) => {
   };
 
   return (
-    <Card className="border border-orange-500/30 shadow-sm overflow-hidden rounded-xl">
+    <Card className="border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/[0.05] via-amber-500/[0.02] to-transparent shadow-sm overflow-hidden rounded-xl">
       <CardContent className="p-0">
         <div className="px-3 pt-3 pb-2 flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">

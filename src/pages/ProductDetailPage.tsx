@@ -362,43 +362,53 @@ const ProductDetailPage: React.FC = () => {
             />
           </div>
 
-          {listing.video_url ? (
-            <div className="aspect-video bg-black">
-              {/youtube\.com|youtu\.be/.test(listing.video_url) ? (
-                <iframe
-                  src={listing.video_url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
-                  className="w-full h-full"
-                  allowFullScreen
-                  title={listing.title}
-                />
-              ) : (
-                <video src={listing.video_url} controls className="w-full h-full" poster={listing.image_url || undefined} />
-              )}
-            </div>
-          ) : activeImg ? (
+          {/* Main Product Image / Photo View */}
+          {activeImg ? (
             <div 
               onClick={() => {
                 const idx = gallery.indexOf(activeImg);
                 setPhotoViewerIndex(idx >= 0 ? idx : 0);
                 setIsPhotoViewerOpen(true);
               }}
-              className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3 relative group cursor-zoom-in"
+              className="w-full bg-slate-900/5 dark:bg-black/40 flex items-center justify-center p-3 relative group cursor-zoom-in border-b border-border/60"
               title="Click to view full screen photo slider"
             >
               <img
                 loading="lazy"
                 src={activeImg}
                 alt={listing.title}
-                className="w-full max-h-[500px] h-auto object-contain rounded-2xl shadow-xs group-hover:scale-[1.01] transition-transform duration-300"
+                className="w-full max-h-[420px] h-auto object-contain rounded-2xl shadow-xs group-hover:scale-[1.01] transition-transform duration-300"
               />
               <div className="absolute bottom-4 right-4 bg-black/75 hover:bg-orange-600 text-white backdrop-blur-md px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-lg opacity-90 group-hover:opacity-100 transition-all">
                 <Maximize2 className="h-3.5 w-3.5" />
-                <span>Full View Slider ({gallery.length} photos)</span>
+                <span>Full View ({gallery.length} photos)</span>
               </div>
             </div>
-          ) : (
+          ) : !listing.video_url && (
             <div className="w-full aspect-video bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white">
               {isService ? <Briefcase className="h-16 w-16 opacity-70" /> : <Package className="h-16 w-16 opacity-70" />}
+            </div>
+          )}
+
+          {/* Video Demonstration Embed (Rendered alongside image if video_url exists) */}
+          {listing.video_url && (
+            <div className="p-3 bg-muted/30 border-t border-border/60 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-black text-foreground">
+                <Play className="h-4 w-4 text-orange-500 fill-current" />
+                <span>Product Video Demonstration</span>
+              </div>
+              <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-sm">
+                {/youtube\.com|youtu\.be/.test(listing.video_url) ? (
+                  <iframe
+                    src={listing.video_url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                    className="w-full h-full"
+                    allowFullScreen
+                    title={listing.title}
+                  />
+                ) : (
+                  <video src={listing.video_url} controls className="w-full h-full" poster={listing.image_url || undefined} />
+                )}
+              </div>
             </div>
           )}
 

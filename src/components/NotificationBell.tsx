@@ -250,23 +250,19 @@ const NotificationBell = () => {
 
   return (
     <div className="relative">
-      {/* Enhanced 3D Tactile Notification Button */}
+      {/* Scaled down Notification Button to match user avatar */}
       <button
         type="button"
-        className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer
-          bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 dark:from-amber-500 dark:via-orange-600 dark:to-orange-700
-          border-2 border-amber-300/60 dark:border-orange-400/40
-          shadow-[0_6px_0_0_#c2410c,0_10px_20px_rgba(234,88,12,0.38),inset_0_2px_1px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.2)]
-          hover:shadow-[0_4px_0_0_#c2410c,0_8px_16px_rgba(234,88,12,0.45),inset_0_2px_1px_rgba(255,255,255,0.85)]
-          hover:-translate-y-0.5 active:translate-y-1.5 active:shadow-[0_1px_0_0_#c2410c,0_2px_4px_rgba(234,88,12,0.2),inset_0_2px_4px_rgba(0,0,0,0.25)]
-          focus:outline-none focus:ring-2 focus:ring-orange-400"
+        className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer
+          bg-card hover:bg-muted border border-border/80 text-foreground shadow-xs
+          focus:outline-none focus:ring-2 focus:ring-orange-500"
         onClick={() => setOpen(o => !o)}
         aria-label="Open notifications"
       >
-        <div className="relative">
-          <Bell className={`h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)] ${unreadCount > 0 ? 'animate-[ring_2s_ease-in-out_infinite]' : ''}`} strokeWidth={2.5} />
+        <div className="relative flex items-center justify-center">
+          <Bell className={`h-4.5 w-4.5 sm:h-5 sm:w-5 text-foreground/80 ${unreadCount > 0 ? 'text-orange-600 animate-bounce' : ''}`} strokeWidth={2.2} />
           {unreadCount > 0 && (
-            <span className="absolute -top-2.5 -right-3 h-5.5 min-w-[22px] px-1.5 bg-gradient-to-b from-red-500 via-rose-600 to-red-700 text-white text-[11px] rounded-full flex items-center justify-center font-black shadow-[0_2.5px_0_0_#991b1b,0_4px_8px_rgba(239,68,68,0.5),inset_0_1px_1px_rgba(255,255,255,0.6)] ring-2 ring-white dark:ring-neutral-900">
+            <span className="absolute -top-1.5 -right-2 h-4 min-w-[16px] px-1 bg-red-600 text-white text-[9px] rounded-full flex items-center justify-center font-black ring-2 ring-card shadow-xs">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

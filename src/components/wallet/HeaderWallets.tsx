@@ -73,57 +73,55 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
   return (
     <div className={`flex items-center gap-1 sm:gap-2 flex-shrink-0 ${className}`}>
       {/* ========================================================
-          MOBILE/COMPACT WALLET CAPSULE (< 640px)
-          Prevents horizontal header stretching and nav bar overlap
+          UNIFIED SINGLE COMPACT WALLET PILL
+          Groups wallet balance and credits into a single clean pill
          ======================================================== */}
-      <div className="flex sm:hidden items-center bg-card/90 border border-border/80 shadow-xs rounded-full p-0.5 backdrop-blur-xs">
-        {/* Cash Segment */}
-        <button
-          type="button"
-          onClick={() => onNavigate('task-wallet')}
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 active:scale-95 transition-all"
-          title={`Naira Cash Wallet: ₦${walletBalance.toLocaleString()} (Click to open)`}
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-          </span>
-          <span>{formatCompactNaira(walletBalance)}</span>
-        </button>
-
-        {showCreditWallet && (
-          <>
-            {/* Divider */}
-            <div className="h-3 w-px bg-border/80 my-auto" />
-
-            {/* Credit Segment */}
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          <div className="flex items-center bg-card/95 border border-border/80 shadow-xs rounded-full px-2.5 sm:px-3 py-1 sm:py-1.5 backdrop-blur-xs gap-2 cursor-pointer hover:border-orange-500/50 transition-all group">
+            {/* Cash Segment */}
             <button
               type="button"
-              onClick={() => onNavigate('fund-credits')}
-              className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-black text-orange-700 dark:text-orange-400 hover:bg-orange-500/15 active:scale-95 transition-all"
-              title={`Credit Wallet: ${isAdmin ? 'Unlimited' : credits.toLocaleString()} cr (Click to top up)`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('task-wallet');
+              }}
+              className="flex items-center gap-1 text-[11px] sm:text-xs font-black text-emerald-700 dark:text-emerald-400 hover:opacity-80 transition-all"
+              title="Naira Cash Wallet"
             >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>{formatCompactCredits(credits, isAdmin)}</span>
-              <span className="text-[9px] font-extrabold opacity-75">cr</span>
+              <span>{formatCompactNaira(walletBalance)}</span>
             </button>
-          </>
-        )}
 
-        {/* Quick Popover Trigger */}
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="h-5 w-5 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-full transition-colors mr-0.5"
-              aria-label="View wallet summary"
-            >
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </PopoverTrigger>
+            {showCreditWallet && (
+              <>
+                <div className="h-3.5 w-px bg-border/80 my-auto" />
+                {/* Credit Segment */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate('fund-credits');
+                  }}
+                  className="flex items-center gap-1 text-[11px] sm:text-xs font-black text-orange-700 dark:text-orange-400 hover:opacity-80 transition-all"
+                  title="Advertising Credits Wallet"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                  </span>
+                  <span>{formatCompactCredits(credits, isAdmin)}</span>
+                  <span className="text-[9px] font-extrabold opacity-75">cr</span>
+                </button>
+              </>
+            )}
+
+            <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors ml-0.5" />
+          </div>
+        </PopoverTrigger>
           <PopoverContent className="w-72 p-3 text-card-foreground shadow-xl rounded-2xl border-border/80" align="end">
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-border/50 pb-2">
@@ -203,49 +201,7 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
               )}
             </div>
           </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* ========================================================
-          TABLET & DESKTOP DUAL WALLET PILLS (>= 640px)
-          Spacious, high-contrast, fully readable badges
-         ======================================================== */}
-      {/* Live Connected Cash Wallet Pill */}
-      <button
-        type="button"
-        onClick={() => onNavigate('task-wallet')}
-        className="hidden sm:flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group cursor-pointer"
-        title="Naira Cash Wallet (Click to manage / withdraw)"
-      >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-        </span>
-        <span className="text-emerald-700 dark:text-emerald-400 font-black text-xs md:text-sm">
-          ₦{walletBalance.toLocaleString()}
-        </span>
-        <Banknote className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-      </button>
-
-      {/* Live Connected Credit Wallet Pill */}
-      {showCreditWallet && (
-        <button
-          type="button"
-          onClick={() => onNavigate('fund-credits')}
-          className="hidden sm:flex items-center gap-1.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 px-2.5 py-1.5 rounded-full transition-all text-xs font-bold shadow-xs group cursor-pointer"
-          title="Credit Wallet (Click to top up / fund)"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-          </span>
-          <span className="text-orange-700 dark:text-orange-400 font-black text-xs md:text-sm">
-            {isAdmin ? 'Unlimited' : credits.toLocaleString()}{' '}
-            <span className="text-[10px] font-extrabold opacity-80">cr</span>
-          </span>
-          <Coins className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
-        </button>
-      )}
+      </Popover>
 
       {/* Role Indicators (Responsive: compact/hidden on tiny mobile, visible on tablet+) */}
       <div className="hidden md:flex items-center gap-1">
