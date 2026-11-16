@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio } from "lucide-react";
+import { ClipboardList, Plus, Gift, CheckCircle, Share2, Coins, Wallet, ArrowRight, X, Crown, Zap, Lock, Megaphone, Users, Upload, Image, Loader2, Timer, Facebook, Instagram, Send, MessageCircle, Link as LinkIcon, Eye, Sparkles, FileText, Image as ImageIcon, Copy, Check, Layers, Bell, Play, Pause, ExternalLink, ThumbsUp, CheckCheck, TrendingUp, Radio, AlertCircle, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,12 +12,14 @@ import { callRpc } from "@/lib/supabaseRpc";
 import SlideCarousel from "@/components/SlideCarousel";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
 import { playRewardSound } from "@/lib/soundEffects";
 import { YouTubeLogo } from "@/components/icons/YouTubeLogo";
 import TaskProofSubmitDialog from "@/components/taskproof/TaskProofSubmitDialog";
 import TaskProofReviewList from "@/components/taskproof/TaskProofReviewList";
+import TaskWorkstationModal, { AcceptedTaskRecord } from "@/components/TaskWorkstationModal";
 import flyerYtBoost from '@/assets/images/flyer_yt_boost_1789298427901.jpg';
 
 interface TaskListProps {
@@ -48,6 +50,9 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
   const [shareLinkMode, setShareLinkMode] = useState<'manual' | 'smart'>('manual');
   const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [acceptedTasks, setAcceptedTasks] = useState<Record<string, AcceptedTaskRecord>>({});
+  const [workstationTask, setWorkstationTask] = useState<any | null>(null);
 
   // YouTube Dedicated Engagement State
   const [ytActiveTask, setYtActiveTask] = useState<any | null>(null);
@@ -169,7 +174,54 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     }
   };
 
-  useEffect(() => { fetchTasks(); checkBusinessStatus(); fetchMyShortLinks(); }, []);
+  const getAcceptedStorageKey = (userId: string) => `ggd_accepted_tasks_${userId}`;
+
+  const loadAcceptedTasks = (userId: string): Record<string, AcceptedTaskRecord> => {
+    try {
+      const raw = localStorage.getItem(getAcceptedStorageKey(userId));
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, AcceptedTaskRecord>) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const persistAcceptedTask = (userId: string, taskId: string, patch: Partial<AcceptedTaskRecord>) => {
+    setAcceptedTasks(prev => {
+      const existing = prev[taskId];
+      const nextRecord: AcceptedTaskRecord = {
+        status: existing?.status || 'in_progress',
+        acceptedAt: existing?.acceptedAt || new Date().toISOString(),
+        ...existing,
+        ...patch,
+      };
+      const next = { ...prev, [taskId]: nextRecord };
+      try {
+        localStorage.setItem(getAcceptedStorageKey(userId), JSON.stringify(next));
+      } catch (err) {
+        console.warn('Failed to save accepted task state:', err);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    checkBusinessStatus();
+    fetchMyShortLinks();
+    fetchExchangeRate();
+  }, []);
+
+  const fetchExchangeRate = async () => {
+    try {
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle();
+      const parsed = Number(data?.value);
+      if (parsed > 0) setExchangeRate(parsed);
+    } catch {
+      // Keep default 100
+    }
+  };
 
   const fetchMyShortLinks = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -189,6 +241,8 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUid(user.id);
+    const localAccepted = loadAcceptedTasks(user.id);
+
     // Owner Mode: a user's own campaigns are shown with management tools,
     // never with "do this task" actions.
     const [{ data: othersData }, { data: mineData }] = await Promise.all([
@@ -207,6 +261,37 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     const pm: Record<string, { status: string; reason?: string | null }> = {};
     (proofs || []).forEach((p: any) => { pm[p.task_id] = { status: p.status, reason: p.rejection_reason }; });
     setMyProofs(pm);
+
+    // Sync database completion and submission status with localStorage accepted state
+    const synced: Record<string, AcceptedTaskRecord> = { ...localAccepted };
+    let changed = false;
+    completedIds.forEach((cid) => {
+      if (synced[cid]?.status !== 'completed') {
+        synced[cid] = { ...(synced[cid] || { acceptedAt: new Date().toISOString() }), status: 'completed' };
+        changed = true;
+      }
+    });
+    Object.entries(pm).forEach(([tid, info]) => {
+      if (info.status === 'pending' && synced[tid]?.status !== 'submitted') {
+        synced[tid] = { ...(synced[tid] || { acceptedAt: new Date().toISOString() }), status: 'submitted' };
+        changed = true;
+      } else if (info.status === 'rejected' && (synced[tid]?.status !== 'rejected' || synced[tid]?.rejectionReason !== info.reason)) {
+        synced[tid] = {
+          ...(synced[tid] || { acceptedAt: new Date().toISOString() }),
+          status: 'rejected',
+          rejectionReason: info.reason || undefined,
+        };
+        changed = true;
+      }
+    });
+    if (changed) {
+      try {
+        localStorage.setItem(getAcceptedStorageKey(user.id), JSON.stringify(synced));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }
+    setAcceptedTasks(synced);
   };
 
   const toggleTaskActive = async (task: any) => {
@@ -340,9 +425,12 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
     setTimeout(() => setCopiedTaskId(null), 2500);
   };
 
-  const completeTask = async (task: any) => {
+  const acceptTask = async (task: any) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      toast.error("Please sign in to accept tasks.");
+      return;
+    }
 
     if (completions.includes(task.id)) {
       toast.info("You have already completed this task!");
@@ -368,8 +456,56 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       return;
     }
 
-    // Open share platform picker first — user must actually share before reward
-    setShareTarget({ task });
+    // Official platform promotional tasks keep instant share verification
+    if (task.is_official) {
+      setShareTarget({ task });
+      return;
+    }
+
+    // Community/advertiser tasks: persist accepted "In Progress" state and launch Job Workstation
+    const existing = acceptedTasks[task.id];
+    persistAcceptedTask(user.id, task.id, {
+      status: existing?.status === 'rejected' ? 'rejected' : 'in_progress',
+      acceptedAt: existing?.acceptedAt || new Date().toISOString(),
+    });
+    setWorkstationTask(task);
+  };
+
+  const handleWorkstationShare = async (task: any, platformKey: string) => {
+    let smartUrl = task.share_url || '';
+    if (task.share_url) {
+      smartUrl = (await getOrCreateTaskShareUrl(task.id)) || task.share_url;
+    }
+    const text = [task.title, task.description].filter(Boolean).join('\n\n');
+    const fullPayload = smartUrl ? `${text}\n\n${smartUrl}` : text;
+
+    if (uid) {
+      persistAcceptedTask(uid, task.id, { platformUsed: platformKey });
+    }
+
+    if (platformKey === 'whatsapp_status' || platformKey === 'whatsapp') {
+      try {
+        await navigator.clipboard.writeText(fullPayload);
+      } catch {
+        // Optional clipboard copy
+      }
+      const waDeepLink = `whatsapp://send?text=${encodeURIComponent(fullPayload)}`;
+      const link = document.createElement('a');
+      link.href = waDeepLink;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("📲 Opening WhatsApp! Caption & link copied to clipboard for your Status.");
+      return;
+    }
+
+    await openShare(task, platformKey);
+  };
+
+  const handleOpenProofFromWorkstation = (task: any) => {
+    setWorkstationTask(null);
+    setProofTask(task);
   };
 
   const startVerification = (task: any, platformKey: string) => {
@@ -1148,10 +1284,30 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* Dedicated Job Workstation Modal */}
+      <TaskWorkstationModal
+        task={workstationTask}
+        isOpen={!!workstationTask}
+        onClose={() => setWorkstationTask(null)}
+        onSubmitProof={handleOpenProofFromWorkstation}
+        onShare={handleWorkstationShare}
+        exchangeRate={exchangeRate}
+        taskState={workstationTask ? acceptedTasks[workstationTask.id] : undefined}
+      />
+
       <TaskProofSubmitDialog
         task={proofTask}
         onClose={() => setProofTask(null)}
-        onSubmitted={(id) => setMyProofs(prev => ({ ...prev, [id]: { status: 'pending' } }))}
+        onSubmitted={(id) => {
+          setMyProofs(prev => ({ ...prev, [id]: { status: 'pending' } }));
+          if (uid) {
+            persistAcceptedTask(uid, id, {
+              status: 'submitted',
+              submittedAt: new Date().toISOString(),
+              rejectionReason: undefined,
+            });
+          }
+        }}
       />
       <Dialog open={!!reviewTask} onOpenChange={(o) => { if (!o) { setReviewTask(null); fetchTasks(); } }}>
         <DialogContent className="max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
@@ -1166,59 +1322,78 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
       {/* Community & Advertiser Tasks Feed */}
       <div className="space-y-2.5">
         {tasks.map(task => {
-          const completed = completions.includes(task.id);
+          const completed = completions.includes(task.id) || myProofs[task.id]?.status === 'approved';
+          const proofStatus = myProofs[task.id]?.status;
+          const acceptedRecord = acceptedTasks[task.id];
+          const isPendingReview = !completed && proofStatus === 'pending';
+          const isRejected = !completed && proofStatus === 'rejected';
+          const isInProgress = !completed && !isPendingReview && !isRejected && acceptedRecord?.status === 'in_progress';
           const isFlyerLink = task.task_type === 'flyer_link';
           const isDescription = task.task_type === 'description';
           const isYouTube = task.task_type === 'youtube' || task.task_type?.startsWith('youtube');
           const isPremium = task.task_type === 'social';
           const isVerifying = verifyingTaskId === task.id;
-          const spotsLeft = task.max_completions ? task.max_completions - (task.completions_count || 0) : null;
+          const spotsLeft = task.max_completions ? Math.max(0, task.max_completions - (task.completions_count || 0)) : null;
           const isOwner = !!uid && task.creator_id === uid;
           return (
-            <Card key={task.id} className={`transition-all ${completed && !isOwner ? 'opacity-60' : 'hover:shadow-md'} ${
+            <Card key={task.id} className={`transition-all bg-card border-border ${completed && !isOwner ? 'opacity-70' : 'hover:shadow-md'} ${
               isOwner ? 'border-blue-500/40 ring-1 ring-blue-500/15' :
+              isRejected ? 'border-red-500/40' :
+              isInProgress ? 'border-amber-500/40' :
+              isPendingReview ? 'border-amber-500/30' :
               isFlyerLink ? 'border-blue-500/20' :
               isDescription ? 'border-purple-500/20' :
               isYouTube ? 'border-red-500/20' :
               isPremium ? 'border-purple-500/20' : ''
             }`}>
-              <CardContent className="p-3.5 space-y-2.5">
+              <CardContent className="p-3.5 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className={`p-2.5 rounded-2xl shrink-0 ${
                     completed
-                      ? 'bg-green-100 dark:bg-green-500/20'
-                      : isFlyerLink
-                        ? 'bg-blue-100 dark:bg-blue-500/20'
+                      ? 'bg-emerald-500/15'
+                      : isRejected
+                        ? 'bg-red-500/15'
+                        : isInProgress || isPendingReview
+                        ? 'bg-amber-500/15'
+                        : isFlyerLink
+                        ? 'bg-blue-500/15'
                         : isDescription
-                        ? 'bg-purple-100 dark:bg-purple-500/20'
+                        ? 'bg-purple-500/15'
                         : isYouTube
-                        ? 'bg-red-100 dark:bg-red-500/20'
-                        : 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20'
+                        ? 'bg-red-500/15'
+                        : 'bg-gradient-to-br from-orange-500/20 to-amber-600/20'
                   }`}>
-                    {completed ? <CheckCircle className="h-4 w-4 text-green-600" /> :
-                     isFlyerLink ? <ImageIcon className="h-4 w-4 text-blue-600" /> :
-                     isDescription ? <FileText className="h-4 w-4 text-purple-600" /> :
+                    {completed ? <CheckCircle className="h-4 w-4 text-emerald-500" /> :
+                     isRejected ? <AlertCircle className="h-4 w-4 text-red-500" /> :
+                     isInProgress || isPendingReview ? <Briefcase className="h-4 w-4 text-amber-500" /> :
+                     isFlyerLink ? <ImageIcon className="h-4 w-4 text-blue-500" /> :
+                     isDescription ? <FileText className="h-4 w-4 text-purple-500" /> :
                      isYouTube ? <YouTubeLogo className="h-4 w-4" /> :
-                     <Gift className="h-4 w-4 text-orange-600" />}
+                     <Gift className="h-4 w-4 text-orange-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-xs font-bold text-foreground leading-tight">{task.title}</p>
-                      {isFlyerLink && <span className="text-[8px] font-bold bg-blue-500/15 text-blue-600 px-1.5 py-0.5 rounded-full">🖼️ FLYER & LINK</span>}
-                      {isDescription && <span className="text-[8px] font-bold bg-purple-500/15 text-purple-600 px-1.5 py-0.5 rounded-full">📝 COPY TEXT</span>}
-                      {isYouTube && <span className="text-[8px] font-bold bg-red-500/15 text-red-600 px-1.5 py-0.5 rounded-full flex items-center gap-1"><YouTubeLogo className="h-2.5 w-2.5 inline" /> YOUTUBE</span>}
-                      {task.task_type === 'share' && <span className="text-[8px] font-bold bg-orange-500/15 text-orange-600 px-1.5 py-0.5 rounded-full">🚀 FULL PROMO</span>}
-                      {isOwner && <span className="text-[8px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
-                      {isOwner && !task.is_active && <span className="text-[8px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
+                      <p className="text-xs sm:text-sm font-bold text-foreground leading-tight break-words">{task.title}</p>
+                      {isFlyerLink && <span className="text-[9px] font-bold bg-blue-500/15 text-blue-500 px-1.5 py-0.5 rounded-full">🖼️ FLYER & LINK</span>}
+                      {isDescription && <span className="text-[9px] font-bold bg-purple-500/15 text-purple-500 px-1.5 py-0.5 rounded-full">📝 COPY TEXT</span>}
+                      {isYouTube && <span className="text-[9px] font-bold bg-red-500/15 text-red-500 px-1.5 py-0.5 rounded-full flex items-center gap-1"><YouTubeLogo className="h-2.5 w-2.5 inline" /> YOUTUBE</span>}
+                      {task.task_type === 'share' && <span className="text-[9px] font-bold bg-orange-500/15 text-orange-500 px-1.5 py-0.5 rounded-full">🚀 FULL PROMO</span>}
+                      {isOwner && <span className="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full">CREATED BY YOU</span>}
+                      {isOwner && !task.is_active && <span className="text-[9px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">PAUSED</span>}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex items-center gap-1">
-                        <Coins className="h-3 w-3 text-green-500" />
-                        <p className="text-[10px] text-green-600 font-bold">+{task.reward_credits} credits</p>
+                    <div className="flex items-center flex-wrap gap-2 mt-1.5">
+                      <div className="flex items-center gap-1 tabular-nums">
+                        <Coins className="h-3.5 w-3.5 text-emerald-500" />
+                        <p className="text-[11px] text-emerald-500 font-bold">
+                          +{task.reward_credits} credits
+                          <span className="text-muted-foreground font-medium ml-1">
+                            (₦{((task.reward_credits || 5) * exchangeRate).toLocaleString()})
+                          </span>
+                        </p>
                       </div>
                       {spotsLeft !== null && (
-                        <span className="text-[9px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full tabular-nums">
                           {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
                         </span>
                       )}
@@ -1227,7 +1402,7 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
 
                   {isOwner ? (
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                      <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-full tabular-nums">
                         {task.completions_count || 0}/{task.max_completions || '∞'} done
                       </span>
                       {!isYouTube && (
@@ -1236,37 +1411,111 @@ const TaskList = ({ onCreditsUpdate, credits, onNavigate }: TaskListProps) => {
                         </Button>
                       )}
                     </div>
-                  ) : !completed && myProofs[task.id]?.status === 'pending' ? (
-                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2.5 py-1 rounded-full shrink-0">Under review ⏳</span>
                   ) : isVerifying ? (
-                    <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-full shrink-0">
-                      <Timer className="h-3 w-3 text-yellow-600 animate-pulse" />
-                      <span className="text-[10px] text-yellow-600 font-medium">Verifying...</span>
+                    <div className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full shrink-0">
+                      <Timer className="h-3 w-3 text-amber-500 animate-pulse" />
+                      <span className="text-[10px] text-amber-500 font-medium">Verifying...</span>
                     </div>
-                  ) : !completed ? (
-                    <Button size="sm" className={`h-8 text-xs rounded-full text-white px-3.5 shrink-0 ${
-                      isFlyerLink ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
-                      isDescription ? 'bg-gradient-to-r from-purple-500 to-pink-600' :
-                      isYouTube ? 'bg-gradient-to-r from-red-500 to-rose-600' :
-                      'bg-gradient-to-r from-orange-500 to-red-600'
-                    }`} onClick={() => completeTask(task)} disabled={spotsLeft !== null && spotsLeft <= 0}>
-                      {isDescription && !task.share_url ? (
-                        <><Copy className="h-3 w-3 mr-1" />Copy & Share</>
-                      ) : isYouTube ? (
-                        <><YouTubeLogo className="h-3.5 w-3.5 mr-1" />Watch & Subscribe</>
-                      ) : (
-                        <><Share2 className="h-3 w-3 mr-1" />Share</>
-                      )}
-                    </Button>
-                  ) : (
-                    <span className="text-[10px] text-green-600 font-medium bg-green-100 dark:bg-green-500/20 px-2.5 py-1 rounded-full shrink-0">Done ✓</span>
-                  )}
+                  ) : completed ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20 shrink-0 text-[11px] font-semibold">
+                      Done ✓
+                    </Badge>
+                  ) : isPendingReview ? (
+                    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 shrink-0 text-[11px] font-semibold">
+                      Under review ⏳
+                    </Badge>
+                  ) : isInProgress ? (
+                    <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30 hover:bg-amber-500/20 shrink-0 text-[11px] font-semibold">
+                      ⏳ In Progress
+                    </Badge>
+                  ) : null}
                 </div>
 
-                {!isOwner && !completed && myProofs[task.id]?.status === 'rejected' && (
-                  <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-2.5 py-1.5">
-                    Proof rejected: {myProofs[task.id]?.reason || 'not valid'}. Share again and submit new proof.
-                  </p>
+                {/* Persistent Earner Workflow Action Machine */}
+                {!isOwner && !completed && !isVerifying && (
+                  <>
+                    {isRejected ? (
+                      <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 space-y-2.5">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                          <div className="text-xs text-red-300 leading-relaxed min-w-0">
+                            <p className="font-bold text-red-400">Proof Rejected</p>
+                            <p className="mt-0.5 break-words">
+                              {myProofs[task.id]?.reason || 'Not valid. Please share again and submit a clearer screenshot.'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => setProofTask(task)}
+                            className="w-full min-h-[42px] rounded-xl bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white font-bold text-xs shadow-md"
+                          >
+                            🔄 Re-submit Proof
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setWorkstationTask(task)}
+                            className="w-full min-h-[42px] rounded-xl border-border text-xs font-semibold"
+                          >
+                            <Briefcase className="h-3.5 w-3.5 mr-1.5 text-orange-400 shrink-0" />
+                            Open Workstation
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isInProgress ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setProofTask(task)}
+                          className="w-full min-h-[44px] rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-orange-500/20"
+                        >
+                          📸 Submit Proof
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setWorkstationTask(task)}
+                          className="w-full min-h-[44px] rounded-xl border-border bg-muted/30 hover:bg-muted text-foreground font-semibold text-xs"
+                        >
+                          <Briefcase className="h-3.5 w-3.5 mr-1.5 text-orange-400 shrink-0" />
+                          Open Workstation
+                        </Button>
+                      </div>
+                    ) : isPendingReview ? (
+                      <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 flex items-center justify-between gap-2 text-[11px] text-amber-400">
+                        <span className="truncate">Proof submitted — awaiting creator or 48h auto-approval</span>
+                        <button
+                          type="button"
+                          onClick={() => setWorkstationTask(task)}
+                          className="text-orange-400 hover:underline font-semibold shrink-0"
+                        >
+                          View Kit
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={spotsLeft !== null && spotsLeft <= 0}
+                        onClick={() => acceptTask(task)}
+                        className={`w-full min-h-[44px] rounded-xl text-white font-bold text-xs shadow-md transition ${
+                          isYouTube
+                            ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-500/20'
+                            : 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-orange-500/20'
+                        }`}
+                      >
+                        {isYouTube ? (
+                          <span className="flex items-center gap-1.5">
+                            <YouTubeLogo className="h-3.5 w-3.5" />
+                            Watch & Subscribe
+                          </span>
+                        ) : (
+                          <>👉 Accept Task</>
+                        )}
+                      </Button>
+                    )}
+                  </>
                 )}
                 {/* Description Text Box with 1-Click Copy */}
                 {task.description && (
