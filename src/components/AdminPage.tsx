@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminAnalytics from "@/components/AdminAnalytics";
 import SlideManager from "@/components/SlideManager";
 import TaskManager from "@/components/TaskManager";
+import TaskProofReviewList from "@/components/taskproof/TaskProofReviewList";
 import AdminSyndicateManager from "@/components/AdminSyndicateManager";
 import AdminSettings from "@/components/AdminSettings";
 import AdminUserManager from "@/components/AdminUserManager";
@@ -77,6 +78,7 @@ const navGroups: NavGroup[] = [
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
       { id: 'videos', icon: Video, label: 'Video Manager', sublabel: 'Watch-to-earn media', color: 'text-white', gradient: 'from-red-500 to-rose-600' },
       { id: 'tasks', icon: ClipboardList, label: 'Task Manager', sublabel: 'Standard task catalogue', color: 'text-white', gradient: 'from-green-500 to-emerald-600' },
+      { id: 'task-proofs', icon: ClipboardList, label: 'Task Proofs', sublabel: 'Review credit task proofs', color: 'text-white', gradient: 'from-green-500 to-emerald-600' },
       { id: 'slides', icon: Image, label: 'Slide Manager', sublabel: 'Homepage hero banners', color: 'text-white', gradient: 'from-violet-500 to-purple-600' },
     ]
   },
@@ -270,6 +272,7 @@ const AdminPage = () => {
         );
       case 'slides': return <SlideManager />;
       case 'tasks': return <TaskManager />;
+      case 'task-proofs': return <TaskProofReviewList />;
       case 'api': return <AdminApiManager />;
       case 'apps': return <AdminMarketingApps />;
       case 'digital-products':
