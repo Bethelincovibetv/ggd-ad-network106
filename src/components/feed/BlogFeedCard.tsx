@@ -116,14 +116,9 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
                     <Clock className="h-3 w-3" />
                     {blog.read_time || '3 min read'}
                   </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 font-semibold text-muted-foreground">
-                    <Eye className="h-3 w-3" />
-                    {formatViewsCount(viewsCount)} views
-                  </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Badges & 3-Dot Manage Menu */}
             <div className="flex items-center gap-1.5 shrink-0">

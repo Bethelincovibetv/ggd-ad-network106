@@ -129,11 +129,24 @@ export async function fetchPostViewsBatch(
   return result;
 }
 
+function getFakeBaseViews(postId: string): number {
+  let hash = 0;
+  const idStr = String(postId || 'default');
+  for (let i = 0; i < idStr.length; i++) {
+    hash = (hash * 31 + idStr.charCodeAt(i)) % 770;
+  }
+  return 135 + Math.abs(hash);
+}
+
 /**
- * Returns the cached real-time view count for a post
+ * Returns the cached real-time view count for a post (including fake base count)
  */
 export function getCachedPostViews(postId: string): number {
-  return viewsCache.get(postId) || 0;
+  const cached = viewsCache.get(postId);
+  if (cached !== undefined) return cached;
+  const fake = getFakeBaseViews(postId);
+  viewsCache.set(postId, fake);
+  return fake;
 }
 
 /**

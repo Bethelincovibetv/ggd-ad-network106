@@ -33,10 +33,17 @@ function saveSessionViewed(viewed: Set<string>) {
 }
 
 /**
- * Returns actual recorded views or 0 (no fake base views).
+ * Returns recorded views plus a realistic fake base view count for popularity.
  */
 function calculateBaseViews(post: { id: string; created_at: string; reactions?: any; commentCount?: number; views_count?: number }): number {
-  return Number(post.views_count || 0);
+  const realCount = Number(post.views_count || 0);
+  let hash = 0;
+  const idStr = String(post.id || 'default');
+  for (let i = 0; i < idStr.length; i++) {
+    hash = (hash * 31 + idStr.charCodeAt(i)) % 770;
+  }
+  const fakeBase = 135 + Math.abs(hash);
+  return fakeBase + realCount;
 }
 
 /**

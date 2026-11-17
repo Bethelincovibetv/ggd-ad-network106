@@ -336,156 +336,125 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       )}
 
-      {/* Hero Section */}
+      {/* Unified Hero Section */}
       <div id="home" className="relative overflow-hidden pt-8 pb-16 md:pt-12 md:pb-24 border-b border-[#2a2a2a]">
         <div className="absolute inset-0 bg-gradient-to-b from-[#e67e22]/15 via-[#1a1a1a] to-[#141414] pointer-events-none" />
-        
+
         {/* Ambient glow spots */}
         <div className="absolute top-10 left-1/4 w-96 h-96 bg-[#e67e22]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-[#e74c3c]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="container mx-auto px-4 relative z-10">
-          {whatsappPositioning ? (
-            /* WhatsApp Positioning Hero Layout */
-            <div className="grid lg:grid-cols-12 gap-8 md:gap-12 items-center max-w-6xl mx-auto">
-              <div className="lg:col-span-7 space-y-6 text-left">
-                
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2 bg-[#222] border border-[#e67e22]/40 rounded-full px-4 py-1.5 shadow-sm">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e67e22] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#e67e22]"></span>
-                  </span>
-                  <span className="text-xs md:text-sm font-semibold text-gray-200">
-                    Managed WhatsApp Promotion Service
-                  </span>
-                </div>
-
-                {/* Headline */}
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-[1.15] tracking-tight">
-                  Get Your Business Seen on{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">
-                    WhatsApp
-                  </span>
-                </h1>
-
-                {/* Supporting Copy */}
-                <p className="text-base md:text-lg text-gray-300 leading-relaxed max-w-2xl">
-                  Our team promotes your business through WhatsApp Status, groups and channels, helping you reach audiences in the states you choose. We verify campaign delivery and provide a clear report.
-                </p>
-
-                {/* Bullet Points */}
-                <div className="grid sm:grid-cols-2 gap-3 pt-1 text-sm text-gray-300">
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                    <span>Target by Nigerian State</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                    <span>Verified Screenshot Proof</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                    <span>Status, Groups & Channels</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                    <span>Pay Only for Proved Views</span>
-                  </div>
-                </div>
-
-                {/* CTAs */}
-                <div className="flex flex-col sm:flex-row gap-3.5 pt-4">
-                  <Button onClick={onGetStarted} size="lg"
-                    className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-6 text-base font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-all">
-                    Start My Campaign <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={() => scrollTo('how-it-works')}
-                    className="border-[#444] text-gray-300 hover:bg-[#282828] hover:text-white px-7 py-6 text-base rounded-xl bg-[#222]">
-                    How It Works
-                  </Button>
-                </div>
-              </div>
-
-              {/* Hero Commercial Photograph Card */}
-              <div className="lg:col-span-5 relative group">
-                <div className="absolute -inset-1.5 bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c] rounded-3xl blur-lg opacity-40 group-hover:opacity-75 transition duration-500"></div>
-                <div className="relative rounded-2xl overflow-hidden border border-[#3f3f3f] bg-[#1e1e1e] shadow-2xl">
-                  <img 
-                    src={heroImg} 
-                    alt="Nigerian small-business owner managing WhatsApp campaign" 
-                    className="w-full h-[320px] sm:h-[400px] object-cover object-center group-hover:scale-[1.02] transition-transform duration-700"
-                    loading="eager"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent opacity-90"></div>
-                  <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-[#e67e22]/20 border border-[#e67e22]/40 text-[#e67e22] flex items-center justify-center flex-shrink-0">
-                        <MessageCircle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white">Active Nigerian Business Promotion</p>
-                        <p className="text-[11px] text-gray-300">Direct status posts, group shares & verified delivery report</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {!whatsappPositioning && searchEnabled && (
+            <div className="max-w-md mx-auto mb-8">
+              <GlobalSearchBar />
             </div>
-          ) : (
-            /* Standard Non-WhatsApp Hero Layout */
-            <div className="text-center space-y-6 max-w-4xl mx-auto">
-              {searchEnabled && (
-                <div className="max-w-md mx-auto pt-2">
-                  <GlobalSearchBar />
-                </div>
-              )}
-              {/* Logo with glow animation */}
-              <div className="flex justify-center animate-scale-in">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-[#e67e22]/30 blur-3xl rounded-full scale-150 animate-pulse" />
-                  <img src={ggdLogo} alt="GGD Ad Network" className="h-28 w-28 rounded-2xl relative z-10 shadow-2xl shadow-[#e67e22]/30 hover:scale-110 transition-transform duration-300 object-contain bg-black/30 p-1" />
-                </div>
-              </div>
+          )}
 
-              {/* Positioning Badge */}
-              <div className="inline-flex items-center gap-2 bg-[#2a2a2a] border border-[#444] rounded-full px-5 py-2 animate-fade-in">
-                <Zap className="h-4 w-4 text-[#e67e22]" />
+          <div className="grid lg:grid-cols-12 gap-8 md:gap-12 items-center max-w-6xl mx-auto">
+            <div className="lg:col-span-7 space-y-6 text-left">
+              {/* Pill Badge */}
+              <div className="inline-flex items-center gap-2 bg-[#222] border border-[#e67e22]/40 rounded-full px-4 py-1.5 shadow-sm">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e67e22] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#e67e22]"></span>
+                </span>
                 <span className="text-xs md:text-sm font-semibold text-gray-200">
-                  Digital Business-Growth & Marketing Platform
+                  Nigeria&apos;s Local Ad Network &amp; Earning Ecosystem
                 </span>
               </div>
 
-              {/* Main heading */}
-              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight animate-fade-in">
-                Grow Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">Business</span>
+              {/* Master Headline */}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-black text-white leading-[1.14] tracking-tight animate-fade-in">
+                The Local Ad Network Powered by{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e67e22] via-[#f39c12] to-[#e74c3c]">
+                  WhatsApp Trust
+                </span>{" "}
+                &amp; Targeted Digital Ads in Naira
               </h1>
 
-              {/* Supporting Copy */}
-              <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed animate-fade-in">
-                Get discovered, reach more customers, promote your products and services, and grow with advertising, community promotion, marketing tools, and a network built for business growth.
+              {/* Sub-headline Paragraph */}
+              <p className="text-base md:text-lg text-gray-300 leading-relaxed max-w-2xl animate-fade-in">
+                Reach real customers across Nigerian states through verified WhatsApp Status promoters and high-visibility banner ads. Fund campaigns in Naira via Paystack, or turn your daily screen time into Airtime, Mobile Data, and Cash.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 max-w-md mx-auto animate-fade-in justify-center">
-                <Button onClick={onGetStarted} size="lg"
-                  className="w-full sm:w-auto bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-7 text-lg font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-transform">
-                  Start Free <ArrowRight className="ml-2 h-5 w-5" />
+              {/* 4 Key Checkpoint Badges (2x2 Grid) */}
+              <div className="grid sm:grid-cols-2 gap-3 pt-1 text-sm text-gray-300 animate-fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3.5 w-3.5" />
+                  </div>
+                  <span>Target by Nigerian State (Lagos, Abuja, Rivers &amp; more)</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3.5 w-3.5" />
+                  </div>
+                  <span>Convert Screen Time to Airtime, Data &amp; Cash</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3.5 w-3.5" />
+                  </div>
+                  <span>Fund in Naira — No Dollar Card Limits</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3.5 w-3.5" />
+                  </div>
+                  <span>100% Verified Screenshot &amp; Delivery Proof</span>
+                </div>
+              </div>
+
+              {/* Dual CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3.5 pt-4">
+                <Button
+                  onClick={onGetStarted}
+                  size="lg"
+                  className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-6 text-base font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-all cursor-pointer"
+                >
+                  Start Advertising in Naira <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => scrollTo('how-it-works')}
-                  className="w-full sm:w-auto border-[#444] text-gray-300 hover:bg-[#2a2a2a] hover:text-white px-8 py-7 text-lg rounded-xl bg-[#2a2a2a]">
-                  How It Works
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() =>
+                    document.getElementById('promote-earn')
+                      ? scrollTo('promote-earn')
+                      : navigate('/syndicate-register')
+                  }
+                  className="border-[#444] text-gray-200 hover:bg-[#282828] hover:text-white px-7 py-6 text-base font-semibold rounded-xl bg-[#222] hover:scale-105 transition-all cursor-pointer"
+                >
+                  <Coins className="mr-2 h-5 w-5 text-[#f39c12]" /> Earn with GGD
                 </Button>
               </div>
             </div>
-          )}
+
+            {/* Hero Commercial Photograph Card */}
+            <div className="lg:col-span-5 relative group">
+              <div className="absolute -inset-3 bg-[#e67e22]/20 rounded-3xl blur-3xl opacity-80 group-hover:opacity-100 transition duration-500 pointer-events-none" />
+              <div className="relative rounded-2xl overflow-hidden border border-[#3f3f3f] bg-[#1e1e1e] shadow-2xl">
+                <img
+                  src={heroImg}
+                  alt="Nigerian small-business owner managing WhatsApp campaign"
+                  className="w-full h-[320px] sm:h-[400px] object-cover object-center group-hover:scale-[1.02] transition-transform duration-700"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent opacity-90"></div>
+                <div className="absolute bottom-4 left-4 right-4 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[#e67e22]/20 border border-[#e67e22]/40 text-[#e67e22] flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">Active Nigerian Business Promotion</p>
+                      <p className="text-[11px] text-gray-300">Direct status posts, group shares &amp; verified delivery report</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1194,13 +1163,28 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       )}
 
-      {/* Homepage Video */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-6">See How It Works</h2>
-          <YouTubeEmbed section="homepage" />
+      {/* Enhanced Homepage Video Section */}
+      <section className="py-16 border-t border-[#2a2a2a] bg-gradient-to-b from-[#141414] via-[#1a1a1a] to-[#121212]">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center space-y-3 mb-8 animate-fade-in">
+            <p className="uppercase tracking-[0.18em] text-[#e67e22] text-xs font-bold">
+              PLATFORM IN ACTION
+            </p>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight [text-wrap:balance]">
+              Watch How Nigerian Businesses Grow &amp; Everyday Promoters Earn on GGD
+            </h2>
+            <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto leading-relaxed">
+              See how businesses get verified local customer reach in Naira and how community members earn daily rewards in one connected ecosystem.
+            </p>
+          </div>
+          <div className="max-w-2xl mx-auto relative group">
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-[#e67e22]/30 via-[#f39c12]/25 to-[#e74c3c]/30 rounded-2xl blur-xl opacity-70 group-hover:opacity-100 transition duration-500 pointer-events-none" />
+            <div className="relative rounded-2xl overflow-hidden border border-[#e67e22]/40 shadow-[0_0_40px_rgba(230,126,34,0.18)] bg-[#141414]">
+              <YouTubeEmbed section="homepage" />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Reusable Accordion-Style FAQ Section */}
       <AdNetworkFAQ

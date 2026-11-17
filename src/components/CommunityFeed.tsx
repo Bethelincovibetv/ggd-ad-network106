@@ -1516,11 +1516,6 @@ const PostCard: React.FC<PostCardProps> = ({
                 {(post as any).updated_at && new Date((post as any).updated_at).getTime() > new Date(post.created_at).getTime() + 5000 && (
                   <span className="text-[10px] text-muted-foreground/80 italic font-medium">(edited)</span>
                 )}
-                <span>•</span>
-                <span className="flex items-center gap-1 font-semibold text-muted-foreground">
-                  <Eye className="h-3 w-3" />
-                  {formatViewsCount(viewsCount)} views
-                </span>
               </div>
             </div>
           </div>
