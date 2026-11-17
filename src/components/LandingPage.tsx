@@ -80,6 +80,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   const [liveStats, setLiveStats] = useState({ impressions: 0, campaigns: 0, sites: 0 });
   const [verifiedWhatsappReach, setVerifiedWhatsappReach] = useState<number | null>(null);
   const [searchEnabled, setSearchEnabled] = useState(true);
+  const [howItWorksTab, setHowItWorksTab] = useState<'business' | 'earners'>('business');
 
   // Stats Intersection Observer & Visibility Trigger
   const statsRef = useRef<HTMLDivElement>(null);
@@ -785,111 +786,256 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
 
       {/* How It Works Section */}
       <div id="how-it-works" className="container mx-auto px-4 py-16 md:py-20 bg-[#171717] border-y border-[#282828]">
-        <div className="text-center mb-12 space-y-3">
+        <div className="text-center mb-10 space-y-3">
           <div className="inline-flex items-center gap-2 bg-[#252525] border border-[#444] rounded-full px-3.5 py-1 text-xs font-semibold text-gray-300">
-            <Layers className="h-3.5 w-3.5 text-[#e67e22]" /> Transparent Campaign Process
+            <Layers className="h-3.5 w-3.5 text-[#e67e22]" /> Transparent Process
           </div>
           <h2 className="text-3xl md:text-4xl font-black text-white">How It Works</h2>
-          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
-            {whatsappPositioning 
-              ? "Select your target location, deploy vetted promoters, verify proof, and review campaign metrics." 
-              : "From initial business discovery to expanding revenue in four clear steps."}
+          <p className="text-gray-400 max-w-2xl mx-auto text-sm md:text-base">
+            {howItWorksTab === 'business'
+              ? (whatsappPositioning
+                  ? "Select your target location, deploy vetted promoters, verify proof, and review campaign metrics."
+                  : "From initial business discovery to expanding revenue in four clear steps.")
+              : "Turn your daily screen time and WhatsApp Status reach into GGG Credits, Airtime, Mobile Data, and real Naira payouts."}
           </p>
+
+          {/* Dual-Sided Audience Toggle */}
+          <div className="pt-3 flex justify-center">
+            <div
+              role="tablist"
+              aria-label="How It Works audience switcher"
+              className="inline-flex flex-col sm:flex-row p-1.5 rounded-2xl bg-[#111] border border-[#333] gap-1.5 shadow-inner"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={howItWorksTab === 'business'}
+                onClick={() => setHowItWorksTab('business')}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  howItWorksTab === 'business'
+                    ? 'bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white shadow-lg shadow-[#e67e22]/25'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1e1e1e]'
+                }`}
+              >
+                <Briefcase className="h-4 w-4" />
+                <span>For Businesses (Advertise)</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={howItWorksTab === 'earners'}
+                onClick={() => setHowItWorksTab('earners')}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  howItWorksTab === 'earners'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1e1e1e]'
+                }`}
+              >
+                <Coins className="h-4 w-4" />
+                <span>For Promoters &amp; Earners (Make Money)</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {whatsappPositioning ? (
-          /* 4 Responsive Step Cards with Generated Commercial Photographs */
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {[
-              {
-                step: "01",
-                title: "Choose Your Campaign",
-                desc: "Select WhatsApp Status, groups or channels, choose your target states, and specify campaign requirements.",
-                img: howItWorks1Img,
-                alt: "Nigerian business owner selecting campaign on laptop and phone"
-              },
-              {
-                step: "02",
-                title: "Our Team Promotes Your Business",
-                desc: "Managed promoters receive your flyer and approved text, sharing them directly with active local audiences.",
-                img: howItWorks2Img,
-                alt: "Nigerian promoter posting business flyer to WhatsApp status"
-              },
-              {
-                step: "03",
-                title: "We Verify Delivery",
-                desc: "Submitted campaign evidence and screenshot proof are audited according to our strict verification system.",
-                img: howItWorks3Img,
-                alt: "Digital campaign reviewer verifying screenshot evidence"
-              },
-              {
-                step: "04",
-                title: "Review Your Report",
-                desc: "Access verified view counts, screenshot evidence, and campaign analytics as customers message your business.",
-                img: howItWorks4Img,
-                alt: "Nigerian store owner reviewing campaign analytics report"
-              }
-            ].map((card, i) => (
-              <Card key={i} className="bg-[#202020] border-[#333] overflow-hidden hover:border-[#e67e22]/50 transition-all duration-300 group hover:-translate-y-1.5 flex flex-col shadow-xl">
-                <div className="relative h-48 w-full overflow-hidden bg-[#121212]">
-                  <img 
-                    src={card.img} 
-                    alt={card.alt} 
-                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-3 left-3 bg-[#e67e22] text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-md">
-                    STEP {card.step}
+        {howItWorksTab === 'business' ? (
+          <div className="space-y-10">
+            {whatsappPositioning ? (
+              /* 4 Responsive Step Cards with Generated Commercial Photographs */
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {[
+                  {
+                    step: "01",
+                    title: "Choose Your Campaign",
+                    desc: "Select WhatsApp Status, groups or channels, choose your target states, and specify campaign requirements.",
+                    img: howItWorks1Img,
+                    alt: "Nigerian business owner selecting campaign on laptop and phone"
+                  },
+                  {
+                    step: "02",
+                    title: "Our Team Promotes Your Business",
+                    desc: "Managed promoters receive your flyer and approved text, sharing them directly with active local audiences.",
+                    img: howItWorks2Img,
+                    alt: "Nigerian promoter posting business flyer to WhatsApp status"
+                  },
+                  {
+                    step: "03",
+                    title: "We Verify Delivery",
+                    desc: "Submitted campaign evidence and screenshot proof are audited according to our strict verification system.",
+                    img: howItWorks3Img,
+                    alt: "Digital campaign reviewer verifying screenshot evidence"
+                  },
+                  {
+                    step: "04",
+                    title: "Review Your Report",
+                    desc: "Access verified view counts, screenshot evidence, and campaign analytics as customers message your business.",
+                    img: howItWorks4Img,
+                    alt: "Nigerian store owner reviewing campaign analytics report"
+                  }
+                ].map((card, i) => (
+                  <Card key={i} className="bg-[#202020] border-[#333] overflow-hidden hover:border-[#e67e22]/50 transition-all duration-300 group hover:-translate-y-1.5 flex flex-col shadow-xl">
+                    <div className="relative h-48 w-full overflow-hidden bg-[#121212]">
+                      <img
+                        src={card.img}
+                        alt={card.alt}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      <div className="absolute top-3 left-3 bg-[#e67e22] text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-md">
+                        STEP {card.step}
+                      </div>
+                    </div>
+                    <CardContent className="p-5 space-y-2 flex-1 flex flex-col">
+                      <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors leading-snug">
+                        {card.title}
+                      </h3>
+                      <p className="text-gray-400 text-xs leading-relaxed">{card.desc}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {[
+                  {
+                    step: "01",
+                    title: "Get Discovered",
+                    desc: isEnabled('business_directory')
+                      ? "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
+                      : "Create your verified business profile with your logo, direct WhatsApp contact link, and product catalog."
+                  },
+                  {
+                    step: "02",
+                    title: "Create & Promote",
+                    desc: [
+                      isEnabled('blogmate_ai') && "Craft marketing copy with BlogMate AI",
+                      isEnabled('banner_ads') && "launch Banner Ads",
+                      isEnabled('credit_tasks') && "post promotional tasks",
+                      "launch verified Syndicate campaigns"
+                    ].filter(Boolean).join(", or ") + "."
+                  },
+                  {
+                    step: "03",
+                    title: "Reach Customers",
+                    desc: allowNonWhatsapp
+                      ? "Community members and verified Syndicate promoters amplify your reach across social platforms and websites."
+                      : "Verified Syndicate promoters amplify your reach across high-intent WhatsApp communities."
+                  },
+                  {
+                    step: "04",
+                    title: "Grow",
+                    desc: "Convert increased high-intent visibility into inquiries, customer orders, and long-term business growth."
+                  },
+                ].map((s, i) => (
+                  <div key={i} className="text-center space-y-3 bg-[#202020] border border-[#333] rounded-2xl p-6 hover:border-[#e67e22]/50 hover:scale-[1.02] transition-all">
+                    <div className="text-4xl font-black text-[#e67e22]">{s.step}</div>
+                    <h3 className="text-base font-bold text-white">{s.title}</h3>
+                    <p className="text-gray-400 text-xs leading-relaxed">{s.desc}</p>
                   </div>
-                </div>
-                <CardContent className="p-5 space-y-2 flex-1 flex flex-col">
-                  <h3 className="text-base font-bold text-white group-hover:text-[#e67e22] transition-colors leading-snug">
-                    {card.title}
-                  </h3>
-                  <p className="text-gray-400 text-xs leading-relaxed">{card.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
+                ))}
+              </div>
+            )}
+
+            {/* Business View CTA */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+              <Button
+                type="button"
+                onClick={onGetStarted}
+                size="lg"
+                className="bg-gradient-to-r from-[#e67e22] to-[#e74c3c] hover:from-[#d35400] hover:to-[#c0392b] text-white px-8 py-6 text-base font-bold shadow-xl shadow-[#e67e22]/25 rounded-xl hover:scale-105 transition-all cursor-pointer"
+              >
+                {whatsappPositioning ? "Launch WhatsApp Campaign" : "Start Advertising in Naira"} <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {[
-              {
-                step: "01",
-                title: "Get Discovered",
-                desc: isEnabled('business_directory')
-                  ? "Create your business profile in the directory with your logo, contact channels, WhatsApp link, and product catalog."
-                  : "Create your verified business profile with your logo, direct WhatsApp contact link, and product catalog."
-              },
-              {
-                step: "02",
-                title: "Create & Promote",
-                desc: [
-                  isEnabled('blogmate_ai') && "Craft marketing copy with BlogMate AI",
-                  isEnabled('banner_ads') && "launch Banner Ads",
-                  isEnabled('credit_tasks') && "post promotional tasks",
-                  "launch verified Syndicate campaigns"
-                ].filter(Boolean).join(", or ") + "."
-              },
-              {
-                step: "03",
-                title: "Reach Customers",
-                desc: allowNonWhatsapp
-                  ? "Community members and verified Syndicate promoters amplify your reach across social platforms and websites."
-                  : "Verified Syndicate promoters amplify your reach across high-intent WhatsApp communities."
-              },
-              {
-                step: "04",
-                title: "Grow",
-                desc: "Convert increased high-intent visibility into inquiries, customer orders, and long-term business growth."
-              },
-            ].map((s, i) => (
-              <div key={i} className="text-center space-y-3 bg-[#202020] border border-[#333] rounded-2xl p-6 hover:border-[#e67e22]/50 hover:scale-[1.02] transition-all">
-                <div className="text-4xl font-black text-[#e67e22]">{s.step}</div>
-                <h3 className="text-base font-bold text-white">{s.title}</h3>
-                <p className="text-gray-400 text-xs leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
+          /* Dedicated 4-Step Earning Guide: Community Credit Tasks + WhatsApp Syndicate */
+          <div className="space-y-10">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              {[
+                {
+                  step: "01",
+                  badge: "Get Started",
+                  title: "Sign Up & Choose Your Channel",
+                  desc: "Create a free GGD account to start daily Community Credit Tasks immediately, or apply to join our verified WhatsApp Syndicate promoter network.",
+                  icon: Users,
+                  accent: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30"
+                },
+                {
+                  step: "02",
+                  badge: "Tasks & Campaigns",
+                  title: "Complete Tasks or Share Flyers",
+                  desc: "Watch videos, visit websites, and engage on Credit Tasks for GGG Credits—or share paid business flyers to your WhatsApp Status, Groups & Channels via Syndicate.",
+                  icon: Share2,
+                  accent: "text-amber-400 bg-amber-500/15 border-amber-500/30"
+                },
+                {
+                  step: "03",
+                  badge: "Proof Review",
+                  title: "Submit Screenshot Proof",
+                  desc: "Upload clear screenshot evidence showing your completed engagement or live WhatsApp Status view count. Automated and human audits verify your delivery fast.",
+                  icon: BadgeCheck,
+                  accent: "text-purple-400 bg-purple-500/15 border-purple-500/30"
+                },
+                {
+                  step: "04",
+                  badge: "Payouts & Rewards",
+                  title: "Withdraw Cash, Airtime & Data",
+                  desc: "Cash out verified Syndicate earnings in Naira (₦) straight to any CBN-licensed Nigerian bank, or redeem GGG Credits for Airtime, Data, ECO rewards & free ads.",
+                  icon: Coins,
+                  accent: "text-orange-400 bg-orange-500/15 border-orange-500/30"
+                }
+              ].map((item, idx) => {
+                const StepIcon = item.icon;
+                return (
+                  <Card
+                    key={idx}
+                    className="bg-[#202020] border-[#333] hover:border-emerald-500/50 transition-all duration-300 group hover:-translate-y-1.5 flex flex-col shadow-xl"
+                  >
+                    <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <span className="text-3xl font-black text-emerald-400">{item.step}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${item.accent}`}>
+                          {item.badge}
+                        </span>
+                      </div>
+                      <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <StepIcon className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <h3 className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors leading-snug">
+                          {item.title}
+                        </h3>
+                        <p className="text-gray-400 text-xs leading-relaxed">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Earners View Dual CTA */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+              <Button
+                type="button"
+                onClick={() => navigate('/syndicate-register')}
+                size="lg"
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-8 py-6 text-base font-bold shadow-xl shadow-emerald-500/25 rounded-xl hover:scale-105 transition-all cursor-pointer"
+              >
+                Apply as Syndicate Promoter <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onGetStarted}
+                size="lg"
+                className="border-[#444] text-gray-200 hover:bg-[#282828] hover:text-white px-7 py-6 text-base font-semibold rounded-xl bg-[#222] hover:scale-105 transition-all cursor-pointer"
+              >
+                <Coins className="mr-2 h-5 w-5 text-[#f39c12]" /> Start Credit Tasks
+              </Button>
+            </div>
           </div>
         )}
       </div>

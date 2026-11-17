@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { auth as firebaseAuth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { getLocalSession, resilientSignOut } from "@/services/authService";
+import { resilientSignOut } from "@/services/authService";
 import { safeStorage } from "@/utils/safeStorage";
 import AuthForm from "@/components/AuthForm";
 import LandingPage from "@/components/LandingPage";
@@ -14,9 +12,9 @@ interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ initialTab }) => {
-  const [session, setSession] = useState<any>(() => getLocalSession());
+  const [session, setSession] = useState<any>(null);
   const [showAuth, setShowAuth] = useState(false);
-  const [loading, setLoading] = useState(() => !getLocalSession());
+  const [loading, setLoading] = useState(true);
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(() => {
     return safeStorage.getItem('landing_whatsapp_positioning') === 'true';
   });
@@ -24,13 +22,6 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
 
   useEffect(() => {
     let mounted = true;
-
-    // Check immediate local session
-    const localSess = getLocalSession();
-    if (localSess && mounted) {
-      setSession(localSess);
-      setLoading(false);
-    }
 
     // Authoritative fetch of landing_whatsapp_positioning from database
     Promise.resolve(supabase
@@ -45,7 +36,6 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
             setWhatsappPositioning(isEnabled);
             safeStorage.setItem('landing_whatsapp_positioning', isEnabled ? 'true' : 'false');
           } else {
-            // If fetch fails, use cached localStorage value if exists, otherwise default to OFF
             const cached = safeStorage.getItem('landing_whatsapp_positioning');
             setWhatsappPositioning(cached === 'true');
           }
@@ -64,72 +54,54 @@ const Index: React.FC<IndexProps> = ({ initialTab }) => {
         }
       });
 
-    // 1. Listen for Supabase auth state change
-    let sub: any = null;
-    try {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supabaseSession) => {
-        if (mounted) {
-          if (supabaseSession) {
-            setSession(supabaseSession);
-            setShowAuth(false);
-          }
-          setLoading(false);
+    // 1. Listen for Supabase Auth state changes as single source of truth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supabaseSession) => {
+      if (mounted) {
+        setSession(supabaseSession);
+        if (supabaseSession) {
+          setShowAuth(false);
         }
-      });
-      sub = subscription;
-    } catch {
-      // Non-blocking
-    }
+        setLoading(false);
+      }
+    });
 
-    // 2. Try Supabase getSession
+    // 2. Restore active Supabase session
     supabase.auth.getSession()
       .then(({ data: { session: s } }) => {
-        if (mounted && s) {
+        if (mounted) {
           setSession(s);
           setLoading(false);
         }
       })
       .catch((err) => {
-        console.warn("Session retrieval fallback active:", err);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
+        console.warn("Session retrieval error:", err);
+        if (mounted) {
+          setSession(null);
+          setLoading(false);
+        }
       });
 
-    // 3. Listen for Firebase auth state change
-    const unsubFirebase = onAuthStateChanged(firebaseAuth, (fbUser) => {
-      if (mounted && fbUser && fbUser.email) {
-        setSession((prev: any) => prev || {
-          user: {
-            id: fbUser.uid,
-            email: fbUser.email,
-            user_metadata: { display_name: fbUser.displayName || fbUser.email.split("@")[0] },
-          },
-        });
-        setLoading(false);
-      }
-    });
-
-    // Safety timeout (2000ms): prevent indefinite spinner
+    // Safety timeout (3000ms): prevent indefinite spinner
     const timer = setTimeout(() => {
       if (mounted) {
         setLoading(false);
         setSettingLoaded(true);
       }
-    }, 2000);
+    }, 3000);
 
     return () => {
       mounted = false;
       clearTimeout(timer);
-      if (sub) sub.unsubscribe();
-      unsubFirebase();
+      subscription.unsubscribe();
     };
   }, []);
 
-  const handleAuthSuccess = () => {
-    const updated = getLocalSession();
-    if (updated) {
-      setSession(updated);
+  const handleAuthSuccess = async () => {
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      setSession(s);
+    } catch {
+      // onAuthStateChange will update session if available
     }
     setShowAuth(false);
     setLoading(false);
