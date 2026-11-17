@@ -5,7 +5,7 @@ import { brokeredPreviewStorage } from './previewAuthStorage';
 // These are public Supabase project identifiers and anon credentials, not service-role secrets.
 export const DEFAULT_SUPABASE_PROJECT_ID = "sdgxpquruczhkpyhjaxn";
 export const DEFAULT_SUPABASE_URL = "https://sdgxpquruczhkpyhjaxn.supabase.co";
-export const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdGciLCJyZWYiOiJzZGd4cHF1cnVjemhra3B5aGpheG4iLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3ODc0MDkxMiwiZXhwIjoyMDk0MzE2OTEyfQ.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
+export const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdGd4cHF1cnVjemhra3B5aGpheG4iLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3ODc0MDkxMiwiZXhwIjoyMDk0MzE2OTEyfQ.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20";
 
 const envUrl = import.meta.env.VITE_SUPABASE_URL;
 const rawUrl = (typeof envUrl === 'string' && envUrl.trim() && !envUrl.includes("placeholder"))
@@ -32,24 +32,22 @@ const getSafeStorage = () => {
   }
 };
 
-/**
- * Add a bounded timeout to Supabase requests, but preserve real HTTP responses
- * and network failures. Never fabricate successful database reads or writes.
- */
+/** Preserve real Supabase responses and failures; never simulate database success. */
 export const reliableSupabaseFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
-  const signal = init?.signal
-    ? AbortSignal.any([init.signal, controller.signal])
-    : controller.signal;
+  const onExternalAbort = () => controller.abort(init?.signal?.reason);
+  if (init?.signal?.aborted) onExternalAbort();
+  else init?.signal?.addEventListener('abort', onExternalAbort, { once: true });
 
   try {
-    return await fetch(input, { ...init, signal });
+    return await fetch(input, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timeoutId);
+    init?.signal?.removeEventListener('abort', onExternalAbort);
   }
 };
 
