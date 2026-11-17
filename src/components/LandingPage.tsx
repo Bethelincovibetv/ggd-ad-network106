@@ -196,12 +196,11 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         { id: 'contact-info', label: 'Contact Us' },
       ]
     : [
-        ...(isEnabled('marketing_apps_marketplace') ? [{ id: 'marketing-apps', label: 'Marketing Apps' }] : []),
         { id: 'business', label: 'For Businesses' },
-        ...(isEnabled('credit_tasks') || isEnabled('syndicate_core') ? [{ id: 'promote-earn', label: 'Promote & Earn' }] : []),
+        { id: 'promote-earn', label: 'Earn & Promote' },
         { id: 'how-it-works', label: 'How It Works' },
         { id: 'faq', label: 'FAQ' },
-        { id: 'contact-info', label: 'Contact Us' },
+        { id: 'contact-info', label: 'Contact' },
       ];
 
   const whatsappWhyCards = [
@@ -281,34 +280,64 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
   return (
     <div className="min-h-screen bg-[#141414] dark text-foreground antialiased selection:bg-[#e67e22] selection:text-white">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg border-b border-[#e67e22]/20">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={ggdLogo} alt="GGD Ad Network Logo" className="h-9 w-9 rounded-xl shadow-md border border-white/20 object-contain bg-black/20 p-0.5" />
+      <nav className="sticky top-0 z-50 bg-[#e67e22] shadow-lg border-b border-[#e67e22]/20" aria-label="Main navigation">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => scrollTo('home')}
+            aria-label="Scroll to top of GGD Ad Network"
+            className="flex items-center gap-2.5 text-left cursor-pointer rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 group"
+          >
+            <img src={ggdLogo} alt="GGD Ad Network Logo" className="h-9 w-9 rounded-xl shadow-md border border-white/20 object-contain bg-black/20 p-0.5 group-hover:scale-105 transition-transform" />
             <span className="font-black text-xl text-white tracking-tight">GGD <span className="text-orange-100 font-medium text-xs ml-1 hidden sm:inline-block">AD NETWORK</span></span>
-          </div>
+          </button>
 
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-5">
             {navItems.map(item => (
-              <button key={item.id} onClick={() => scrollTo(item.id)}
-                className="text-sm text-white/90 hover:text-white font-medium transition-colors cursor-pointer">
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => scrollTo(item.id)}
+                className="text-sm text-white/90 hover:text-white font-medium transition-colors cursor-pointer"
+              >
                 {item.label}
               </button>
             ))}
             <button
               type="button"
               onClick={() => navigate('/syndicate-register')}
-              className="text-sm text-amber-200 hover:text-white font-bold transition-colors flex items-center gap-1 cursor-pointer px-2 py-1 rounded-lg hover:bg-white/10"
+              className="text-sm text-amber-100 hover:text-white font-bold transition-colors flex items-center gap-1 cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-white/10"
             >
-              <Users className="h-4 w-4 text-amber-300" /> Join Syndicate
+              <Users className="h-4 w-4 text-amber-200" /> Join Syndicate
             </button>
-            <Button onClick={onGetStarted}
-              className="bg-white text-[#e67e22] hover:bg-orange-50 font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-[1.02] transition-all cursor-pointer">
+          </div>
+
+          <div className="hidden md:flex items-center gap-2.5">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onGetStarted}
+              aria-label="Sign in to your account"
+              className="text-white hover:bg-white/15 hover:text-white font-semibold px-4 py-2.5 rounded-xl border border-white/25 transition-all cursor-pointer"
+            >
+              Sign In
+            </Button>
+            <Button
+              type="button"
+              onClick={onGetStarted}
+              className="bg-white text-[#e67e22] hover:bg-orange-50 font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-[1.02] transition-all cursor-pointer"
+            >
               {whatsappPositioning ? "Start My Campaign" : "Get Started"}
             </Button>
           </div>
 
-          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-white p-2 border border-white/30 rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={menuOpen}
+            className="md:hidden text-white p-2 border border-white/30 rounded-xl bg-white/10 hover:bg-white/20 transition cursor-pointer"
+          >
             {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
@@ -317,21 +346,46 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="fixed inset-x-0 top-[60px] z-40 bg-[#1a1a1a] border-b border-[#333] animate-fade-in md:hidden shadow-2xl">
-          <div className="flex flex-col p-6 space-y-4">
+          <div className="flex flex-col p-6 space-y-3.5">
             {navItems.map(item => (
-              <button key={item.id} onClick={() => scrollTo(item.id)}
-                className="text-left text-lg text-gray-200 hover:text-white font-medium transition-colors cursor-pointer">
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  scrollTo(item.id);
+                }}
+                className="text-left text-base text-gray-200 hover:text-white font-medium py-1.5 transition-colors cursor-pointer"
+              >
                 {item.label}
               </button>
             ))}
-            <Button onClick={() => { setMenuOpen(false); navigate('/syndicate-register'); }}
-              className="w-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer">
-              <Users className="mr-2 h-5 w-5" /> Register as Syndicate Member
-            </Button>
-            <Button onClick={() => { setMenuOpen(false); onGetStarted(); }}
-              className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer">
-              {whatsappPositioning ? "Start My Campaign" : "Get Started"}
-            </Button>
+            <div className="pt-2 border-t border-[#2d2d2d] flex flex-col gap-3">
+              <Button
+                type="button"
+                onClick={() => { setMenuOpen(false); navigate('/syndicate-register'); }}
+                className="w-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer"
+              >
+                <Users className="mr-2 h-5 w-5" /> Register as Syndicate Member
+              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setMenuOpen(false); onGetStarted(); }}
+                  className="w-full border-[#444] bg-[#242424] hover:bg-[#2f2f2f] text-white py-5 text-base font-semibold rounded-xl cursor-pointer"
+                >
+                  Sign In
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); onGetStarted(); }}
+                  className="w-full bg-gradient-to-r from-[#e67e22] to-[#e74c3c] text-white py-5 text-base font-bold rounded-xl shadow-lg cursor-pointer"
+                >
+                  {whatsappPositioning ? "Start Campaign" : "Get Started"}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
