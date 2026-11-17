@@ -72,7 +72,7 @@ const WalletHub = ({ credits, onCreditsUpdate, onWalletUpdate, isPremium, initia
         .eq('key', 'credit_exchange_rate')
         .maybeSingle();
 
-      const v = parseInt(data?.value || '', 10);
+      const v = parseFloat(data?.value || '');
       if (v > 0 && isMounted) setExchangeRate(v);
 
       // Load task wallet and subscribe to real-time updates

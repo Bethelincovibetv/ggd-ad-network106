@@ -133,7 +133,7 @@ export async function createSyndicateTask(
     const totalCost = costPerSyndicate * max_syndicates;
 
     // C. Exchange rate & payout percentage
-    const exchangeRate = parseInt(rateRes.data?.value || "50", 10) || 50;
+    const exchangeRate = parseFloat(rateRes.data?.value || "0.48") || 0.48;
     const payoutPct = parseInt(pctRes.data?.value || "75", 10) || 75;
     const payoutAmount = costPerSyndicate * (payoutPct / 100.0);
     const creditsNeeded = Math.ceil(totalCost / exchangeRate);
@@ -288,7 +288,7 @@ export async function reviewSyndicateAssignment(
       supabase.from("syndicate_profiles").select("tasks_completed, ranking_score").eq("user_id", assignment.syndicate_user_id).maybeSingle(),
     ]);
 
-    const exchangeRate = parseInt(rateRes.data?.value || "50", 10) || 50;
+    const exchangeRate = parseFloat(rateRes.data?.value || "0.48") || 0.48;
     const payoutNaira = Number(task.payout_amount || (Number(task.cost_per_syndicate || 50) * 0.7));
     const payoutCredits = Math.max(1, Math.floor(payoutNaira / exchangeRate));
 

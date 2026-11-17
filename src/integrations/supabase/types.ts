@@ -696,6 +696,60 @@ export type Database = {
         }
         Relationships: []
       }
+      eco_redemptions: {
+        Row: {
+          created_at: string
+          credits_spent: number
+          eco_points: number
+          eco_reference: string | null
+          environment: string
+          error_message: string | null
+          id: string
+          naira_equivalent: number
+          provider_response: Json
+          rate_ggg_per_eco: number
+          rate_naira_per_ggg: number
+          recipient: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_spent: number
+          eco_points: number
+          eco_reference?: string | null
+          environment?: string
+          error_message?: string | null
+          id?: string
+          naira_equivalent: number
+          provider_response?: Json
+          rate_ggg_per_eco: number
+          rate_naira_per_ggg: number
+          recipient: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_spent?: number
+          eco_points?: number
+          eco_reference?: string | null
+          environment?: string
+          error_message?: string | null
+          id?: string
+          naira_equivalent?: number
+          provider_response?: Json
+          rate_ggg_per_eco?: number
+          rate_naira_per_ggg?: number
+          recipient?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_activity_types: {
         Row: {
           activity_key: string
@@ -2511,6 +2565,15 @@ export type Database = {
         }
         Returns: Json
       }
+      reserve_eco_redemption: {
+        Args: {
+          p_credits: number
+          p_environment: string
+          p_recipient: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       review_task_proof: {
         Args: { p_approve: boolean; p_reason?: string; p_submission_id: string }
         Returns: Json
@@ -2536,6 +2599,16 @@ export type Database = {
         Returns: Json
       }
       self_upgrade_premium: { Args: { _tier: number }; Returns: undefined }
+      settle_eco_redemption: {
+        Args: {
+          p_error: string
+          p_id: string
+          p_reference: string
+          p_response: Json
+          p_success: boolean
+        }
+        Returns: Json
+      }
       submit_task_proof: {
         Args: { p_proof_text?: string; p_proof_url: string; p_task_id: string }
         Returns: Json

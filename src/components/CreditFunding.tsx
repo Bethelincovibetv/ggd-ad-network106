@@ -14,15 +14,15 @@ interface CreditFundingProps {
 
 const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
   const [amount, setAmount] = useState('');
-  const [exchangeRate, setExchangeRate] = useState(100);
+  const [exchangeRate, setExchangeRate] = useState(0.48);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle()
-      .then(({ data }) => { if (data?.value) setExchangeRate(parseInt(data.value)); });
+      .then(({ data }) => { if (data?.value) setExchangeRate(parseFloat(data.value) || 0.48); });
   }, []);
 
-  const creditsToGet = amount ? Math.floor(parseInt(amount) / exchangeRate) : 0;
+  const creditsToGet = amount ? Math.floor(Math.round((parseInt(amount) / exchangeRate) * 100) / 100) : 0;
 
   const quickAmounts = [
     { label: '₦500', value: 500 },

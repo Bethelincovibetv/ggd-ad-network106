@@ -96,7 +96,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
   // App Settings
   const [assignmentHours, setAssignmentHours] = useState(24);
   const [showWizard, setShowWizard] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [exchangeRate, setExchangeRate] = useState<number>(0.48);
   const [payoutPct, setPayoutPct] = useState<number>(70);
   const [credits, setCredits] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(false);
@@ -197,7 +197,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       setMainProfile(profCreditsRes.data);
       const c = Number(profCreditsRes.data?.credits || 0);
       setCredits(c);
-      const r = parseInt(rateRes.data?.value || '') || 100;
+      const r = parseFloat(rateRes.data?.value || '') || 0.48;
       setExchangeRate(r);
       const pct = parseInt(payoutRes.data?.value || '') || 70;
       setPayoutPct(pct);

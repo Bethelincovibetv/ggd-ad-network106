@@ -50,7 +50,7 @@ const maskAccountNumber = (acc?: string | null) => {
 const SyndicateWallet = () => {
   const { requireActivation, requiresActivation } = useActivationStatus();
   const [credits, setCredits] = useState<number>(0);
-  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [exchangeRate, setExchangeRate] = useState<number>(0.48);
   const [cooldownHours, setCooldownHours] = useState<number>(48);
   const [autoPayoutEnabled, setAutoPayoutEnabled] = useState<boolean>(false);
   const [maxAutoPayout, setMaxAutoPayout] = useState<number>(50000);
@@ -134,7 +134,7 @@ const SyndicateWallet = () => {
     ]);
 
     setCredits(Number(profRes.data?.credits || 0));
-    const r = parseInt(rateRes.data?.value || '') || 100;
+    const r = parseFloat(rateRes.data?.value || '') || 0.48;
     setExchangeRate(r);
     const cd = parseInt(cdRes.data?.value || '') || 48;
     setCooldownHours(cd);

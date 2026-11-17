@@ -36,6 +36,13 @@
       "when": 1794847775327,
       "tag": "0004_task_proof_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794934441143,
+      "tag": "0005_auth_triggers_and_eco_redemptions",
+      "breakpoints": true
     }
   ]
 }

@@ -61,7 +61,7 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
       settings?.forEach((s: any) => {
         if (s.key === 'vendor_upgrade_credits') setCost(parseInt(s.value));
         if (s.key === 'co_owner_percentage') setPercentage(parseFloat(s.value));
-        if (s.key === 'credit_exchange_rate') setExchangeRate(parseInt(s.value));
+        if (s.key === 'credit_exchange_rate') setExchangeRate(parseFloat(s.value) || 0.48);
       });
       setLoading(false);
     };

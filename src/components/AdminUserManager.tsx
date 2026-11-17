@@ -119,7 +119,7 @@ const AdminUserManager = () => {
       supabase.from('syndicate_tasks').select('business_user_id'),
       supabase.from('app_settings').select('value').eq('key', 'credit_exchange_rate').maybeSingle(),
     ]);
-    const r = parseInt((rateRes as any)?.data?.value || '') || 100;
+    const r = parseFloat((rateRes as any)?.data?.value || '') || 0.48;
     setExchangeRate(r);
 
     const enriched = (profilesRes.data || []).map(p => ({

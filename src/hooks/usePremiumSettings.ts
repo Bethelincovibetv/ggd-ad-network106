@@ -21,7 +21,7 @@ export interface PremiumSettings {
 const DEFAULTS: Omit<PremiumSettings, 'loading'> = {
   enabled: true,
   freeAdDays: 3,
-  exchangeRate: 100,
+  exchangeRate: 0.48,
   autoConvertAds: false,
   tiers: [
     { tier: 0, days: 3, credits: 0, label: 'Free Premium' },
@@ -47,7 +47,7 @@ export const usePremiumSettings = (): PremiumSettings => {
           loading: false,
           enabled: (map['premium_system_enabled'] ?? 'true') === 'true',
           freeAdDays: num('ad_duration_free_days', 3),
-          exchangeRate: num('credit_exchange_rate', 100),
+          exchangeRate: parseFloat(map['credit_exchange_rate'] || '') || 0.48,
           autoConvertAds: (map['auto_convert_ads_to_tasks'] ?? 'false') === 'true',
           businessContact: map['premium_business_contact'] || '',
           tiers: [

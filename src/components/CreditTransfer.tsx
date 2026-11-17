@@ -115,7 +115,7 @@ const CreditTransfer = ({ credits, onCreditsUpdate, isPremium }: CreditTransferP
         .eq('key', 'credit_exchange_rate')
         .maybeSingle();
 
-      const rate = parseInt(setting?.value || '100', 10);
+      const rate = parseFloat(setting?.value || '0.48') || 0.48;
       if (rate > 0 && isMounted) setExchangeRate(rate);
     })();
 

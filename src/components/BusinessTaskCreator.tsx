@@ -61,7 +61,7 @@ const BusinessTaskCreator = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [bannerCostPerDay, setBannerCostPerDay] = useState<number>(50);
   const [converting, setConverting] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState<number>(100);
+  const [exchangeRate, setExchangeRate] = useState<number>(0.48);
   const [credits, setCredits] = useState<number>(0);
   const [loginBonusCredits, setLoginBonusCredits] = useState<number>(0);
   const [payoutPct, setPayoutPct] = useState<number>(70);
@@ -96,7 +96,7 @@ const BusinessTaskCreator = () => {
 
     const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'banner_credit_cost_per_day').maybeSingle();
     if (setting?.value) setBannerCostPerDay(parseInt(setting.value) || 50);
-    const r = parseInt(rateRes.data?.value || '');
+    const r = parseFloat(rateRes.data?.value || '');
     if (r > 0) setExchangeRate(r);
     const pct = parseInt(pctRes.data?.value || '') || 70;
     setPayoutPct(pct);

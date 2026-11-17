@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
         .eq('key', 'credit_exchange_rate')
         .maybeSingle()
 
-      const rate = parseInt(rateSetting?.value || '100') || 100
+      const rate = parseFloat(rateSetting?.value || '0.48') || 0.48
       const creditsToAdd = Math.floor(amountNaira / rate)
 
       await supabase.from('profiles')
