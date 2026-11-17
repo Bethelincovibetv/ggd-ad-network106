@@ -10,6 +10,7 @@ import {
   Clock,
   User,
   RefreshCw,
+  MessageCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ interface CallHistoryListProps {
   onClose?: () => void;
   className?: string;
   isCompact?: boolean;
+  onChatWithUser?: (targetId: string, targetName: string) => void;
 }
 
 export const CallHistoryList: React.FC<CallHistoryListProps> = ({
@@ -35,6 +37,7 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
   onClose,
   className = '',
   isCompact = false,
+  onChatWithUser,
 }) => {
   const [logs, setLogs] = useState<CallLogRecord[]>([]);
   const [filter, setFilter] = useState<'all' | 'missed' | 'incoming' | 'outgoing'>('all');
@@ -230,6 +233,24 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
 
                 {/* Right: Quick Action Callbacks */}
                 <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      const isCaller = log.callerId === userId;
+                      const targetId = isCaller ? log.calleeId : log.callerId;
+                      const targetName = isCaller ? log.calleeName : log.callerName;
+                      if (onChatWithUser) {
+                        onChatWithUser(targetId, targetName);
+                      }
+                      if (onClose) onClose();
+                    }}
+                    className="h-8 w-8 rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    title={`Chat with ${otherName}`}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  </Button>
+
                   <Button
                     size="icon"
                     variant="ghost"

@@ -1128,9 +1128,6 @@ const GGDInbox: React.FC = () => {
           <div>
             <h2 className="text-base font-black tracking-tight flex items-center gap-2">
               <span>Global Network Hub</span>
-              <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-500/30">
-                Single Source of Truth
-              </Badge>
             </h2>
             <p className="text-xs text-muted-foreground">
               Direct conversations, verified calls & database-backed photo sharing
@@ -1170,6 +1167,10 @@ const GGDInbox: React.FC = () => {
       {inboxView === "calls" ? (
         <CallHistoryList
           userId={me}
+          onChatWithUser={(targetId) => {
+            setActiveOther(targetId);
+            setInboxView("messages");
+          }}
         />
       ) : (
         <div className="space-y-3">
