@@ -677,7 +677,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                 },
                 {
                   title: "Credit Tasks & Earning",
-                  desc: "Watch videos, complete engagement tasks, and earn GGG credits to fund free business promotion.",
+                  desc: "Complete social shares, video views, and daily tasks to earn GGG credits redeemable for real value, ECO rewards, and free advertising for your business.",
                   img: tasksFlyerImg,
                   badge: "Tasks"
                 },
@@ -1053,16 +1053,16 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                     </div>
                     <h3 className="text-xl font-bold text-white">Credit Tasks</h3>
                     <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                      Community members complete promotional activities like watching videos, visiting websites, and social sharing to earn GGG Credits.
+                      Community members complete real engagement tasks—watching videos, sharing flyers, and visiting web links—to accumulate valuable GGG Credits.
                     </p>
                   </div>
 
                   <div className="space-y-2 bg-[#0c140e]/60 rounded-xl p-4 border border-emerald-500/20 text-xs text-gray-300">
                     <p className="font-semibold text-emerald-400">How the Credit Economy Works:</p>
                     <ul className="space-y-1.5 list-disc list-inside text-gray-400">
-                      <li>Participate in tasks to accumulate <strong className="text-white">GGG Credits</strong>.</li>
-                      <li>Use your earned credits to launch tasks and <strong className="text-white">promote your own business for free</strong>.</li>
-                      <li>Promote social posts and link visits through active community members.</li>
+                      <li>Accumulate <strong className="text-white">GGG Credits</strong> for every verified task you complete.</li>
+                      <li>Redeem credits for <strong className="text-white">airtime, ECO network rewards, or convert to cash balance</strong>.</li>
+                      <li>Re-invest your credits to <strong className="text-white">promote your own products, channels, and offers</strong> across the network for free.</li>
                     </ul>
                   </div>
 

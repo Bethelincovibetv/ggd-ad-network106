@@ -79,7 +79,7 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
     featured: true,
     feature: 'credit_tasks',
     question: 'What is the difference between Community Credits (GGG) and the Syndicate Wallet?',
-    answer: 'Community Credits (GGG) are internal platform utility tokens used for daily platform activities, community task rewards, AI content generation, and ad boosts. The Syndicate Wallet holds real cash earnings (in Naira ₦) accumulated by verified promoters from completing paid business campaigns, which can be withdrawn directly to personal bank accounts.',
+    answer: 'Community Credits (GGG) are earned by completing community engagement and social tasks. You can use credits to promote your own business for free, or redeem them for ecosystem rewards, airtime, and wallet conversion perks. In contrast, the Syndicate Wallet holds direct cash earnings (in Naira ₦) earned by verified promoters for running paid client campaigns, which are withdrawable directly to any CBN-licensed Nigerian bank account.',
     tags: ['Credits', 'Wallet', 'Withdrawals']
   },
   {
