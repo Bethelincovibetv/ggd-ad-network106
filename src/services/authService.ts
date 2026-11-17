@@ -1,11 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
-import { auth as firebaseAuth } from "@/lib/firebase";
+import { auth as firebaseAuth, db } from "@/lib/firebase";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User as FirebaseUser,
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { captureAndGetReferralCode, ensureUserProfileAndReferral } from "./referralService";
 import { safeStorage } from "@/utils/safeStorage";
 
@@ -138,7 +139,11 @@ export async function resilientSignUp(
         access_token: data.session?.access_token,
       };
       setLocalSession(session);
-      await ensureUserProfileAndReferral(data.user, cleanName, activeRef);
+      try {
+        await ensureUserProfileAndReferral(data.user, cleanName, activeRef);
+      } catch (profileError) {
+        console.error("Account created, but profile setup needs attention:", profileError);
+      }
       return session;
     }
     supabaseError = error;
@@ -156,6 +161,17 @@ export async function resilientSignUp(
       },
     };
     setLocalSession(session);
+    try {
+      await setDoc(doc(db, "profiles", user.uid), {
+        user_id: user.uid,
+        email: cleanEmail,
+        display_name: cleanName,
+        referred_by: activeRef || null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (profileError) {
+      console.error("Firebase account created, but profile setup needs attention:", profileError);
+    }
     return session;
   } catch (firebaseError) {
     setLocalSession(null);
