@@ -1,13 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { auth as firebaseAuth, db } from "@/lib/firebase";
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User as FirebaseUser
-} from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
 import { captureAndGetReferralCode, ensureUserProfileAndReferral } from "./referralService";
 
 export interface AppUser {
@@ -26,156 +17,45 @@ export interface AppSession {
   access_token?: string;
 }
 
-import { safeStorage } from "@/utils/safeStorage";
-
-const LOCAL_SESSION_KEY = "ggd_auth_session";
-
-export function getLocalSession(): AppSession | null {
-  return safeStorage.getJSON<AppSession | null>(LOCAL_SESSION_KEY, null);
-}
-
-export function setLocalSession(session: AppSession | null): void {
-  if (session) {
-    safeStorage.setJSON(LOCAL_SESSION_KEY, session);
-  } else {
-    safeStorage.removeItem(LOCAL_SESSION_KEY);
-  }
-}
-
 /**
- * Universal get user helper that works seamlessly across Supabase, Firebase, and Local Session
+ * Returns only a user authenticated by Supabase.
+ * Local storage is not an authentication provider and must never grant access.
  */
 export async function getCurrentUser(): Promise<AppUser | null> {
-  // 1. Try Supabase first
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.email) {
-      return {
-        id: user.id,
-        email: user.email,
-        user_metadata: user.user_metadata,
-        created_at: user.created_at,
-      };
-    }
-  } catch {
-    // Supabase unreachable, fallback gracefully
-  }
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user?.email) return null;
 
-  // 2. Try Firebase Auth
-  if (firebaseAuth.currentUser && firebaseAuth.currentUser.email) {
-    return {
-      id: firebaseAuth.currentUser.uid,
-      email: firebaseAuth.currentUser.email,
-      user_metadata: {
-        display_name: firebaseAuth.currentUser.displayName || undefined,
-      },
-    };
-  }
-
-  // 3. Try Local Persistent Session
-  const local = getLocalSession();
-  if (local?.user) {
-    return local.user;
-  }
-
-  return null;
+  return {
+    id: data.user.id,
+    email: data.user.email,
+    user_metadata: data.user.user_metadata,
+    created_at: data.user.created_at,
+  };
 }
 
-/**
- * Robust Sign In with automated failover
- */
 export async function resilientSignIn(email: string, password: string): Promise<AppSession> {
   const cleanEmail = email.trim().toLowerCase();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: cleanEmail,
+    password,
+  });
 
-  // Step 1: Try Supabase Auth
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
-    if (!error && data?.user && data.session) {
-      const appSession: AppSession = {
-        user: {
-          id: data.user.id,
-          email: data.user.email || cleanEmail,
-          user_metadata: data.user.user_metadata,
-          created_at: data.user.created_at,
-        },
-        access_token: data.session.access_token,
-      };
-      setLocalSession(appSession);
-      return appSession;
-    }
-    if (error && !error.message.includes("Failed to fetch") && !error.message.includes("NetworkError")) {
-      // If it's a specific credential error, we can try Firebase or report
-      console.warn("Supabase auth responded with error, attempting resilient Firebase fallback:", error.message);
-    }
-  } catch (err) {
-    console.warn("Supabase fetch failed, executing fallback auth:", err);
+  if (error) throw error;
+  if (!data.user || !data.session) {
+    throw new Error("Sign-in did not create an authenticated session. Please verify your email and try again.");
   }
 
-  // Step 2: Try Firebase Auth
-  try {
-    const userCredential = await signInWithEmailAndPassword(firebaseAuth, cleanEmail, password);
-    const fbUser = userCredential.user;
-    const appSession: AppSession = {
-      user: {
-        id: fbUser.uid,
-        email: fbUser.email || cleanEmail,
-        user_metadata: {
-          display_name: fbUser.displayName || cleanEmail.split("@")[0],
-        },
-      },
-    };
-    setLocalSession(appSession);
-    return appSession;
-  } catch (fbErr: any) {
-    const code = fbErr?.code || "";
-    if (code === "auth/wrong-password" || code === "auth/user-not-found" || code === "auth/invalid-credential") {
-      // If password was wrong in Firebase
-      console.warn("Firebase credential check failed:", code);
-    }
-  }
-
-  // Step 3: Resilient persistent local session generation for verified access
-  const generatedId = "usr_" + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, "").substring(0, 16);
-  const fallbackSession: AppSession = {
+  return {
     user: {
-      id: generatedId,
-      email: cleanEmail,
-      user_metadata: {
-        display_name: cleanEmail.split("@")[0],
-      },
-      created_at: new Date().toISOString(),
+      id: data.user.id,
+      email: data.user.email || cleanEmail,
+      user_metadata: data.user.user_metadata,
+      created_at: data.user.created_at,
     },
+    access_token: data.session.access_token,
   };
-
-  setLocalSession(fallbackSession);
-
-  // Sync to Firestore profile if possible
-  try {
-    const userDocRef = doc(db, "profiles", fallbackSession.user.id);
-    const existingSnap = await getDoc(userDocRef);
-    if (!existingSnap.exists()) {
-      await setDoc(userDocRef, {
-        user_id: fallbackSession.user.id,
-        email: cleanEmail,
-        display_name: cleanEmail.split("@")[0],
-        referral_code: "GGD" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-        credits: 10,
-        created_at: new Date().toISOString(),
-      });
-    }
-  } catch {
-    // Non-blocking Firestore sync
-  }
-
-  return fallbackSession;
 }
 
-/**
- * Robust Sign Up with automated failover
- */
 export async function resilientSignUp(
   email: string,
   password: string,
@@ -186,118 +66,48 @@ export async function resilientSignUp(
   const cleanName = displayName?.trim() || cleanEmail.split("@")[0];
   const activeRef = refCode?.trim() || captureAndGetReferralCode() || undefined;
 
-  // Step 1: Try Supabase Auth
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: {
-          display_name: cleanName,
-          ref: activeRef,
-        },
-      },
-    });
-
-    if (!error && data?.user) {
-      const appSession: AppSession = {
-        user: {
-          id: data.user.id,
-          email: data.user.email || cleanEmail,
-          user_metadata: {
-            display_name: cleanName,
-            ref: activeRef,
-          },
-          created_at: data.user.created_at,
-        },
-        access_token: data.session?.access_token,
-      };
-      setLocalSession(appSession);
-      try {
-        await ensureUserProfileAndReferral(data.user, cleanName, activeRef);
-      } catch {}
-      return appSession;
-    }
-  } catch (err) {
-    console.warn("Supabase sign up fetch failed, attempting resilient Firebase fallback:", err);
-  }
-
-  // Step 2: Try Firebase Auth
-  try {
-    const userCredential = await createUserWithEmailAndPassword(firebaseAuth, cleanEmail, password);
-    const fbUser = userCredential.user;
-    const appSession: AppSession = {
-      user: {
-        id: fbUser.uid,
-        email: fbUser.email || cleanEmail,
-        user_metadata: {
-          display_name: cleanName,
-          ref: activeRef,
-        },
-      },
-    };
-    setLocalSession(appSession);
-
-    // Save profile to Firestore
-    try {
-      const userDocRef = doc(db, "profiles", fbUser.uid);
-      await setDoc(userDocRef, {
-        user_id: fbUser.uid,
-        email: cleanEmail,
-        display_name: cleanName,
-        referral_code: "GGD" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-        referred_by: activeRef || null,
-        credits: 10,
-        created_at: new Date().toISOString(),
-      });
-    } catch {}
-
-    return appSession;
-  } catch (fbErr: any) {
-    console.warn("Firebase sign up attempt:", fbErr?.message);
-  }
-
-  // Step 3: Resilient persistent local session creation
-  const generatedId = "usr_" + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, "").substring(0, 16);
-  const fallbackSession: AppSession = {
-    user: {
-      id: generatedId,
-      email: cleanEmail,
-      user_metadata: {
+  const { data, error } = await supabase.auth.signUp({
+    email: cleanEmail,
+    password,
+    options: {
+      data: {
         display_name: cleanName,
         ref: activeRef,
       },
-      created_at: new Date().toISOString(),
     },
-  };
+  });
 
-  setLocalSession(fallbackSession);
+  if (error) throw error;
+  if (!data.user) throw new Error("Account creation did not return a user.");
+
+  // Email confirmation may be enabled. Do not create a local session in that case.
+  if (!data.session) {
+    throw new Error("Account created. Please confirm your email before signing in.");
+  }
 
   try {
-    const userDocRef = doc(db, "profiles", generatedId);
-    await setDoc(userDocRef, {
-      user_id: generatedId,
-      email: cleanEmail,
-      display_name: cleanName,
-      referral_code: "GGD" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-      referred_by: activeRef || null,
-      credits: 10,
-      created_at: new Date().toISOString(),
-    });
-  } catch {}
+    await ensureUserProfileAndReferral(data.user, cleanName, activeRef);
+  } catch (profileError) {
+    // Authentication succeeded; profile provisioning can be retried independently.
+    console.error("Unable to provision the user profile:", profileError);
+  }
 
-  return fallbackSession;
+  return {
+    user: {
+      id: data.user.id,
+      email: data.user.email || cleanEmail,
+      user_metadata: {
+        ...data.user.user_metadata,
+        display_name: cleanName,
+        ref: activeRef,
+      },
+      created_at: data.user.created_at,
+    },
+    access_token: data.session.access_token,
+  };
 }
 
-/**
- * Universal Logout
- */
 export async function resilientSignOut(): Promise<void> {
-  setLocalSession(null);
-  try {
-    await supabase.auth.signOut();
-  } catch {}
-  try {
-    await firebaseSignOut(firebaseAuth);
-  } catch {}
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 }
