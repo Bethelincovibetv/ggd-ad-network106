@@ -18,7 +18,7 @@ const rawKey = (typeof envKey === 'string' && envKey.trim() && !envKey.includes(
   : DEFAULT_SUPABASE_ANON_KEY;
 
 export const SUPABASE_URL = rawUrl.trim();
-export const SUPABASE_PUBLISHABLE_KEY = rawKey.trim().replace(/\\s+/g, '');
+export const SUPABASE_PUBLISHABLE_KEY = rawKey.trim().replace(/\s+/g, '');
 export const SUPABASE_PROJECT_ID = (import.meta.env.VITE_SUPABASE_PROJECT_ID && !import.meta.env.VITE_SUPABASE_PROJECT_ID.includes("placeholder"))
   ? import.meta.env.VITE_SUPABASE_PROJECT_ID
   : DEFAULT_SUPABASE_PROJECT_ID;
