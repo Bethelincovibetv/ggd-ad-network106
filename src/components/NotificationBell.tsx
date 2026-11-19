@@ -51,28 +51,33 @@ const NotificationBell = () => {
         filter: `user_id=eq.${userId}`,
       }, (payload) => {
         const n = payload.new as any;
-        if (lastNotifIdRef.current !== n.id) {
+        setNotifications(prev => prev.some(item => item.id === n.id) ? prev : [n, ...prev]);
+        if (lastNotifIdRef.current !== n.id && n.type !== 'call' && n.type !== 'call_incoming') {
           lastNotifIdRef.current = n.id;
-          setNotifications(prev => [n, ...prev]);
-          playSound();
           showPushNotification({
+            id: n.id,
+            userId,
             title: n.title || 'Notification',
             body: n.message || '',
             url: n.link_url || '/',
+            type: n.type || 'system',
           });
         }
       })
       .on('broadcast', { event: 'admin-notification' }, (payload: any) => {
         const n = payload?.payload;
         if (n && (!n.targetUserId || n.targetUserId === userId)) {
+          setNotifications(prev => prev.some(item => item.id === n.id) ? prev : [n, ...prev]);
           if (lastNotifIdRef.current !== n.id) {
             lastNotifIdRef.current = n.id;
-            setNotifications(prev => [n, ...prev]);
-            playSound();
             showPushNotification({
+              id: n.id,
+              userId,
               title: n.title || '📢 Admin Announcement',
               body: n.message || '',
               url: n.link_url || '/',
+              type: n.type || 'admin',
+              priority: n.priority,
             });
           }
         }
@@ -84,14 +89,17 @@ const NotificationBell = () => {
       .on('broadcast', { event: 'admin-notification' }, (payload: any) => {
         const n = payload?.payload;
         if (n && (!n.targetUserId || n.targetUserId === userId)) {
+          setNotifications(prev => prev.some(item => item.id === n.id) ? prev : [n, ...prev]);
           if (lastNotifIdRef.current !== n.id) {
             lastNotifIdRef.current = n.id;
-            setNotifications(prev => [n, ...prev]);
-            playSound();
             showPushNotification({
+              id: n.id,
+              userId,
               title: n.title || '📢 Admin Announcement',
               body: n.message || '',
               url: n.link_url || '/',
+              type: n.type || 'admin',
+              priority: n.priority,
             });
           }
         }
@@ -103,7 +111,7 @@ const NotificationBell = () => {
       supabase.removeChannel(channel); 
       supabase.removeChannel(globalAdminChannel);
     };
-  }, [userId, playSound]);
+  }, [userId]);
 
   const fetchNotifications = async (uid: string) => {
     const { data } = await supabase

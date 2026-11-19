@@ -613,11 +613,29 @@ export async function endActiveCall(callId: string): Promise<void> {
 }
 
 /**
+ * Fetch a single call document by ID (used when opening app directly from a call push notification)
+ */
+export async function fetchCallSessionById(callId: string): Promise<CallSession | null> {
+  if (!callId) return null;
+  try {
+    await ensureFirebaseAuth();
+    const snap = await getDoc(doc(db, 'calls', callId));
+    if (!snap.exists()) return null;
+    const data = snap.data() as CallSession;
+    return { ...data, callId: data.callId || snap.id };
+  } catch (err) {
+    console.warn('Could not fetch call session by id:', err);
+    return null;
+  }
+}
+
+/**
  * Subscribe to incoming calls for a recipient user
  */
 export function listenForIncomingCalls(
   currentUserId: string,
-  onIncomingCall: (call: CallSession) => void
+  onIncomingCall: (call: CallSession) => void,
+  onCallRemoved?: (callId: string) => void
 ): Unsubscribe {
   const callsRef = collection(db, 'calls');
   const q = query(
@@ -631,8 +649,10 @@ export function listenForIncomingCalls(
       if (change.type === 'added' || change.type === 'modified') {
         const callData = change.doc.data() as CallSession;
         if (callData.status === 'ringing') {
-          onIncomingCall(callData);
+          onIncomingCall({ ...callData, callId: callData.callId || change.doc.id });
         }
+      } else if (change.type === 'removed') {
+        onCallRemoved?.(change.doc.id);
       }
     });
   }, (err) => {

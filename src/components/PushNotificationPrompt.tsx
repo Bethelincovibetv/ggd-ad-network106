@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Bell, Sparkles, X, Gift, CheckCircle2, ShieldCheck, Zap, Minus, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import { registerPushNotification } from "@/services/pushNotificationService";
+import {
+  getOrRegisterServiceWorker,
+  isUserPushOptedOut,
+  registerPushNotification,
+  subscribeBrowserToWebPush,
+} from "@/services/pushNotificationService";
 import { supabase } from "@/integrations/supabase/client";
 import { playMoneyTransferSound, playNotificationChime } from "@/utils/audio";
 
@@ -83,6 +88,20 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
       return;
     }
 
+    // Pre-register Service Worker silently for offline + Web Push readiness
+    void getOrRegisterServiceWorker().then(async (reg) => {
+      if (Notification.permission === 'granted' && !isUserPushOptedOut() && reg) {
+        let uid = propUserId;
+        if (!uid) {
+          const { data: { user } } = await supabase.auth.getUser();
+          uid = user?.id;
+        }
+        if (uid) {
+          void subscribeBrowserToWebPush(reg, uid);
+        }
+      }
+    });
+
     if (Notification.permission === 'granted') {
       setPermissionGranted(true);
       return;
@@ -105,6 +124,8 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
     resolveUser();
 
     const checkShouldShow = () => {
+      if (isUserPushOptedOut()) return false;
+
       const isPermanentlyDismissed = safeGet(NOTIF_DISMISSED_KEY) === 'true';
       if (isPermanentlyDismissed) return false;
 

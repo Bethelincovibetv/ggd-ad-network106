@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { notifyAdOrBusinessStatusPush } from "@/services/pushNotificationService";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import {
   BannerAdRecord,
@@ -257,6 +258,16 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
       return;
     }
     toast.success(`Extended by ${days} day${days > 1 ? 's' : ''}`);
+    if (selectedAd.user_id) {
+      notifyAdOrBusinessStatusPush({
+        userId: selectedAd.user_id,
+        entityType: 'ad',
+        itemTitle: selectedAd.title || 'Banner Advert',
+        statusLabel: 'Extended',
+        details: `Your banner advert "${selectedAd.title || 'Campaign'}" was extended by ${days} day${days > 1 ? 's' : ''}.`,
+        url: '/?tab=campaigns',
+      }).catch(() => {});
+    }
     setSelectedAd({ ...selectedAd, expires_at: newExpiry, is_active: true });
     fetchAds();
   };
@@ -270,6 +281,19 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
       return;
     }
     toast.success(newStatus ? 'Banner advert resumed' : 'Banner advert paused');
+    if (ad.user_id) {
+      notifyAdOrBusinessStatusPush({
+        userId: ad.user_id,
+        entityType: 'ad',
+        itemTitle: ad.title || 'Banner Advert',
+        statusLabel: newStatus ? 'Resumed & Live' : 'Paused',
+        details: newStatus
+          ? `Your banner advert "${ad.title || 'Campaign'}" is now active and serving impressions.`
+          : `Your banner advert "${ad.title || 'Campaign'}" has been paused.`,
+        url: '/?tab=campaigns',
+        urgent: !newStatus,
+      }).catch(() => {});
+    }
     setAds((prev) => prev.map((a) => (a.id === ad.id ? { ...a, is_active: newStatus } : a)));
     if (selectedAd?.id === ad.id) {
       setSelectedAd({ ...selectedAd, is_active: newStatus });
@@ -286,6 +310,16 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
       return;
     }
     toast.success('Banner advert approved & live');
+    if (ad.user_id) {
+      notifyAdOrBusinessStatusPush({
+        userId: ad.user_id,
+        entityType: 'ad',
+        itemTitle: ad.title || 'Banner Advert',
+        statusLabel: 'Approved & Live',
+        details: `Great news! Your banner advert "${ad.title || 'Campaign'}" has been approved and is now live across GGD Ad Network.`,
+        url: '/?tab=campaigns',
+      }).catch(() => {});
+    }
     setAds((prev) =>
       prev.map((a) => (a.id === ad.id ? { ...a, approved: true, is_active: true, rejection_reason: null } : a))
     );
@@ -308,6 +342,17 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
       return;
     }
     toast.success('Banner advert rejected');
+    if (ad.user_id) {
+      notifyAdOrBusinessStatusPush({
+        userId: ad.user_id,
+        entityType: 'ad',
+        itemTitle: ad.title || 'Banner Advert',
+        statusLabel: 'Rejected',
+        details: `Your banner advert "${ad.title || 'Campaign'}" was rejected: ${reason.trim()}`,
+        url: '/?tab=campaigns',
+        urgent: true,
+      }).catch(() => {});
+    }
     setAds((prev) =>
       prev.map((a) =>
         a.id === ad.id ? { ...a, approved: false, is_active: false, rejection_reason: reason.trim() } : a

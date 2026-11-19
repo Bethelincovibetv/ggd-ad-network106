@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Send, Search, ArrowLeft, User, MessageCircle, Copy, ExternalLink,
-  CheckCircle2, Pin, Briefcase, Users, Globe, ShoppingBag, Store, Zap, Sparkles, X,
+  CheckCircle2, Pin, Briefcase, Users, Globe, ShoppingBag, Store, Zap, Sparkles, X, AlertTriangle,
 } from "lucide-react";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import EmojiReactionBar from "@/components/EmojiReactionBar";
@@ -19,7 +19,10 @@ import VoiceNotePlayer from "@/components/chat/VoiceNotePlayer";
 import WhatsAppSlideMessage from "@/components/chat/WhatsAppSlideMessage";
 import BusinessConnectMargin from "@/components/chat/BusinessConnectMargin";
 import { playMessageReceivedSound, playMessageSentSound, playAttentionSound } from "@/utils/audio";
-import { sendQuickMessageNotification, triggerRealtimePush } from "@/services/pushNotificationService";
+import {
+  sendQuickMessageNotification,
+  notifyUrgentMessagePush,
+} from "@/services/pushNotificationService";
 import { notifyNewEnquiry } from "@/services/automatedEmailNotificationService";
 import { getCurrentUser } from "@/services/authService";
 import { safeStorage } from "@/utils/safeStorage";
@@ -110,6 +113,7 @@ const GGDInbox: React.FC = () => {
   const [assignment, setAssignment] = useState<AssignmentMeta | null>(null);
   const [taskTitle, setTaskTitle] = useState<string>("");
   const [isSending, setIsSending] = useState(false);
+  const [isUrgentMessage, setIsUrgentMessage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Msg | null>(null);
   const sendingRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -512,13 +516,17 @@ const GGDInbox: React.FC = () => {
 
     const currentTag = activeInquiryTag;
     const currentReply = replyingTo;
+    const urgentFlag = isUrgentMessage;
     const isTag = !!currentTag;
     const kind: Kind = isTag ? "action" : "text";
     const action_type = isTag
       ? (currentTag.type === "service" ? "service_inquiry" : "product_inquiry")
+      : urgentFlag
+      ? "urgent_message"
       : (currentReply ? "reply" : null);
     const action_payload: any = {};
     if (isTag) Object.assign(action_payload, currentTag);
+    if (urgentFlag) action_payload.urgent = true;
     if (currentReply) {
       action_payload.reply_to = {
         id: currentReply.id,
@@ -546,6 +554,7 @@ const GGDInbox: React.FC = () => {
     setMessages((p) => [...p, optimistic]);
     setActiveInquiryTag(null);
     setReplyingTo(null);
+    setIsUrgentMessage(false);
 
     try {
       const { data, error } = await supabase
@@ -568,12 +577,13 @@ const GGDInbox: React.FC = () => {
       } else if (data) {
         setMessages((prev) => prev.map((msg) => (msg.id === optimisticId ? (data as any) : msg)));
         
-        // Dispatch quick message push notification & automated email to recipient
+        // Dispatch quick/urgent message push notification & automated email to recipient
         sendQuickMessageNotification({
           recipientUserId: activeOther,
           senderName: myProfile?.display_name || 'GGD Member',
           messagePreview: text,
           chatUrl: `/inbox?chat=${me}`,
+          urgent: urgentFlag,
         });
 
         // Trigger automated email notification for enquiry/message
@@ -643,14 +653,13 @@ const GGDInbox: React.FC = () => {
         setMessages((prev) => prev.map((m) => (m.id === optimisticId ? (data as any) : m)));
       }
 
-      // Dispatch urgent attention notification
-      await supabase.from("notifications").insert({
-        user_id: activeOther,
+      // Dispatch urgent attention DB + high-priority Web Push notification
+      await notifyUrgentMessagePush({
+        recipientUserId: activeOther,
+        senderName: myProfile?.business_name || myProfile?.display_name || 'GGD Member',
+        messagePreview: promptText,
+        chatUrl: `/inbox?chat=${me}`,
         title: `🚨 Urgent Attention Needed`,
-        message: promptText,
-        type: "urgent_message",
-        nav_target: "inbox",
-        is_read: false,
       });
 
       toast.success("🔔 Attention request sent to recipient!");
@@ -1083,19 +1092,39 @@ const GGDInbox: React.FC = () => {
               <div className="flex gap-2 items-center">
                 <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
 
+                <Button
+                  type="button"
+                  id="inbox-urgent-toggle"
+                  variant={isUrgentMessage ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={() => setIsUrgentMessage((v) => !v)}
+                  title="Mark next message as Urgent (high-priority Web Push)"
+                  aria-pressed={isUrgentMessage}
+                  className="h-9 px-2.5 text-xs font-bold shrink-0 gap-1"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{isUrgentMessage ? "Urgent On" : "Urgent"}</span>
+                </Button>
+
                 <Input
                   value={input}
                   disabled={isSending}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !isSending && (e.preventDefault(), send())}
-                  placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-                  className="flex-1"
+                  placeholder={
+                    isUrgentMessage
+                      ? "Type urgent priority message..."
+                      : replyingTo
+                      ? "Type your reply..."
+                      : "Type a message..."
+                  }
+                  className={`flex-1 ${isUrgentMessage ? "border-red-500/60 focus-visible:ring-red-500" : ""}`}
                 />
                 <Button
                   onClick={send}
                   disabled={isSending || !input.trim()}
                   size="icon"
-                  className="bg-orange-500 hover:bg-orange-600 shrink-0"
+                  className={isUrgentMessage ? "bg-red-600 hover:bg-red-700 shrink-0" : "bg-orange-500 hover:bg-orange-600 shrink-0"}
                 >
                   <Send className="h-4 w-4" />
                 </Button>

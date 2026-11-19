@@ -29,7 +29,10 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { BlazingBadge } from "@/components/BlazingBadge";
-import { broadcastFeaturedProductNotification } from "@/services/pushNotificationService";
+import {
+  broadcastFeaturedProductNotification,
+  notifyAdOrBusinessStatusPush,
+} from "@/services/pushNotificationService";
 
 interface ProductCardItemProps {
   item: any;
@@ -57,6 +60,18 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
         .update({ is_active: checked })
         .eq('id', item.id);
       if (error) throw error;
+      if (item.user_id) {
+        notifyAdOrBusinessStatusPush({
+          userId: item.user_id,
+          entityType: 'business_listing',
+          itemTitle: item.title || 'Listing',
+          statusLabel: checked ? 'Published & Live' : 'Set to Draft',
+          details: checked
+            ? `Your listing "${item.title || 'Item'}" is now published and visible on the GGD Marketplace.`
+            : `Your listing "${item.title || 'Item'}" has been hidden from public view.`,
+          url: '/?tab=my-business',
+        }).catch(() => {});
+      }
       toast.success(checked ? "Listing published!" : "Listing set to draft (hidden)");
       onRefresh();
     } catch (err: any) {

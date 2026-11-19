@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { notifyWalletCreditPush } from "@/services/pushNotificationService";
 
 export interface CreditTask {
   id: string;
@@ -222,6 +223,14 @@ export async function executeCompleteTask(taskId: string): Promise<CompleteTaskR
               .eq("user_id", userId)
               .maybeSingle();
 
+            notifyWalletCreditPush({
+              userId,
+              title: "🎉 Task Reward Credited!",
+              description: `You earned +${awarded.toLocaleString()} GGG Credits for completing "${taskRecord.title || 'Community Task'}".`,
+              type: "credit_task",
+              url: "/?tab=tasks",
+            }).catch(() => {});
+
             return {
               success: true,
               rewardAwarded: awarded,
@@ -324,6 +333,14 @@ export async function executeCompleteTask(taskId: string): Promise<CompleteTaskR
       }
       await supabase.from("tasks").update(updates).eq("id", realTaskId);
     }
+
+    notifyWalletCreditPush({
+      userId,
+      title: "🎉 Task Reward Credited!",
+      description: `You earned +${rewardCredits.toLocaleString()} GGG Credits for completing "${taskRecord.title || 'Community Task'}". New balance: ${newBalance.toLocaleString()} GGG.`,
+      type: "credit_task",
+      url: "/?tab=tasks",
+    }).catch(() => {});
 
     return {
       success: true,

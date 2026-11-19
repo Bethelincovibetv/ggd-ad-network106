@@ -23,6 +23,7 @@ import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
 import { registerAirtimeRoutes } from './src/server/airtimeRoutes';
+import { registerWebPushRoutes, sendWebPushNotification } from './src/server/webPushRoutes';
 
 const resolvedDirname =
   typeof __dirname !== 'undefined'
@@ -2926,22 +2927,50 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
     console.warn('Could not record call in Supabase notifications:', err);
   }
 
-  // 2. Query push devices to broadcast high-priority FCM / Web Push payload
+  // 2. Dispatch high-priority encrypted Web Push to callee's subscribed devices (for inactive/closed tabs)
+  let webPushSent = 0;
   try {
-    const devicesResp = await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${calleeId}&select=user_id,has_push_enabled,push_subscription`, {
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
+    const pushResult = await sendWebPushNotification({
+      userId: calleeId,
+      urgency: 'high',
+      ttlSeconds: 90,
+      payload: {
+        type: 'call_incoming',
+        isCall: true,
+        callId,
+        callerId,
+        callerName: callerName || 'GGD Member',
+        callerAvatar: callerAvatar || '/favicon.png',
+        callType: callType === 'video' ? 'video' : 'audio',
+        title: `📞 Incoming ${callType === 'video' ? 'Video' : 'Audio'} Call from ${callerName || 'GGD Member'}`,
+        body: `${callerName || 'GGD Member'} is calling you live now on GGD Network. Tap to answer!`,
+        url: `/?callId=${encodeURIComponent(callId)}&action=accept`,
       },
     });
-    if (devicesResp.ok) {
-      const devices = await devicesResp.json();
-      if (Array.isArray(devices) && devices.length > 0) {
-        deviceTokensFound = devices.length;
+    webPushSent = pushResult.sent;
+    deviceTokensFound = Math.max(deviceTokensFound, pushResult.totalTargets);
+  } catch (pushErr) {
+    console.warn('Web Push incoming call dispatch note:', pushErr);
+  }
+
+  // 3. Query push devices count if none matched in local store
+  if (deviceTokensFound === 0) {
+    try {
+      const devicesResp = await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${calleeId}&select=user_id,has_push_enabled,push_subscription`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+      });
+      if (devicesResp.ok) {
+        const devices = await devicesResp.json();
+        if (Array.isArray(devices) && devices.length > 0) {
+          deviceTokensFound = devices.length;
+        }
       }
+    } catch (err) {
+      console.warn('Could not query push tokens:', err);
     }
-  } catch (err) {
-    console.warn('Could not query push tokens:', err);
   }
 
   return res.json({
@@ -2951,6 +2980,7 @@ app.post('/api/calls/notify-incoming', async (req, res) => {
     notified: true,
     insertedNotification,
     deviceTokensFound,
+    webPushSent,
     message: 'High-priority incoming call notification dispatched to callee devices.',
   });
 });
@@ -3653,6 +3683,14 @@ async function startServer() {
     console.log('[Sabuss Airtime Engine] Airtime & Credit Redemption routes registered successfully');
   } catch (airtimeErr) {
     console.warn('[Sabuss Airtime Engine] Route registration notice:', airtimeErr);
+  }
+
+  // Register Web Push VAPID Subscription & Notification Dispatch Routes
+  try {
+    registerWebPushRoutes(app);
+    console.log('[WebPush Engine] VAPID Web Push routes registered successfully');
+  } catch (pushErr) {
+    console.warn('[WebPush Engine] Route registration notice:', pushErr);
   }
 
   const { distPath, indexHtmlPath, exists } = getDistPaths();

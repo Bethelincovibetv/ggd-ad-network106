@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 
 export const CallModal: React.FC = () => {
   const {
+    currentUser,
     callStatus,
     activeSession,
     localStream,
@@ -80,10 +81,13 @@ export const CallModal: React.FC = () => {
   }
 
   const isVideo = activeSession.callType === 'video';
-  const partnerName = activeSession.callerId === activeSession.calleeId
-    ? activeSession.callerName
-    : (activeSession.calleeName || 'User');
-  const partnerAvatar = activeSession.calleeAvatar || activeSession.callerAvatar;
+  const isCallee = currentUser?.id ? currentUser.id === activeSession.calleeId : false;
+  const partnerName = isCallee
+    ? (activeSession.callerName || 'Caller')
+    : (activeSession.calleeName || activeSession.callerName || 'User');
+  const partnerAvatar = isCallee
+    ? (activeSession.callerAvatar || activeSession.calleeAvatar)
+    : (activeSession.calleeAvatar || activeSession.callerAvatar);
 
   // ----------------------------------------------------
   // Minimized Picture-in-Picture Floating Mode

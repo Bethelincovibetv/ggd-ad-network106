@@ -527,23 +527,13 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         });
       } catch {}
 
-      // 3. Notify Admin
-      try {
-        await supabase.from('notifications').insert({
-          user_id: adminUserId,
-          title: `🚨 Direct Support Inquiry from ${userEmail}`,
-          message: text,
-          type: 'urgent_message',
-          nav_target: 'chat',
-          is_read: false,
-        });
-      } catch {}
-
-      sendQuickMessageNotification({
+      // 3. Notify Admin with immediate urgent DB + Web Push alert
+      await sendQuickMessageNotification({
         recipientUserId: adminUserId,
         senderName: userEmail || 'GGD Member',
         messagePreview: text,
         chatUrl: `/admin?tab=chat&userId=${currentUserId}`,
+        urgent: true,
       });
     } catch (err: any) {
       toast.error(err.message || 'Failed to send support message');
@@ -599,6 +589,14 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
           return list;
         });
       }
+
+      sendQuickMessageNotification({
+        recipientUserId: adminUserId,
+        senderName: userEmail || 'GGD Member',
+        messagePreview: '🎙️ Voice support note received',
+        chatUrl: `/admin?tab=chat&userId=${currentUserId}`,
+        urgent: true,
+      }).catch(() => {});
 
       toast.success('Voice note sent to GGD Admin!');
     } catch (err: any) {

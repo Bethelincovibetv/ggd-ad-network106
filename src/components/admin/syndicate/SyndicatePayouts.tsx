@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyWalletCreditPush } from "@/services/pushNotificationService";
 
 interface SyndicatePayoutsProps {
   payouts: any[];
@@ -57,7 +58,7 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
   const totalCompletedAmount = completedPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
   const totalPendingAmount = pendingPayouts.reduce((acc, p) => acc + Number((p as any).amount_naira || p.amount || 0), 0);
 
-  const handleMarkManualPaid = async (payoutId: string) => {
+  const handleMarkManualPaid = async (payout: any) => {
     try {
       const { error } = await supabase
         .from('withdrawal_requests')
@@ -66,9 +67,20 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
           processed_at: new Date().toISOString(),
           admin_notes: 'Marked as completed by Direct Admin Settlement',
         })
-        .eq('id', payoutId);
+        .eq('id', payout.id);
 
       if (error) throw error;
+      const recipientId = payout.user_id;
+      const amountNaira = Number(payout.amount_naira || payout.amount || 0);
+      if (recipientId) {
+        notifyWalletCreditPush({
+          userId: recipientId,
+          title: '💸 Syndicate Payout Disbursed!',
+          description: `Your withdrawal of ₦${amountNaira.toLocaleString()} has been settled to ${payout.bank_name || 'your bank account'}.`,
+          type: 'wallet_credit',
+          url: '/?tab=wallet',
+        }).catch(() => {});
+      }
       toast.success("Payout marked as completed!");
       onRefresh();
     } catch (err: any) {
@@ -271,7 +283,7 @@ export const SyndicatePayouts: React.FC<SyndicatePayoutsProps> = ({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleMarkManualPaid(p.id)}
+                            onClick={() => handleMarkManualPaid(p)}
                             className="h-8 text-[11px] font-bold rounded-lg"
                           >
                             Mark Paid

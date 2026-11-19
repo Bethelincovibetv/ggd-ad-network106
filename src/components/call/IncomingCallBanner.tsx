@@ -71,7 +71,7 @@ export const IncomingCallBanner: React.FC = () => {
               type="button"
               variant="destructive"
               size="icon"
-              onClick={declineCall}
+              onClick={() => declineCall()}
               className="h-11 w-11 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
               title="Decline"
             >
@@ -83,7 +83,7 @@ export const IncomingCallBanner: React.FC = () => {
               id="accept-call-btn"
               type="button"
               size="icon"
-              onClick={acceptCall}
+              onClick={() => acceptCall()}
               className="h-11 w-11 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg transition-transform hover:scale-110 active:scale-95 animate-bounce"
               title="Answer Call"
             >

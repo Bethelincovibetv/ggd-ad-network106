@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import { adminDirectVerifyUser } from "@/services/businessVerificationEngine";
+import { notifyWalletCreditPush, triggerRealtimePush } from "@/services/pushNotificationService";
 
 const roleStyles: Record<string, string> = {
   admin: 'bg-red-100 text-red-700 border-red-200',
@@ -218,6 +219,19 @@ const AdminUserManager = () => {
       });
 
       if (!rpcErr && rpcData && (rpcData as any).success) {
+        const rpcNewCredits = (rpcData as any).new_credits ?? newCredits;
+        triggerRealtimePush({
+          userId: selectedUser.user_id,
+          title: amount > 0 ? '🎉 Credits Added by Admin' : '⚠️ Credits Debited by Admin',
+          body: amount > 0
+            ? `Admin added ${amount} GGG credits to your wallet (${reason}). New balance: ${rpcNewCredits} credits.`
+            : `Admin debited ${Math.abs(amount)} GGG credits from your wallet (${reason}). New balance: ${rpcNewCredits} credits.`,
+          type: 'wallet_credit',
+          priority: 'high',
+          url: '/?tab=wallet',
+          saveToDb: false,
+        }).catch(() => {});
+
         toast.success(amount > 0 ? `🎉 Successfully added ${amount} GGG credits!` : `Debited ${Math.abs(amount)} GGG credits`);
         setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
         setCreditNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
@@ -244,16 +258,16 @@ const AdminUserManager = () => {
         throw new Error(upErr.message || 'Permission denied or update failed');
       }
 
-      // 3. Insert notification for user
-      await supabase.from('notifications').insert({
-        user_id: selectedUser.user_id,
+      // 3. Dispatch DB + Web Push notification for user
+      await notifyWalletCreditPush({
+        userId: selectedUser.user_id,
         title: amount > 0 ? '🎉 Credits Added by Admin' : '⚠️ Credits Debited by Admin',
-        message: amount > 0 
+        description: amount > 0
           ? `Admin added ${amount} GGG credits to your wallet (${reason}). New balance: ${newCredits} credits.`
           : `Admin debited ${Math.abs(amount)} GGG credits from your wallet (${reason}). New balance: ${newCredits} credits.`,
-        type: 'credit',
-        is_read: false,
-      });
+        type: 'wallet_credit',
+        url: '/?tab=wallet',
+      }).catch(() => {});
 
       toast.success(amount > 0 ? `🎉 Added ${amount} credits (New: ${newCredits})` : `Debited ${Math.abs(amount)} credits (New: ${newCredits})`);
       setCreditAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
@@ -293,6 +307,19 @@ const AdminUserManager = () => {
       });
 
       if (!rpcErr && rpcData && (rpcData as any).success) {
+        const rpcWalletBalance = (rpcData as any).new_balance ?? newBalance;
+        triggerRealtimePush({
+          userId: selectedUser.user_id,
+          title: amount > 0 ? '💼 Task Wallet Funded!' : '💼 Task Wallet Debited',
+          body: amount > 0
+            ? `Admin funded your Naira Task Wallet with ₦${amount.toLocaleString()} (${reason}). New balance: ₦${Number(rpcWalletBalance).toLocaleString()}.`
+            : `Admin debited ₦${Math.abs(amount).toLocaleString()} from your Naira Task Wallet (${reason}). New balance: ₦${Number(rpcWalletBalance).toLocaleString()}.`,
+          type: 'wallet_credit',
+          priority: 'high',
+          url: '/?tab=wallet',
+          saveToDb: false,
+        }).catch(() => {});
+
         toast.success(amount > 0 ? `💰 Successfully funded ₦${amount.toLocaleString()} into Task Wallet!` : `Debited ₦${Math.abs(amount).toLocaleString()} from Task Wallet`);
         setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));
         setTaskWalletNotes(prev => ({ ...prev, [selectedUser.id]: '' }));
@@ -334,16 +361,16 @@ const AdminUserManager = () => {
         throw new Error(wErr.message || 'Failed to update task wallet');
       }
 
-      // 3. Insert notification for user
-      await supabase.from('notifications').insert({
-        user_id: selectedUser.user_id,
+      // 3. Dispatch DB + Web Push notification for user
+      await notifyWalletCreditPush({
+        userId: selectedUser.user_id,
         title: amount > 0 ? '💼 Task Wallet Funded!' : '💼 Task Wallet Debited',
-        message: amount > 0 
+        description: amount > 0
           ? `Admin funded your Naira Task Wallet with ₦${amount.toLocaleString()} (${reason}). New balance: ₦${newBalance.toLocaleString()}.`
           : `Admin debited ₦${Math.abs(amount).toLocaleString()} from your Naira Task Wallet (${reason}). New balance: ₦${newBalance.toLocaleString()}.`,
-        type: 'wallet',
-        is_read: false,
-      });
+        type: 'wallet_credit',
+        url: '/?tab=wallet',
+      }).catch(() => {});
 
       toast.success(amount > 0 ? `💰 Successfully funded ₦${amount.toLocaleString()} (New balance: ₦${newBalance.toLocaleString()})` : `Debited ₦${Math.abs(amount).toLocaleString()} (New balance: ₦${newBalance.toLocaleString()})`);
       setTaskWalletAmounts(prev => ({ ...prev, [selectedUser.id]: '' }));

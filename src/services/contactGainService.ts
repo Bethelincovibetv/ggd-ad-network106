@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playMoneyTransferSound } from '@/utils/audio';
 import { safeStorage } from '@/utils/safeStorage';
+import { notifyTaskStatusPush } from '@/services/pushNotificationService';
 
 export interface ContactEntry {
   id: string;
@@ -861,6 +862,17 @@ export async function reviewContactProof(
           console.warn('Proof approval credit award notice:', err);
         }
       }
+    }
+
+    if (proofData.userId) {
+      notifyTaskStatusPush({
+        userId: proofData.userId,
+        taskTitle: proofData.campaignTitle || 'Contact Gain Task',
+        approved: status === 'approved',
+        rewardCredits: status === 'approved' ? Number(proofData.rewardCredits) || 0 : undefined,
+        reason: status === 'rejected' ? rejectionReason : undefined,
+        url: '/?tab=tasks',
+      }).catch(() => {});
     }
 
     return { success: true };

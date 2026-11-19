@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import { getOrCreateTaskShareUrl } from "@/lib/taskShare";
+import { notifyTaskStatusPush } from "@/services/pushNotificationService";
 
 interface TaskCreatorManagerProps {
   createdTasks: any[];
@@ -268,6 +269,15 @@ export const TaskCreatorManager: React.FC<TaskCreatorManagerProps> = ({
           ? `Approved! +${entry.taskReward} GGG credited to performer.`
           : "Proof rejected — performer notified to re-submit."
       );
+      if (entry.userId) {
+        notifyTaskStatusPush({
+          userId: entry.userId,
+          taskTitle: entry.taskTitle || selectedTask?.title || "Credit Task",
+          approved: approve,
+          rewardCredits: approve ? entry.taskReward : undefined,
+          reason: approve ? undefined : reason?.trim(),
+        }).catch(() => {});
+      }
       setRejectingEntryId(null);
       setRejectionInput("");
       await loadCreatorActivity();

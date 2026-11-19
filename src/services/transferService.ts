@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callRpc } from '@/lib/supabaseRpc';
+import { notifyWalletCreditPush, triggerRealtimePush } from '@/services/pushNotificationService';
 
 export interface VerifiedRecipient {
   userId: string;
@@ -195,6 +196,17 @@ export async function executeTransfer(
       });
 
       if (!rpcError && rpcData && rpcData.success) {
+        const senderName = senderProfile.display_name || 'a GGD member';
+        triggerRealtimePush({
+          userId: recipient.userId,
+          title: '💰 GGG Credits Received',
+          body: `You received ${amount.toLocaleString()} GGG credits from ${senderName}.`,
+          type: 'credit_transfer',
+          priority: 'high',
+          url: '/?tab=wallet',
+          saveToDb: false,
+        }).catch(() => {});
+
         return {
           success: true,
           message: `Successfully transferred ${amount} credits to ${recipient.displayName}!`,
@@ -278,19 +290,18 @@ export async function executeTransfer(
       // immediately credited to recipient via syncPendingTransfersForUser.
     }
 
-    // D. Notify receiver (non-blocking)
+    // D. Notify receiver via DB + Web Push (non-blocking)
     try {
       const senderName = senderProfile.display_name || 'A GGD member';
-      await supabase.from('notifications').insert({
-        user_id: recipient.userId,
+      notifyWalletCreditPush({
+        userId: recipient.userId,
         title: '💰 GGG Credits Received',
-        message: `You received ${amount.toLocaleString()} GGG credits from ${senderName}. Click to view your receipt.`,
+        description: `You received ${amount.toLocaleString()} GGG credits from ${senderName}.`,
         type: 'credit_transfer',
-        nav_target: `receipt:${transferRecord?.id || ''}`,
-        is_read: false,
-      });
+        url: transferRecord?.id ? `/?tab=wallet&receipt=${encodeURIComponent(transferRecord.id)}` : '/?tab=wallet',
+      }).catch(() => {});
     } catch {
-      // Notification insertion may be restricted by RLS for non-admins; non-blocking
+      // Non-blocking notification failure
     }
 
     return {

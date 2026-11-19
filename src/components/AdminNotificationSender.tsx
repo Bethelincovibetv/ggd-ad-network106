@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Send, Users, User, Search, X, Link, Radio, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Bell, Send, Users, User, Search, X, Link, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { triggerRealtimePush } from "@/services/pushNotificationService";
+import { notifyPriorityAnnouncementPush } from "@/services/pushNotificationService";
 import { toast } from "sonner";
 
 const AdminNotificationSender = () => {
@@ -17,6 +18,7 @@ const AdminNotificationSender = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isUrgent, setIsUrgent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sentNotifications, setSentNotifications] = useState<any[]>([]);
 
@@ -60,34 +62,38 @@ const AdminNotificationSender = () => {
     try {
       const fullMessage = link ? `${message}\n\n🔗 ${link}` : message;
 
+      const notifType = isUrgent ? 'admin_priority' : 'admin';
+
       if (mode === 'specific' && selectedUser) {
         await supabase.from('notifications').insert({
           user_id: selectedUser.user_id,
-          title,
+          title: isUrgent ? `🚨 Priority: ${title}` : title,
           message: fullMessage,
-          type: 'admin',
+          type: notifType,
           link_url: link || '/',
         });
 
         // Trigger instant push notification for specific recipient
-        await triggerRealtimePush({
+        await notifyPriorityAnnouncementPush({
           userId: selectedUser.user_id,
-          title: `📢 ${title}`,
+          title,
           body: message,
           url: link || '/',
-          type: 'system',
+          urgent: isUrgent,
           saveToDb: false,
         });
 
-        toast.success(`Push notification dispatched to ${selectedUser.display_name || selectedUser.email}`);
+        toast.success(
+          `${isUrgent ? 'High-priority' : 'Push'} notification dispatched to ${selectedUser.display_name || selectedUser.email}`
+        );
       } else {
         const { data: allProfiles } = await supabase.from('profiles').select('user_id');
         if (allProfiles && allProfiles.length > 0) {
           const notifications = allProfiles.map(p => ({
             user_id: p.user_id,
-            title,
+            title: isUrgent ? `🚨 Priority: ${title}` : title,
             message: fullMessage,
-            type: 'admin',
+            type: notifType,
             link_url: link || '/',
           }));
           // Insert in batches of 100
@@ -97,11 +103,11 @@ const AdminNotificationSender = () => {
         }
 
         // Trigger real-time broadcast and push notification
-        await triggerRealtimePush({
-          title: `📢 Announcement: ${title}`,
+        await notifyPriorityAnnouncementPush({
+          title,
           body: message,
           url: link || '/',
-          type: 'system',
+          urgent: isUrgent,
           saveToDb: false,
         });
 
@@ -114,9 +120,10 @@ const AdminNotificationSender = () => {
               event: 'admin-notification',
               payload: {
                 id: `admin-${Date.now()}`,
-                title: `📢 ${title}`,
+                title: isUrgent ? `🚨 Priority: ${title}` : `📢 ${title}`,
                 message: fullMessage,
-                type: 'admin',
+                type: notifType,
+                priority: isUrgent ? 'urgent' : 'normal',
                 link_url: link || '/',
                 created_at: new Date().toISOString(),
                 is_read: false,
@@ -125,12 +132,15 @@ const AdminNotificationSender = () => {
           }
         });
 
-        toast.success(`Push notification broadcast to ${allProfiles?.length || 'all'} registered users`);
+        toast.success(
+          `${isUrgent ? 'Priority Web Push' : 'Push notification'} broadcast to ${allProfiles?.length || 'all'} registered users`
+        );
       }
 
       setTitle('');
       setMessage('');
       setLink('');
+      setIsUrgent(false);
       setSelectedUser(null);
       fetchRecentNotifications();
     } catch (err) {
@@ -256,13 +266,37 @@ const AdminNotificationSender = () => {
             />
           </div>
 
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className={`h-4 w-4 shrink-0 ${isUrgent ? 'text-red-500' : 'text-amber-600'}`} />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">Priority / Urgent Announcement</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Dispatches high-priority persistent Web Push across devices
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="admin-priority-toggle"
+              checked={isUrgent}
+              onCheckedChange={setIsUrgent}
+              aria-label="Priority urgent announcement"
+            />
+          </div>
+
           <Button
             onClick={sendNotification}
             disabled={sending || !title.trim() || !message.trim() || (mode === 'specific' && !selectedUser)}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600"
+            className={`w-full ${isUrgent ? 'bg-gradient-to-r from-red-600 to-orange-600' : 'bg-gradient-to-r from-orange-500 to-orange-600'}`}
           >
             <Send className="h-4 w-4 mr-2" />
-            {sending ? 'Sending...' : mode === 'all' ? 'Send to All Users' : `Send to ${selectedUser?.display_name || 'User'}`}
+            {sending
+              ? 'Sending...'
+              : mode === 'all'
+              ? isUrgent
+                ? 'Send Priority Broadcast to All'
+                : 'Send to All Users'
+              : `Send ${isUrgent ? 'Priority Alert ' : ''}to ${selectedUser?.display_name || 'User'}`}
           </Button>
         </CardContent>
       </Card>

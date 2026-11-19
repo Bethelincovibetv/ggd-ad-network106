@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Send, Search, User, ArrowLeft } from "lucide-react";
+import { MessageCircle, Send, Search, User, ArrowLeft, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
@@ -19,6 +19,7 @@ const AdminChatSystem = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isUrgentReply, setIsUrgentReply] = useState(false);
   const [searchParams] = useSearchParams();
   const [adminId, setAdminId] = useState('');
   const [allAdminIds, setAllAdminIds] = useState<string[]>([]);
@@ -257,7 +258,9 @@ const AdminChatSystem = () => {
   const sendMessage = async () => {
     const text = newMessage.trim();
     if (!text || !selectedUser || !adminId) return;
+    const urgentFlag = isUrgentReply;
     setNewMessage('');
+    setIsUrgentReply(false);
     
     try {
       // 1. Insert into p2p_messages so user sees message directly in their GGD Inbox (/inbox)
@@ -266,6 +269,8 @@ const AdminChatSystem = () => {
         receiver_id: selectedUser.user_id,
         message: text,
         kind: 'text',
+        action_type: urgentFlag ? 'urgent_message' : null,
+        action_payload: urgentFlag ? { urgent: true } : null,
         is_read: false,
       }).select().single();
 
@@ -285,27 +290,16 @@ const AdminChatSystem = () => {
         });
       } catch {}
 
-      // 3. Dispatch in-app notification in notifications table
-      try {
-        await supabase.from('notifications').insert({
-          user_id: selectedUser.user_id,
-          title: '💬 Direct Support Message from GGD Admin',
-          message: text.length > 100 ? `${text.slice(0, 100)}...` : text,
-          type: 'message',
-          link_url: '/inbox',
-          is_read: false,
-        });
-      } catch {}
-
-      // 4. Dispatch real-time push notification to user's registered devices
+      // 3. Dispatch real-time DB + encrypted Web Push notification to user's devices
       sendQuickMessageNotification({
         recipientUserId: selectedUser.user_id,
         senderName: 'GGD Admin Support',
         messagePreview: text,
         chatUrl: '/inbox',
+        urgent: urgentFlag,
       });
 
-      toast.success('Message sent to user inbox!');
+      toast.success(urgentFlag ? 'Urgent support alert sent to user!' : 'Message sent to user inbox!');
     } catch (err: any) {
       toast.error('Failed to send message: ' + (err?.message || 'Network error'));
     }
@@ -449,14 +443,31 @@ const AdminChatSystem = () => {
         </ScrollArea>
 
         <div className="p-3 border-t">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Button
+              type="button"
+              id="admin-chat-urgent-toggle"
+              variant={isUrgentReply ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => setIsUrgentReply((v) => !v)}
+              aria-pressed={isUrgentReply}
+              title="Send as Urgent high-priority push notification"
+              className="h-9 px-2.5 text-xs font-bold shrink-0 gap-1"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{isUrgentReply ? 'Urgent On' : 'Urgent'}</span>
+            </Button>
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder={isUrgentReply ? "Type urgent support message..." : "Type a message..."}
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             />
-            <Button onClick={sendMessage} size="icon" className="bg-orange-500 hover:bg-orange-600 shrink-0">
+            <Button
+              onClick={sendMessage}
+              size="icon"
+              className={isUrgentReply ? "bg-red-600 hover:bg-red-700 shrink-0" : "bg-orange-500 hover:bg-orange-600 shrink-0"}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>

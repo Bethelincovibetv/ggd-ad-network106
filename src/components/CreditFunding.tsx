@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyWalletCreditPush } from "@/services/pushNotificationService";
 import gggCoin from '@/assets/ggg-credit.png';
 
 interface CreditFundingProps {
@@ -66,6 +67,13 @@ const CreditFunding = ({ credits, onCreditsUpdate }: CreditFundingProps) => {
             clearInterval(checkInterval);
             const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).single();
             if (profile) onCreditsUpdate(profile.credits);
+            notifyWalletCreditPush({
+              userId: user.id,
+              title: '💰 GGG Credits Top-Up Confirmed!',
+              description: `${creditsToGet.toLocaleString()} GGG credits have been added to your vault.`,
+              type: 'wallet_credit',
+              url: '/?tab=wallet',
+            }).catch(() => {});
             toast.success(`🎉 ${creditsToGet} GGG credits added!`);
             setAmount('');
             setLoading(false);

@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Loader2, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { notifyTaskStatusPush } from "@/services/pushNotificationService";
 
 interface Props {
   /** Limit to one task (creator view). Omit for admin view of all submissions. */
@@ -52,10 +53,20 @@ const TaskProofReviewList: React.FC<Props> = ({ taskId }) => {
       reason = window.prompt("Reason for rejecting this proof?") || '';
       if (!reason.trim()) { toast.error("Please give a reason"); return; }
     }
+    const targetRow = rows.find(r => r.id === id);
     setBusyId(id);
     const { data, error } = await callRpc<any>('review_task_proof', { p_submission_id: id, p_approve: approve, p_reason: reason });
     setBusyId(null);
     if (error || !data?.success) { toast.error(data?.error || error?.message || "Review failed"); return; }
+    if (targetRow?.user_id) {
+      notifyTaskStatusPush({
+        userId: targetRow.user_id,
+        taskTitle: targetRow.tasks?.title || 'Credit Task',
+        approved: approve,
+        rewardCredits: approve ? Number(targetRow.tasks?.reward_credits) || 0 : undefined,
+        reason: approve ? undefined : reason || undefined,
+      }).catch(() => {});
+    }
     toast.success(approve ? "Approved — credits paid to the earner" : "Proof rejected");
     load();
   };

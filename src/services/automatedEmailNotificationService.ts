@@ -385,7 +385,8 @@ export async function notifyVerificationStatusChange(params: VerificationEmailNo
     userId,
     title,
     body,
-    type: 'system',
+    type: 'business_status',
+    priority: status === 'REJECTED' || status === 'REVOKED' ? 'urgent' : 'high',
     url: '/?tab=business-directory',
     saveToDb: true,
   });

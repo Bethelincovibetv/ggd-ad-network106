@@ -20,6 +20,7 @@ import {
   isPushSupported,
   isPushEnabled,
   requestPushPermission,
+  setUserPushEnabled,
   showPushNotification,
   getPushPermission,
 } from '@/services/pushNotificationService';
@@ -44,6 +45,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
   const [transfers, setTransfers] = useState<TransferRecord[]>([]);
   const [loadingTransfers, setLoadingTransfers] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(getPushPermission());
+  const [pushActive, setPushActive] = useState<boolean>(isPushEnabled());
 
   const handledTargetIdsRef = React.useRef<Set<string>>(new Set());
   const isCheckingTargetRef = React.useRef<boolean>(false);
@@ -115,9 +117,19 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     }
   }, [markAsRead]);
 
+  useEffect(() => {
+    const syncPushState = () => {
+      setPushPermission(getPushPermission());
+      setPushActive(isPushEnabled());
+    };
+    window.addEventListener('ggd-push-preference-changed', syncPushState);
+    return () => window.removeEventListener('ggd-push-preference-changed', syncPushState);
+  }, []);
+
   const handleEnablePush = async () => {
-    const granted = await requestPushPermission();
+    const granted = await requestPushPermission(userId || undefined);
     setPushPermission(getPushPermission());
+    setPushActive(isPushEnabled());
     if (granted) {
       toast.success("Push notifications enabled! You'll receive real-time alerts.");
     } else {
@@ -125,13 +137,20 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     }
   };
 
+  const handleDisablePush = async () => {
+    await setUserPushEnabled(false, userId || undefined);
+    setPushActive(false);
+    toast.info("Push notifications paused. You can re-enable them anytime in Settings or here.");
+  };
+
   const handleSendTestPush = () => {
     showPushNotification({
       title: '🔥 GGD Ad Network Alert',
-      body: 'Push notifications are working perfectly! You will receive instant new arrival and task alerts.',
-      url: '/',
+      body: 'Push notifications are active! You will receive instant task approvals, wallet credits, urgent messages, and call alerts.',
+      url: '/?tab=notifications',
+      allowNativeWhenFocused: true,
+      skipDedupe: true,
     });
-    toast.success("Test notification sent!");
   };
 
   // Initialize and load
@@ -204,13 +223,19 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
         },
         (payload) => {
           const newNotif = payload.new as any;
-          setNotifications((prev) => [newNotif, ...prev]);
-          playNotificationChime();
-          showPushNotification({
-            title: newNotif.title || 'New Notification',
-            body: newNotif.message || '',
-            url: '/',
-          });
+          setNotifications((prev) =>
+            prev.some((n) => n.id === newNotif.id) ? prev : [newNotif, ...prev]
+          );
+          if (newNotif.type !== 'call' && newNotif.type !== 'call_incoming') {
+            showPushNotification({
+              id: newNotif.id,
+              userId,
+              title: newNotif.title || 'New Notification',
+              body: newNotif.message || '',
+              url: newNotif.link_url || '/',
+              type: newNotif.type || 'system',
+            });
+          }
         }
       )
       .subscribe();
@@ -647,34 +672,44 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-foreground">Browser Push Notifications</h3>
-                  {pushPermission === 'granted' ? (
+                  {pushActive ? (
                     <Badge className="bg-emerald-500/15 text-emerald-600 border-0 text-[10px] font-bold">
                       ACTIVE ✓
                     </Badge>
                   ) : (
                     <Badge className="bg-orange-500/15 text-orange-600 border-0 text-[10px] font-bold">
-                      OPT-IN REQUIRED
+                      {pushPermission === 'granted' ? 'PAUSED' : 'OPT-IN REQUIRED'}
                     </Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {pushPermission === 'granted'
-                    ? "You'll receive instant native alerts for new arrivals, blazing featured products, and credit transfers."
-                    : "Turn on push notifications to get alerted about blazing new arrivals, credit tasks, and incoming chat messages."}
+                  {pushActive
+                    ? "You'll receive instant alerts for task approvals, wallet credits, ad/listing updates, urgent messages & incoming calls."
+                    : "Turn on push notifications to stay alerted when outside the app or on inactive tabs."}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              {pushPermission === 'granted' ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSendTestPush}
-                  className="rounded-xl text-xs font-bold h-9"
-                >
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" /> Send Test Push
-                </Button>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+              {pushActive ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSendTestPush}
+                    className="rounded-xl text-xs font-bold h-9"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" /> Send Test Push
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDisablePush}
+                    className="rounded-xl text-xs font-bold h-9 text-muted-foreground hover:text-destructive"
+                  >
+                    Pause Push
+                  </Button>
+                </>
               ) : (
                 <Button
                   size="sm"

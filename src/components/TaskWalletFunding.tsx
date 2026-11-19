@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, MessageCircle, ArrowUp, ArrowDown, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { notifyWalletCreditPush } from "@/services/pushNotificationService";
 
 const WHATSAPP_NUMBER = '2348131107416';
 
@@ -56,6 +57,13 @@ const TaskWalletFunding = () => {
           if (verifyData?.success) {
             clearInterval(checkInterval);
             fetchData();
+            notifyWalletCreditPush({
+              userId: user.id,
+              title: '💼 Naira Wallet Credited!',
+              description: `₦${nairaAmount.toLocaleString()} has been verified and added to your Naira Task Wallet.`,
+              type: 'wallet_credit',
+              url: '/?tab=wallet',
+            }).catch(() => {});
             toast.success(`🎉 ₦${nairaAmount} added to your wallet!`);
             setAmount('');
             setPaying(false);

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
+import { notifyTaskStatusPush } from "@/services/pushNotificationService";
 
 export interface CreateSyndicateTaskParams {
   title: string;
@@ -210,6 +211,22 @@ export async function reviewSyndicateAssignment(
 ): Promise<ReviewAssignmentResult> {
   const { assignmentId, approve, rejectionReason } = params;
 
+  // Preload assignment owner and title so both RPC and fallback can dispatch real-time push alerts
+  let assignmentMeta: { syndicate_user_id?: string; task_title?: string } | null = null;
+  try {
+    const { data: meta } = await supabase
+      .from("syndicate_task_assignments")
+      .select("syndicate_user_id, syndicate_tasks(title)")
+      .eq("id", assignmentId)
+      .maybeSingle();
+    if (meta) {
+      assignmentMeta = {
+        syndicate_user_id: (meta as any).syndicate_user_id,
+        task_title: (meta as any).syndicate_tasks?.title,
+      };
+    }
+  } catch {}
+
   // 1. Try RPC
   try {
     const { data, error } = await callRpc<any>("review_syndicate_assignment", {
@@ -220,6 +237,16 @@ export async function reviewSyndicateAssignment(
 
     if (!error && data) {
       if (data.success) {
+        if (assignmentMeta?.syndicate_user_id) {
+          notifyTaskStatusPush({
+            userId: assignmentMeta.syndicate_user_id,
+            taskTitle: assignmentMeta.task_title || "Syndicate Promotion Task",
+            approved: approve,
+            rewardCredits: approve ? Number(data.payout_credits) || 0 : undefined,
+            reason: approve ? undefined : rejectionReason || undefined,
+            url: "/?tab=tasks",
+          }).catch(() => {});
+        }
         return {
           success: true,
           payout_credits: data.payout_credits,
@@ -270,13 +297,14 @@ export async function reviewSyndicateAssignment(
 
       if (updErr) return { success: false, error: updErr.message };
 
-      // Notify promoter
-      await supabase.from("notifications").insert({
-        user_id: assignment.syndicate_user_id,
-        title: "❌ Task Submission Rejected",
-        message: `Your submission for "${task.title}" was rejected: ${rejectionReason || "Proof invalid or unclear"}`,
-        type: "warning",
-      });
+      // Notify promoter + dispatch Web Push
+      await notifyTaskStatusPush({
+        userId: assignment.syndicate_user_id,
+        taskTitle: task.title || "Syndicate Task",
+        approved: false,
+        reason: rejectionReason || "Proof invalid or unclear",
+        url: "/?tab=tasks",
+      }).catch(() => {});
 
       return { success: true };
     }
@@ -321,13 +349,14 @@ export async function reviewSyndicateAssignment(
         .eq("user_id", assignment.syndicate_user_id);
     }
 
-    // Notify promoter
-    await supabase.from("notifications").insert({
-      user_id: assignment.syndicate_user_id,
-      title: "🎉 Task Approved & Credits Paid!",
-      message: `Your proof for "${task.title}" was approved! +${payoutCredits} credits added to your balance.`,
-      type: "credit",
-    });
+    // Notify promoter + dispatch Web Push
+    await notifyTaskStatusPush({
+      userId: assignment.syndicate_user_id,
+      taskTitle: task.title || "Syndicate Task",
+      approved: true,
+      rewardCredits: payoutCredits,
+      url: "/?tab=tasks",
+    }).catch(() => {});
 
     return { success: true, payout_credits: payoutCredits };
   } catch (err: any) {

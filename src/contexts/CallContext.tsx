@@ -7,6 +7,7 @@ import {
   rejectIncomingCall,
   endActiveCall,
   listenForIncomingCalls,
+  fetchCallSessionById,
 } from '@/services/webrtcService';
 import {
   startIncomingCallRingtone,
@@ -15,6 +16,11 @@ import {
   playCallEndedTone,
 } from '@/utils/audio';
 import { saveCallLog } from '@/services/callLogService';
+import {
+  notifyIncomingCallPush,
+  dismissIncomingCallPush,
+} from '@/services/pushNotificationService';
+import { parseCallActionFromSearch } from '@/lib/pushPolicy';
 import { toast } from 'sonner';
 
 interface CallContextType {
@@ -28,8 +34,8 @@ interface CallContextType {
   isMinimized: boolean;
   mediaControls: MediaControlsState;
   startCall: (params: { calleeId: string; calleeName: string; calleeAvatar?: string; callType: CallType }) => Promise<void>;
-  acceptCall: () => Promise<void>;
-  declineCall: () => Promise<void>;
+  acceptCall: (explicitSession?: CallSession) => Promise<void>;
+  declineCall: (explicitCallId?: string) => Promise<void>;
   endCall: () => Promise<void>;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -172,102 +178,146 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser?.id) return;
 
-    const unsubscribe = listenForIncomingCalls(currentUser.id, (incoming) => {
-      // 1. If this is already the session currently being answered or in an active call with this callId, do not decline
-      if (
-        answeringCallIdsRef.current.has(incoming.callId) ||
-        incoming.callId === activeSessionRef.current?.callId ||
-        incoming.callId === incomingSessionRef.current?.callId
-      ) {
-        return;
-      }
-
-      // 2. Ignore calls older than 90 seconds (stale call invitations)
-      if (incoming.createdAt) {
-        const ageMs = Date.now() - new Date(incoming.createdAt).getTime();
-        if (ageMs > 90000) {
+    const unsubscribe = listenForIncomingCalls(
+      currentUser.id,
+      (incoming) => {
+        // 1. If this is already the session currently being answered or in an active call with this callId, do not decline
+        if (
+          answeringCallIdsRef.current.has(incoming.callId) ||
+          incoming.callId === activeSessionRef.current?.callId ||
+          incoming.callId === incomingSessionRef.current?.callId
+        ) {
           return;
         }
-      }
 
-      // 3. Only decline as busy if user is actively connected on an ongoing call with someone else
-      if (
-        callStatusRef.current === 'connected' &&
-        activeSessionRef.current &&
-        activeSessionRef.current.callId &&
-        activeSessionRef.current.callId !== incoming.callId &&
-        peerConnectionRef.current &&
-        (peerConnectionRef.current.connectionState === 'connected' || peerConnectionRef.current.iceConnectionState === 'connected')
-      ) {
-        rejectIncomingCall(incoming.callId, 'busy');
-        return;
-      }
+        // 2. Ignore calls older than 90 seconds (stale call invitations)
+        if (incoming.createdAt) {
+          const ageMs = Date.now() - new Date(incoming.createdAt).getTime();
+          if (ageMs > 90000) {
+            dismissIncomingCallPush(incoming.callId);
+            return;
+          }
+        }
 
-      // 4. Update incoming call state and ring device
-      incomingSessionRef.current = incoming;
-      setIncomingSession(incoming);
-      callStatusRef.current = 'ringing';
-      setCallStatus('ringing');
+        // 3. Only decline as busy if user is actively connected on an ongoing call with someone else
+        if (
+          callStatusRef.current === 'connected' &&
+          activeSessionRef.current &&
+          activeSessionRef.current.callId &&
+          activeSessionRef.current.callId !== incoming.callId &&
+          peerConnectionRef.current &&
+          (peerConnectionRef.current.connectionState === 'connected' || peerConnectionRef.current.iceConnectionState === 'connected')
+        ) {
+          rejectIncomingCall(incoming.callId, 'busy');
+          dismissIncomingCallPush(incoming.callId);
+          return;
+        }
 
-      // Hydrate caller avatar in-memory if stripped from Firestore due to data-URL size limits
-      if (!incoming.callerAvatar && incoming.callerId) {
-        supabase
-          .from('profiles')
-          .select('avatar_url, business_logo_url')
-          .eq('user_id', incoming.callerId)
-          .maybeSingle()
-          .then(({ data: callerProfile }) => {
-            const resolvedAvatar = callerProfile?.avatar_url || callerProfile?.business_logo_url;
-            if (!resolvedAvatar) return;
-            setIncomingSession((prev) =>
-              prev && prev.callId === incoming.callId && !prev.callerAvatar
-                ? { ...prev, callerAvatar: resolvedAvatar }
-                : prev
-            );
-            setActiveSession((prev) =>
-              prev && prev.callId === incoming.callId && !prev.callerAvatar
-                ? { ...prev, callerAvatar: resolvedAvatar }
-                : prev
-            );
-          })
-          .catch(() => {});
-      }
+        // 4. Update incoming call state and ring device
+        incomingSessionRef.current = incoming;
+        setIncomingSession(incoming);
+        callStatusRef.current = 'ringing';
+        setCallStatus('ringing');
 
-      // Play incoming ringtone and trigger device vibration
-      stopAllAudioLoops();
-      stopRingtoneRef.current = startIncomingCallRingtone();
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([500, 250, 500, 250, 500, 250]);
-        } catch {}
+        // Trigger persistent incoming call notification when outside app or in an inactive tab
+        notifyIncomingCallPush({
+          callId: incoming.callId,
+          callerName: incoming.callerName,
+          callerAvatar: incoming.callerAvatar,
+          callType: incoming.callType,
+        });
+
+        // Hydrate caller avatar in-memory if stripped from Firestore due to data-URL size limits
+        if (!incoming.callerAvatar && incoming.callerId) {
+          supabase
+            .from('profiles')
+            .select('avatar_url, business_logo_url')
+            .eq('user_id', incoming.callerId)
+            .maybeSingle()
+            .then(({ data: callerProfile }) => {
+              const resolvedAvatar = callerProfile?.avatar_url || callerProfile?.business_logo_url;
+              if (!resolvedAvatar) return;
+              setIncomingSession((prev) =>
+                prev && prev.callId === incoming.callId && !prev.callerAvatar
+                  ? { ...prev, callerAvatar: resolvedAvatar }
+                  : prev
+              );
+              setActiveSession((prev) =>
+                prev && prev.callId === incoming.callId && !prev.callerAvatar
+                  ? { ...prev, callerAvatar: resolvedAvatar }
+                  : prev
+              );
+            })
+            .catch(() => {});
+        }
+
+        // Play incoming ringtone and trigger device vibration
+        stopAllAudioLoops();
+        stopRingtoneRef.current = startIncomingCallRingtone();
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            navigator.vibrate([500, 250, 500, 250, 500, 250]);
+          } catch {}
+        }
+      },
+      (removedCallId) => {
+        // Call was cancelled/missed by caller or handled elsewhere -> dismiss persistent notification immediately
+        dismissIncomingCallPush(removedCallId);
+        if (
+          incomingSessionRef.current?.callId === removedCallId &&
+          !answeringCallIdsRef.current.has(removedCallId)
+        ) {
+          const missed = incomingSessionRef.current;
+          stopAllAudioLoops();
+          incomingSessionRef.current = null;
+          setIncomingSession(null);
+          if (callStatusRef.current === 'ringing') {
+            callStatusRef.current = 'idle';
+            setCallStatus('idle');
+            saveCallLog({
+              callId: missed.callId,
+              callerId: missed.callerId,
+              callerName: missed.callerName,
+              callerAvatar: missed.callerAvatar,
+              calleeId: missed.calleeId,
+              calleeName: missed.calleeName,
+              calleeAvatar: missed.calleeAvatar,
+              callType: missed.callType,
+              status: 'missed',
+              durationSeconds: 0,
+              participants: [missed.callerId, missed.calleeId],
+              createdAt: missed.createdAt || new Date().toISOString(),
+            });
+          }
+        }
       }
-    });
+    );
 
     return () => {
       unsubscribe();
     };
   }, [currentUser?.id, stopAllAudioLoops]);
 
-  // Handle URL call parameters (?callId=...&action=accept)
+  // If user leaves/blurs tab while incoming call is still ringing, show persistent OS call notification
   useEffect(() => {
-    if (!currentUser?.id) return;
-    const params = new URLSearchParams(window.location.search);
-    const callId = params.get('callId');
-    const action = params.get('action');
-
-    if (callId && incomingSession?.callId === callId && action === 'accept') {
-      acceptCall();
-      // Clean up search params
-      params.delete('callId');
-      params.delete('action');
-      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
-    } else if (callId && incomingSession?.callId === callId && action === 'decline') {
-      declineCall();
-      params.delete('callId');
-      params.delete('action');
-      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
-    }
-  }, [currentUser?.id, incomingSession]);
+    if (callStatus !== 'ringing' || !incomingSession?.callId) return;
+    const handleVisibilityOrBlur = () => {
+      if (document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus())) {
+        notifyIncomingCallPush({
+          callId: incomingSession.callId,
+          callerName: incomingSession.callerName,
+          callerAvatar: incomingSession.callerAvatar,
+          callType: incomingSession.callType,
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityOrBlur);
+    window.addEventListener('blur', handleVisibilityOrBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrBlur);
+      window.removeEventListener('blur', handleVisibilityOrBlur);
+    };
+  }, [callStatus, incomingSession]);
 
   // Clean termination helper
   const performCleanup = useCallback((reason?: string) => {
@@ -282,9 +332,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (activeSessionRef.current?.callId) {
       answeringCallIdsRef.current.delete(activeSessionRef.current.callId);
+      dismissIncomingCallPush(activeSessionRef.current.callId);
     }
     if (incomingSessionRef.current?.callId) {
       answeringCallIdsRef.current.delete(incomingSessionRef.current.callId);
+      dismissIncomingCallPush(incomingSessionRef.current.callId);
     }
 
     if (localStream) {
@@ -453,12 +505,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser, callStatus, stopAllAudioLoops, performCleanup]);
 
-  // 2. Accept Incoming Call
-  const acceptCall = useCallback(async () => {
-    const targetSession = incomingSessionRef.current || incomingSession;
+  // 2. Accept Incoming Call (accepts optional preloaded session when launched from push notification)
+  const acceptCall = useCallback(async (explicitSession?: CallSession) => {
+    const validExplicit =
+      explicitSession && typeof explicitSession === 'object' && 'callId' in explicitSession && typeof explicitSession.callId === 'string'
+        ? explicitSession
+        : undefined;
+    const targetSession = validExplicit || incomingSessionRef.current || incomingSession;
     if (!targetSession || !targetSession.callId) return;
 
     answeringCallIdsRef.current.add(targetSession.callId);
+    dismissIncomingCallPush(targetSession.callId);
 
     try {
       stopAllAudioLoops();
@@ -466,6 +523,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallStatus('connected');
       activeSessionRef.current = targetSession;
       setActiveSession(targetSession);
+      setIsMinimized(false);
       incomingSessionRef.current = null;
       setIncomingSession(null);
 
@@ -482,11 +540,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         onEnded: (reason) => {
           answeringCallIdsRef.current.delete(targetSession.callId);
+          dismissIncomingCallPush(targetSession.callId);
           performCleanup(reason);
         },
         onError: (err) => {
           console.error('Error answering call:', err);
           answeringCallIdsRef.current.delete(targetSession.callId);
+          dismissIncomingCallPush(targetSession.callId);
           toast.error('Failed to establish call connection.');
           performCleanup('failed');
         },
@@ -508,27 +568,34 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [incomingSession, stopAllAudioLoops, performCleanup]);
 
   // 3. Decline Incoming Call
-  const declineCall = useCallback(async () => {
-    if (!incomingSession) return;
+  const declineCall = useCallback(async (explicitCallId?: string) => {
+    const target = incomingSessionRef.current || incomingSession;
+    const id = (typeof explicitCallId === 'string' && explicitCallId.trim()) ? explicitCallId : target?.callId;
+    if (!id) return;
+
     stopAllAudioLoops();
-    const id = incomingSession.callId;
+    dismissIncomingCallPush(id);
 
-    saveCallLog({
-      callId: incomingSession.callId,
-      callerId: incomingSession.callerId,
-      callerName: incomingSession.callerName,
-      callerAvatar: incomingSession.callerAvatar,
-      calleeId: incomingSession.calleeId,
-      calleeName: incomingSession.calleeName,
-      calleeAvatar: incomingSession.calleeAvatar,
-      callType: incomingSession.callType,
-      status: 'rejected',
-      durationSeconds: 0,
-      participants: [incomingSession.callerId, incomingSession.calleeId],
-      createdAt: incomingSession.createdAt || new Date().toISOString(),
-    });
+    if (target && target.callId === id) {
+      saveCallLog({
+        callId: target.callId,
+        callerId: target.callerId,
+        callerName: target.callerName,
+        callerAvatar: target.callerAvatar,
+        calleeId: target.calleeId,
+        calleeName: target.calleeName,
+        calleeAvatar: target.calleeAvatar,
+        callType: target.callType,
+        status: 'rejected',
+        durationSeconds: 0,
+        participants: [target.callerId, target.calleeId],
+        createdAt: target.createdAt || new Date().toISOString(),
+      });
+    }
 
+    incomingSessionRef.current = null;
     setIncomingSession(null);
+    callStatusRef.current = 'idle';
     setCallStatus('idle');
     await rejectIncomingCall(id, 'rejected');
   }, [incomingSession, stopAllAudioLoops]);
@@ -536,10 +603,78 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 4. End Call
   const endCall = useCallback(async () => {
     if (activeSession?.callId) {
+      dismissIncomingCallPush(activeSession.callId);
       await endActiveCall(activeSession.callId);
     }
     performCleanup('user_hung_up');
   }, [activeSession, performCleanup]);
+
+  // Handle deep-linked call action from URL (?callId=...&action=accept|decline) or Service Worker push click
+  const handledCallDirectiveRef = useRef<string | null>(null);
+  const handleCallNotificationAction = useCallback(async (callId: string, action: 'accept' | 'decline') => {
+    const directiveKey = `${callId}:${action}`;
+    if (!callId || handledCallDirectiveRef.current === directiveKey) return;
+    handledCallDirectiveRef.current = directiveKey;
+
+    dismissIncomingCallPush(callId);
+
+    if (action === 'decline') {
+      await declineCall(callId);
+      return;
+    }
+
+    if (activeSessionRef.current?.callId === callId) {
+      setIsMinimized(false);
+      return;
+    }
+
+    const currentIncoming = incomingSessionRef.current;
+    if (currentIncoming?.callId === callId) {
+      await acceptCall(currentIncoming);
+      return;
+    }
+
+    // Cold-start launch from push notification before listener hydrated session
+    const fetched = await fetchCallSessionById(callId);
+    if (fetched && fetched.status === 'ringing') {
+      incomingSessionRef.current = fetched;
+      setIncomingSession(fetched);
+      await acceptCall(fetched);
+    } else if (fetched) {
+      toast.info('This call has already ended.');
+    }
+  }, [acceptCall, declineCall]);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const directive = parseCallActionFromSearch(window.location.search);
+    if (directive) {
+      handleCallNotificationAction(directive.callId, directive.action);
+      try {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('callId');
+        params.delete('action');
+        window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+      } catch {}
+    }
+  }, [currentUser?.id, incomingSession, handleCallNotificationAction]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const onSwMessage = (event: MessageEvent) => {
+      const msg = event.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === 'CALL_NOTIFICATION_CLICK' && msg.callId) {
+        handleCallNotificationAction(msg.callId, msg.action === 'decline' ? 'decline' : 'accept');
+      } else if (msg.type === 'CALL_ACTION_DECLINE' && msg.callId) {
+        handleCallNotificationAction(msg.callId, 'decline');
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', onSwMessage);
+    };
+  }, [handleCallNotificationAction]);
 
   // 5. Toggle Microphone Mute
   const toggleMute = useCallback(() => {

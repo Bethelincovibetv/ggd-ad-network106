@@ -7,11 +7,19 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet, Video, Share2, Sparkles, Check } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet, Video, Share2, Sparkles, Check, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { uploadImageFile } from '@/services/imageUploadService';
+import {
+  getPushPermission,
+  isPushEnabled,
+  isPushSupported,
+  setUserPushEnabled,
+  showPushNotification,
+} from '@/services/pushNotificationService';
 
 const UserProfilePage = () => {
   const { isEnabled } = useFeatureToggles();
@@ -43,6 +51,20 @@ const UserProfilePage = () => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['whatsapp', 'tiktok', 'youtube']);
   const [autoSfx, setAutoSfx] = useState(true);
 
+  // Push Notification Settings state
+  const [pushEnabled, setPushEnabled] = useState<boolean>(() => isPushEnabled());
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(() => getPushPermission());
+  const [togglingPush, setTogglingPush] = useState(false);
+
+  useEffect(() => {
+    const syncPush = () => {
+      setPushEnabled(isPushEnabled());
+      setPushPermission(getPushPermission());
+    };
+    window.addEventListener('ggd-push-preference-changed', syncPush);
+    return () => window.removeEventListener('ggd-push-preference-changed', syncPush);
+  }, []);
+
   useEffect(() => { load(); }, []);
 
   const load = async () => {
@@ -58,6 +80,8 @@ const UserProfilePage = () => {
       supabase.from('business_categories').select('id,name').eq('is_active', true).order('sort_order'),
     ]);
     setProfile(p);
+    setPushEnabled(isPushEnabled() && p?.has_push_enabled !== false);
+    setPushPermission(getPushPermission());
     setCategories((cats as any) || []);
     setRoles((r || []).map(x => x.role));
     setWallet(w);
@@ -439,6 +463,112 @@ const UserProfilePage = () => {
                     Share
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Web Push Notification Settings Card */}
+          {isPushSupported() && (
+            <Card id="push-notification-settings-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <Bell className="h-4 w-4 text-orange-500" />
+                    Web Push Notifications
+                  </span>
+                  <Badge
+                    className={`text-[10px] font-bold border-0 ${
+                      pushEnabled
+                        ? 'bg-emerald-500/15 text-emerald-600'
+                        : pushPermission === 'denied'
+                        ? 'bg-red-500/15 text-red-600'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {pushEnabled ? 'Enabled' : pushPermission === 'denied' ? 'Blocked in Browser' : 'Off'}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl border bg-muted/30">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">Real-Time Web Push Alerts</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Receive instant alerts when outside the app or on inactive tabs without duplicating focused-tab alerts.
+                    </p>
+                  </div>
+                  <Switch
+                    id="settings-push-toggle"
+                    aria-label="Toggle Web Push Notifications"
+                    checked={pushEnabled}
+                    disabled={togglingPush}
+                    onCheckedChange={async (checked) => {
+                      setTogglingPush(true);
+                      try {
+                        const res = await setUserPushEnabled(checked, authUser?.id);
+                        setPushPermission(getPushPermission());
+                        setPushEnabled(isPushEnabled());
+                        if (res.success) {
+                          toast.success(
+                            checked
+                              ? 'Web Push notifications enabled!'
+                              : 'Web Push notifications paused.'
+                          );
+                        } else {
+                          toast.error(res.error || 'Could not update push setting.');
+                        }
+                      } finally {
+                        setTogglingPush(false);
+                      }
+                    }}
+                  />
+                </div>
+
+                {pushPermission === 'denied' && (
+                  <p className="text-[11px] text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
+                    Notifications are blocked in your browser site settings. Allow notifications for this site in your browser address bar, then toggle this switch back on.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5">
+                    <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span>Task approvals &amp; credits</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5">
+                    <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span>Ad &amp; listing status changes</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5">
+                    <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span>Urgent DMs &amp; announcements</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5">
+                    <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span>Incoming audio/video calls</span>
+                  </div>
+                </div>
+
+                {pushEnabled && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-semibold"
+                    onClick={() => {
+                      showPushNotification({
+                        title: '🔔 GGD Push Alerts Active',
+                        body: 'Your device is subscribed for tasks, credits, urgent messages, and incoming calls.',
+                        url: '/?tab=notifications',
+                        allowNativeWhenFocused: true,
+                        skipDedupe: true,
+                      });
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
+                    Send Test Push Notification
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
