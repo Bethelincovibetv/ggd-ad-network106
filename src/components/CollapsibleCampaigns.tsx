@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, Eye, CheckCircle2, Clock, Coins } from "lucide-react";
+import { isBannerAdvert } from "@/lib/bannerAds";
 
 /** Collapsible (accordion-style) campaign analytics for the Business Owner
  *  management dashboard. Each row is a THIN header by default, expanding
@@ -17,6 +18,8 @@ interface Campaign {
   impressions: number;
   clicks: number;
   budget_credits?: number | null;
+  ad_type?: string | null;
+  youtube_url?: string | null;
   reward_credits?: number | null;
 }
 
@@ -42,10 +45,10 @@ const CollapsibleCampaigns: React.FC<{ userId?: string }> = ({ userId }) => {
       if (!uid) return;
       const { data } = await supabase
         .from("ads")
-        .select("id, title, is_active, expires_at, created_at, impressions, clicks, budget_credits, reward_credits")
+        .select("id, title, is_active, expires_at, created_at, impressions, clicks, budget_credits, ad_type, youtube_url, reward_credits")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
-      setCampaigns((data as any) || []);
+      setCampaigns(((data as any) || []).filter(isBannerAdvert));
       setLoading(false);
     })();
   }, [userId]);
@@ -79,7 +82,7 @@ const CollapsibleCampaigns: React.FC<{ userId?: string }> = ({ userId }) => {
 
   if (loading) return <div className="text-sm text-muted-foreground p-4">Loading campaigns…</div>;
   if (campaigns.length === 0) {
-    return <div className="text-sm text-muted-foreground p-6 text-center">No campaigns yet.</div>;
+    return <div className="text-sm text-muted-foreground p-6 text-center">No banner adverts yet.</div>;
   }
 
   return (
@@ -111,7 +114,7 @@ const CollapsibleCampaigns: React.FC<{ userId?: string }> = ({ userId }) => {
                   <Metric icon={Eye} label="Impressions" value={c.impressions ?? 0} tint="text-blue-500 bg-blue-500/10" />
                   <Metric icon={CheckCircle2} label="Approved" value={m?.approved ?? 0} tint="text-green-500 bg-green-500/10" />
                   <Metric icon={Clock} label="Pending" value={m?.pending ?? 0} tint="text-yellow-500 bg-yellow-500/10" />
-                  <Metric icon={Coins} label="Spend" value={m?.spend ?? (c.budget_credits ?? c.reward_credits ?? 0)} tint="text-orange-500 bg-orange-500/10" />
+                  <Metric icon={Coins} label="Spend" value={m?.spend ?? (c.budget_credits ?? 0)} tint="text-orange-500 bg-orange-500/10" />
                 </div>
               </div>
             </div>

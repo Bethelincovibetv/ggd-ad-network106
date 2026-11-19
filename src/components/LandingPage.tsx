@@ -18,6 +18,7 @@ import businessImg from '@/assets/landing-business.jpg';
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveContactCampaigns } from "@/services/contactGainService";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
+import AdminChatWidget from "@/components/AdminChatWidget";
 
 // Commercial photography assets generated for Landing Page
 import heroImg from '@/assets/images/landing_hero_wa_1793015067993.jpg';
@@ -1550,6 +1551,9 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
           </div>
         </div>
       </footer>
+
+      {/* Public Landing Page Draggable WhatsApp Support Bubble */}
+      <AdminChatWidget />
     </div>
   );
 };

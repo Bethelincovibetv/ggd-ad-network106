@@ -251,7 +251,7 @@ export const CampaignAnalytics: React.FC<Props> = ({ adId, onBack }) => {
   const clicks = ad.clicks || 0;
   const ctrNumber = impressions > 0 ? (clicks / impressions) * 100 : 0;
   const ctr = ctrNumber.toFixed(2);
-  const budget = ad.budget_credits ?? ad.reward_credits ?? 0;
+  const budget = ad.budget_credits ?? 0;
   const expired = ad.expires_at && new Date(ad.expires_at) < new Date();
   const status = expired ? 'Expired' : ad.is_active ? 'Active & Live' : 'Paused';
   const maxDailyImp = Math.max(1, ...daily.map((d) => d.imp));

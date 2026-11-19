@@ -74,7 +74,7 @@ const navGroups: NavGroup[] = [
       { id: 'digital-products', icon: Package, label: 'Digital Products', sublabel: 'Direct purchase listings & access', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'vixora-admin', icon: Video, label: 'Vixora AI Studio & API', sublabel: 'AI video engine, keys & render jobs', color: 'text-white', gradient: 'from-orange-500 via-purple-600 to-indigo-700' },
       { id: 'business-agent', icon: Sparkles, label: 'Vixora Business AI Agent', sublabel: 'Storefront copilot & permissions', color: 'text-white', gradient: 'from-violet-600 via-purple-600 to-fuchsia-600' },
-      { id: 'ads', icon: Megaphone, label: 'Ad Manager', sublabel: 'Banner & video ad approvals', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
+      { id: 'ads', icon: Megaphone, label: 'Banner Ad Manager', sublabel: 'Banner ad approvals & placements', color: 'text-white', gradient: 'from-amber-500 to-orange-600' },
       { id: 'email-studio', icon: Mail, label: 'Email & Ad Studio', sublabel: 'Modern templates & sponsor ads', color: 'text-white', gradient: 'from-orange-500 to-amber-600' },
       { id: 'apps', icon: Megaphone, label: 'Marketing Apps', sublabel: 'Promotional apps & showcase', color: 'text-white', gradient: 'from-fuchsia-500 to-pink-600' },
       { id: 'videos', icon: Video, label: 'Video Manager', sublabel: 'Watch-to-earn media', color: 'text-white', gradient: 'from-red-500 to-rose-600' },

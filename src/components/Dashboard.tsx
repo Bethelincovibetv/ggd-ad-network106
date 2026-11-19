@@ -2,16 +2,13 @@ import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Eye, BarChart3, Key, Copy, Code, LogOut, Upload, Loader2, ExternalLink, Crown, Wallet, MessageCircle, Shield, Briefcase, Users, Store, ArrowRight, Megaphone, Coins, Banknote } from "lucide-react";
+import { Trash2, Key, Copy, Loader2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import { useActivationStatus } from "@/hooks/useActivationStatus";
+import { isBannerAdvert } from "@/lib/bannerAds";
 import { ensureUserProfileAndReferral } from "@/services/referralService";
 import { syncPendingTransfersForUser } from "@/services/transferService";
 import { getCurrentUser } from "@/services/authService";
@@ -61,9 +58,6 @@ import SyndicatePayouts from "@/components/SyndicatePayouts";
 import GGDInbox from "@/components/GGDInbox";
 import CampaignsHub from "@/components/CampaignsHub";
 import CreateFab from "@/components/CreateFab";
-import ExtendAdvertModal from "@/components/ExtendAdvertModal";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, Clock, RefreshCw } from "lucide-react";
 
 import { usePremiumSettings } from "@/hooks/usePremiumSettings";
 import ggdLogo from '@/assets/ggd-logo.png';
@@ -129,15 +123,10 @@ const AvatarMenuButton = ({ avatarUrl, displayName, email, onOpenProfile }: { av
 
 const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   const navigate = useNavigate();
-  const { requireActivation } = useActivationStatus();
   const [ads, setAds] = useState<Ad[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isCreating, setIsCreating] = useState(false);
-  const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  const [republishFrom, setRepublishFrom] = useState<{ approved: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newAd, setNewAd] = useState({ title: '', description: '', image_url: '', target_url: '', is_active: true, duration: '7' });
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyDomain, setNewKeyDomain] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -166,17 +155,10 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
     }
     return 'ads';
   });
-  const [adsFilter, setAdsFilter] = useState<'active' | 'expired' | 'inactive'>('active');
   const [analyticsAdId, setAnalyticsAdId] = useState<string | null>(null);
-  const [extendingAd, setExtendingAd] = useState<Ad | null>(null);
   
   // YouTube-like scroll behavior: header and mobile footer hide on scroll down, reveal on scroll up
   const { isVisible: isNavVisible, showNav } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
-  const scrollToBannerForm = () => {
-    setTimeout(() => {
-      document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-  };
   const { isEnabled } = useFeatureToggles();
 
   useEffect(() => {
@@ -230,11 +212,6 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
 
   const startCreateAd = () => {
     setIsCreating(true);
-    if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        document.getElementById('banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
   };
 
   const handleTabChange = (tab: string) => {
@@ -529,7 +506,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       const user = await getCurrentUser();
       if (!user) return;
       const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-      setAds(data || []);
+      setAds((data || []).filter(isBannerAdvert));
     } catch (e) {
       console.warn('fetchAds non-blocking:', e);
     } finally {
@@ -546,125 +523,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
     }
   };
 
-  const uploadAdImage = async (file: File): Promise<string | null> => {
-    try {
-      setUploadingImage(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const ext = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('ad-images').upload(fileName, file, { upsert: true });
-      if (error) { toast.error("Failed to upload image"); return null; }
-      const { data: { publicUrl } } = supabase.storage.from('ad-images').getPublicUrl(fileName);
-      return publicUrl;
-    } catch {
-      toast.error("Image upload failed");
-      return null;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
 
-  const handleNewAdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await uploadAdImage(file);
-    if (url) setNewAd(prev => ({ ...prev, image_url: url }));
-  };
-
-  const handleEditAdImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await uploadAdImage(file);
-    if (url && editingAd) setEditingAd(prev => prev ? { ...prev, image_url: url } : null);
-  };
-
-  const createAd = async () => {
-    if (!requireActivation('create adverts & campaigns')) return;
-    if (!newAd.title.trim() || !newAd.target_url.trim()) { toast.error("Title and target URL are required"); return; }
-    const duration = parseInt(newAd.duration);
-    if (duration > maxAdDays && !isAdmin) {
-      toast.error(`Your plan allows ads up to ${maxAdDays} days. Upgrade for longer campaigns.`);
-      setActiveTab('premium');
-      return;
-    }
-    if (!isAdmin && credits < adCostCredits) { toast.error(`Not enough credits. Need ${adCostCredits}, have ${credits}`); return; }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + duration);
-
-    // Republished campaigns go live immediately once paid — they were
-    // already reviewed during their first run.
-    const goLiveNow = !!republishFrom?.approved;
-
-    const { error } = await supabase.from('ads').insert({
-      user_id: user.id, title: newAd.title, description: newAd.description || '',
-      image_url: newAd.image_url || null, target_url: newAd.target_url,
-      is_active: isAdmin || goLiveNow, approved: isAdmin || goLiveNow,
-      expires_at: expiresAt.toISOString(),
-    });
-    if (error) { toast.error("Failed to create ad"); return; }
-    if (!isAdmin) {
-      const newCredits = credits - adCostCredits;
-      await supabase.from('profiles').update({ credits: newCredits }).eq('user_id', user.id);
-      setCredits(newCredits);
-    }
-    toast.success(goLiveNow ? "Campaign republished and live!" : "Ad created!");
-    setNewAd({ title: '', description: '', image_url: '', target_url: '', is_active: true, duration: '7' });
-    setRepublishFrom(null);
-    setIsCreating(false);
-    fetchAds();
-  };
-
-  const updateAd = async () => {
-    if (!editingAd) return;
-    const { error } = await supabase.from('ads').update({
-      title: editingAd.title, description: editingAd.description, image_url: editingAd.image_url,
-      target_url: editingAd.target_url, is_active: editingAd.is_active,
-    }).eq('id', editingAd.id);
-    if (error) { toast.error("Failed to update ad"); return; }
-    toast.success("Ad updated!");
-    setEditingAd(null);
-    fetchAds();
-  };
-
-  const deleteAd = async (id: string) => {
-    if (!confirm("Delete this ad?")) return;
-    await supabase.from('ads').delete().eq('id', id);
-    toast.success("Ad deleted!");
-    fetchAds();
-  };
-
-  const republishAd = (ad: Ad) => {
-    setEditingAd(null);
-    setRepublishFrom({ approved: (ad as any).approved !== false });
-    setNewAd({
-      title: ad.title,
-      description: ad.description || '',
-      image_url: ad.image_url || '',
-      target_url: ad.target_url,
-      is_active: true,
-      duration: String(Math.min(7, maxAdDays)),
-    });
-    setIsCreating(true);
-    toast.info("Details loaded — pick a new duration and pay; the campaign goes live immediately.");
-    scrollToBannerForm();
-  };
-
-  const convertAdToTask = async (ad: Ad) => {
-    if (!requireActivation('create adverts & earn-tasks')) return;
-    const { error } = await supabase.from('tasks').insert({
-      title: `Share: ${ad.title}`,
-      description: ad.description || `Share this ad and earn credits!`,
-      reward_credits: 5,
-      task_type: 'share',
-      share_url: ad.target_url,
-    });
-    if (error) { toast.error("Failed to convert ad to task"); return; }
-    toast.success("Ad converted to task! Users can now earn credits by sharing it.");
-  };
 
   const createApiKey = async () => {
     if (!isPremium && !isAdmin) { toast.error("Upgrade to Premium to create API keys"); return; }
@@ -736,13 +595,6 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
   };
 
   const handleUpgraded = () => { initDashboard(); };
-
-  const isExpired = (ad: Ad) => ad.expires_at ? new Date(ad.expires_at) < new Date() : false;
-  const daysLeft = (ad: Ad) => {
-    if (!ad.expires_at) return null;
-    const diff = new Date(ad.expires_at).getTime() - Date.now();
-    return diff <= 0 ? 0 : Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>;
 
@@ -817,213 +669,18 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
           return <CampaignAnalytics adId={analyticsAdId} onBack={() => setAnalyticsAdId(null)} />;
         }
         return (
-          <div className="space-y-4">
-            <CampaignsHub onNavigate={handleTabChange} />
-
-            {(isEnabled('banner_ads') || isEnabled('ads')) && (<>
-            {/* My Campaigns - compact pro-style */}
-            <div className="flex justify-between items-center pt-1">
-              <h2 className="text-base font-black text-foreground">My Campaigns</h2>
-            </div>
-
-            {/* Category filter tabs — default Active */}
-            {ads.length > 0 && (
-              <Tabs value={adsFilter} onValueChange={v => setAdsFilter(v as any)}>
-                <TabsList className="w-full grid grid-cols-3">
-                  <TabsTrigger value="active" className="text-xs">
-                    Active ({ads.filter(a => a.is_active && !isExpired(a)).length})
-                  </TabsTrigger>
-                  <TabsTrigger value="expired" className="text-xs">
-                    Expired ({ads.filter(a => isExpired(a)).length})
-                  </TabsTrigger>
-                  <TabsTrigger value="inactive" className="text-xs">
-                    Inactive ({ads.filter(a => !a.is_active && !isExpired(a)).length})
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-
-            {isCreating && (
-              <Card id="banner-form" className="border-orange-200">
-                <CardContent className="p-3 -mb-2">
-                  <div className="rounded-lg bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 p-2.5 text-xs text-orange-800">
-                    <strong>Banner ad cost:</strong> {isAdmin ? 'Free for admins' : `${adCostCredits} credits per day`} · You'll be charged based on duration selected.
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {isCreating && (
-              <Card className="border-orange-200">
-                <CardContent className="p-4 space-y-3">
-                  <Input placeholder="Ad Title *" value={newAd.title} onChange={e => setNewAd({ ...newAd, title: e.target.value })} />
-                  <Textarea placeholder="Description (optional)" value={newAd.description} onChange={e => setNewAd({ ...newAd, description: e.target.value })} rows={2} />
-                  <Input placeholder="Target URL * (https://...)" value={newAd.target_url} onChange={e => setNewAd({ ...newAd, target_url: e.target.value })} />
-                  {(isEnabled('ad_duration_settings') || isAdmin) && (
-                  <div>
-                    <Label className="text-xs font-medium">Duration</Label>
-                    <Select value={newAd.duration} onValueChange={v => setNewAd({ ...newAd, duration: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 Day</SelectItem>
-                        <SelectItem value="3">3 Days</SelectItem>
-                        <SelectItem value="7">7 Days</SelectItem>
-                        {(isPremium || isAdmin) && <SelectItem value="14">14 Days</SelectItem>}
-                        {(isPremium || isAdmin) && <SelectItem value="30">30 Days</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Banner Image</Label>
-                    <input type="file" id="newAdImageUpload" accept="image/*" onChange={handleNewAdImageUpload} className="hidden" />
-                    <Button variant="outline" className="w-full h-9 text-xs" disabled={uploadingImage}
-                      onClick={() => document.getElementById('newAdImageUpload')?.click()}>
-                      {uploadingImage ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                      {uploadingImage ? 'Uploading...' : 'Upload Banner'}
-                    </Button>
-                    {newAd.image_url && (
-                      <div className="relative">
-                        <img loading="lazy" src={newAd.image_url} alt="Banner preview" className="w-full rounded-lg" />
-                        <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setNewAd({ ...newAd, image_url: '' })}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch checked={newAd.is_active} onCheckedChange={c => setNewAd({ ...newAd, is_active: c })} />
-                    <Label className="text-xs">Active</Label>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={createAd} className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs">
-                      Create ({isAdmin ? 'Free' : `${adCostCredits} credits`})
-                    </Button>
-                    <Button onClick={() => setIsCreating(false)} variant="outline" className="flex-1 text-xs">Cancel</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {editingAd && (
-              <Card className="border-blue-200">
-                <CardHeader className="pb-2"><CardTitle className="text-sm">Edit Ad</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <Input value={editingAd.title} onChange={e => setEditingAd({ ...editingAd, title: e.target.value })} />
-                  <Textarea placeholder="Description" value={editingAd.description} onChange={e => setEditingAd({ ...editingAd, description: e.target.value })} rows={2} />
-                  <Input value={editingAd.target_url} onChange={e => setEditingAd({ ...editingAd, target_url: e.target.value })} />
-                  <input type="file" id="editAdImageUpload" accept="image/*" onChange={handleEditAdImageUpload} className="hidden" />
-                  <Button variant="outline" className="w-full h-9 text-xs" disabled={uploadingImage}
-                    onClick={() => document.getElementById('editAdImageUpload')?.click()}>
-                    {uploadingImage ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                    {editingAd.image_url ? 'Change Banner' : 'Upload Banner'}
-                  </Button>
-                  {editingAd.image_url && (
-                    <div className="relative">
-                      <img loading="lazy" src={editingAd.image_url} alt="Banner" className="w-full rounded-lg" />
-                      <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setEditingAd({ ...editingAd, image_url: null })}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Switch checked={editingAd.is_active} onCheckedChange={c => setEditingAd({ ...editingAd, is_active: c })} />
-                    <Label className="text-xs">Active</Label>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={updateAd} className="flex-1 text-xs">Update</Button>
-                    <Button onClick={() => setEditingAd(null)} variant="outline" className="flex-1 text-xs">Cancel</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="space-y-2.5">
-              {ads
-                .filter(ad => {
-                  const exp = isExpired(ad);
-                  if (adsFilter === 'expired') return exp;
-                  if (adsFilter === 'active') return ad.is_active && !exp;
-                  return !ad.is_active && !exp;
-                })
-                .map(ad => {
-                const expired = isExpired(ad);
-                const remaining = daysLeft(ad);
-                const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : '0.0';
-                return (
-                  <Card key={ad.id} className={`overflow-hidden border rounded-2xl transition-all hover:shadow-md ${expired ? 'opacity-60 border-destructive/30' : 'border-border/50'}`}>
-                    <CardContent className="p-2.5">
-                      <div className="flex gap-3 items-center">
-                        <div className="h-14 w-14 rounded-xl overflow-hidden bg-gradient-to-br from-orange-100 to-yellow-100 flex-shrink-0 flex items-center justify-center">
-                          {ad.image_url ? (
-                            <img loading="lazy" src={ad.image_url} alt={ad.title} className="h-full w-full object-cover" />
-                          ) : (
-                            <Megaphone className="h-6 w-6 text-orange-400" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="font-bold text-[13px] text-foreground truncate">{ad.title}</h3>
-                            {expired ? (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 shrink-0">EXPIRED</span>
-                            ) : ad.is_active ? (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 shrink-0">LIVE</span>
-                            ) : (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">OFF</span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground truncate">{ad.target_url}</p>
-                        </div>
-                        <div className="flex flex-col gap-0.5 flex-shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => setEditingAd(ad)}><Edit className="h-3 w-3" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-destructive" onClick={() => deleteAd(ad.id)}><Trash2 className="h-3 w-3" /></Button>
-                        </div>
-                      </div>
-
-                      <div className="mt-2.5 pt-2.5 border-t border-border/30 flex items-center justify-between gap-2">
-                        <div className="flex gap-3 text-[10px] text-muted-foreground">
-                          <span><b className="text-foreground">{ad.impressions}</b> views</span>
-                          <span><b className="text-blue-500">{ad.clicks}</b> clicks</span>
-                          <span><b className="text-purple-500">{ctr}%</b> CTR</span>
-                          {remaining !== null && <span><b className="text-orange-500">{remaining}d</b> left</span>}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-[10px] rounded-full border-orange-500/40 text-orange-600 hover:bg-orange-500/10"
-                          onClick={() => setAnalyticsAdId(ad.id)}
-                        >
-                          <BarChart2 className="h-3 w-3 mr-1" /> Analytics
-                        </Button>
-                      </div>
-
-                      {!premium.autoConvertAds && isEnabled('tasks') && (
-                        <>
-                        <Button size="sm" variant="ghost" className="w-full mt-2 text-[11px] h-7 text-orange-500 hover:bg-orange-500/10 rounded-xl"
-                          onClick={() => convertAdToTask(ad)}>
-                          <ArrowRight className="h-3 w-3 mr-1" />Convert to Earn-Task
-                        </Button>
-                        </>
-                      )}
-
-                      {expired && (
-                        <Button size="sm" className="w-full mt-2 text-[12px] h-9 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold shadow-sm"
-                          onClick={() => setExtendingAd(ad)}>
-                          <Clock className="h-3.5 w-3.5 mr-1.5" />Extend Advert
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {ads.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No ads yet. Create your first campaign!</p>
-                </div>
-              )}
-            </div>
-            </>)}
-          </div>
+          <CampaignsHub
+            onNavigate={handleTabChange}
+            userCredits={credits}
+            isAdmin={isAdmin}
+            isPremium={isPremium}
+            adCostCredits={adCostCredits}
+            maxAdDays={maxAdDays}
+            initialCreating={isCreating}
+            onCreatingChange={setIsCreating}
+            onCreditsUpdated={setCredits}
+            onAdsChanged={fetchAds}
+          />
         );
 
       case 'tasks':
@@ -1393,18 +1050,6 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
           )}
 
           <CreateFab onNavigate={handleTabChange} activeTab={activeTab} />
-
-          <ExtendAdvertModal
-            ad={extendingAd}
-            open={!!extendingAd}
-            onOpenChange={(open) => { if (!open) setExtendingAd(null); }}
-            userCredits={credits}
-            onCreditsUpdate={(newCredits) => setCredits(newCredits)}
-            onSuccess={(updatedAd) => {
-              setAds(prev => prev.map(a => a.id === updatedAd.id ? { ...a, ...updatedAd } : a));
-              fetchAds();
-            }}
-          />
         </div>
       </div>
     </SidebarProvider>

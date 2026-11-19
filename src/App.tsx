@@ -5,7 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
-import AdminChatWidget from "./components/AdminChatWidget";
 import InstallPrompt from "./components/InstallPrompt";
 import PushNotificationPrompt from "./components/PushNotificationPrompt";
 import { CallProvider } from "@/contexts/CallContext";
@@ -13,7 +12,6 @@ import { IncomingCallBanner } from "@/components/call/IncomingCallBanner";
 import { CallModal } from "@/components/call/CallModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
-import { Feature } from "@/lib/featureRegistry";
 import ActivationGateHost from "@/components/ActivationGateHost";
 
 /**
@@ -212,11 +210,6 @@ const App = () => (
                 </Routes>
               </Suspense>
             </RouteErrorBoundary>
-
-            {/* Floating GGD AI Assistant / Support Widget (gated by ggd_ai_chat) */}
-            <Feature name="ggd_ai_chat">
-              <AdminChatWidget />
-            </Feature>
 
             <InstallPrompt />
             <PushNotificationPrompt />

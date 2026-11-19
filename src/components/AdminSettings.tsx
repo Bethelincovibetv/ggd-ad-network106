@@ -8,8 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { 
   Save, Settings, Upload, Loader2, Image, Plus, Trash2, CreditCard, 
-  MessageCircle, Globe, Shield, Sparkles, Package, Zap, LayoutTemplate, 
-  Palette, User, Award, Quote, CheckCircle2, Edit, X, Check, Eye, EyeOff, Play, Pause
+  MessageCircle, Globe, Shield, ShieldCheck, Sparkles, Package, Zap, LayoutTemplate, 
+  Palette, User, Award, Quote, CheckCircle2, Edit, X, Check, Eye, EyeOff, Play, Pause, Power
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import defaultCeoFlyer from "@/assets/images/ceo_about_flyer_1789459834911.jpg";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getCurrentUser, getLocalSession } from "@/services/authService";
+import { ACTIVATION_UPDATED_EVENT, dispatchActivationUpdated } from "@/hooks/useActivationStatus";
 
 const SettingField = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
   <div className="space-y-1.5">
@@ -39,6 +40,7 @@ const AdminSettings = () => {
   const [editingPromo, setEditingPromo] = useState<any | null>(null);
   const [uploadingPromoReplace, setUploadingPromoReplace] = useState(false);
   const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false);
+  const [savingActivationToggle, setSavingActivationToggle] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -49,8 +51,27 @@ const AdminSettings = () => {
         setSettings(p => ({ ...p, landing_whatsapp_positioning: enabled ? 'true' : 'false' }));
       }
     };
+    const syncActivationHandler = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['activation_fee_enabled', 'activation_fee_amount', 'activation_bonus_credits']);
+      if (data?.length) {
+        setSettings(prev => {
+          const next = { ...prev };
+          data.forEach((row: any) => {
+            next[row.key] = String(row.value ?? '');
+          });
+          return next;
+        });
+      }
+    };
     window.addEventListener('ggd-whatsapp-positioning-changed', syncHandler);
-    return () => window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+    window.addEventListener(ACTIVATION_UPDATED_EVENT, syncActivationHandler);
+    return () => {
+      window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+      window.removeEventListener(ACTIVATION_UPDATED_EVENT, syncActivationHandler);
+    };
   }, []);
 
   const fetchSettings = async () => {
@@ -123,6 +144,7 @@ const AdminSettings = () => {
         'syndicate_payout_percentage', 'landing_search_enabled', 'ad_display_template',
         'default_business_website_template',
         'auto_payout_enabled', 'max_auto_payout_amount', 'syndicate_withdraw_cooldown_hours',
+        'activation_fee_enabled', 'activation_fee_amount', 'activation_bonus_credits',
         // Founder & CEO Profile Keys
         'show_ceo_on_about_page',
         'ceo_name', 'ceo_role', 'ceo_location', 'ceo_background', 'ceo_focus',
@@ -380,6 +402,41 @@ const AdminSettings = () => {
     }
   };
 
+  const isActivationFeeEnabled =
+    settings.activation_fee_enabled === undefined
+      ? true
+      : ['true', '1', 'on', 'yes'].includes(String(settings.activation_fee_enabled).trim().toLowerCase());
+
+  const toggleActivationFee = async (checked: boolean) => {
+    if (savingActivationToggle) return;
+    const previousVal = settings.activation_fee_enabled;
+    const nextVal = checked ? 'true' : 'false';
+    setSettings(p => ({ ...p, activation_fee_enabled: nextVal }));
+    setSavingActivationToggle(true);
+    try {
+      await saveSetting('activation_fee_enabled', nextVal);
+      dispatchActivationUpdated();
+      toast.success(
+        checked
+          ? '₦1,000 User Activation Requirement enabled across the platform.'
+          : '₦1,000 User Activation Requirement switched OFF completely.'
+      );
+    } catch (err: any) {
+      setSettings(p => {
+        const next = { ...p };
+        if (previousVal === undefined) {
+          delete next.activation_fee_enabled;
+        } else {
+          next.activation_fee_enabled = previousVal;
+        }
+        return next;
+      });
+      toast.error('Failed to update activation requirement: ' + (err?.message || 'Permission denied'));
+    } finally {
+      setSavingActivationToggle(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-orange-500" /></div>;
 
   const field = (key: string) => ({ value: settings[key] || '', onChange: (v: string) => setSettings(p => ({ ...p, [key]: v })) });
@@ -468,6 +525,133 @@ const AdminSettings = () => {
                 />
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* USER ₦1,000 ACTIVATION MANAGEMENT */}
+      <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 p-3.5 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-amber-200" />
+            <h4 className="text-sm font-bold">User ₦1,000 Account Activation Management</h4>
+          </div>
+          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-medium">
+            {isActivationFeeEnabled ? 'Gate Active' : 'Gate Disabled'}
+          </span>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <div className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+            isActivationFeeEnabled
+              ? 'bg-orange-500/10 border-orange-500/30'
+              : 'bg-emerald-500/10 border-emerald-500/30'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                    Activation Gate Master Switch
+                  </span>
+                  {isActivationFeeEnabled ? (
+                    <span className="inline-flex items-center gap-1 bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <CheckCircle2 className="h-3 w-3" /> ACTIVE • ₦{Number(settings.activation_fee_amount || 1000).toLocaleString()} Required
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <Power className="h-3 w-3" /> OFF • Activation Requirement Disabled
+                    </span>
+                  )}
+                </div>
+                <h5 className="text-sm font-bold text-foreground">
+                  Require Users to Pay ₦1,000 One-Time Activation Fee
+                </h5>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Switch this <strong>OFF</strong> to completely disable the ₦1,000 user activation gate across the entire platform. When switched off, all users can earn, transfer, redeem airtime, and launch campaigns freely without activation prompts.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                <span className="text-xs font-bold text-muted-foreground">
+                  {isActivationFeeEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <Switch
+                  checked={isActivationFeeEnabled}
+                  onCheckedChange={toggleActivationFee}
+                  disabled={savingActivationToggle}
+                  className="data-[state=checked]:bg-orange-600 cursor-pointer"
+                  aria-label="Toggle ₦1,000 user activation requirement"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                Key: <code>app_settings.activation_fee_enabled</code>
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant={isActivationFeeEnabled ? 'destructive' : 'default'}
+                disabled={savingActivationToggle}
+                onClick={() => toggleActivationFee(!isActivationFeeEnabled)}
+                className="h-8 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+              >
+                {savingActivationToggle ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Power className="h-3.5 w-3.5" />
+                )}
+                {isActivationFeeEnabled ? 'Switch Off ₦1,000 Activation Completely' : 'Re-Enable ₦1,000 Activation'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <SettingField
+              label="Activation Fee Amount (₦ NGN)"
+              value={settings.activation_fee_amount ?? '1000'}
+              onChange={(v) => setSettings(p => ({ ...p, activation_fee_amount: v }))}
+              type="number"
+              placeholder="1000"
+            />
+            <SettingField
+              label="Activation Starter Bonus (GGG Credits)"
+              value={settings.activation_bonus_credits ?? '200'}
+              onChange={(v) => setSettings(p => ({ ...p, activation_bonus_credits: v }))}
+              type="number"
+              placeholder="200"
+            />
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingAll}
+              onClick={async () => {
+                const payloadSettings = {
+                  activation_fee_enabled: isActivationFeeEnabled ? 'true' : 'false',
+                  activation_fee_amount: String(parseInt(settings.activation_fee_amount || '1000', 10) || 1000),
+                  activation_bonus_credits: String(Math.max(0, parseInt(settings.activation_bonus_credits || '200', 10) || 0)),
+                };
+                setSavingAll(true);
+                try {
+                  const upsertPayload = Object.entries(payloadSettings).map(([key, value]) => ({ key, value }));
+                  const { error } = await supabase.from('app_settings').upsert(upsertPayload, { onConflict: 'key' });
+                  if (error) throw error;
+                  setSettings(p => ({ ...p, ...payloadSettings }));
+                  dispatchActivationUpdated();
+                  toast.success('User Activation settings saved!');
+                } catch (err: any) {
+                  toast.error('Failed to save activation settings: ' + (err?.message || 'Error'));
+                } finally {
+                  setSavingAll(false);
+                }
+              }}
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold h-9 px-4 shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Activation Settings
+            </Button>
           </div>
         </CardContent>
       </Card>

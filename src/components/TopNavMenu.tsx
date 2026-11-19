@@ -1,6 +1,10 @@
 import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Briefcase, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Sparkles, CheckSquare, Smartphone } from "lucide-react";
+import {
+  LayoutDashboard, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2,
+  BookOpen, Building2, Sparkles, CheckSquare, Smartphone, Video, MessageCircle,
+  Heart, Link2, Send, CreditCard, Headphones, User
+} from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
 
@@ -13,34 +17,44 @@ interface TopNavMenuProps {
   isPremium?: boolean;
 }
 
-const TopNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
+const TopNavMenu = ({ activeTab, onTabChange, isBusiness: _isBusiness, isSyndicate, isAdmin, isPremium }: TopNavMenuProps) => {
   const { isEnabled } = useFeatureToggles();
   const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeTab] });
 
   const items = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] }] : []),
+    ...(isEnabled('vixora_ai_studio') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI', matches: ['vixora-creator', 'vixora', 'creator', 'vixora-studio'] }] : []),
     ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed', 'community'] }] : []),
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] }] : []),
-    ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'transfer', 'task-wallet', 'syndicate-wallet'] }] : []),
+    ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'task-wallet', 'syndicate-wallet'] }] : []),
+    ...(isEnabled('wallet_transfer') && isEnabled('nav_transfer') ? [{ id: 'transfer', icon: Send, label: 'Transfer', matches: ['transfer'] }] : []),
     ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
     ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime', matches: ['redeem', 'redeem-airtime', 'airtime'] }] : []),
-    ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') ? [{
+    ...(isEnabled('chat_and_calls') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox', matches: ['inbox', 'chat', 'messages'] }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') && (isSyndicate ? isEnabled('nav_syndicate') : isEnabled('nav_syndicate_join')) ? [{
       id: isSyndicate ? 'syndicate' : 'syndicate-join',
       icon: Users,
       label: isSyndicate ? 'Syndicate Hub' : 'Join Syndicate',
       matches: ['syndicate', 'syndicate-join', 'business-tasks']
     }] : []),
-    ...(isEnabled('nav_share_earn') ? [{
+    ...((isEnabled('save_favorite') || isEnabled('favorites')) && isEnabled('nav_favorites') ? [{ id: 'favorites', icon: Heart, label: 'Saved', matches: ['favorites', 'saved', 'wishlist', 'bookmarks'] }] : []),
+    ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain', matches: ['contact-gain', 'contacts'] }] : []),
+    ...(isEnabled('referral_system') && isEnabled('nav_share_earn') ? [{
       id: 'share-earn',
       icon: Share2,
       label: 'Share & Earn',
-      matches: ['share-earn', 'promo', 'referrals']
+      matches: ['share-earn', 'referrals']
     }] : []),
+    ...(isEnabled('promotional_content') && isEnabled('nav_promo') ? [{ id: 'promo', icon: Megaphone, label: 'Promo Flyers', matches: ['promo'] }] : []),
+    ...(isEnabled('link_shortener') && isEnabled('nav_smart_links') ? [{ id: 'smart-links', icon: Link2, label: 'Smart Links', matches: ['smart-links'] }] : []),
     ...(isEnabled('business_directory') && isEnabled('nav_directory') ? [{ id: 'directory', icon: Building2, label: 'Directory', matches: ['directory'] }] : []),
     ...(isEnabled('marketing_apps_marketplace') && isEnabled('nav_marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Apps', matches: ['marketplace'] }] : []),
+    ...(isEnabled('setup_wizard') && isEnabled('nav_wizard') ? [{ id: 'wizard', icon: CreditCard, label: 'Setup Wizard', matches: ['wizard'] }] : []),
     ...(isEnabled('premium_vip_upgrade') && isEnabled('nav_premium') ? [{ id: 'premium', icon: Crown, label: 'VIP Premium', matches: ['premium', 'upgrade'] }] : []),
-    ...((isPremium || isAdmin) && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys', matches: ['api-keys'] }] : []),
+    ...((isPremium || isAdmin) && isEnabled('api_keys') && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys', matches: ['api-keys'] }] : []),
+    ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'Profile', matches: ['profile'] }] : []),
+    ...(isEnabled('nav_support') ? [{ id: 'support', icon: Headphones, label: 'Support', matches: ['support'] }] : []),
     ...(isEnabled('nav_guide') ? [{ id: 'guide', icon: BookOpen, label: 'User Guide', matches: ['guide'] }] : []),
     ...(isEnabled('nav_about') ? [{ id: 'about', icon: Info, label: 'About GGD', matches: ['about'] }] : []),
   ];

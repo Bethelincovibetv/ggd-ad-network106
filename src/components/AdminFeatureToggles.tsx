@@ -17,6 +17,10 @@ import {
   setBatchFeatureTogglesLocally
 } from "@/hooks/useFeatureToggles";
 import {
+  ACTIVATION_UPDATED_EVENT,
+  dispatchActivationUpdated,
+} from "@/hooks/useActivationStatus";
+import {
   FEATURE_REGISTRY,
   FEATURE_REGISTRY_MAP,
   FeatureGroup,
@@ -29,7 +33,7 @@ import {
   getRelatedFeatureKeys,
   isFeatureEnabled,
 } from "@/lib/featureRegistry";
-import { Menu, Layers } from "lucide-react";
+import { Menu, Layers, ShieldCheck } from "lucide-react";
 
 interface FeatureRow {
   id: string;
@@ -59,6 +63,8 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
   const [applyingPreset, setApplyingPreset] = useState(false);
   const [whatsappPositioning, setWhatsappPositioning] = useState<boolean>(false);
   const [savingWhatsappToggle, setSavingWhatsappToggle] = useState(false);
+  const [activationFeeEnabled, setActivationFeeEnabled] = useState<boolean>(true);
+  const [savingActivationToggle, setSavingActivationToggle] = useState(false);
 
   useEffect(() => {
     if (initialSearch !== undefined) {
@@ -82,8 +88,24 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
         setWhatsappPositioning(enabled);
       }
     };
+    const syncActivationHandler = () => {
+      supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'activation_fee_enabled')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.value !== null) {
+            setActivationFeeEnabled(['true', '1', 'on', 'yes'].includes(String(data.value).trim().toLowerCase()));
+          }
+        });
+    };
     window.addEventListener('ggd-whatsapp-positioning-changed', syncHandler);
-    return () => window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+    window.addEventListener(ACTIVATION_UPDATED_EVENT, syncActivationHandler);
+    return () => {
+      window.removeEventListener('ggd-whatsapp-positioning-changed', syncHandler);
+      window.removeEventListener(ACTIVATION_UPDATED_EVENT, syncActivationHandler);
+    };
   }, []);
 
   const checkAdminAndFetch = async () => {
@@ -110,16 +132,20 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
 
       setIsAdmin(hasAdminRole);
 
-      // Also fetch landing_whatsapp_positioning from app_settings
+      // Also fetch landing_whatsapp_positioning and activation_fee_enabled from app_settings
       supabase
         .from('app_settings')
-        .select('value')
-        .eq('key', 'landing_whatsapp_positioning')
-        .maybeSingle()
+        .select('key, value')
+        .in('key', ['landing_whatsapp_positioning', 'activation_fee_enabled'])
         .then(({ data }) => {
-          if (data && data.value !== null) {
-            setWhatsappPositioning(data.value === 'true');
-          }
+          (data || []).forEach((row: any) => {
+            if (row.key === 'landing_whatsapp_positioning' && row.value !== null) {
+              setWhatsappPositioning(row.value === 'true');
+            }
+            if (row.key === 'activation_fee_enabled' && row.value !== null) {
+              setActivationFeeEnabled(['true', '1', 'on', 'yes'].includes(String(row.value).trim().toLowerCase()));
+            }
+          });
         });
 
       await fetchFeatures();
@@ -127,6 +153,30 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
       console.warn("Failed checking admin permissions:", err);
       setIsAdmin(false);
       setLoading(false);
+    }
+  };
+
+  const toggleActivationFeeRequirement = async (checked: boolean) => {
+    if (!isAdmin || savingActivationToggle) return;
+    const previous = activationFeeEnabled;
+    setActivationFeeEnabled(checked);
+    setSavingActivationToggle(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key: 'activation_fee_enabled', value: checked ? 'true' : 'false' }, { onConflict: 'key' });
+      if (error) throw error;
+      dispatchActivationUpdated();
+      toast.success(
+        checked
+          ? '₦1,000 User Activation Requirement enabled across the platform.'
+          : '₦1,000 User Activation Requirement disabled completely.'
+      );
+    } catch (err: any) {
+      setActivationFeeEnabled(previous);
+      toast.error('Failed to update activation requirement: ' + (err?.message || 'Permission denied'));
+    } finally {
+      setSavingActivationToggle(false);
     }
   };
 
@@ -319,15 +369,13 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
       : [];
     const allAffectedKeys = Array.from(new Set([...relatedKeys, ...navKeysToRestore]));
 
-    // Special parity: nav_feed <-> community_feed, nav_airtime_redeem <-> credit_airtime_redeem
+    // Bidirectional parity: turning a nav menu item ON also re-enables its parent feature
     if (nextState) {
-      if (feature.feature_key === 'nav_feed') allAffectedKeys.push('community_feed', 'community');
-      if (feature.feature_key === 'nav_credit_tasks' || feature.feature_key === 'nav_social_tasks') {
-        allAffectedKeys.push('credit_tasks', 'tasks');
-      }
-      if (feature.feature_key === 'nav_airtime_redeem') {
-        allAffectedKeys.push('credit_airtime_redeem', 'airtime_redeem');
-      }
+      Object.entries(FEATURE_NAV_KEYS).forEach(([parentFeatureKey, navKeys]) => {
+        if (navKeys.includes(feature.feature_key)) {
+          allAffectedKeys.push(...getRelatedFeatureKeys(parentFeatureKey));
+        }
+      });
     }
 
     const uniqueKeys = Array.from(new Set(allAffectedKeys));
@@ -474,14 +522,18 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
 
       if (error) throw error;
 
-      setFeatures(prev =>
-        prev.map(f => {
-          if (updates[f.feature_key] !== undefined) {
-            return { ...f, is_enabled: enableAll };
+      setFeatures(prev => {
+        const existingSet = new Set(prev.map(f => f.feature_key));
+        const updated = prev.map(f =>
+          updates[f.feature_key] !== undefined ? { ...f, is_enabled: enableAll } : f
+        );
+        rowsToUpsert.forEach(r => {
+          if (!existingSet.has(r.feature_key)) {
+            updated.push({ id: r.feature_key, ...r });
           }
-          return f;
-        })
-      );
+        });
+        return updated;
+      });
       setBatchFeatureTogglesLocally(updates);
 
       await logToggleChange(`PRESET_SET_ALL_MENUS_${enableAll ? 'ON' : 'OFF'}`, enableAll);
@@ -720,6 +772,23 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
     const matchesSection = selectedMenuSection === 'All' || m.section === selectedMenuSection;
 
     return matchesSearch && matchesSection;
+  });
+
+  // Any extra toggles present in Supabase feature_toggles not already mapped in FEATURE_REGISTRY or MENU_TOGGLE_REGISTRY
+  const knownRegistryKeys = new Set<string>([
+    ...FEATURE_REGISTRY.map(f => f.key),
+    ...MENU_TOGGLE_REGISTRY.map(m => m.key),
+    ...Object.values(FEATURE_LEGACY_ALIASES).flat(),
+  ]);
+
+  const extraDbToggles = features.filter(f => {
+    if (knownRegistryKeys.has(f.feature_key)) return false;
+    if (!normalizedQuery) return true;
+    return (
+      f.feature_key.toLowerCase().includes(normalizedQuery) ||
+      f.feature_name.toLowerCase().includes(normalizedQuery) ||
+      (f.description || '').toLowerCase().includes(normalizedQuery)
+    );
   });
 
   return (
@@ -973,107 +1042,205 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
               </div>
             </div>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {filteredFeatures.map(def => {
-                const isEnabled = getFeatureState(def.key);
-                const isProtected = !def.canDisable;
+            {/* User ₦1,000 Activation Requirement Master Control */}
+            <div className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+              activationFeeEnabled
+                ? 'bg-orange-500/10 border-orange-500/30'
+                : 'bg-secondary/40 border-border/60'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5" /> User ₦1,000 Activation Gate
+                    </span>
+                    {activationFeeEnabled ? (
+                      <span className="inline-flex items-center gap-1 bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        ACTIVE • ₦1,000 Gate Enforced
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        OFF • Free Access (Gate Disabled)
+                      </span>
+                    )}
+                  </div>
+                  <h5 className="text-sm font-bold text-foreground">
+                    Require ₦1,000 Account Activation Before Protected User Actions
+                  </h5>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Switch this <strong>OFF</strong> to completely disable the ₦1,000 user activation requirement platform-wide so every user can access tasks, wallet transfers, and campaigns immediately without paying activation. Key: <code>app_settings.activation_fee_enabled</code>
+                  </p>
+                </div>
 
-                return (
-                  <div
-                    key={def.key}
-                    className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
-                      isEnabled
-                        ? 'bg-card border-border/80 shadow-xs'
-                        : 'bg-muted/20 border-dashed border-border/50 opacity-75'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Label
-                          className={`text-xs font-bold text-foreground ${
-                            isProtected ? 'cursor-default' : 'cursor-pointer'
-                          }`}
-                          onClick={() => !isProtected && toggleFeature({
-                            id: def.key,
-                            feature_key: def.key,
-                            feature_name: def.label,
-                            is_enabled: isEnabled,
-                            description: def.description,
-                          })}
-                        >
-                          {def.label}
-                        </Label>
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    {activationFeeEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <Switch
+                    checked={activationFeeEnabled}
+                    onCheckedChange={toggleActivationFeeRequirement}
+                    disabled={savingActivationToggle}
+                    className="data-[state=checked]:bg-orange-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
 
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase">
-                          {def.group}
-                        </span>
+            {/* Feature Grid (hidden when Menu Navigation filter is selected) */}
+            {selectedGroup !== 'Menu Navigation' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filteredFeatures.map(def => {
+                  const isEnabled = getFeatureState(def.key);
+                  const isProtected = !def.canDisable;
 
-                        {isProtected && (
-                          <span className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded-md flex items-center gap-1">
-                            <Lock className="h-2.5 w-2.5" /> Locked Core
+                  return (
+                    <div
+                      key={def.key}
+                      className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                        isEnabled
+                          ? 'bg-card border-border/80 shadow-xs'
+                          : 'bg-muted/20 border-dashed border-border/50 opacity-75'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Label
+                            className={`text-xs font-bold text-foreground ${
+                              isProtected ? 'cursor-default' : 'cursor-pointer'
+                            }`}
+                            onClick={() => !isProtected && toggleFeature({
+                              id: def.key,
+                              feature_key: def.key,
+                              feature_name: def.label,
+                              is_enabled: isEnabled,
+                              description: def.description,
+                            })}
+                          >
+                            {def.label}
+                          </Label>
+
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase">
+                            {def.group}
                           </span>
+
+                          {isProtected && (
+                            <span className="text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                              <Lock className="h-2.5 w-2.5" /> Locked Core
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                          {def.description}
+                        </p>
+
+                        {def.routes && def.routes.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">Routes:</span>
+                            {def.routes.slice(0, 3).map(r => (
+                              <code key={r} className="text-[10px] px-1 rounded bg-muted font-mono text-muted-foreground">
+                                {r}
+                              </code>
+                            ))}
+                            {def.routes.length > 3 && (
+                              <span className="text-[10px] text-muted-foreground">+{def.routes.length - 3}</span>
+                            )}
+                          </div>
                         )}
                       </div>
 
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                        {def.description}
-                      </p>
-
-                      {def.routes && def.routes.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">Routes:</span>
-                          {def.routes.slice(0, 3).map(r => (
-                            <code key={r} className="text-[10px] px-1 rounded bg-muted font-mono text-muted-foreground">
-                              {r}
-                            </code>
-                          ))}
-                          {def.routes.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">+{def.routes.length - 3}</span>
-                          )}
-                        </div>
-                      )}
+                      <div className="shrink-0 pt-0.5">
+                        <Switch
+                          checked={isEnabled}
+                          disabled={isProtected}
+                          onCheckedChange={() =>
+                            toggleFeature({
+                              id: def.key,
+                              feature_key: def.key,
+                              feature_name: def.label,
+                              is_enabled: isEnabled,
+                              description: def.description,
+                            })
+                          }
+                          className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                        />
+                      </div>
                     </div>
-
-                    <div className="shrink-0 pt-0.5">
-                      <Switch
-                        checked={isEnabled}
-                        disabled={isProtected}
-                        onCheckedChange={() =>
-                          toggleFeature({
-                            id: def.key,
-                            feature_key: def.key,
-                            feature_name: def.label,
-                            is_enabled: isEnabled,
-                            description: def.description,
-                          })
-                        }
-                        className="data-[state=checked]:bg-emerald-600 cursor-pointer"
-                      />
-                    </div>
+                  );
+                })}
+                {filteredFeatures.length === 0 && (
+                  <div className="col-span-full py-10 text-center space-y-2 rounded-2xl border border-dashed border-border bg-muted/20">
+                    <Search className="h-6 w-6 text-muted-foreground/50 mx-auto" />
+                    <p className="text-xs font-bold text-foreground">No matching feature toggle found</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Try clearing your search or checking the Menu Navigation Items tab.
+                    </p>
+                    {search && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSearch('')}
+                        className="h-8 text-xs font-bold rounded-xl cursor-pointer"
+                      >
+                        Clear search filter
+                      </Button>
+                    )}
                   </div>
-                );
-              })}
-              {filteredFeatures.length === 0 && (
-                <div className="col-span-full py-10 text-center space-y-2 rounded-2xl border border-dashed border-border bg-muted/20">
-                  <Search className="h-6 w-6 text-muted-foreground/50 mx-auto" />
-                  <p className="text-xs font-bold text-foreground">No matching feature toggle found</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Try clearing your search or checking the Menu Navigation Items tab.
+                )}
+              </div>
+            )}
+
+            {/* Additional / Custom Database Toggles not in static registry */}
+            {selectedGroup === 'All' && extraDbToggles.length > 0 && (
+              <div className="pt-6 border-t border-border/60 space-y-3">
+                <div>
+                  <h3 className="text-sm font-black text-foreground">
+                    Additional Database Feature Toggles ({extraDbToggles.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Extra toggles stored directly in the database table.
                   </p>
-                  {search && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSearch('')}
-                      className="h-8 text-xs font-bold rounded-xl cursor-pointer"
-                    >
-                      Clear search filter
-                    </Button>
-                  )}
                 </div>
-              )}
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {extraDbToggles.map(row => (
+                    <div
+                      key={row.feature_key}
+                      className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                        row.is_enabled
+                          ? 'bg-card border-border/80 shadow-xs'
+                          : 'bg-muted/20 border-dashed border-border/50 opacity-75'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Label
+                            className="text-xs font-bold text-foreground cursor-pointer"
+                            onClick={() => toggleFeature(row)}
+                          >
+                            {row.feature_name || row.feature_key}
+                          </Label>
+                          <code className="text-[9px] px-1.5 py-0.5 rounded bg-muted font-mono text-muted-foreground">
+                            {row.feature_key}
+                          </code>
+                        </div>
+                        {row.description && (
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                            {row.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 pt-0.5">
+                        <Switch
+                          checked={row.is_enabled}
+                          onCheckedChange={() => toggleFeature(row)}
+                          className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Menu Navigation Items Section rendered directly on main view */}
             {(selectedGroup === 'All' || selectedGroup === 'Menu Navigation') && (

@@ -6,7 +6,7 @@ import {
 } from '@/hooks/useActivationStatus';
 
 const ActivationGateHost: React.FC = () => {
-  const { feeAmount, bonusCredits, refresh } = useActivationStatus();
+  const { feeAmount, bonusCredits, feeEnabled, requiresActivation, refresh } = useActivationStatus();
   const [open, setOpen] = useState(false);
   const [actionLabel, setActionLabel] = useState<string | null>(null);
 
@@ -23,6 +23,12 @@ const ActivationGateHost: React.FC = () => {
       window.removeEventListener(OPEN_ACTIVATION_EVENT, handleOpen);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (open && (!feeEnabled || !requiresActivation)) {
+      setOpen(false);
+    }
+  }, [open, feeEnabled, requiresActivation]);
 
   return (
     <ActivationModal

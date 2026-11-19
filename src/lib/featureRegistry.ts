@@ -83,6 +83,16 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     routes: [],
     keywords: [],
   },
+  {
+    key: 'paystack_payments',
+    label: 'Paystack Checkout & Business Payments',
+    group: 'Core System',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows businesses to configure and accept online Paystack payments on their storefronts and profile pages.',
+    routes: [],
+    keywords: ['Paystack Checkout', 'Online Payments', 'Storefront Checkout'],
+  },
 
   // --- SYNDICATE CHANNELS ---
   {
@@ -112,6 +122,27 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     navTabIds: ['syndicate', 'syndicate-join', 'business-tasks'],
     routes: ['/syndicate-register'],
     keywords: ['Syndicate Portal', 'Syndicate Hub', 'Syndicate Button', 'Join Syndicate'],
+  },
+  {
+    key: 'business_pays_syndicate',
+    label: 'Business Pays Syndicate Payouts',
+    group: 'Syndicate & Channels',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows businesses to fund and disburse payouts directly to verified Syndicate promoters.',
+    navTabIds: ['syndicate-payouts'],
+    routes: [],
+    keywords: ['Syndicate Payouts', 'Promoter Payout', 'Business Pays Syndicate'],
+  },
+  {
+    key: 'syndicate_onboarding_wizard',
+    label: 'Syndicate Promoter Onboarding Wizard',
+    group: 'Syndicate & Channels',
+    defaultState: true,
+    canDisable: true,
+    description: 'Step-by-step guided onboarding walkthrough for newly approved Syndicate promoters.',
+    routes: [],
+    keywords: ['Syndicate Onboarding', 'Promoter Wizard'],
   },
 
   // --- ADS & BANNERS ---
@@ -175,6 +206,15 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
       'Slide Manager',
       'Manage Slides',
     ],
+  },
+  {
+    key: 'ad_duration_settings',
+    label: 'Ad Campaign Duration Selector',
+    group: 'Ads & Banners',
+    defaultState: true,
+    canDisable: true,
+    description: 'Allows advertisers to customize campaign run duration days when publishing new banner ads.',
+    keywords: ['Ad Duration', 'Campaign Duration', 'Expiry Days'],
   },
 
   // --- CREDIT & TASKS ECONOMY ---
@@ -401,6 +441,17 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     ],
   },
   {
+    key: 'global_network_chat',
+    label: 'Global Network Chat Room',
+    group: 'Community & Messaging',
+    defaultState: true,
+    canDisable: true,
+    description: 'Shared platform-wide community lounge chat channel inside GGD Inbox.',
+    navTabIds: ['inbox'],
+    routes: ['/inbox'],
+    keywords: ['Global Chat', 'Network Chat', 'Community Lounge Chat'],
+  },
+  {
     key: 'contact_gain',
     label: 'Contact Gain Hub (VCF Drops)',
     group: 'Community & Messaging',
@@ -601,6 +652,35 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
       'Realtime Search',
       'Search directory',
     ],
+  },
+  {
+    key: 'vixora_business_agent',
+    label: 'Vixora Business AI Agent',
+    group: 'AI & Automation',
+    defaultState: true,
+    canDisable: true,
+    description: 'AI sales & customer service copilot embedded across merchant storefronts and Business Growth workspace.',
+    navTabIds: ['business-ai-agent'],
+    routes: [],
+    keywords: ['Business AI Agent', 'Storefront AI', 'Vixora Agent'],
+  },
+  {
+    key: 'blog_ai_drafter',
+    label: 'Blog AI Article Drafter',
+    group: 'AI & Automation',
+    defaultState: true,
+    canDisable: true,
+    description: 'AI article drafting assistant inside the Community Blog Composer.',
+    keywords: ['Blog AI Drafter', 'Article Writer', 'Community Blog AI'],
+  },
+  {
+    key: 'vixora_tools',
+    label: 'Vixora AI Tools Marketplace Tab',
+    group: 'AI & Automation',
+    defaultState: true,
+    canDisable: true,
+    description: 'Exposes the dedicated Vixora AI Growth Tools tab inside the Marketing Apps Marketplace.',
+    keywords: ['Vixora Tools', 'AI Growth Tools'],
   },
 
   // --- MARKETPLACE & GROWTH ---
@@ -1045,6 +1125,46 @@ export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
     description: 'Quick create option in floating button to launch social syndicate campaigns',
     navTabId: 'create-syndicate',
   },
+  {
+    key: 'nav_transfer',
+    label: 'Send & Transfer Wallet Shortcut',
+    section: 'Main Navigation',
+    defaultState: true,
+    description: 'Navigation item for direct peer-to-peer wallet & credit transfers',
+    navTabId: 'transfer',
+  },
+  {
+    key: 'nav_wizard',
+    label: 'Setup Onboarding Wizard',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Work navigation item for the interactive business onboarding setup wizard',
+    navTabId: 'wizard',
+  },
+  {
+    key: 'nav_business_ai_agent',
+    label: 'Vixora Business AI Agent Button',
+    section: 'Work & Growth',
+    defaultState: true,
+    description: 'Controls visibility of the Business AI Agent floating button and storefront copilot entry point',
+    navTabId: 'business-ai-agent',
+  },
+  {
+    key: 'nav_promo',
+    label: 'Promotional Flyers Hub',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for downloadable GGD promotional flyers and marketing kits',
+    navTabId: 'promo',
+  },
+  {
+    key: 'nav_smart_links',
+    label: 'Smart Links Shortener',
+    section: 'Discover & Market',
+    defaultState: true,
+    description: 'Discover navigation item for branded tracked short links (/r/:slug)',
+    navTabId: 'smart-links',
+  },
 ];
 
 export const MENU_TOGGLE_MAP: Record<string, MenuToggleDefinition> = {};
@@ -1130,6 +1250,7 @@ export const FEATURE_LEGACY_ALIASES: Record<string, string[]> = {
   credit_wallet: ['task_wallet'],
   storefronts: ['business_sites'],
   syndicate_portal: ['nav_syndicate', 'syndicate'],
+  featured_slider: ['slides'],
 };
 
 /**
@@ -1152,6 +1273,11 @@ export const FEATURE_NAV_KEYS: Record<string, string[]> = {
   business_tasks: ['nav_business_tasks'],
   referral_system: ['nav_share_earn'],
   api_keys: ['nav_api_keys'],
+  link_shortener: ['nav_smart_links'],
+  promotional_content: ['nav_promo'],
+  setup_wizard: ['nav_wizard'],
+  wallet_transfer: ['nav_transfer'],
+  vixora_business_agent: ['nav_business_ai_agent'],
 };
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {};

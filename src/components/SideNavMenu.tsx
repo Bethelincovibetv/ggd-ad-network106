@@ -49,6 +49,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),
     ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime & Data' }] : []),
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet' }] : []),
+    ...(isEnabled('wallet_transfer') && isEnabled('nav_transfer') ? [{ id: 'transfer', icon: Send, label: 'Send & Transfer' }] : []),
     ...(isEnabled('chat_and_calls') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox' }] : []),
     ...(isEnabled('nav_profile') ? [{ id: 'profile', icon: User, label: 'My Profile' }] : []),
     ...(isEnabled('premium_vip_upgrade') && isEnabled('nav_premium') ? [{ id: 'premium', icon: Crown, label: 'VIP Membership' }] : []),
@@ -57,22 +58,25 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const work = [
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business' }] : []),
     ...(isEnabled('nav_growth') ? [{ id: 'growth', icon: Rocket, label: 'Business Growth' }] : []),
-    ...(isEnabled('syndicate_core') && isEnabled('nav_business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
+    ...(isEnabled('syndicate_core') && isEnabled('business_tasks') && isEnabled('nav_business_tasks') ? [{ id: 'business-tasks', icon: Briefcase, label: 'Syndicate Campaigns' }] : []),
     ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') ? (isSyndicate ? (
       isEnabled('nav_syndicate') ? [{ id: 'syndicate', icon: Users, label: 'Syndicate Hub' }] : []
     ) : (
       isEnabled('nav_syndicate_join') ? [{ id: 'syndicate-join', icon: Users, label: 'Join Syndicate' }] : []
     )) : []),
+    ...(isEnabled('setup_wizard') && isEnabled('nav_wizard') ? [{ id: 'wizard', icon: CreditCard, label: 'Setup Wizard' }] : []),
     ...(!isBusiness && !isSyndicate && isEnabled('co_owner_upgrade') && isEnabled('nav_upgrade') ? [{ id: 'upgrade', icon: Edit3, label: 'Upgrade Tier' }] : []),
   ];
 
   const discover = [
     ...((isEnabled('save_favorite') || isEnabled('favorites')) && isEnabled('nav_favorites') ? [{ id: 'favorites', icon: Heart, label: 'Saved & Favorites' }] : []),
-    ...(isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
-    ...(isEnabled('nav_share_earn') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
+    ...(isEnabled('contact_gain') && isEnabled('nav_contact_gain') ? [{ id: 'contact-gain', icon: Users, label: 'Contact Gain Hub' }] : []),
+    ...(isEnabled('referral_system') && isEnabled('nav_share_earn') ? [{ id: 'share-earn', icon: Share2, label: 'Share & Earn' }] : []),
+    ...(isEnabled('promotional_content') && isEnabled('nav_promo') ? [{ id: 'promo', icon: Megaphone, label: 'Promo Flyers' }] : []),
+    ...(isEnabled('link_shortener') && isEnabled('nav_smart_links') ? [{ id: 'smart-links', icon: Link2, label: 'Smart Links' }] : []),
     ...(isEnabled('marketing_apps_marketplace') && isEnabled('nav_marketplace') ? [{ id: 'marketplace', icon: Store, label: 'Marketing Tools' }] : []),
     ...(isEnabled('business_directory') && isEnabled('nav_directory') ? [{ id: 'directory', icon: Building2, label: 'Business Directory' }] : []),
-    ...((isPremium || isAdmin) && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
+    ...((isPremium || isAdmin) && isEnabled('api_keys') && isEnabled('nav_api_keys') ? [{ id: 'api-keys', icon: Key, label: 'API Keys' }] : []),
   ];
 
   const help = [
@@ -84,6 +88,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
   const iconGrad: Record<string, string> = {
     support: 'from-emerald-500 to-teal-600',
     ads: 'from-orange-400 to-red-500',
+    'vixora-creator': 'from-violet-500 to-fuchsia-600',
     campaigns: 'from-amber-500 to-orange-600',
     'redeem-airtime': 'from-orange-500 to-amber-500',
     growth: 'from-emerald-500 to-green-600',
@@ -92,10 +97,12 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
     profile: 'from-sky-400 to-blue-500',
     'smart-links': 'from-cyan-400 to-blue-500',
     wallet: 'from-blue-500 to-indigo-600',
+    transfer: 'from-sky-500 to-cyan-600',
     inbox: 'from-teal-400 to-cyan-500',
     premium: 'from-amber-400 to-yellow-500',
     'business-tasks': 'from-purple-500 to-indigo-600',
     'my-business': 'from-indigo-400 to-blue-500',
+    wizard: 'from-amber-500 to-red-500',
     upgrade: 'from-rose-400 to-red-500',
     syndicate: 'from-violet-500 to-purple-600',
     'syndicate-join': 'from-violet-500 to-purple-600',

@@ -20,10 +20,11 @@ import {
   Sparkles,
   UserCheck,
   AlertCircle,
+  Power,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { dispatchActivationUpdated } from '@/hooks/useActivationStatus';
+import { ACTIVATION_UPDATED_EVENT, dispatchActivationUpdated } from '@/hooks/useActivationStatus';
 
 interface UserActivationRow {
   user_id: string;
@@ -153,27 +154,36 @@ const AdminActivationManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const syncActivationSettings = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', [
+          'activation_fee_enabled',
+          'activation_fee_amount',
+          'activation_bonus_credits',
+        ]);
+      const sMap = new Map<string, string>();
+      (data || []).forEach((row: any) => sMap.set(row.key, String(row.value ?? '')));
+      if (sMap.has('activation_fee_enabled')) {
+        setFeeEnabled(['true', '1', 'on', 'yes'].includes((sMap.get('activation_fee_enabled') || '').trim().toLowerCase()));
+      }
+      if (sMap.has('activation_fee_amount')) {
+        setFeeAmount(sMap.get('activation_fee_amount') || '1000');
+      }
+      if (sMap.has('activation_bonus_credits')) {
+        setBonusCredits(sMap.get('activation_bonus_credits') || '200');
+      }
+    };
+    window.addEventListener(ACTIVATION_UPDATED_EVENT, syncActivationSettings);
+    return () => window.removeEventListener(ACTIVATION_UPDATED_EVENT, syncActivationSettings);
   }, []);
 
   const upsertSetting = async (key: string, value: string) => {
-    const { data: existing } = await supabase
+    const { error } = await supabase
       .from('app_settings')
-      .select('key')
-      .eq('key', key)
-      .maybeSingle();
-
-    if (existing) {
-      const { error } = await supabase
-        .from('app_settings')
-        .update({ value, updated_at: new Date().toISOString() })
-        .eq('key', key);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('app_settings')
-        .insert({ key, value });
-      if (error) throw error;
-    }
+      .upsert({ key, value }, { onConflict: 'key' });
+    if (error) throw error;
   };
 
   const handleToggleEnabled = async (next: boolean) => {
@@ -467,26 +477,38 @@ const AdminActivationManager: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <Button
-              type="button"
-              onClick={handleSaveConfig}
-              disabled={savingSettings}
-              className="rounded-xl bg-gradient-to-r from-[#e67e22] to-orange-600 hover:from-orange-500 hover:to-amber-600 text-white font-bold text-xs h-10 px-5"
-            >
-              {savingSettings ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Save Activation Settings
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={handleSaveConfig}
+                disabled={savingSettings}
+                className="rounded-xl bg-gradient-to-r from-[#e67e22] to-orange-600 hover:from-orange-500 hover:to-amber-600 text-white font-bold text-xs h-10 px-5 cursor-pointer"
+              >
+                {savingSettings ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Activation Settings
+              </Button>
+
+              <Button
+                type="button"
+                variant={feeEnabled ? 'destructive' : 'default'}
+                onClick={() => handleToggleEnabled(!feeEnabled)}
+                className="rounded-xl font-bold text-xs h-10 px-4 cursor-pointer"
+              >
+                <Power className="h-3.5 w-3.5 mr-1.5" />
+                {feeEnabled ? 'Switch Off ₦1,000 Activation' : 'Enable ₦1,000 Activation'}
+              </Button>
+            </div>
 
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={loadData}
-              className="rounded-xl text-xs font-semibold h-10"
+              className="rounded-xl text-xs font-semibold h-10 cursor-pointer"
             >
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
               Refresh Metrics
