@@ -11,7 +11,13 @@ import {
   Unsubscribe,
   serverTimestamp
 } from 'firebase/firestore';
-import { db, ensureFirebaseAuth } from '@/lib/firebase';
+import { db, ensureFirebaseAuth, handleFirestoreError, OperationType } from '@/lib/firebase';
+import {
+  buildFirestoreCallSessionPayload,
+  sanitizeCallAvatarUrl,
+  sanitizeCallDisplayName,
+  sanitizeSessionDescription,
+} from '@/lib/callPayload';
 import { CallSession, CallType } from '@/types/call';
 import { p2pImageTransfer } from '@/services/webrtcDataChannel';
 
@@ -81,7 +87,11 @@ export async function notifyIncomingCallViaFCM(payload: {
     const res = await fetch('/api/calls/notify-incoming', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        callerName: sanitizeCallDisplayName(payload.callerName, 'Member'),
+        callerAvatar: sanitizeCallAvatarUrl(payload.callerAvatar),
+      }),
     });
     return res.ok;
   } catch (err) {
@@ -196,39 +206,53 @@ export async function startOutgoingCall({
     console.warn('[WebRTC] Could not initialize DataChannel:', err);
   }
 
-  // Create SDP Offer
-  const offer = await peerConnection.createOffer({
-    offerToReceiveAudio: true,
-    offerToReceiveVideo: callType === 'video',
-  });
-  await peerConnection.setLocalDescription(offer);
+  // Create SDP Offer and persist signaling doc; release media tracks if setup fails
+  const callData: CallSession = (() => {
+    return buildFirestoreCallSessionPayload({
+      callId,
+      callerId,
+      callerName,
+      callerAvatar,
+      calleeId,
+      calleeName,
+      calleeAvatar,
+      callType,
+      status: 'ringing',
+      createdAt: new Date().toISOString(),
+    });
+  })();
 
-  // Write call session to Firestore
-  const callData: CallSession = {
-    callId,
-    callerId,
-    callerName,
-    callerAvatar: callerAvatar || '',
-    calleeId,
-    calleeName,
-    calleeAvatar: calleeAvatar || '',
-    callType,
-    status: 'ringing',
-    offer: {
+  try {
+    const offer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: callType === 'video',
+    });
+    await peerConnection.setLocalDescription(offer);
+
+    callData.offer = sanitizeSessionDescription({
       type: offer.type,
       sdp: offer.sdp || '',
-    },
-    createdAt: new Date().toISOString(),
-  };
+    });
 
-  await setDoc(callDocRef, callData);
+    await setDoc(callDocRef, callData);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `calls/${callId}`);
+    localStream.getTracks().forEach((track) => {
+      track.stop();
+      track.enabled = false;
+    });
+    try {
+      peerConnection.close();
+    } catch {}
+    throw err;
+  }
 
   // Send background FCM push notification to callee
   notifyIncomingCallViaFCM({
     callId,
     callerId,
-    callerName,
-    callerAvatar,
+    callerName: callData.callerName,
+    callerAvatar: callData.callerAvatar,
     calleeId,
     callType,
   });
@@ -482,15 +506,27 @@ export async function answerIncomingCall({
   await peerConnection.setLocalDescription(answer);
 
   // Update Call doc in Firestore
-  await updateDoc(callDocRef, {
-    answer: {
-      type: answer.type,
-      sdp: answer.sdp || '',
-    },
-    status: 'connected',
-    connectedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    await updateDoc(callDocRef, {
+      answer: sanitizeSessionDescription({
+        type: answer.type,
+        sdp: answer.sdp || '',
+      }),
+      status: 'connected',
+      connectedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `calls/${callSession.callId}`);
+    localStream.getTracks().forEach((track) => {
+      track.stop();
+      track.enabled = false;
+    });
+    try {
+      peerConnection.close();
+    } catch {}
+    throw err;
+  }
 
   // Listen for status changes (e.g. caller hangs up)
   const unsubCall = onSnapshot(

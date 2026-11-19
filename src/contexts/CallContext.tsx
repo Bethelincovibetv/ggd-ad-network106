@@ -209,6 +209,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callStatusRef.current = 'ringing';
       setCallStatus('ringing');
 
+      // Hydrate caller avatar in-memory if stripped from Firestore due to data-URL size limits
+      if (!incoming.callerAvatar && incoming.callerId) {
+        supabase
+          .from('profiles')
+          .select('avatar_url, business_logo_url')
+          .eq('user_id', incoming.callerId)
+          .maybeSingle()
+          .then(({ data: callerProfile }) => {
+            const resolvedAvatar = callerProfile?.avatar_url || callerProfile?.business_logo_url;
+            if (!resolvedAvatar) return;
+            setIncomingSession((prev) =>
+              prev && prev.callId === incoming.callId && !prev.callerAvatar
+                ? { ...prev, callerAvatar: resolvedAvatar }
+                : prev
+            );
+            setActiveSession((prev) =>
+              prev && prev.callId === incoming.callId && !prev.callerAvatar
+                ? { ...prev, callerAvatar: resolvedAvatar }
+                : prev
+            );
+          })
+          .catch(() => {});
+      }
+
       // Play incoming ringtone and trigger device vibration
       stopAllAudioLoops();
       stopRingtoneRef.current = startIncomingCallRingtone();
@@ -416,9 +440,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error('Failed to start call:', err);
       stopAllAudioLoops();
+      callStatusRef.current = 'idle';
       setCallStatus('idle');
+      activeSessionRef.current = null;
       setActiveSession(null);
-      toast.error(err.message || 'Microphone or Camera access denied.');
+      const isMediaError = err?.name === 'NotAllowedError' || err?.name === 'NotFoundError';
+      toast.error(
+        isMediaError
+          ? 'Microphone or Camera access denied.'
+          : (err?.message || 'Could not start call. Please try again.')
+      );
     }
   }, [currentUser, callStatus, stopAllAudioLoops, performCleanup]);
 

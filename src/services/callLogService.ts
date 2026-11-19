@@ -10,7 +10,8 @@ import {
   onSnapshot,
   getDocs,
 } from 'firebase/firestore';
-import { db, ensureFirebaseAuth } from '@/lib/firebase';
+import { db, ensureFirebaseAuth, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { buildFirestoreCallLogPayload } from '@/lib/callPayload';
 
 export interface CallLogRecord {
   id: string;
@@ -36,20 +37,21 @@ const COLLECTION_NAME = 'call_logs';
 export const saveCallLog = async (
   log: Omit<CallLogRecord, 'id'> & { id?: string }
 ): Promise<string> => {
+  const logId = log.id || `${log.callId}-${Date.now()}`;
   try {
     await ensureFirebaseAuth();
-    const logId = log.id || `${log.callId}-${Date.now()}`;
     const logRef = doc(db, COLLECTION_NAME, logId);
 
-    const record: CallLogRecord = {
+    const record: CallLogRecord = buildFirestoreCallLogPayload({
       ...log,
       id: logId,
       createdAt: log.createdAt || new Date().toISOString(),
-    };
+    });
 
     await setDoc(logRef, record, { merge: true });
     return logId;
   } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTION_NAME}/${logId}`);
     console.warn('[CallLogService] Failed to record call log in Firestore:', err);
     return '';
   }
