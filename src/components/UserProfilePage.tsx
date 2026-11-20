@@ -80,7 +80,7 @@ const UserProfilePage = () => {
       supabase.from('business_categories').select('id,name').eq('is_active', true).order('sort_order'),
     ]);
     setProfile(p);
-    setPushEnabled(isPushEnabled() && p?.has_push_enabled !== false);
+    setPushEnabled(isPushEnabled() && (p as any)?.has_push_enabled !== false);
     setPushPermission(getPushPermission());
     setCategories((cats as any) || []);
     setRoles((r || []).map(x => x.role));

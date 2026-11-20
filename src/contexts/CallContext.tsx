@@ -247,8 +247,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ? { ...prev, callerAvatar: resolvedAvatar }
                   : prev
               );
-            })
-            .catch(() => {});
+            }, () => {});
         }
 
         // Play incoming ringtone and trigger device vibration

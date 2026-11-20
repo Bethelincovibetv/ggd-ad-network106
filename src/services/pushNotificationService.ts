@@ -267,7 +267,7 @@ export async function registerPushNotification(
         }
         await supabase
           .from('profiles')
-          .update(updateFields)
+          .update(updateFields as any)
           .eq('user_id', userId);
       } catch {}
     }

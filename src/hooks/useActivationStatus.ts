@@ -215,7 +215,7 @@ export async function fetchActivationSnapshot(force = false): Promise<Activation
 
       // Also verify processed_payments ledger if column wasn't present or hasn't synced yet
       if (!isActivated && (missingActivationColumn || profileData?.is_activated === undefined)) {
-        const { data: paidRow } = await supabase
+        const { data: paidRow } = await (supabase as any)
           .from('processed_payments')
           .select('id')
           .eq('user_id', user.id)

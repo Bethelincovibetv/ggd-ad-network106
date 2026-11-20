@@ -74,7 +74,7 @@ const AdminActivationManager: React.FC = () => {
             'activation_fee_amount',
             'activation_bonus_credits',
           ]),
-        supabase
+        (supabase as any)
           .from('processed_payments')
           .select('id, reference, user_id, amount, created_at')
           .eq('payment_type', 'user_activation')
@@ -250,7 +250,7 @@ const AdminActivationManager: React.FC = () => {
 
       if (rpcErr || !rpcData?.success) {
         // Fallback direct update if RPC isn't present yet
-        const { error: updErr } = await supabase
+        const { error: updErr } = await (supabase as any)
           .from('profiles')
           .update({
             is_activated: true,
