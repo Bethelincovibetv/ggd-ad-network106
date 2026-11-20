@@ -68,7 +68,7 @@ export const DEFAULT_FEATURED_ADS: FeaturedAdPayload[] = [
   },
   {
     id: 'ai-blog-marketing',
-    sponsorName: 'BlogMate AI & Editorial Network',
+    sponsorName: 'AI Content & Editorial Network',
     badge: '✍️ CONTENT REVOLUTION',
     title: 'Auto-Generate SEO-Dominant Blog Articles & 3D Covers',
     description: 'Create high-converting long-form editorial posts with Gemini AI and publish them directly to our high-traffic community feed.',

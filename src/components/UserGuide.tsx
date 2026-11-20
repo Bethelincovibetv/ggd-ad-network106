@@ -73,8 +73,8 @@ const getSections = (isEnabled: (key: string) => boolean): GuideSection[] => {
           {isEnabled('youtube_boost') && (
             <li><strong>Boost Video:</strong> boost YouTube views, watch time hours, and channel subscribers.</li>
           )}
-          {isEnabled('blogmate_ai') && (
-            <li><strong>Create:</strong> use marketing tools such as BlogMate AI.</li>
+          {isEnabled('blog_creator') && (
+            <li><strong>Create:</strong> use marketing tools such as AI Content Assistant.</li>
           )}
           {isEnabled('community_feed') && (
             <li><strong>Connect:</strong> use Community to build awareness and relationships.</li>
@@ -316,17 +316,17 @@ const getSections = (isEnabled: (key: string) => boolean): GuideSection[] => {
   });
 
   // 9. Blog Creator
-  if (isEnabled('blogmate_ai')) {
+  if (isEnabled('blog_creator')) {
     list.push({
       title: 'Blog Creator & AI Drafter — Create Marketing Content',
       badge: 'VIP Marketing Tools',
       icon: <BookOpen className="h-5 w-5" />,
-      keywords: 'blog blogmate ai blog article content writing advertisement marketing funnel create edit save publish vip premium',
+      keywords: 'blog content ai blog article content writing advertisement marketing funnel create edit save publish vip premium',
       videoSection: 'guide_blog',
       actionTab: 'feed',
       actionLabel: 'Open Blog Creator',
       flyerUrl: flyerGuideGrowth,
-      flyerCaption: 'BlogMate AI Editorial Content & SEO Marketing Flyer',
+      flyerCaption: 'AI Content Assistant Editorial Content & SEO Marketing Flyer',
       content: (
         <div className="space-y-3">
           <p>The <strong>Blog Creator & AI Drafter</strong> is GGD's premier content broadcasting suite for VIP members. It turns your business expertise and products into engaging, search-optimized editorial articles.</p>
@@ -728,7 +728,7 @@ const UserGuide = () => {
         <Card className="rounded-2xl">
           <CardContent className="py-12 text-center">
             <p className="font-bold text-base text-foreground">No guide section found</p>
-            <p className="mt-1 text-sm text-foreground/80 font-medium">Try keywords like ads, directory, credits, syndicate or BlogMate.</p>
+            <p className="mt-1 text-sm text-foreground/80 font-medium">Try keywords like ads, directory, credits, syndicate or content.</p>
           </CardContent>
         </Card>
       )}

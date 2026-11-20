@@ -6,7 +6,7 @@ import { MessageCircle, ExternalLink } from "lucide-react";
 const BlogFooter = () => {
   const currentYear = new Date().getFullYear();
   const whatsappNumber = "08139044595";
-  const whatsappUrl = `https://wa.me/234${whatsappNumber.slice(1)}?text=Hello! I need support with BlogMate AI`;
+  const whatsappUrl = `https://wa.me/234${whatsappNumber.slice(1)}?text=Hello! I need support with AI Content Tools`;
 
   const otherSites = [
     { name: "GG Digital", url: "https://ggdigital.com.ng", description: "Digital Marketing Solutions" },

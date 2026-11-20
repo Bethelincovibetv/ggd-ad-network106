@@ -91,7 +91,7 @@ const QuickGuide = ({ onFeatureChange }: { onFeatureChange: (feature: string) =>
       icon: FileText,
       completed: completedSteps.includes('blog-generator'),
       feature: 'blog',
-      featureGate: 'blogmate_ai'
+      featureGate: 'blog_creator'
     },
     {
       id: 'gaming-ads',

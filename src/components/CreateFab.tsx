@@ -284,7 +284,7 @@ const CreateFab: React.FC<Props> = ({ onNavigate, activeTab }) => {
   };
 
   const options = [
-    ...(isEnabled("create_blog") && isEnabled("community_feed")
+    ...(isEnabled("blog_creator") && isEnabled("community_feed")
       ? [
           {
             id: "blog",

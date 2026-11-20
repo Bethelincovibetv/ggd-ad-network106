@@ -39,7 +39,7 @@ const VoiceWelcome = () => {
     }
     if (isEnabled('banner_ads')) capabilities.push("launch commercial banner advertising");
     if (isEnabled('credit_tasks')) capabilities.push("complete promotional tasks for credits");
-    if (isEnabled('blogmate_ai')) capabilities.push("generate SEO-optimized blog posts");
+    if (isEnabled('blog_creator')) capabilities.push("generate SEO-optimized blog posts");
 
     const capString = capabilities.length > 0 ? capabilities.join(", ") : "grow your brand with verified audience reach";
 

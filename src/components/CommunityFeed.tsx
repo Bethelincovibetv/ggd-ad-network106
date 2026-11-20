@@ -51,17 +51,6 @@ import { getPostGifts, PostGiftRecord } from '@/services/postGiftService';
 
 type FeedFilter = 'all' | 'tasks' | 'featured' | 'products' | 'sponsored' | 'ads' | 'promotions' | 'blogs';
 
-const FEED_FILTERS: { key: FeedFilter; label: string }[] = [
-  { key: 'all', label: 'All Posts' },
-  { key: 'blogs', label: '📰 Blog Articles' },
-  { key: 'tasks', label: 'Credit Tasks' },
-  { key: 'featured', label: 'Featured Listings' },
-  { key: 'products', label: 'Products' },
-  { key: 'sponsored', label: 'Sponsored Posts' },
-  { key: 'ads', label: 'Banner Adverts' },
-  { key: 'promotions', label: 'Business Promotions' },
-];
-
 /** Required watch seconds parsed from the task description, default 30s. */
 const requiredWatchSeconds = (task: any) => {
   const m = String(task?.description || '').match(/at least (\d+) seconds/i);
@@ -213,6 +202,25 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const [editingPost, setEditingPost] = useState<any | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const canBlog = isEnabled('blog_creator');
+
+  const feedFilters = useMemo(() => [
+    { key: 'all' as FeedFilter, label: 'All Posts' },
+    ...(canBlog ? [{ key: 'blogs' as FeedFilter, label: '📰 Blog Articles' }] : []),
+    { key: 'tasks' as FeedFilter, label: 'Credit Tasks' },
+    { key: 'featured' as FeedFilter, label: 'Featured Listings' },
+    { key: 'products' as FeedFilter, label: 'Products' },
+    { key: 'sponsored' as FeedFilter, label: 'Sponsored Posts' },
+    { key: 'ads' as FeedFilter, label: 'Banner Adverts' },
+    { key: 'promotions' as FeedFilter, label: 'Business Promotions' },
+  ], [canBlog]);
+
+  useEffect(() => {
+    if (!canBlog && feedFilter === 'blogs') {
+      setFeedFilter('all');
+    }
+  }, [canBlog, feedFilter]);
+
   const handlePostUpdated = (updatedPost: any) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...p, ...updatedPost } : p));
   };
@@ -222,7 +230,14 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   // Global "Create" button hooks
   useEffect(() => {
     const openPost = () => { setComposerMode('normal'); setComposerOpen(true); };
-    const openBlog = () => { setComposerMode('blog'); setComposerOpen(true); };
+    const openBlog = () => {
+      if (!isEnabled('blog_creator')) {
+        toast.error('Blog Creator is currently disabled by administrator.');
+        return;
+      }
+      setComposerMode('blog');
+      setComposerOpen(true);
+    };
     const openTask = () => { setTaskPrefill(null); setTaskComposerOpen(true); };
     window.addEventListener('ggd-open-composer', openPost);
     window.addEventListener('ggd-open-blog-composer', openBlog);
@@ -232,7 +247,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
       window.removeEventListener('ggd-open-blog-composer', openBlog);
       window.removeEventListener('ggd-open-task-composer', openTask);
     };
-  }, []);
+  }, [isEnabled]);
 
   const init = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -646,7 +661,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
             { label: '🇳🇬 #Lagos', tag: 'lagos' },
             { label: '💰 Credit Tasks', filter: 'tasks' as FeedFilter },
             { label: '💎 Verified', query: 'verified' },
-            { label: '📰 Blog Articles', filter: 'blogs' as FeedFilter }
+            ...(canBlog ? [{ label: '📰 Blog Articles', filter: 'blogs' as FeedFilter }] : []),
           ].map((chip, chipIdx) => (
             <button
               key={chipIdx}
@@ -693,24 +708,26 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 <span>Create Post</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setComposerMode('blog')}
-                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl transition-all ${
-                  composerMode === 'blog'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-purple-600 dark:text-purple-400 hover:bg-purple-500/10'
-                }`}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>Blog Article</span>
-                <span className={`inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${
-                  composerMode === 'blog' ? 'bg-amber-400 text-amber-950' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-2xs'
-                }`}>
-                  <Crown className="h-2.5 w-2.5 fill-current" />
-                  VIP
-                </span>
-              </button>
+              {canBlog && (
+                <button
+                  type="button"
+                  onClick={() => setComposerMode('blog')}
+                  className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl transition-all ${
+                    composerMode === 'blog'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-purple-600 dark:text-purple-400 hover:bg-purple-500/10'
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Blog Article</span>
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${
+                    composerMode === 'blog' ? 'bg-amber-400 text-amber-950' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-2xs'
+                  }`}>
+                    <Crown className="h-2.5 w-2.5 fill-current" />
+                    VIP
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -986,7 +1003,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 
       {/* Feed filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-        {FEED_FILTERS.map(f => (
+        {feedFilters.map(f => (
           <button
             key={f.key}
             onClick={() => setFeedFilter(f.key)}

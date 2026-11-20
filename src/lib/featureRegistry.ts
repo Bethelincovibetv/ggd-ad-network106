@@ -512,15 +512,26 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
 
   // --- AI & AUTOMATION ---
   {
+    key: 'blog_creator',
+    label: 'Blog Creator & Editorial Writer',
+    group: 'AI & Automation',
+    defaultState: true,
+    canDisable: true,
+    description: 'Blog Creator and editorial article publishing suite. When OFF, blog writing and article creation are disabled platform-wide.',
+    navTabIds: ['create-blog'],
+    routes: [],
+    keywords: ['blog creator', 'blog writer', 'blog composer', 'editorial blog', 'blog articles', 'ai content writer'],
+  },
+  {
     key: 'blogmate_ai',
-    label: 'BlogMate AI Writer',
+    label: 'AI Content Writer',
     group: 'AI & Automation',
     defaultState: true,
     canDisable: true,
     description: 'AI-powered editorial blog generator and article drafter for high-converting marketing posts.',
     keywords: [
-      'BlogMate AI',
-      'BlogMate',
+      'AI Content Writer',
+      'Content AI',
       'AI Blog Writer',
       'AI Blog Generator',
       'Blog AI Drafter',
@@ -1209,6 +1220,7 @@ export const WHATSAPP_SYNDICATE_FOCUS_PRESET: Record<string, boolean> = {
   referral_chat: false,
   save_favorite: false,
   blogmate_ai: false,
+  blog_creator: false,
   vixora_ai_studio: false,
   ebook_generator: false,
   web_app_generator: false,
@@ -1251,6 +1263,7 @@ export const FEATURE_LEGACY_ALIASES: Record<string, string[]> = {
   storefronts: ['business_sites'],
   syndicate_portal: ['nav_syndicate', 'syndicate'],
   featured_slider: ['slides'],
+  blog_creator: ['blogmate_ai', 'create_blog', 'blog'],
 };
 
 /**
@@ -1278,6 +1291,7 @@ export const FEATURE_NAV_KEYS: Record<string, string[]> = {
   setup_wizard: ['nav_wizard'],
   wallet_transfer: ['nav_transfer'],
   vixora_business_agent: ['nav_business_ai_agent'],
+  blog_creator: ['create_blog', 'nav_blog'],
 };
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {};

@@ -92,10 +92,10 @@ export const DEFAULT_AD_NETWORK_FAQS: FAQItem[] = [
   {
     id: 'faq-7',
     category: 'Tools',
-    feature: 'blogmate_ai',
+    feature: 'blog_creator',
     question: 'What marketing and AI tools are included inside GGD?',
-    answer: 'GGD includes a comprehensive suite of digital marketing tools: BlogMate AI (generates high-converting articles and sales copy), Sales Funnel Generator (builds landing pages and capture forms), Ebook Generator, Dynamic Link Shortener with analytics, and Web App Generator — all designed to accelerate customer acquisition.',
-    tags: ['BlogMate AI', 'Sales Funnel', 'Tools']
+    answer: 'GGD includes a comprehensive suite of digital marketing tools: AI Content Assistant (generates high-converting articles and sales copy), Sales Funnel Generator (builds landing pages and capture forms), Ebook Generator, Dynamic Link Shortener with analytics, and Web App Generator — all designed to accelerate customer acquisition.',
+    tags: ['Content AI', 'Sales Funnel', 'Tools']
   },
   {
     id: 'faq-8',

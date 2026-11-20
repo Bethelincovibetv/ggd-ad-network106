@@ -35,9 +35,9 @@ const CPAMarketing = () => {
     {
       icon: Target,
       title: "Blog Content Marketing",
-      description: "Use BlogMate AI to create SEO-optimized blog posts that naturally promote CPA offers",
+      description: "Use AI Content Assistant to create SEO-optimized blog posts that naturally promote CPA offers",
       steps: [
-        "Generate relevant blog content with BlogMate AI",
+        "Generate relevant blog content with AI Content Assistant",
         "Include CPA offers naturally within the content",
         "Optimize for SEO to drive organic traffic",
         "Track conversions and optimize"
@@ -107,7 +107,7 @@ const CPAMarketing = () => {
           
           <p className="text-xl md:text-2xl text-gray-700 max-w-4xl mx-auto leading-relaxed mb-6">
             Learn how to make <span className="font-bold text-green-600">$100-$5000+ per month</span> with 
-            CPA marketing using BlogMate AI's powerful content creation tools!
+            CPA marketing using AI Content Assistant's powerful content creation tools!
           </p>
           
           <div className="flex justify-center gap-4 mb-6">
@@ -179,10 +179,10 @@ const CPAMarketing = () => {
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">
-            How to Make Money with BlogMate AI + CPA Marketing
+            How to Make Money with AI Content Assistant + CPA Marketing
           </h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Here are the proven strategies to combine BlogMate AI's features with CPA marketing for maximum profits
+            Here are the proven strategies to combine AI Content Assistant's features with CPA marketing for maximum profits
           </p>
         </div>
 
@@ -297,7 +297,7 @@ const CPAMarketing = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <ArrowRight className="h-4 w-4 mt-1 text-orange-500 flex-shrink-0" />
-                  <span>Use BlogMate AI to generate consistent, SEO-optimized content</span>
+                  <span>Use AI Content Assistant to generate consistent, SEO-optimized content</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <ArrowRight className="h-4 w-4 mt-1 text-orange-500 flex-shrink-0" />

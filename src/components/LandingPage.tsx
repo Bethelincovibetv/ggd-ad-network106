@@ -259,10 +259,10 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         : "Partner with verified Syndicate promoters who share your business campaigns across WhatsApp Status, Groups, and Channels.",
       color: "text-purple-400 bg-purple-500/10"
     },
-    ...(isEnabled('blogmate_ai') ? [{
+    ...(isEnabled('blog_creator') ? [{
       icon: Sparkles,
       title: "Create Marketing Content",
-      description: "Use integrated marketing tools, including BlogMate AI, to craft compelling articles, social posts, ads, and sales copy.",
+      description: "Use integrated marketing tools, including AI Content Assistant, to craft compelling articles, social posts, ads, and sales copy.",
       color: "text-pink-400 bg-pink-500/10"
     }] : []),
     ...(isEnabled('community_feed') ? [{
@@ -568,7 +568,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                 problemIcon: AlertTriangle,
                 solutionTitle: "One Unified Growth Ecosystem",
                 solutionDesc:
-                  "GGD brings Business Directory storefronts, Commercial Banner Ads, Credit Tasks, Syndicate Promoters, BlogMate AI, Smart Links, and dual Naira/Credit wallets together in one connected platform.",
+                  "GGD brings Business Directory storefronts, Commercial Banner Ads, Credit Tasks, Syndicate Promoters, AI Content Assistant, Smart Links, and dual Naira/Credit wallets together in one connected platform.",
                 solutionHighlight: "Promote, track, and earn in one workspace",
                 solutionIcon: Layers,
               },
@@ -909,7 +909,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                     step: "02",
                     title: "Create & Promote",
                     desc: [
-                      isEnabled('blogmate_ai') && "Craft marketing copy with BlogMate AI",
+                      isEnabled('blog_creator') && "Craft marketing copy with AI Content Assistant",
                       isEnabled('banner_ads') && "launch Banner Ads",
                       isEnabled('credit_tasks') && "post promotional tasks",
                       "launch verified Syndicate campaigns"
@@ -1318,9 +1318,9 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
         </div>
       )}
 
-      {/* Hidden when whatsappPositioning is ON: BlogMate AI Section */}
-      {!whatsappPositioning && isEnabled('blogmate_ai') && (
-        <div id="blogmate" className="container mx-auto px-4 py-16">
+      {/* Hidden when whatsappPositioning is ON: AI Content Section */}
+      {!whatsappPositioning && isEnabled('blog_creator') && (
+        <div id="content-ai" className="container mx-auto px-4 py-16">
           <Card className="bg-gradient-to-br from-[#1f192b] via-[#241738] to-[#171124] border-purple-500/30 max-w-4xl mx-auto overflow-hidden">
             <CardContent className="p-8 md:p-12 space-y-6 relative">
               <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1330,10 +1330,10 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
                   <Sparkles className="h-3.5 w-3.5" /> Marketing & Content Tool
                 </div>
                 <h2 className="text-2xl md:text-3xl font-black text-white">
-                  BlogMate AI — Marketing & Content Creation
+                  AI Content Assistant — Marketing & Content Creation
                 </h2>
                 <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-                  BlogMate AI is a marketing and content creation tool inside GGD Ad Network. Turn business ideas into compelling articles, social posts, promotional ads, and sales copy in seconds.
+                  AI Content Assistant is a marketing and content creation tool inside GGD Ad Network. Turn business ideas into compelling articles, social posts, promotional ads, and sales copy in seconds.
                 </p>
               </div>
 
@@ -1353,7 +1353,7 @@ const LandingPage = ({ onGetStarted, whatsappPositioning = false }: LandingPageP
 
               <div className="text-center space-y-2 pt-2">
                 <p className="text-xs text-gray-400">
-                  BlogMate is one of several marketing tools within GGD designed to power your business growth.
+                  Content AI is one of several marketing tools within GGD designed to power your business growth.
                 </p>
                 <Button onClick={onGetStarted} size="lg" className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-6 text-sm font-bold rounded-xl shadow-lg hover:scale-105 transition-transform">
                   Explore Marketing Tools <ArrowRight className="ml-4 w-4 h-4" />

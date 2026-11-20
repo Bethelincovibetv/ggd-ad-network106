@@ -389,7 +389,7 @@ const AboutPage: React.FC = () => {
               <div className="space-y-2.5 pt-2">
                 <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Core Strategic Focus</h4>
                 <div className="grid sm:grid-cols-2 gap-2.5">
-                  {(isEnabled('blogmate_ai') || isEnabled('vixora_ai_studio')) && (
+                  {(isEnabled('blog_creator') || isEnabled('vixora_ai_studio')) && (
                     <div className="p-3 rounded-xl bg-background border border-border/80 flex items-start gap-2.5 shadow-xs">
                       <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600 shrink-0">
                         <Rocket className="h-4 w-4" />
@@ -596,7 +596,7 @@ const AboutPage: React.FC = () => {
                 title: 'Create & Promote',
                 desc: (() => {
                   const items: string[] = [];
-                  if (isEnabled('blogmate_ai')) items.push('tools like BlogMate AI');
+                  if (isEnabled('blog_creator')) items.push('tools like AI Content Assistant');
                   if (isEnabled('banner_ads')) items.push('launch Banner Ads');
                   if (isEnabled('credit_tasks')) items.push('post promotional tasks');
                   if (items.length > 0) return `Craft marketing content with ${items.join(', ')}.`;

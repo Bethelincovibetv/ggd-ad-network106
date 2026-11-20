@@ -25,7 +25,7 @@ const ChatHeader = ({ voiceEnabled, onToggleVoice }: ChatHeaderProps) => {
           </div>
           <div>
             <CardTitle className="text-lg">GGD AI Assistant</CardTitle>
-            <p className="text-purple-100 text-sm">Your friendly BlogMate AI companion</p>
+            <p className="text-purple-100 text-sm">Your friendly AI Content assistant</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
