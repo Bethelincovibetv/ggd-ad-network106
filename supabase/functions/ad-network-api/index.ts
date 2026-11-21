@@ -120,18 +120,41 @@ Deno.serve(async (req) => {
           })
         }
 
-        // Check if auto-approve is enabled
+        const durationDays = Number(body.duration_days)
+        if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 365) {
+          return new Response(JSON.stringify({ error: 'duration_days must be a whole number between 1 and 365' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const externalReference = typeof body.external_reference === 'string' ? body.external_reference.trim() : null
+        if (externalReference && externalReference.length > 100) {
+          return new Response(JSON.stringify({ error: 'external_reference is too long' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        if (externalReference) {
+          const { data: existingAd } = await supabase.from('ads')
+            .select('id, title, is_active, approved, expires_at, created_at')
+            .eq('user_id', keyData.user_id)
+            .eq('external_reference', externalReference)
+            .maybeSingle()
+          if (existingAd) {
+            return new Response(JSON.stringify({ success: true, already_exists: true, ad: existingAd }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+          }
+        }
+
+        // The serving endpoint requires BOTH flags, so keep them in sync.
         const { data: toggleData } = await supabase
           .from('feature_toggles')
           .select('is_enabled')
           .eq('feature_key', 'auto_approve_api_ads')
-          .single()
-        
+          .maybeSingle()
         const autoApprove = toggleData?.is_enabled === true
-
-        const expiresAt = body.duration_days 
-          ? new Date(Date.now() + body.duration_days * 86400000).toISOString()
-          : null
+        const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString()
 
         const { data: newAd, error: insertError } = await supabase.from('ads').insert({
           user_id: keyData.user_id,
@@ -139,15 +162,31 @@ Deno.serve(async (req) => {
           description: (body.description || '').slice(0, 1000),
           image_url: body.image_url || null,
           target_url: body.target_url,
+          duration_days: durationDays,
+          external_reference: externalReference,
+          ad_type: 'banner',
           is_active: autoApprove,
+          approved: autoApprove,
           expires_at: expiresAt,
-        }).select('id, title, is_active, created_at').single()
+        }).select('id, title, is_active, approved, expires_at, created_at').single()
 
-        if (insertError) throw insertError
+        if (insertError) {
+          if (externalReference) {
+            const { data: existingAd } = await supabase.from('ads')
+              .select('id, title, is_active, approved, expires_at, created_at')
+              .eq('user_id', keyData.user_id)
+              .eq('external_reference', externalReference)
+              .maybeSingle()
+            if (existingAd) return new Response(JSON.stringify({ success: true, already_exists: true, ad: existingAd }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+          }
+          throw insertError
+        }
 
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: true,
-          message: autoApprove 
+          message: autoApprove
             ? 'Ad submitted and automatically approved! It is now live.'
             : 'Ad submitted successfully. It will be reviewed and activated by admin.',
           ad: newAd
