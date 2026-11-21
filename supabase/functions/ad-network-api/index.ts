@@ -60,6 +60,8 @@ Deno.serve(async (req) => {
         .from('ads')
         .select('id, title, description, image_url, target_url')
         .eq('is_active', true)
+        .eq('approved', true)
+        .eq('ad_type', 'banner')
         .or(`expires_at.is.null,expires_at.gt.${now}`)
         .limit(limit)
 
