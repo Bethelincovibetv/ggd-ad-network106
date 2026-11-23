@@ -129,58 +129,112 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
       const loadedCats = catRes.data || [];
 
-      const profileBusinesses = (profRes.data || [])
-        .filter((p: any) => p.business_name && p.business_name.trim().length > 0)
-        .map((p: any) => ({
-          id: p.id || p.user_id,
-          user_id: p.user_id,
-          business_name: p.business_name,
-          description: p.business_description,
-          logo_url: p.business_logo_url || p.avatar_url,
-          category_id: p.business_category || p.industry,
-          category: p.business_category || p.industry,
-          state: p.state || (p.business_location ? extractStateFromLocation(p.business_location) : null),
-          address: p.business_location || 'Nigeria',
-          phone_number: p.business_phone,
-          website_link: p.business_website,
-          slug: p.business_slug,
-          is_directory_listed: true,
-          is_verified: p.is_verified || p.verification_status === 'VERIFIED',
-          source: 'profile',
-        }));
+      const profileByUserId = new Map<string, any>();
+      (profRes.data || []).forEach((p: any) => {
+        if (p.user_id) profileByUserId.set(p.user_id, p);
+      });
 
       const rawBiz = bizRes.data || [];
-      const bizMap = new Map<string, any>();
-
-      profileBusinesses.forEach((b: any) => {
-        if (b.user_id) bizMap.set(b.user_id, b);
-        if (b.id) bizMap.set(b.id, b);
-      });
+      const dedupedByKey = new Map<string, any>();
+      const keyById = new Map<string, string>();
+      const keyByUserId = new Map<string, string>();
+      const keyByName = new Map<string, string>();
 
       rawBiz.forEach((b: any) => {
-        if (b.user_id) bizMap.set(b.user_id, { ...bizMap.get(b.user_id), ...b });
-        else if (b.id) bizMap.set(b.id, b);
+        const cleanName = typeof b.business_name === 'string' ? b.business_name.trim() : '';
+        if (!cleanName || b.is_directory_listed === false) return;
+
+        const prof = b.user_id ? profileByUserId.get(b.user_id) : null;
+        const normalizedName = cleanName.toLowerCase();
+        const existingKey =
+          (b.id && keyById.get(b.id)) ||
+          (b.user_id && keyByUserId.get(b.user_id)) ||
+          keyByName.get(normalizedName);
+
+        const candidate = {
+          ...b,
+          business_name: cleanName,
+          description: b.description || prof?.business_description || null,
+          logo_url: b.logo_url || prof?.business_logo_url || prof?.avatar_url || null,
+          category_id: b.category_id || prof?.business_category || prof?.industry || null,
+          state:
+            b.state ||
+            prof?.state ||
+            (b.address ? extractStateFromLocation(b.address) : null) ||
+            (prof?.business_location ? extractStateFromLocation(prof.business_location) : null),
+          address: b.address || prof?.business_location || 'Nigeria',
+          phone_number: b.phone_number || prof?.business_phone || null,
+          website_link: b.website_link || prof?.business_website || null,
+          is_verified: Boolean(
+            b.is_verified === true ||
+              b.verification_status === 'VERIFIED' ||
+              prof?.is_verified === true ||
+              prof?.verification_status === 'VERIFIED'
+          ),
+          verification_status:
+            b.verification_status === 'VERIFIED' || prof?.verification_status === 'VERIFIED'
+              ? 'VERIFIED'
+              : b.verification_status || prof?.verification_status || 'UNVERIFIED',
+        };
+
+        if (existingKey && dedupedByKey.has(existingKey)) {
+          const prev = dedupedByKey.get(existingKey);
+          const merged = {
+            ...prev,
+            ...candidate,
+            id: prev.id || candidate.id,
+            user_id: prev.user_id || candidate.user_id,
+            description: prev.description || candidate.description,
+            logo_url: prev.logo_url || candidate.logo_url,
+            category_id: prev.category_id || candidate.category_id,
+            state: prev.state || candidate.state,
+            phone_number: prev.phone_number || candidate.phone_number,
+            website_link: prev.website_link || candidate.website_link,
+            whatsapp_link: prev.whatsapp_link || candidate.whatsapp_link,
+            is_verified: Boolean(prev.is_verified || candidate.is_verified),
+            verification_status:
+              prev.verification_status === 'VERIFIED' || candidate.verification_status === 'VERIFIED'
+                ? 'VERIFIED'
+                : prev.verification_status || candidate.verification_status,
+          };
+          dedupedByKey.set(existingKey, merged);
+          if (merged.id) keyById.set(merged.id, existingKey);
+          if (merged.user_id) keyByUserId.set(merged.user_id, existingKey);
+          keyByName.set(normalizedName, existingKey);
+        } else {
+          const canonicalKey = b.user_id || b.id || normalizedName;
+          dedupedByKey.set(canonicalKey, candidate);
+          if (candidate.id) keyById.set(candidate.id, canonicalKey);
+          if (candidate.user_id) keyByUserId.set(candidate.user_id, canonicalKey);
+          keyByName.set(normalizedName, canonicalKey);
+        }
       });
 
-      const allBiz = Array.from(new Set(bizMap.values())).filter(
-        (b: any) => b.is_directory_listed !== false && b.business_name
-      );
+      const allBiz = Array.from(dedupedByKey.values());
+      const bizLookup = new Map<string, any>();
+      allBiz.forEach((b: any) => {
+        if (b.id) bizLookup.set(b.id, b);
+        if (b.user_id) bizLookup.set(b.user_id, b);
+      });
 
       const rawDbListings = listRes.data || [];
       const dbListings = rawDbListings
         .map((l: any) => {
           const attachedBiz =
+            (l.business_profile_id && bizLookup.get(l.business_profile_id)) ||
+            (l.user_id && bizLookup.get(l.user_id)) ||
             l.business_profiles ||
-            bizMap.get(l.business_profile_id) ||
-            (l.user_id ? bizMap.get(l.user_id) : null);
+            null;
           return {
             ...l,
             business_profiles: attachedBiz || {
               id: l.business_profile_id || l.user_id,
+              user_id: l.user_id,
               business_name: l.title || 'Merchant',
               logo_url: null,
               category_id: l.category_id || null,
               is_directory_listed: true,
+              is_verified: false,
               address: 'Nigeria',
               state: null,
             },
@@ -251,24 +305,25 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
   const activeCategoryObj = categories.find((c) => c.id === selectedCategory);
 
-  const verifiedBusinessesCount = useMemo(() => {
-    return businesses.filter((b) => isBusinessVerified(b)).length;
+  const verifiedBusinesses = useMemo(() => {
+    return businesses.filter((b) => isBusinessVerified(b));
   }, [businesses, isBusinessVerified]);
 
+  const verifiedBusinessesCount = verifiedBusinesses.length;
+
   const businessCountByState = useMemo(() => {
-    return businesses.reduce((acc: Record<string, number>, b) => {
+    return verifiedBusinesses.reduce((acc: Record<string, number>, b) => {
       const st = getBusinessEffectiveState(b);
       if (st) {
         acc[st] = (acc[st] || 0) + 1;
       }
       return acc;
     }, {});
-  }, [businesses]);
+  }, [verifiedBusinesses]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return businesses.filter((b) => {
-      if (onlyVerified && !isBusinessVerified(b)) return false;
+    return verifiedBusinesses.filter((b) => {
       const bState = getBusinessEffectiveState(b);
       const matchesSearch =
         !q ||
@@ -286,7 +341,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
       return matchesSearch && matchesCategory && matchesState;
     });
-  }, [businesses, onlyVerified, searchQuery, selectedCategory, selectedState, isBusinessVerified]);
+  }, [verifiedBusinesses, searchQuery, selectedCategory, selectedState]);
 
   const filteredListings = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -334,7 +389,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
   const activeNearbyState = selectedState !== 'all' ? selectedState : userDetectedLocation?.state || null;
   const nearbyBusinesses = activeNearbyState
-    ? businesses.filter((b) => {
+    ? verifiedBusinesses.filter((b) => {
         const st = getBusinessEffectiveState(b);
         return (
           st &&
@@ -394,8 +449,8 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
           <div className="grid grid-cols-3 gap-2.5 sm:gap-4 max-w-lg pt-1">
             <div className="rounded-xl sm:rounded-2xl bg-white/10 border border-white/15 p-3 sm:p-4 text-center">
-              <p className="text-xl sm:text-2xl font-bold tabular-nums">{businesses.length}</p>
-              <p className="text-xs sm:text-sm text-white/85 font-medium mt-0.5">Businesses</p>
+              <p className="text-xl sm:text-2xl font-bold tabular-nums">{verifiedBusinesses.length}</p>
+              <p className="text-xs sm:text-sm text-white/85 font-medium mt-0.5">Verified Stores</p>
             </div>
             <div className="rounded-xl sm:rounded-2xl bg-white/10 border border-white/15 p-3 sm:p-4 text-center">
               <p className="text-xl sm:text-2xl font-bold tabular-nums text-amber-200">{categories.length}</p>
@@ -452,7 +507,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
             </SelectTrigger>
             <SelectContent className="rounded-xl max-h-72">
               <SelectItem value="all">
-                All 36 States &amp; FCT ({businesses.length})
+                All 36 States &amp; FCT ({verifiedBusinesses.length})
               </SelectItem>
               {NIGERIAN_STATES.map((st) => {
                 const count = businessCountByState[st] || 0;
@@ -475,7 +530,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
             </SelectTrigger>
             <SelectContent className="rounded-xl max-h-72">
               <SelectItem value="all">
-                All Industries ({listings.length + businesses.length})
+                All Industries ({listings.length + verifiedBusinesses.length})
               </SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
@@ -603,14 +658,14 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                 <Store className="h-4 w-4 shrink-0" />
                 All Industries
               </span>
-              <span className="text-xs tabular-nums opacity-80">{listings.length + businesses.length}</span>
+              <span className="text-xs tabular-nums opacity-80">{listings.length + verifiedBusinesses.length}</span>
             </button>
 
             {categories.map((c) => {
               const cMeta = getIndustryMeta(c.slug || c.name);
               const CIcon = cMeta.icon;
               const isSel = selectedCategory === c.id;
-              const bizCount = businesses.filter((b) => b.category_id === c.id).length;
+              const bizCount = verifiedBusinesses.filter((b) => b.category_id === c.id).length;
               const itemCount = listings.filter((l) => l.business_profiles?.category_id === c.id).length;
 
               return (
@@ -1034,7 +1089,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
             }
 
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {listToShow.map((l) => {
                   const catObj = categories.find((c) => c.id === l.business_profiles?.category_id);
                   const isSrv = l.listing_type === 'service';
@@ -1047,7 +1102,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                       className="rounded-2xl overflow-hidden bg-card border border-border hover:border-orange-500/70 transition-all duration-150 hover:-translate-y-0.5 shadow-xs flex flex-col justify-between group"
                     >
                       <div>
-                        {/* Card Media */}
+                        {/* Compact Multi-Column Card Media */}
                         <div
                           role="button"
                           tabIndex={0}
@@ -1069,26 +1124,26 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center text-white/70 gap-2 p-4">
-                              {isSrv ? <Briefcase className="h-10 w-10" /> : <Package className="h-10 w-10" />}
-                              <span className="text-xs font-medium text-center line-clamp-1">{l.title}</span>
+                            <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center text-white/70 gap-1.5 p-3">
+                              {isSrv ? <Briefcase className="h-8 w-8" /> : <Package className="h-8 w-8" />}
+                              <span className="text-[11px] font-medium text-center line-clamp-1">{l.title}</span>
                             </div>
                           )}
 
                           {l.is_featured && (
-                            <div className="absolute top-3 left-3 z-10">
+                            <div className="absolute top-2 left-2 z-10">
                               <BlazingBadge label="FEATURED" size="sm" />
                             </div>
                           )}
 
                           {l.video_url && (
-                            <div className="absolute top-3 right-16 h-10 w-10 rounded-full bg-black/65 grid place-items-center z-10">
-                              <Play className="h-4 w-4 text-white" fill="white" />
+                            <div className="absolute top-2 right-12 h-8 w-8 rounded-full bg-black/65 grid place-items-center z-10">
+                              <Play className="h-3.5 w-3.5 text-white" fill="white" />
                             </div>
                           )}
 
                           <div
-                            className="absolute top-2.5 right-2.5 z-20"
+                            className="absolute top-2 right-2 z-20"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <FavoriteButton
@@ -1109,35 +1164,23 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                                 businessWebsite: l.business_profiles?.website_link,
                               }}
                               variant="overlay"
-                              size="lg"
+                              size="md"
                             />
                           </div>
                         </div>
 
-                        {/* Readable Card Content */}
-                        <div className="p-4 sm:p-5 space-y-2">
-                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs sm:text-sm text-muted-foreground font-medium">
-                            <span className={isSrv ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400 font-semibold'}>
+                        {/* Compact Card Content */}
+                        <div className="p-2.5 sm:p-3.5 space-y-1">
+                          <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground font-medium truncate">
+                            <span className={isSrv ? 'text-blue-600 dark:text-blue-400 font-semibold shrink-0' : 'text-emerald-600 dark:text-emerald-400 font-semibold shrink-0'}>
                               {isSrv ? 'Service' : 'Product'}
                             </span>
-                            {catObj && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/industry/${catObj.slug || catObj.id}`)}
-                                  className="hover:text-orange-600 hover:underline truncate max-w-[160px]"
-                                >
-                                  {catObj.name}
-                                </button>
-                              </>
-                            )}
                             {itemState && (
                               <>
                                 <span aria-hidden="true">·</span>
-                                <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                                  {itemState}
+                                <span className="inline-flex items-center gap-0.5 text-rose-600 dark:text-rose-400 truncate">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{itemState}</span>
                                 </span>
                               </>
                             )}
@@ -1145,40 +1188,40 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
                           <h3
                             onClick={() => navigate(`/product/${l.id}`)}
-                            className="text-base sm:text-lg font-semibold text-foreground leading-snug line-clamp-2 cursor-pointer group-hover:text-orange-600 transition-colors"
+                            className="text-xs sm:text-sm font-bold text-foreground leading-snug line-clamp-2 cursor-pointer group-hover:text-orange-600 transition-colors min-h-[2.25rem]"
                           >
                             {l.title}
                           </h3>
 
-                          <p className="text-sm text-muted-foreground flex items-center gap-1.5 truncate">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1 truncate">
                             <span className="truncate">
                               {l.business_profiles?.business_name || 'Accredited Business'}
                             </span>
                             {isVerifiedSeller && (
-                              <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" aria-label="Verified Seller" />
+                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" aria-label="Verified Seller" />
                             )}
                           </p>
                         </div>
                       </div>
 
-                      {/* Spacious Price & Action Footer */}
-                      <div className="p-4 sm:p-5 pt-0 space-y-3">
-                        <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+                      {/* Compact Price & Action Footer */}
+                      <div className="p-2.5 sm:p-3.5 pt-0 space-y-2">
+                        <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1.5">
                           {l.price ? (
-                            <p className="text-lg font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                            <p className="text-sm sm:text-base font-bold tabular-nums text-orange-600 dark:text-orange-400 truncate">
                               ₦{Number(l.price).toLocaleString()}
                             </p>
                           ) : (
-                            <span className="text-sm font-medium text-muted-foreground">Price on inquiry</span>
+                            <span className="text-xs font-medium text-muted-foreground">Inquiry</span>
                           )}
                         </div>
 
                         <Button
                           type="button"
                           onClick={() => navigate(`/product/${l.id}`)}
-                          className="w-full h-11 min-h-[44px] rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm gap-2"
+                          className="w-full h-10 sm:h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm gap-1.5"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                           <span>View Details</span>
                         </Button>
                       </div>
