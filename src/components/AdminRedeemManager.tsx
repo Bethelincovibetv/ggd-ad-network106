@@ -122,21 +122,21 @@ export const AdminRedeemManager: React.FC = () => {
       const { error } = await supabase.from('feature_toggles').upsert([
         {
           feature_key: 'credit_airtime_redeem',
-          feature_name: 'Redeem Airtime & Data Page',
+          feature_name: 'Redeem Hub Page',
           is_enabled: nextState,
-          description: 'Redeem Airtime & Data Page where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
+          description: 'Redeem Hub where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
         },
         {
           feature_key: 'airtime_redeem',
-          feature_name: 'Airtime & Data Redeem Marketplace',
+          feature_name: 'Redeem Hub',
           is_enabled: nextState,
-          description: 'Master toggle for the Airtime & Data Redeem Marketplace.',
+          description: 'Master toggle for the Redeem Hub.',
         },
         {
           feature_key: 'nav_airtime_redeem',
-          feature_name: 'Redeem Airtime & Data',
+          feature_name: 'Redeem Hub',
           is_enabled: nextState,
-          description: 'Show or hide Redeem Airtime & Data button on navigation menus',
+          description: 'Show or hide Redeem Hub button on navigation menus',
         },
       ], { onConflict: 'feature_key' });
 
@@ -147,8 +147,8 @@ export const AdminRedeemManager: React.FC = () => {
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
 
       toast.success(nextState 
-        ? '✅ Airtime & Data Marketplace is now ACTIVE for users' 
-        : '⏸️ Airtime & Data Marketplace is now PAUSED (hidden from users)');
+        ? '✅ Redeem Hub is now ACTIVE for users' 
+        : '⏸️ Redeem Hub is now PAUSED (hidden from users)');
     } catch (err: any) {
       setIsFeatureEnabled(prevState);
       setFeatureToggleLocally('credit_airtime_redeem', prevState);
@@ -382,7 +382,7 @@ export const AdminRedeemManager: React.FC = () => {
 
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1.5 flex items-center gap-2">
               <Smartphone className="h-6 w-6 text-orange-400" />
-              Airtime & Data Redeem Marketplace
+              Redeem Hub
             </h2>
 
             <p className="text-xs sm:text-sm text-zinc-300 max-w-xl mt-1 leading-relaxed">
@@ -400,7 +400,7 @@ export const AdminRedeemManager: React.FC = () => {
                   <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                 )}
                 <span className="text-xs font-black text-white">
-                  Redeem Feature Status
+                  Redeem Hub Status
                 </span>
               </div>
               <Switch
@@ -463,7 +463,7 @@ export const AdminRedeemManager: React.FC = () => {
           <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="text-xs font-black text-amber-900 dark:text-amber-200">
-              Redemption Feature Is Currently Disabled in Feature Toggles
+              Redeem Hub Is Currently Disabled in Feature Toggles
             </p>
             <p className="text-[11px] text-amber-800 dark:text-amber-300">
               Users cannot browse or redeem airtime & data packages right now. Use the toggle switch above or go to the <strong>Feature Toggles</strong> module to turn it back on at any time.

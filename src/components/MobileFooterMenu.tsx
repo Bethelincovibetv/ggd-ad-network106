@@ -53,7 +53,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
     ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{
       id: 'redeem-airtime',
       icon: Smartphone,
-      label: 'Airtime',
+      label: 'Redeem Hub',
       grad: 'from-amber-500 via-orange-500 to-yellow-600',
       matches: ['redeem', 'redeem-airtime', 'airtime']
     }] : []),

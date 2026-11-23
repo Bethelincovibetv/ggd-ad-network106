@@ -171,7 +171,7 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
                       {isAdmin ? 'Unlimited' : `${credits.toLocaleString()} cr`}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & redeem instant airtime.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Used to run campaigns, broadcast ads & access the Redeem Hub.</p>
                   <div className={`grid ${showAirtimeRedeem ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5 mt-2`}>
                     {showAirtimeRedeem && (
                       <Button
@@ -182,7 +182,7 @@ export const HeaderWallets: React.FC<HeaderWalletsProps> = ({
                           onNavigate('redeem-airtime');
                         }}
                       >
-                        Redeem Airtime
+                        Redeem Hub
                       </Button>
                     )}
                     <Button

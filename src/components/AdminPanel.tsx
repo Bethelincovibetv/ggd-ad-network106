@@ -51,7 +51,7 @@ const ADMIN_MODULES = [
   { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'from-blue-600 to-cyan-600' },
   { id: 'users', label: 'Users & KYC', icon: Users, color: 'from-orange-600 to-red-600' },
   { id: 'activation-fee', label: 'Activation Fee', icon: ShieldCheck, color: 'from-orange-500 to-amber-600', badge: 'Onboarding' },
-  { id: 'airtime', label: 'Airtime & Data', icon: Smartphone, color: 'from-orange-500 via-amber-500 to-red-600' },
+  { id: 'airtime', label: 'Redeem Hub', icon: Smartphone, color: 'from-orange-500 via-amber-500 to-red-600' },
   { id: 'settings', label: 'Settings', icon: Settings, color: 'from-pink-600 to-rose-600' },
   { id: 'features', label: 'Toggles', icon: Settings2, color: 'from-fuchsia-600 to-purple-600' },
   { id: 'tasks', label: 'Credit Tasks', icon: ClipboardList, color: 'from-emerald-600 to-teal-600' },

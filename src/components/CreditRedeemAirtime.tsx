@@ -189,10 +189,10 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
           <AlertTriangle className="h-8 w-8" />
         </div>
         <h2 className="text-xl font-black text-foreground">
-          Airtime & Data Redemption Paused
+          Redeem Hub Paused
         </h2>
         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-          The Airtime & Data Redeem Marketplace is currently paused by platform administration for scheduled maintenance or catalog restocking.
+          The Redeem Hub is currently paused by platform administration for scheduled maintenance or catalog restocking.
         </p>
         <div className="mt-4 p-4 rounded-2xl bg-muted/40 border border-border/60 text-xs text-muted-foreground text-left space-y-1.5">
           <p className="font-bold text-foreground flex items-center gap-1.5">
@@ -260,7 +260,7 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
             </div>
 
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white">
-              Airtime & Mobile Data Marketplace
+              Redeem Hub
             </h1>
 
             <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">

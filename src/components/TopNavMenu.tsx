@@ -30,7 +30,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness: _isBusiness, isSyndica
     ...(isEnabled('nav_wallet') ? [{ id: 'wallet', icon: Wallet, label: 'Wallet', matches: ['wallet', 'fund-credits', 'task-wallet', 'syndicate-wallet'] }] : []),
     ...(isEnabled('wallet_transfer') && isEnabled('nav_transfer') ? [{ id: 'transfer', icon: Send, label: 'Transfer', matches: ['transfer'] }] : []),
     ...(isEnabled('credit_tasks') && (isEnabled('nav_credit_tasks') || isEnabled('nav_social_tasks')) ? [{ id: 'tasks', icon: CheckSquare, label: 'Tasks', matches: ['tasks'] }] : []),
-    ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Airtime', matches: ['redeem', 'redeem-airtime', 'airtime'] }] : []),
+    ...(isEnabled('credit_airtime_redeem') && isEnabled('nav_airtime_redeem') ? [{ id: 'redeem-airtime', icon: Smartphone, label: 'Redeem Hub', matches: ['redeem', 'redeem-airtime', 'airtime'] }] : []),
     ...(isEnabled('chat_and_calls') && isEnabled('nav_inbox') ? [{ id: 'inbox', icon: MessageCircle, label: 'GGD Inbox', matches: ['inbox', 'chat', 'messages'] }] : []),
     ...(isEnabled('syndicate_core') && isEnabled('syndicate_portal') && (isSyndicate ? isEnabled('nav_syndicate') : isEnabled('nav_syndicate_join')) ? [{
       id: isSyndicate ? 'syndicate' : 'syndicate-join',

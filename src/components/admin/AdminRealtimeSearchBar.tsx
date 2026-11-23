@@ -258,10 +258,10 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
   {
     id: 'airtime-marketplace',
     sectionId: 'airtime',
-    title: 'Airtime & Data Redeem Marketplace',
+    title: 'Redeem Hub',
     category: 'PLATFORM & CONFIG',
     description: 'Create and manage redeemable airtime, data bundles, and seed offers',
-    keywords: ['airtime', 'data', 'redeem', 'redeem airtime', 'mtn', 'airtel', 'glo', '9mobile', 'gift cards'],
+    keywords: ['redeem hub', 'airtime', 'data', 'redeem', 'redeem airtime', 'mtn', 'airtel', 'glo', '9mobile', 'gift cards'],
     icon: Smartphone,
     color: 'from-orange-500 via-amber-500 to-red-600'
   },
@@ -290,8 +290,8 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
     sectionId: 'features',
     title: 'Feature Toggles (Module Controller)',
     category: 'PLATFORM & CONFIG',
-    description: 'Enable or disable platform features: Community, Tasks, Redeem Airtime, Vixora AI, Syndicate',
-    keywords: ['feature toggles', 'toggles', 'modules', 'disable', 'enable', 'switch off', 'community', 'tasks', 'redeem airtime'],
+    description: 'Enable or disable platform features: Community, Tasks, Redeem Hub, Vixora AI, Syndicate',
+    keywords: ['feature toggles', 'toggles', 'modules', 'disable', 'enable', 'switch off', 'community', 'tasks', 'redeem hub', 'redeem airtime'],
     icon: Settings2,
     color: 'from-cyan-500 to-blue-600'
   },
@@ -579,7 +579,7 @@ export const AdminRealtimeSearchBar: React.FC<AdminRealtimeSearchBarProps> = ({
                   No matching feature or admin destination for "{query}"
                 </p>
                 <p className="text-[11px] text-muted-foreground/70">
-                  Try searching "community", "tasks", "redeem airtime", "syndicate", "ads", "settings", or "users"
+                  Try searching "community", "tasks", "redeem hub", "syndicate", "ads", "settings", or "users"
                 </p>
               </div>
             ) : (

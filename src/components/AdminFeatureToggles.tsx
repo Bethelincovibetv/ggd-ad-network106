@@ -486,7 +486,7 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
 
       await logToggleChange('RESTORE_COMMUNITY_TASKS_AIRTIME', true);
       fetch('/api/admin/invalidate-feature-cache', { method: 'POST' }).catch(() => {});
-      toast.success("Community Page, Task Page & Redeem Airtime Page restored and enabled!");
+      toast.success("Community Page, Task Page & Redeem Hub restored and enabled!");
     } catch (err: any) {
       setFeatures(previousFeatures);
       toast.error("Failed restoring pages: " + (err?.message || 'Permission denied'));
@@ -970,7 +970,7 @@ const AdminFeatureToggles: React.FC<AdminFeatureTogglesProps> = ({
                   One or more restored user pages are currently switched OFF
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Community Page, Task Page, or Redeem Airtime & Data (or their menu links) are disabled. Click restore to turn all three back on immediately.
+                  Community Page, Task Page, or Redeem Hub (or their menu links) are disabled. Click restore to turn all three back on immediately.
                 </p>
               </div>
             </div>

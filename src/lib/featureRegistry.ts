@@ -321,14 +321,16 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
   },
   {
     key: 'credit_airtime_redeem',
-    label: 'Redeem Airtime & Data Page',
+    label: 'Redeem Hub Page',
     group: 'Credit & Tasks Economy',
     defaultState: true,
     canDisable: true,
-    description: 'Redeem Airtime & Data Page where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
+    description: 'Redeem Hub where users exchange earned credits for instant MTN, Airtel, Glo, and 9mobile airtime and data bundles.',
     navTabIds: ['redeem', 'redeem-airtime', 'airtime'],
     routes: ['/redeem', '/airtime', '/redeem-airtime'],
     keywords: [
+      'Redeem Hub',
+      'Redeem Hub Page',
       'Redeem Airtime Page',
       'Redeem Airtime',
       'Airtime & Data',
@@ -882,10 +884,10 @@ export const MENU_TOGGLE_REGISTRY: MenuToggleDefinition[] = [
   },
   {
     key: 'nav_airtime_redeem',
-    label: 'Redeem Airtime & Data',
+    label: 'Redeem Hub',
     section: 'Main Navigation',
     defaultState: true,
-    description: 'Main navigation item for Instant Airtime & Data Redemption',
+    description: 'Main navigation item for Redeem Hub',
     navTabId: 'redeem-airtime',
   },
   {

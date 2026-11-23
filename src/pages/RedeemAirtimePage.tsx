@@ -36,7 +36,7 @@ const RedeemAirtimePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <MetaTags
-        title="Airtime & Data Redeem Marketplace — GGD Network"
+        title="Redeem Hub — GGD Network"
         description="Redeem your earned wallet credits for high-speed mobile data bundles and instant airtime recharge tools on MTN, Airtel, Glo, and 9mobile."
       />
 
@@ -60,7 +60,7 @@ const RedeemAirtimePage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Smartphone className="h-4 w-4 text-orange-500" />
               <span className="text-xs sm:text-sm font-black text-foreground">
-                Airtime & Data Redeem Marketplace
+                Redeem Hub
               </span>
             </div>
           </div>

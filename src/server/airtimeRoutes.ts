@@ -9,7 +9,7 @@ const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUz
 router.get('/config', async (_req: Request, res: Response) => {
   return res.json({
     success: true,
-    marketplace: 'Airtime & Data Redeem Marketplace',
+    marketplace: 'Redeem Hub',
     isActive: true,
     exchangeRate: 100,
     networks: [
@@ -25,7 +25,7 @@ router.get('/config', async (_req: Request, res: Response) => {
 router.get('/admin/config', async (_req: Request, res: Response) => {
   return res.json({
     success: true,
-    marketplace: 'Airtime & Data Redeem Marketplace',
+    marketplace: 'Redeem Hub',
     mode: 'credit_gated_marketplace',
     isActive: true,
   });
@@ -33,7 +33,7 @@ router.get('/admin/config', async (_req: Request, res: Response) => {
 
 // Health check / diagnostic
 router.get('/health', (_req: Request, res: Response) => {
-  return res.json({ status: 'ok', service: 'Airtime & Data Marketplace' });
+  return res.json({ status: 'ok', service: 'Redeem Hub' });
 });
 
 export function registerAirtimeRoutes(app: any) {
