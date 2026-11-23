@@ -155,7 +155,7 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
 
   if (isRecording) {
     return (
-      <div className="flex items-center gap-2 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-transparent p-1.5 rounded-full border border-red-500/30 w-full animate-fadeIn">
+      <div className="flex items-center gap-2 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-transparent p-1.5 rounded-2xl border border-red-500/30 w-full inbox-card-3d">
         {/* Cancel button */}
         <Button
           type="button"
@@ -163,22 +163,23 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
           variant="ghost"
           onClick={cancelRecording}
           disabled={isProcessing}
-          className="h-8 w-8 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0"
+          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-xl inbox-key-3d text-muted-foreground hover:text-red-600 shrink-0"
           title="Cancel recording"
+          aria-label="Cancel recording"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
 
         {/* Pulsing indicator & timer */}
-        <div className="flex items-center gap-2 flex-1 px-1">
-          <span className="relative flex h-3 w-3">
+        <div className="flex items-center gap-2 flex-1 px-1 min-w-0">
+          <span className="relative flex h-3 w-3 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
           </span>
-          <span className="font-mono text-xs font-bold text-red-600">
+          <span className="font-mono text-xs font-bold text-red-600 shrink-0">
             {formatTime(recordingSeconds)}
           </span>
-          <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">
+          <span className="text-[11px] text-muted-foreground font-medium truncate hidden sm:inline">
             Recording audio...
           </span>
         </div>
@@ -189,14 +190,14 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
           size="sm"
           onClick={stopAndSend}
           disabled={isProcessing}
-          className="h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs gap-1.5 px-3.5 shrink-0 shadow-sm hover:opacity-90 active:scale-95 transition-all"
+          className="h-11 min-h-[44px] rounded-xl inbox-key-3d-orange font-bold text-xs gap-1.5 px-4 shrink-0 whitespace-nowrap"
           title="Post Voice Record (Press Enter to post)"
         >
           {isProcessing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-4 w-4" />
               <span>Post Record</span>
             </>
           )}
@@ -212,8 +213,9 @@ export const VoiceNoteRecorder: React.FC<VoiceNoteRecorderProps> = ({ onSendVoic
       variant="ghost"
       onClick={startRecording}
       disabled={disabled}
-      className="h-9 w-9 rounded-full text-muted-foreground hover:text-orange-600 hover:bg-orange-50 shrink-0 transition-colors"
+      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-xl inbox-key-3d text-foreground hover:text-orange-600 shrink-0"
       title="Hold or click to record voice note"
+      aria-label="Record voice note"
     >
       <Mic className="h-4 w-4" />
     </Button>

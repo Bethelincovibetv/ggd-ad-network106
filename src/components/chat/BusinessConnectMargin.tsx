@@ -197,24 +197,24 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
 
   if (isCompact) {
     return (
-      <div className={`p-2.5 rounded-xl border bg-card shadow-xs space-y-2 ${className}`}>
+      <div className={`p-2 rounded-xl inbox-card-3d space-y-1.5 ${className}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className={`h-6 w-6 rounded-md bg-gradient-to-br ${themeColor} text-white grid place-items-center shrink-0`}>
+            <div className={`h-6 w-6 rounded-lg bg-gradient-to-br ${themeColor} text-white grid place-items-center shrink-0 shadow-xs`}>
               <Icon className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-black text-foreground truncate block">{recommendationTitle}</span>
-              <span className="text-[10px] text-muted-foreground truncate block">{recommendationDesc}</span>
+              <span className="text-[11px] font-bold text-foreground truncate block leading-tight">{recommendationTitle}</span>
+              <span className="text-[10px] text-muted-foreground truncate block leading-tight">{recommendationDesc}</span>
             </div>
           </div>
-          <Badge className={`text-[9px] font-black shrink-0 border ${badgeColor}`}>
+          <Badge className={`text-[9px] font-bold shrink-0 border whitespace-nowrap ${badgeColor}`}>
             {typeLabel}
           </Badge>
         </div>
 
         {/* Quick action chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
           {quickPrompts.map((p, idx) => (
             <button
               key={idx}
@@ -226,7 +226,7 @@ export const BusinessConnectMargin: React.FC<BusinessConnectMarginProps> = ({
                   onApplyPrompt(p.text);
                 }
               }}
-              className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-secondary/80 hover:bg-orange-500/15 hover:text-orange-600 border border-border/80 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 active:scale-95"
+              className="min-h-[38px] text-[11px] font-bold px-3 py-1.5 rounded-xl inbox-key-3d text-foreground hover:text-orange-600 whitespace-nowrap shrink-0 flex items-center gap-1"
             >
               <span>{p.label}</span>
               <ChevronRight className="h-3 w-3 opacity-60" />

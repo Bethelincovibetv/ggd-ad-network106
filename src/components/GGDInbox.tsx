@@ -768,13 +768,33 @@ const GGDInbox: React.FC = () => {
     catch { toast.error("Copy failed"); }
   };
 
+  const formatCompactTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) {
+        return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+      return date.toLocaleDateString([], { month: "short", day: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+
   // ================= UI =================
   if (activeOther) {
     return (
-      <Card className="h-[calc(100vh-8rem)] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-3 p-3 border-b bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-lg">
-          <button onClick={closeThread} className="hover:bg-white/20 p-1.5 rounded-lg transition"><ArrowLeft className="h-5 w-5" /></button>
+      <Card className="h-[calc(100dvh-6.5rem)] sm:h-[calc(100vh-8rem)] flex flex-col rounded-2xl overflow-hidden inbox-card-3d border-0">
+        {/* Compact Tactile 3D Thread Header */}
+        <div className="flex items-center gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_3px_10px_rgba(234,88,12,0.25)] shrink-0">
+          <button
+            type="button"
+            onClick={closeThread}
+            aria-label="Back to inbox"
+            className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_rgba(124,45,18,0.4)] transition-transform duration-150 active:translate-y-[1.5px]"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <a
             href={`/user/${activeOther}`}
             target="_blank"
@@ -803,54 +823,61 @@ const GGDInbox: React.FC = () => {
             href={`/user/${activeOther}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white border border-white/30 text-xs font-bold transition shadow-xs shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] sm:h-10 sm:min-w-[40px] px-2.5 sm:px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs font-bold shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_rgba(124,45,18,0.4)] transition-transform duration-150 active:translate-y-[1.5px]"
             title="Open Business Website & Public Storefront"
+            aria-label="Open Business Website & Public Storefront"
           >
-            <Store className="h-3.5 w-3.5 text-amber-300" />
-            <span className="hidden sm:inline">Business Site</span>
-            <ExternalLink className="h-3 w-3 opacity-80" />
+            <Store className="h-4 w-4 text-amber-200 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">Business Site</span>
+            <ExternalLink className="h-3 w-3 opacity-80 hidden sm:inline" />
           </a>
 
-          {/* WebRTC Live Audio & Video Call Buttons */}
+          {/* WebRTC Live Audio & Video Call Buttons — Large 44px Mobile 3D Targets */}
           <div className="flex items-center gap-1.5 shrink-0">
             <CallButton
               calleeId={activeOther}
               calleeName={otherProfile?.business_name || otherProfile?.display_name || "Member"}
               calleeAvatar={otherProfile?.avatar_url || undefined}
               callType="audio"
-              className="h-8 w-8 bg-white/15 hover:bg-white/30 text-white border-white/20 shadow-xs"
+              variant="ghost"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-emerald"
             />
             <CallButton
               calleeId={activeOther}
               calleeName={otherProfile?.business_name || otherProfile?.display_name || "Member"}
               calleeAvatar={otherProfile?.avatar_url || undefined}
               callType="video"
-              className="h-8 w-8 bg-white/15 hover:bg-white/30 text-white border-white/20 shadow-xs"
+              variant="ghost"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-blue"
             />
           </div>
         </div>
 
         {/* Pinned Metadata Box */}
         {activeTaskId && (
-          <div className="border-b bg-muted/30 px-3 py-2">
-            <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground mb-1">
+          <div className="border-b bg-muted/30 px-2.5 py-1.5">
+            <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
               <Pin className="h-3 w-3" /> Task Metadata
             </div>
             {showBankDetails ? (
               <div className="space-y-1 text-xs">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span><b>Bank:</b> {assignment!.bank_name}</span>
                   <span><b>Name:</b> {assignment!.bank_account_name}</span>
                   <span className="font-mono"><b>#:</b> {assignment!.bank_account_number}</span>
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] ml-auto"
-                    onClick={() => copy(assignment!.bank_account_number!, "Account number copied")}>
-                    <Copy className="h-3 w-3 mr-1" /> Copy Account Number
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 min-h-[36px] px-3 text-xs font-semibold ml-auto rounded-xl inbox-key-3d"
+                    onClick={() => copy(assignment!.bank_account_number!, "Account number copied")}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Account
                   </Button>
                 </div>
                 {waLink && (
                   <a href={waLink} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-green-600 hover:underline">
-                    <ExternalLink className="h-3 w-3" /> WhatsApp Chat
+                    className="inline-flex items-center gap-1.5 min-h-[36px] text-xs font-semibold text-green-600 hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" /> WhatsApp Chat
                   </a>
                 )}
               </div>
@@ -861,7 +888,7 @@ const GGDInbox: React.FC = () => {
         )}
 
         {/* Mobile Business Connect Margin Banner */}
-        <div className="px-3 pt-2 lg:hidden">
+        <div className="px-2 pt-1.5 lg:hidden shrink-0">
           <BusinessConnectMargin
             businessUserId={activeOther}
             isCompact
@@ -874,7 +901,7 @@ const GGDInbox: React.FC = () => {
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-muted/10">
+            <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 bg-muted/15">
               {/* P2P Ephemeral Real-time Images */}
               {ephemeralImages.length > 0 && (
                 <div className="space-y-2 pb-3 mb-2 border-b border-dashed border-amber-500/30">
@@ -928,10 +955,14 @@ const GGDInbox: React.FC = () => {
                         isMine={mine}
                         onReply={() => setReplyingTo(m)}
                       >
-                        <div className={`rounded-2xl px-3 py-2 text-sm shadow-xs ${mine ? "bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-br-sm" : "bg-card border border-border/80 rounded-bl-sm"}`}>
+                        <div className={`rounded-2xl px-3 py-2 text-sm ${
+                          mine
+                            ? "bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-br-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_3px_8px_-2px_rgba(234,88,12,0.35)]"
+                            : "inbox-card-3d rounded-bl-sm"
+                        }`}>
                           {/* Quoted reply banner if this message is replying to another */}
                           {m.action_payload?.reply_to && (
-                            <div className={`mb-2 p-1.5 px-2.5 rounded-lg text-xs border-l-3 ${mine ? 'bg-black/20 border-white text-white/95' : 'bg-muted border-orange-500 text-foreground'}`}>
+                            <div className={`mb-1.5 p-1.5 px-2.5 rounded-xl text-xs border ${mine ? 'bg-black/20 border-white/25 text-white/95' : 'bg-muted/80 border-orange-500/30 text-foreground'}`}>
                               <p className="text-[10px] font-black uppercase tracking-wider opacity-85">
                                 {m.action_payload.reply_to.sender_id === me ? 'You' : (otherProfile?.display_name || otherProfile?.business_name || 'Contact')}
                               </p>
@@ -943,7 +974,7 @@ const GGDInbox: React.FC = () => {
 
                           {/* Attention request prompt banner */}
                           {m.action_type === "attention_prompt" && (
-                            <div className={`mb-2 p-2 rounded-xl border text-xs flex items-center gap-2 ${mine ? "bg-white/20 border-white/30 text-white" : "bg-amber-500/15 border-amber-500/30 text-amber-900 dark:text-amber-100"}`}>
+                            <div className={`mb-1.5 p-2 rounded-xl border text-xs flex items-center gap-2 ${mine ? "bg-white/20 border-white/30 text-white" : "bg-amber-500/15 border-amber-500/30 text-amber-900 dark:text-amber-100"}`}>
                               <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
                               <div className="min-w-0 flex-1">
                                 <span className="font-extrabold text-[10px] uppercase tracking-wider block">
@@ -956,9 +987,9 @@ const GGDInbox: React.FC = () => {
 
                           {/* Tagged product or service inquiry banner */}
                           {(m.action_type === "product_inquiry" || m.action_type === "service_inquiry" || m.action_payload?.title) && (
-                            <div className={`mb-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
+                            <div className={`mb-1.5 p-2 rounded-xl border text-xs flex items-center gap-2 ${mine ? "bg-white/15 border-white/25 text-white" : "bg-orange-500/10 border-orange-500/20 text-foreground"}`}>
                               {m.action_payload?.image_url && (
-                                <img src={m.action_payload.image_url} alt="" className="h-11 w-11 rounded-lg object-cover flex-shrink-0 border border-white/20" />
+                                <img src={m.action_payload.image_url} alt="" className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-white/20" />
                               )}
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -974,13 +1005,14 @@ const GGDInbox: React.FC = () => {
                                 )}
                               </div>
                               {m.action_payload?.id && (
-                                <button
-                                  type="button"
-                                  className={`h-7 px-2.5 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors ${mine ? "bg-white/20 hover:bg-white/30 text-white border border-white/40" : "bg-card border border-orange-500/30 text-orange-600 hover:bg-orange-500/10"}`}
-                                  onClick={() => window.open(`/product/${m.action_payload.id}`, "_blank")}
+                                <a
+                                  href={`/product/${m.action_payload.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`min-h-[36px] px-3 text-xs font-bold rounded-xl inline-flex items-center gap-1 shrink-0 transition-transform active:translate-y-[1px] ${mine ? "bg-white/20 hover:bg-white/30 text-white border border-white/40" : "inbox-key-3d text-orange-600"}`}
                                 >
-                                  <ExternalLink className="h-3 w-3" /> View
-                                </button>
+                                  <ExternalLink className="h-3.5 w-3.5" /> View
+                                </a>
                               )}
                             </div>
                           )}
@@ -1011,9 +1043,9 @@ const GGDInbox: React.FC = () => {
                             <Button
                               size="sm"
                               onClick={() => approveAndPay(m)}
-                              className="mt-2 h-8 bg-green-500 hover:bg-green-600 text-white text-xs"
+                              className="mt-2 h-11 min-h-[44px] px-4 rounded-xl inbox-key-3d-emerald text-xs font-bold"
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve & Pay
+                              <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve & Pay
                             </Button>
                           )}
                           <div className={`mt-1 flex items-center justify-end ${mine ? "text-orange-100" : "text-muted-foreground"}`}>
@@ -1039,11 +1071,11 @@ const GGDInbox: React.FC = () => {
               <div ref={endRef} />
             </div>
 
-            {/* Composer */}
-            <div className="p-2 border-t bg-background space-y-2">
+            {/* Compact Ergonomic Mobile Composer */}
+            <div className="p-2 border-t bg-card space-y-1.5 shrink-0">
               {/* Replying-to Preview Bar */}
               {replyingTo && (
-                <div className="p-2 px-3 rounded-xl bg-muted border-l-4 border-orange-500 flex items-center justify-between gap-2 animate-in fade-in slide-in-from-bottom-2">
+                <div className="p-1.5 px-2.5 rounded-xl bg-muted/70 border border-orange-500/30 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold text-orange-600">
                       Replying to {replyingTo.sender_id === me ? 'yourself' : (otherProfile?.display_name || otherProfile?.business_name || 'contact')}
@@ -1055,17 +1087,18 @@ const GGDInbox: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setReplyingTo(null)}
-                    className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 shrink-0"
+                    aria-label="Cancel reply"
+                    className="h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 shrink-0"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
 
               {activeInquiryTag && (
-                <div className="p-2.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 flex items-center gap-2">
                   {activeInquiryTag.image_url && (
-                    <img src={activeInquiryTag.image_url} alt="" className="h-10 w-10 rounded-lg object-cover border flex-shrink-0" />
+                    <img src={activeInquiryTag.image_url} alt="" className="h-9 w-9 rounded-lg object-cover flex-shrink-0 border" />
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1081,15 +1114,16 @@ const GGDInbox: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveInquiryTag(null)}
-                    className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                    className="h-9 w-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
                     title="Remove Tag"
+                    aria-label="Remove Tag"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
 
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-1.5 items-center">
                 <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
 
                 <Button
@@ -1100,9 +1134,14 @@ const GGDInbox: React.FC = () => {
                   onClick={() => setIsUrgentMessage((v) => !v)}
                   title="Mark next message as Urgent (high-priority Web Push)"
                   aria-pressed={isUrgentMessage}
-                  className="h-9 px-2.5 text-xs font-bold shrink-0 gap-1"
+                  aria-label="Toggle urgent message priority"
+                  className={`h-11 min-h-[44px] min-w-[44px] px-2.5 sm:px-3 text-xs font-bold shrink-0 gap-1 rounded-xl whitespace-nowrap ${
+                    isUrgentMessage
+                      ? "bg-red-600 text-white border-red-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2.5px_0_#991b1b] active:translate-y-[1.5px]"
+                      : "inbox-key-3d"
+                  }`}
                 >
-                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span className="hidden sm:inline">{isUrgentMessage ? "Urgent On" : "Urgent"}</span>
                 </Button>
 
@@ -1118,13 +1157,19 @@ const GGDInbox: React.FC = () => {
                       ? "Type your reply..."
                       : "Type a message..."
                   }
-                  className={`flex-1 ${isUrgentMessage ? "border-red-500/60 focus-visible:ring-red-500" : ""}`}
+                  className={`flex-1 h-11 min-h-[44px] rounded-xl text-sm ${isUrgentMessage ? "border-red-500/60 focus-visible:ring-red-500" : ""}`}
                 />
                 <Button
+                  type="button"
                   onClick={send}
                   disabled={isSending || !input.trim()}
                   size="icon"
-                  className={isUrgentMessage ? "bg-red-600 hover:bg-red-700 shrink-0" : "bg-orange-500 hover:bg-orange-600 shrink-0"}
+                  aria-label="Send message"
+                  className={`h-11 w-11 min-h-[44px] min-w-[44px] rounded-xl shrink-0 ${
+                    isUrgentMessage
+                      ? "bg-red-600 hover:bg-red-700 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2.5px_0_#991b1b] active:translate-y-[1.5px]"
+                      : "inbox-key-3d-orange"
+                  }`}
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -1147,47 +1192,47 @@ const GGDInbox: React.FC = () => {
 
   // Inbox list view
   return (
-    <div className="space-y-4">
-      {/* Header with Global Network & Call History Toggles */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
-            <Globe className="h-5 w-5" />
+    <div className="space-y-2.5 sm:space-y-3">
+      {/* Compact Header with Tactile 3D View Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/70">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl inbox-key-3d-orange flex items-center justify-center shrink-0">
+            <Globe className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
-          <div>
-            <h2 className="text-base font-black tracking-tight flex items-center gap-2">
-              <span>Global Network Hub</span>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-black tracking-tight truncate leading-tight">
+              Global Network Hub
             </h2>
-            <p className="text-xs text-muted-foreground">
-              Direct conversations, verified calls & database-backed photo sharing
+            <p className="text-[11px] sm:text-xs text-muted-foreground truncate leading-tight">
+              Direct chats, live calls & verified business contacts
             </p>
           </div>
         </div>
 
-        {/* View Switcher: Global Network Messages vs Call History */}
-        <div className="flex items-center bg-muted/60 p-1 rounded-xl border">
+        {/* View Switcher: Messages vs Call History (Large 44px Mobile Targets) */}
+        <div className="grid grid-cols-2 sm:inline-flex items-center gap-1.5 p-1 rounded-2xl inbox-card-3d w-full sm:w-auto shrink-0">
           <button
             type="button"
             onClick={() => setInboxView("messages")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold whitespace-nowrap transition-transform duration-150 active:translate-y-[1px] ${
               inboxView === "messages"
-                ? "bg-background text-foreground shadow-xs"
+                ? "inbox-key-3d-orange"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <MessageCircle className="h-3.5 w-3.5 text-orange-500" />
+            <MessageCircle className={`h-4 w-4 shrink-0 ${inboxView === "messages" ? "text-white" : "text-orange-500"}`} />
             <span>Messages ({threads.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setInboxView("calls")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold whitespace-nowrap transition-transform duration-150 active:translate-y-[1px] ${
               inboxView === "calls"
-                ? "bg-background text-foreground shadow-xs"
+                ? "inbox-key-3d-emerald"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <PhoneCall className="h-3.5 w-3.5 text-emerald-500" />
+            <PhoneCall className={`h-4 w-4 shrink-0 ${inboxView === "calls" ? "text-white" : "text-emerald-500"}`} />
             <span>Call History</span>
           </button>
         </div>
@@ -1202,33 +1247,52 @@ const GGDInbox: React.FC = () => {
           }}
         />
       ) : (
-        <div className="space-y-3">
-          {/* Global Network Search */}
+        <div className="space-y-2">
+          {/* Compact Search Bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search Global Network by member, business, or recent message…"
-              className="pl-9 h-11 rounded-xl"
+              placeholder="Search member, business, or message…"
+              className="pl-9 pr-11 h-11 rounded-xl inbox-card-3d text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {search && (
-            <Card className="rounded-xl border-dashed">
-              <CardContent className="p-0 divide-y">
-                {globalResults.length === 0 ? (
-                  <p className="p-4 text-xs text-muted-foreground text-center">
-                    No new members found matching "{search}"
-                  </p>
-                ) : (
-                  globalResults.map((p) => (
-                    <button
+            <div className="space-y-1.5">
+              {globalResults.length === 0 ? (
+                <div className="p-3 text-xs text-muted-foreground text-center rounded-2xl inbox-card-3d">
+                  No new members found matching "{search}"
+                </div>
+              ) : (
+                globalResults.map((p) => {
+                  const memberName = p.business_name || p.display_name || p.email?.split("@")[0] || "Member";
+                  return (
+                    <div
                       key={p.user_id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => openThread(p.user_id, null)}
-                      className="w-full text-left flex items-center gap-3 p-3 hover:bg-muted/40 transition"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openThread(p.user_id, null);
+                        }
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive cursor-pointer"
                     >
-                      <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-950/50 flex items-center justify-center overflow-hidden shrink-0 border border-border">
                         {p.avatar_url ? (
                           <img loading="lazy" src={p.avatar_url} className="h-full w-full object-cover" />
                         ) : (
@@ -1236,102 +1300,154 @@ const GGDInbox: React.FC = () => {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">
-                          {p.business_name || p.display_name || p.email?.split("@")[0]}
+                        <p className="font-bold text-xs sm:text-sm truncate leading-tight">
+                          {memberName}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {p.email || "Tap to start direct chat"}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30">
-                        Direct Chat
-                      </Badge>
-                      <a
-                        href={`/user/${p.user_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-2 rounded-lg bg-secondary hover:bg-orange-500/20 text-foreground hover:text-orange-600 transition"
-                        title="View Store / Profile"
-                      >
-                        <Store className="h-4 w-4" />
-                      </a>
-                    </button>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <CallButton
+                          calleeId={p.user_id}
+                          calleeName={memberName}
+                          calleeAvatar={p.avatar_url || undefined}
+                          callType="audio"
+                          variant="ghost"
+                          className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-emerald"
+                        />
+                        <CallButton
+                          calleeId={p.user_id}
+                          calleeName={memberName}
+                          calleeAvatar={p.avatar_url || undefined}
+                          callType="video"
+                          variant="ghost"
+                          className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-blue"
+                        />
+                        <a
+                          href={`/user/${p.user_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d flex items-center justify-center text-orange-600"
+                          title="View Store / Profile"
+                          aria-label={`View ${memberName} store or profile`}
+                        >
+                          <Store className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
 
-          {/* Unified Conversations List */}
-          <Card className="rounded-xl overflow-hidden shadow-xs">
-            <CardContent className="p-0 divide-y">
-              {shownThreads.length === 0 ? (
-                <div className="p-8 text-center space-y-2">
-                  <div className="h-10 w-10 rounded-full bg-orange-500/10 text-orange-600 flex items-center justify-center mx-auto">
-                    <Globe className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">
-                    No Global Network conversations yet
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                    Search any member above to initiate a direct message, audio/video call, or send photos and media.
-                  </p>
+          {/* Compact Tactile 3D Conversations List */}
+          <div className="space-y-1.5">
+            {shownThreads.length === 0 ? (
+              <div className="p-6 text-center space-y-2 rounded-2xl inbox-card-3d">
+                <div className="h-10 w-10 rounded-xl inbox-key-3d-orange flex items-center justify-center mx-auto">
+                  <Globe className="h-5 w-5" />
                 </div>
-              ) : (
-                shownThreads.map((t) => (
-                  <div
-                    key={`${t.otherId}:${t.taskId || ""}`}
-                    className="w-full flex items-center gap-3 p-3.5 hover:bg-muted/40 transition group cursor-pointer"
-                    onClick={() => openThread(t.otherId, t.taskId)}
-                  >
-                    <div className="h-11 w-11 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden shrink-0">
+                <p className="text-sm font-bold text-foreground">
+                  No Global Network conversations yet
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Search any member above to initiate a direct message, audio/video call, or send photos and media.
+                </p>
+              </div>
+            ) : (
+              shownThreads.map((t) => (
+                <div
+                  key={`${t.otherId}:${t.taskId || ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openThread(t.otherId, t.taskId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openThread(t.otherId, t.taskId);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive group cursor-pointer"
+                >
+                  {/* Avatar + Compact Unread Counter */}
+                  <div className="relative shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-950/50 flex items-center justify-center overflow-hidden border border-border">
                       {t.avatarUrl ? (
                         <img loading="lazy" src={t.avatarUrl} className="h-full w-full object-cover" />
                       ) : (
                         <User className="h-5 w-5 text-orange-600" />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-sm truncate group-hover:text-orange-600 transition-colors">
-                          {t.displayName}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          {new Date(t.lastAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {t.lastMessageSenderId === me && (
-                          <MessageStatusIndicator
-                            status={t.lastMessageIsRead ? "seen" : "sent"}
-                            showTimestamp={false}
-                            size="xs"
-                            className="shrink-0"
-                          />
-                        )}
-                        <p className="text-xs text-muted-foreground truncate">{t.lastMessage}</p>
-                      </div>
-                    </div>
                     {t.unread > 0 && (
-                      <Badge className="bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5">
-                        {t.unread}
-                      </Badge>
+                      <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-background shadow-xs">
+                        {t.unread > 99 ? "99+" : t.unread}
+                      </span>
                     )}
+                  </div>
+
+                  {/* Conversation Summary */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <p className="font-bold text-xs sm:text-sm truncate group-hover:text-orange-600 transition-colors leading-tight">
+                        {t.displayName}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                        {formatCompactTime(t.lastAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                      {t.lastMessageSenderId === me && (
+                        <MessageStatusIndicator
+                          status={t.lastMessageIsRead ? "seen" : "sent"}
+                          showTimestamp={false}
+                          size="xs"
+                          className="shrink-0"
+                        />
+                      )}
+                      <p className={`text-[11px] sm:text-xs truncate leading-tight ${t.unread > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                        {t.lastMessage}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Large >=44px Mobile Call & Action Buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <CallButton
+                      calleeId={t.otherId}
+                      calleeName={t.displayName}
+                      calleeAvatar={t.avatarUrl}
+                      callType="audio"
+                      variant="ghost"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-emerald"
+                    />
+                    <CallButton
+                      calleeId={t.otherId}
+                      calleeName={t.displayName}
+                      calleeAvatar={t.avatarUrl}
+                      callType="video"
+                      variant="ghost"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-blue"
+                    />
                     <a
                       href={`/user/${t.otherId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="h-8 px-2.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 font-bold text-xs flex items-center gap-1 shrink-0 transition"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-auto sm:min-h-[40px] sm:px-3 rounded-xl inbox-key-3d text-orange-600 font-bold text-xs flex items-center justify-center gap-1 shrink-0"
                       title="Open Business Website & Public Storefront"
+                      aria-label={`Open ${t.displayName} storefront`}
                     >
-                      <Store className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Store</span>
+                      <Store className="h-4 w-4 shrink-0" />
+                      <span className="hidden sm:inline whitespace-nowrap">Store</span>
                     </a>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -111,23 +111,23 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
   };
 
   return (
-    <div className={`flex flex-col h-full bg-card rounded-xl ${className}`}>
+    <div className={`flex flex-col h-full bg-transparent space-y-2 ${className}`}>
       {/* Header & Filter Tabs */}
-      <div className="p-3 border-b space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-600 flex items-center justify-center">
+      <div className="p-2.5 rounded-2xl inbox-card-3d space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-9 w-9 rounded-xl inbox-key-3d-orange flex items-center justify-center shrink-0">
               <Phone className="h-4 w-4" />
             </div>
-            <div>
-              <h3 className="font-bold text-sm leading-none">Call History</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm leading-tight truncate">Call History</h3>
+              <p className="text-[11px] text-muted-foreground leading-tight">
                 {logs.length} logged record{logs.length === 1 ? '' : 's'}
               </p>
             </div>
           </div>
           {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-xs">
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-10 min-w-[44px] px-3 rounded-xl inbox-key-3d text-xs font-semibold shrink-0">
               Close
             </Button>
           )}
@@ -135,26 +135,26 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
 
         {/* Filter Tabs */}
         <Tabs value={filter} onValueChange={(v) => setFilter(v as any)} className="w-full">
-          <TabsList className="grid grid-cols-4 h-8 w-full text-xs">
-            <TabsTrigger value="all" className="text-[11px] px-1">All</TabsTrigger>
-            <TabsTrigger value="missed" className="text-[11px] px-1 text-red-500 data-[state=active]:text-red-600">
+          <TabsList className="grid grid-cols-4 h-10 p-1 w-full rounded-xl bg-muted/70">
+            <TabsTrigger value="all" className="text-xs font-semibold px-1 rounded-lg">All</TabsTrigger>
+            <TabsTrigger value="missed" className="text-xs font-semibold px-1 rounded-lg text-red-500 data-[state=active]:text-red-600">
               Missed
             </TabsTrigger>
-            <TabsTrigger value="incoming" className="text-[11px] px-1">Incoming</TabsTrigger>
-            <TabsTrigger value="outgoing" className="text-[11px] px-1">Outgoing</TabsTrigger>
+            <TabsTrigger value="incoming" className="text-xs font-semibold px-1 rounded-lg">Incoming</TabsTrigger>
+            <TabsTrigger value="outgoing" className="text-xs font-semibold px-1 rounded-lg">Outgoing</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {/* List Container */}
-      <div className="flex-1 overflow-y-auto divide-y divide-border/60 p-1">
+      <div className="flex-1 overflow-y-auto space-y-1.5 pb-1">
         {loading ? (
-          <div className="py-12 text-center text-xs text-muted-foreground">
+          <div className="py-10 text-center text-xs text-muted-foreground inbox-card-3d rounded-2xl">
             <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-orange-500" />
             Loading call logs...
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground space-y-1">
+          <div className="py-10 text-center text-muted-foreground space-y-1 inbox-card-3d rounded-2xl">
             <PhoneOff className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
             <p className="text-xs font-semibold text-foreground">No call logs found</p>
             <p className="text-[11px] text-muted-foreground">
@@ -174,36 +174,35 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
             return (
               <div
                 key={log.id}
-                className="flex items-center justify-between p-2.5 hover:bg-muted/40 rounded-lg transition-colors group"
+                className="flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl inbox-card-3d group"
               >
                 {/* Left: Avatar & Details */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Avatar className="h-10 w-10 shrink-0 border border-border">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <Avatar className="h-10 w-10 shrink-0 border border-border shadow-xs">
                     <AvatarImage src={otherAvatar} />
-                    <AvatarFallback className="text-xs bg-orange-100 text-orange-700 font-bold">
-                      {otherName.substring(0, 2).toUpperCase()}
+                    <AvatarFallback className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 font-bold">
+                      {(otherName || 'M').substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <p
-                        className={`text-xs font-bold truncate ${
+                        className={`text-xs sm:text-sm font-bold truncate leading-tight ${
                           isMissed ? 'text-red-600 dark:text-red-400' : 'text-foreground'
                         }`}
                       >
                         {otherName || 'Member'}
                       </p>
                       {isVideo ? (
-                        <Video className="h-3 w-3 text-primary shrink-0" />
+                        <Video className="h-3 w-3 text-blue-500 shrink-0" />
                       ) : (
                         <Phone className="h-3 w-3 text-emerald-500 shrink-0" />
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                      {/* Status Icon */}
-                      <span className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+                      <span className="flex items-center gap-1 shrink-0">
                         {isMissed ? (
                           <PhoneMissed className="h-3 w-3 text-red-500" />
                         ) : isCaller ? (
@@ -211,29 +210,28 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
                         ) : (
                           <PhoneIncoming className="h-3 w-3 text-emerald-500" />
                         )}
-                        <span className={isMissed ? 'text-red-500 font-medium' : ''}>
+                        <span className={isMissed ? 'text-red-500 font-semibold' : ''}>
                           {isMissed
-                            ? 'Missed Call'
+                            ? 'Missed'
                             : isCaller
                             ? 'Outgoing'
                             : 'Incoming'}
                         </span>
                       </span>
 
-                      {/* Duration */}
                       {!isMissed && log.durationSeconds > 0 && (
-                        <span>• {formatDuration(log.durationSeconds)}</span>
+                        <span className="shrink-0">· {formatDuration(log.durationSeconds)}</span>
                       )}
 
-                      {/* Timestamp */}
-                      <span>• {formatTime(log.createdAt)}</span>
+                      <span className="shrink-0">· {formatTime(log.createdAt)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Quick Action Callbacks */}
-                <div className="flex items-center gap-1 shrink-0 ml-2">
+                {/* Right: Large Mobile-Friendly 3D Quick Action Callbacks */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     onClick={() => {
@@ -245,42 +243,49 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
                       }
                       if (onClose) onClose();
                     }}
-                    className="h-8 w-8 rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d text-blue-600 dark:text-blue-400"
                     title={`Chat with ${otherName}`}
+                    aria-label={`Chat with ${otherName}`}
                   >
-                    <MessageCircle className="h-3.5 w-3.5" />
+                    <MessageCircle className="h-4 w-4" />
                   </Button>
 
                   <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     onClick={() => handleCallBack(log, 'audio')}
                     disabled={callStatus !== 'idle'}
-                    className="h-8 w-8 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d-emerald"
                     title={`Audio call ${otherName}`}
+                    aria-label={`Audio call ${otherName}`}
                   >
-                    <Phone className="h-3.5 w-3.5" />
+                    <Phone className="h-4 w-4" />
                   </Button>
 
                   <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     onClick={() => handleCallBack(log, 'video')}
                     disabled={callStatus !== 'idle'}
-                    className="h-8 w-8 rounded-full text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d-blue"
                     title={`Video call ${otherName}`}
+                    aria-label={`Video call ${otherName}`}
                   >
-                    <Video className="h-3.5 w-3.5" />
+                    <Video className="h-4 w-4" />
                   </Button>
 
                   <Button
+                    type="button"
                     size="icon"
                     variant="ghost"
                     onClick={(e) => handleDelete(e, log.id)}
-                    className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-10 w-9 rounded-xl text-muted-foreground hover:text-red-600 hover:bg-red-500/10 sm:opacity-60 sm:group-hover:opacity-100 transition-opacity"
                     title="Delete log"
+                    aria-label="Delete call log"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
