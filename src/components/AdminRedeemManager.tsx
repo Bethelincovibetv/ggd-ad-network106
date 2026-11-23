@@ -40,7 +40,7 @@ import { RedeemFallingAnimation } from "@/components/RedeemFallingAnimation";
 import { playRedeemSound } from "@/utils/redeemSound";
 import ggdLogo from '@/assets/ggd-logo.png';
 
-export const AdminRedeemManager: React.FC = () => {
+export const AdminRedeemManager: React.FC<{ initialTab?: 'manage' | 'create' | 'branding' | 'logs' }> = ({ initialTab }) => {
   const [offers, setOffers] = useState<RedeemOffer[]>([]);
   const [redemptions, setRedemptions] = useState<UserRedemptionRecord[]>([]);
   const [globalRewardLogo, setGlobalRewardLogoState] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export const AdminRedeemManager: React.FC = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingOfferImg, setUploadingOfferImg] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'manage' | 'create' | 'branding' | 'logs'>('manage');
+  const [activeTab, setActiveTab] = useState<'manage' | 'create' | 'branding' | 'logs'>(initialTab || 'manage');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterNetwork, setFilterNetwork] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
@@ -88,6 +88,12 @@ export const AdminRedeemManager: React.FC = () => {
     loadData();
     checkMasterToggle();
   }, []);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const checkMasterToggle = async () => {
     try {

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { callRpc } from "@/lib/supabaseRpc";
 import { useActivationStatus } from "@/hooks/useActivationStatus";
+import { notifyAdminsSystemUpdate } from "@/services/adminNotificationHelper";
 
 interface Props {
   task: any | null;
@@ -48,6 +49,19 @@ const TaskProofSubmitDialog: React.FC<Props> = ({ task, onClose, onSubmitted }) 
         p_task_id: task.id, p_proof_url: publicUrl, p_proof_text: note || null,
       });
       if (error || !data?.success) { toast.error(data?.error || error?.message || "Could not submit proof"); return; }
+
+      void notifyAdminsSystemUpdate({
+        title: `Task Proof Submitted: ${task.title || 'Credit Task'}`,
+        summary: `${user.email || 'Member'} submitted a screenshot proof for "${task.title || 'Credit Task'}" (+${task.reward_credits || 0} credits).`,
+        category: 'task_proof',
+        section: 'task-proofs',
+        taskId: task.id,
+        userId: user.id,
+        actionLabel: 'Review Proof',
+        actorEmail: user.email || undefined,
+        urgent: false,
+      }).catch(() => {});
+
       toast.success("Proof submitted! Credits are paid after review (auto-approved within 48 hours).");
       onSubmitted(task.id);
       reset();

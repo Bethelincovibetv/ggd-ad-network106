@@ -62,6 +62,26 @@ async function findExistingAdInSupabase(userId: string, key: string): Promise<Ba
   return null;
 }
 
+function notifyAdminPendingBanner(ad: BannerAdRecord, input: CreateBannerAdInput): void {
+  if (input.approved || ad.approved) return;
+  if (typeof (supabase as any).channel !== "function") return;
+
+  void import("@/services/adminNotificationHelper")
+    .then(({ notifyAdminsSystemUpdate }) =>
+      notifyAdminsSystemUpdate({
+        title: `New Banner Ad Pending Approval: ${ad.title || input.title}`,
+        summary: `A new ${input.ad_type || "banner"} advert ("${ad.title || input.title}") is awaiting moderation in Banner Ad Management.`,
+        category: "ad_approval",
+        section: "ads",
+        itemId: ad.id,
+        userId: ad.user_id,
+        actionLabel: "Review Ad",
+        urgent: false,
+      })
+    )
+    .catch(() => {});
+}
+
 /**
  * Creates a banner (or watch) advert idempotently.
  * - Generates a unique idempotency key if not provided.
@@ -115,10 +135,14 @@ export async function createBannerAdIdempotent(
         if (!payload) {
           shouldFallbackToSupabase = resp.status >= 500;
         } else if (resp.ok && payload.success && payload.ad) {
+          const alreadyExists = Boolean(payload.already_exists || payload.idempotent_replay);
+          if (!alreadyExists) {
+            notifyAdminPendingBanner(payload.ad as BannerAdRecord, input);
+          }
           return {
             success: true,
             ad: payload.ad as BannerAdRecord,
-            alreadyExists: Boolean(payload.already_exists || payload.idempotent_replay),
+            alreadyExists,
             idempotentReplay: Boolean(payload.idempotent_replay || payload.already_exists),
             idempotencyKey: key,
             credits: typeof payload.credits === "number" ? payload.credits : undefined,
@@ -179,10 +203,14 @@ export async function createBannerAdIdempotent(
 
       if (!rpcError && rpcData) {
         if (rpcData.success && rpcData.ad) {
+          const alreadyExists = Boolean(rpcData.already_exists || rpcData.idempotent_replay);
+          if (!alreadyExists) {
+            notifyAdminPendingBanner(rpcData.ad as BannerAdRecord, input);
+          }
           return {
             success: true,
             ad: rpcData.ad as BannerAdRecord,
-            alreadyExists: Boolean(rpcData.already_exists || rpcData.idempotent_replay),
+            alreadyExists,
             idempotentReplay: Boolean(rpcData.idempotent_replay || rpcData.already_exists),
             idempotencyKey: key,
             credits: typeof rpcData.credits === "number" ? rpcData.credits : undefined,
@@ -247,6 +275,7 @@ export async function createBannerAdIdempotent(
         .single();
 
       if (!insertError && inserted) {
+        notifyAdminPendingBanner(inserted as BannerAdRecord, input);
         return {
           success: true,
           ad: inserted as BannerAdRecord,

@@ -47,6 +47,7 @@ import { MessageStatusIndicator } from "@/components/chat/MessageStatusIndicator
 import { StructuredChatMessage } from "@/components/chat/StructuredChatMessage";
 import { playMessageSentSound, playMessageReceivedSound } from "@/utils/audio";
 import { sendQuickMessageNotification } from "@/services/pushNotificationService";
+import { notifyAdminsSystemUpdate } from "@/services/adminNotificationHelper";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 const SUPPORT_EMAIL = 'goodgiftdigital@gmail.com';
@@ -527,12 +528,23 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         });
       } catch {}
 
-      // 3. Notify Admin with immediate urgent DB + Web Push alert
+      // 3. Notify Admin with immediate urgent DB + Web Push alert + Admin Portal Bell
       await sendQuickMessageNotification({
         recipientUserId: adminUserId,
         senderName: userEmail || 'GGD Member',
         messagePreview: text,
-        chatUrl: `/admin?tab=chat&userId=${currentUserId}`,
+        chatUrl: `/admin?section=chat&userId=${currentUserId}`,
+        urgent: true,
+      });
+
+      void notifyAdminsSystemUpdate({
+        title: `New Support Message from ${userEmail || 'GGD Member'}`,
+        summary: text.slice(0, 220),
+        category: 'support_chat',
+        section: 'chat',
+        userId: currentUserId,
+        actionLabel: 'Open Support Chat',
+        actorEmail: userEmail || undefined,
         urgent: true,
       });
     } catch (err: any) {
@@ -594,9 +606,20 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         recipientUserId: adminUserId,
         senderName: userEmail || 'GGD Member',
         messagePreview: '🎙️ Voice support note received',
-        chatUrl: `/admin?tab=chat&userId=${currentUserId}`,
+        chatUrl: `/admin?section=chat&userId=${currentUserId}`,
         urgent: true,
       }).catch(() => {});
+
+      void notifyAdminsSystemUpdate({
+        title: `Voice Support Note from ${userEmail || 'GGD Member'}`,
+        summary: `Member sent a ${durationSeconds}s voice support message awaiting reply.`,
+        category: 'support_chat',
+        section: 'chat',
+        userId: currentUserId,
+        actionLabel: 'Listen & Reply',
+        actorEmail: userEmail || undefined,
+        urgent: true,
+      });
 
       toast.success('Voice note sent to GGD Admin!');
     } catch (err: any) {
@@ -622,25 +645,41 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
       if (uid && adminUserId) {
         const ticketBody = `[SUPPORT TICKET - ${ticketCategory.toUpperCase()}]\nSubject: ${ticketSubject}\n\n${ticketMessage}`;
 
-        await supabase.from('p2p_messages').insert({
-          sender_id: uid,
-          receiver_id: adminUserId,
-          kind: 'ticket',
-          message: ticketBody,
-          action_type: 'support_ticket',
-          action_payload: {
-            category: ticketCategory,
-            subject: ticketSubject,
-            status: 'Pending',
-          },
-          is_read: false,
-        });
+        const { data: insertedTicket } = await supabase
+          .from('p2p_messages')
+          .insert({
+            sender_id: uid,
+            receiver_id: adminUserId,
+            kind: 'ticket',
+            message: ticketBody,
+            action_type: 'support_ticket',
+            action_payload: {
+              category: ticketCategory,
+              subject: ticketSubject,
+              status: 'Pending',
+            },
+            is_read: false,
+          })
+          .select('id')
+          .single();
 
         await supabase.from('notifications').insert({
           user_id: uid,
           title: `Support Ticket: ${ticketSubject}`,
           message: `Your ticket (${ticketCategory}) has been logged as Pending. Admin will review shortly.`,
           type: 'system',
+        });
+
+        await notifyAdminsSystemUpdate({
+          title: `New Support Ticket: ${ticketSubject}`,
+          summary: `[${ticketCategory.toUpperCase()}] ${userEmail || authData.user?.email || 'Member'}: ${ticketMessage.trim().slice(0, 220)}`,
+          category: 'support_ticket',
+          section: 'chat',
+          userId: uid,
+          ticketId: insertedTicket?.id,
+          actionLabel: 'Open Ticket',
+          actorEmail: userEmail || authData.user?.email || undefined,
+          urgent: true,
         });
       }
 
@@ -665,8 +704,22 @@ const SupportPage: React.FC<SupportPageProps> = ({ userEmail, onNavigate }) => {
         kind: 'system',
         message: '✅ Support ticket marked as Resolved by user.',
         action_type: 'ticket_status_update',
-        action_payload: { status: 'Resolved' },
+        action_payload: { status: 'Resolved', ticket_id: ticketId },
       });
+
+      const targetTicket = tickets.find((t) => t.id === ticketId);
+      void notifyAdminsSystemUpdate({
+        title: `Support Ticket Resolved by User`,
+        summary: `${userEmail || 'Member'} marked ticket${targetTicket?.subject ? ` "${targetTicket.subject}"` : ''} as Resolved.`,
+        category: 'support_ticket',
+        section: 'chat',
+        userId: currentUserId,
+        ticketId,
+        actionLabel: 'View Ticket',
+        actorEmail: userEmail || undefined,
+        urgent: false,
+      });
+
       toast.success('Ticket status marked as Resolved!');
       setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: 'Resolved' } : t)));
     } catch {

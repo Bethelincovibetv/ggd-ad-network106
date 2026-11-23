@@ -103,8 +103,8 @@ const SyndicateRegister = () => {
       title: "📋 New Syndicate Application",
       message: `A new applicant (${form.state}) applied to join the Syndicate Direct Team.`,
       type: 'syndicate_approval',
-      tab: 'verification',
-      linkUrl: '/admin?section=syndicate&tab=verification',
+      tab: 'applications',
+      linkUrl: '/admin?section=syndicate&tab=applications',
     });
 
     toast.success("Application submitted! Admin will review it.");

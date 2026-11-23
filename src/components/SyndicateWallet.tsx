@@ -37,7 +37,7 @@ import {
   hashSecurityPin,
   verifySecurityPin
 } from "@/utils/paystackBank";
-import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
+import { notifyAdminsOfApprovalRequired, notifyAdminsSystemUpdate } from "@/services/adminNotificationHelper";
 import { useActivationStatus } from "@/hooks/useActivationStatus";
 
 const maskAccountNumber = (acc?: string | null) => {
@@ -471,8 +471,8 @@ const SyndicateWallet = () => {
         title: "🏦 Bank Account Change Request",
         message: `A Syndicate member requested a bank update to ${changeBankName.trim()} (${maskAccountNumber(changeAccountNumber)}).`,
         type: 'syndicate_approval',
-        tab: 'verification',
-        linkUrl: '/admin?section=syndicate&tab=verification',
+        tab: 'syndicates',
+        linkUrl: '/admin?section=syndicate&tab=syndicates',
       });
 
       toast.success("Bank change request submitted for Admin verification!");
@@ -531,6 +531,18 @@ const SyndicateWallet = () => {
         toast.error(data?.error || error?.message || "Withdrawal request could not be completed.");
         return;
       }
+
+      void notifyAdminsSystemUpdate({
+        title: `Syndicate Withdrawal Request: ₦${amountNum.toLocaleString()}`,
+        summary: `Promoter requested a payout of ₦${amountNum.toLocaleString()} to ${profile.bank_name} (${maskAccountNumber(profile.account_number)}).`,
+        category: 'syndicate_payout',
+        section: 'syndicate',
+        tab: 'withdrawals',
+        userId: profile.user_id,
+        actionLabel: 'Process Payout',
+        actorName: profile.account_name || undefined,
+        urgent: true,
+      }).catch(() => {});
 
       toast.success(`✅ Withdrawal request of ₦${amountNum.toLocaleString()} submitted!`);
       setWithdrawAmount('');

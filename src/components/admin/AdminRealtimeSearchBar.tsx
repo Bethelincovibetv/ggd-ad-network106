@@ -24,6 +24,16 @@ export interface SearchEntry {
 const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
   // CORE & ANALYTICS
   {
+    id: 'admin-alerts',
+    sectionId: 'admin-alerts',
+    title: 'System Alerts & Support Tickets',
+    category: 'CORE & ANALYTICS',
+    description: 'Live admin notifications for support tickets, payouts, ad approvals & reviews',
+    keywords: ['alerts', 'notifications', 'support tickets', 'tickets', 'inbox', 'updates', 'unread'],
+    icon: Bell,
+    color: 'from-orange-500 to-red-600'
+  },
+  {
     id: 'guide',
     sectionId: 'guide',
     title: 'Admin Guide & Documentation',

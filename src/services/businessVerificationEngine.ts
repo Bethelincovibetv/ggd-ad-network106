@@ -7,6 +7,7 @@ import {
   ExtractionDetails
 } from '@/types/verification';
 import { notifyVerificationStatusChange } from '@/services/automatedEmailNotificationService';
+import { notifyAdminsSystemUpdate } from '@/services/adminNotificationHelper';
 
 // ============================================================================
 // 1. PATTERN MATCHING & VALIDATION UTILITIES
@@ -419,6 +420,22 @@ export async function submitVerificationToEngine(payload: {
       documentNumber: payload.documentNumber,
       rejectionReason: evaluation.rejection_reason || undefined,
     }).catch((err) => console.warn('Automated verification email notification note:', err));
+
+    void notifyAdminsSystemUpdate({
+      title:
+        evaluation.status === 'FLAGGED_FOR_MANUAL_REVIEW'
+          ? `Verification Flagged for Review: ${payload.submittedName || payload.registeredProfileName}`
+          : `Business Verification ${evaluation.status}: ${payload.submittedName || payload.registeredProfileName}`,
+      summary: `${payload.documentType} (${payload.documentNumber || 'Upload'}) submitted by ${payload.userEmail || payload.registeredProfileName}. Engine result: ${evaluation.status} (${evaluation.match_confidence} confidence).`,
+      category: 'verification_review',
+      section: 'verification',
+      itemId: record.id,
+      userId: payload.userId,
+      actionLabel: 'Review Verification',
+      actorName: payload.submittedName || payload.registeredProfileName,
+      actorEmail: payload.userEmail,
+      urgent: evaluation.status === 'FLAGGED_FOR_MANUAL_REVIEW',
+    }).catch(() => {});
   } catch (notifErr) {
     console.warn('Notification dispatch non-blocking note:', notifErr);
   }

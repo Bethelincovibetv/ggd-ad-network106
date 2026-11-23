@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { playMoneyTransferSound } from '@/utils/audio';
 import { safeStorage } from '@/utils/safeStorage';
 import { notifyTaskStatusPush } from '@/services/pushNotificationService';
+import { notifyAdminsSystemUpdate } from '@/services/adminNotificationHelper';
 
 export interface ContactEntry {
   id: string;
@@ -722,6 +723,19 @@ export async function submitContactProof(data: {
     };
 
     await setDoc(doc(db, PROOFS_COLLECTION, proofId), proofDoc);
+
+    void notifyAdminsSystemUpdate({
+      title: `Contact Gain Proof Submitted`,
+      summary: `${data.userName} submitted contact-save proof for "${data.campaignTitle}" (+${data.rewardCredits} credits).`,
+      category: 'contact_gain',
+      section: 'contact-gain',
+      tab: 'proofs',
+      itemId: proofId,
+      userId: data.userId,
+      actionLabel: 'Review Proof',
+      actorName: data.userName,
+      urgent: false,
+    }).catch(() => {});
 
     const proofObj: ContactProofSubmission = {
       id: proofId,

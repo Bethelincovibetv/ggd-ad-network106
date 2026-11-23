@@ -35,10 +35,21 @@ import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProducts
 import AdminActivationManager from "@/components/admin/AdminActivationManager";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { AdminRealtimeSearchBar } from "@/components/admin/AdminRealtimeSearchBar";
+import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
+import { AdminAlertsFeed } from "@/components/admin/AdminAlertsFeed";
+import {
+  AdminPortalNotification,
+  deleteAdminNotification,
+  fetchAdminPortalNotifications,
+  markAdminNotificationReadStatus,
+  markAllAdminNotificationsRead,
+  parseAdminNotificationLink,
+  subscribeToAdminPortalNotifications,
+} from "@/services/adminNotificationHelper";
 import { getCurrentUser } from "@/services/authService";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useScrollNavVisibility } from "@/hooks/useScrollNavVisibility";
-import { Package, AlertTriangle, RefreshCw } from "lucide-react";
+import { Package, AlertTriangle, RefreshCw, Inbox } from "lucide-react";
 
 interface NavGroup {
   title: string;
@@ -58,6 +69,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'CORE & ANALYTICS',
     items: [
+      { id: 'admin-alerts', icon: Inbox, label: 'System Alerts & Tickets', sublabel: 'Live support tickets & updates', color: 'text-white', gradient: 'from-orange-500 to-red-600' },
       { id: 'guide', icon: BookOpen, label: 'Admin Guide', sublabel: 'System workflows and help', color: 'text-white', gradient: 'from-emerald-500 to-teal-600' },
       { id: 'analytics', icon: TrendingUp, label: 'Analytics', sublabel: 'Platform metrics & growth', color: 'text-white', gradient: 'from-blue-500 to-indigo-600' },
     ]
@@ -110,15 +122,26 @@ const allNavItems = navGroups.flatMap(g => g.items);
 
 const AdminPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState('syndicate');
   const [syndicateProps, setSyndicateProps] = useState<{ initialCampaignId?: string; initialTab?: any }>({});
   const [featureProps, setFeatureProps] = useState<{ featureSearch?: string; featureTab?: 'features' | 'menus' }>({});
+  const [chatProps, setChatProps] = useState<{ initialUserId?: string; initialTicketId?: string }>({});
+  const [adManagerProps, setAdManagerProps] = useState<{ initialAdId?: string }>({});
+  const [verificationProps, setVerificationProps] = useState<{ initialRecordId?: string }>({});
+  const [taskProofsProps, setTaskProofsProps] = useState<{ initialTaskId?: string }>({});
+  const [redeemProps, setRedeemProps] = useState<{ initialTab?: 'manage' | 'create' | 'branding' | 'logs' }>({});
+  const [contactGainProps, setContactGainProps] = useState<{ initialTab?: 'contacts' | 'proofs' | 'campaigns' | 'add' | 'settings' }>({});
+  const [adminUserId, setAdminUserId] = useState<string>('');
+  const [adminNotifications, setAdminNotifications] = useState<AdminPortalNotification[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeSection] });
+
+  const unreadAlertsCount = adminNotifications.filter((n) => !n.is_read).length;
 
   const verifyAdminAccess = async () => {
     setLoading(true);
@@ -145,6 +168,7 @@ const AdminPage = () => {
         navigate('/');
         return;
       }
+      setAdminUserId(user.id);
       setIsAdmin(true);
       setLoading(false);
     } catch (err: any) {
@@ -158,20 +182,77 @@ const AdminPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
-  // Sync with URL query parameters (e.g. ?section=syndicate&tab=verification&id=...)
+  // Subscribe in real time to Admin Portal support ticket & system update notifications
+  useEffect(() => {
+    if (!isAdmin || !adminUserId) return;
+    setAlertsLoading(true);
+    const unsub = subscribeToAdminPortalNotifications(adminUserId, (items) => {
+      setAdminNotifications(items);
+      setAlertsLoading(false);
+    });
+    return () => unsub();
+  }, [isAdmin, adminUserId]);
+
+  const applyDestinationState = (dest: {
+    section: string;
+    tab?: string;
+    id?: string;
+    userId?: string;
+    ticketId?: string;
+    taskId?: string;
+  }) => {
+    const { section, tab, id, userId, ticketId, taskId } = dest;
+    setActiveSection(section);
+
+    if (section === 'syndicate') {
+      setSyndicateProps({
+        initialTab: tab || 'tasks',
+        initialCampaignId: id || undefined,
+      });
+    }
+    if (section === 'chat') {
+      setChatProps({
+        initialUserId: userId || undefined,
+        initialTicketId: ticketId || undefined,
+      });
+    }
+    if (section === 'ads') {
+      setAdManagerProps({ initialAdId: id || undefined });
+    }
+    if (section === 'verification') {
+      setVerificationProps({ initialRecordId: id || undefined });
+    }
+    if (section === 'task-proofs') {
+      setTaskProofsProps({ initialTaskId: taskId || id || undefined });
+    }
+    if (section === 'airtime' || section === 'redeem' || section === 'sabuss') {
+      const mapped = tab === 'redemptions' || tab === 'logs' ? 'logs' : (tab as any);
+      setRedeemProps({ initialTab: mapped || undefined });
+    }
+    if (section === 'contact-gain') {
+      setContactGainProps({ initialTab: (tab as any) || undefined });
+    }
+  };
+
+  // Sync with URL query parameters (e.g. ?section=chat&userId=...&ticketId=... or legacy ?tab=chat&userId=...)
   useEffect(() => {
     const sectionParam = searchParams.get('section');
     const tabParam = searchParams.get('tab');
-    const idParam = searchParams.get('id');
+    const idParam = searchParams.get('id') || undefined;
+    const userIdParam = searchParams.get('userId') || undefined;
+    const ticketIdParam = searchParams.get('ticketId') || undefined;
+    const taskIdParam = searchParams.get('taskId') || undefined;
 
-    if (sectionParam) {
-      setActiveSection(sectionParam);
-      if (sectionParam === 'syndicate') {
-        setSyndicateProps({
-          initialTab: (tabParam as any) || 'members',
-          initialCampaignId: idParam || undefined,
-        });
-      }
+    if (sectionParam || tabParam === 'chat') {
+      const resolvedSection = sectionParam || 'chat';
+      applyDestinationState({
+        section: resolvedSection,
+        tab: sectionParam ? tabParam || undefined : undefined,
+        id: idParam,
+        userId: userIdParam,
+        ticketId: ticketIdParam,
+        taskId: taskIdParam,
+      });
     }
   }, [searchParams]);
 
@@ -184,10 +265,8 @@ const AdminPage = () => {
           const parts = detail.split(':');
           const section = parts[1] || 'syndicate';
           const tab = parts[2];
-          setActiveSection(section);
-          if (section === 'syndicate' && tab) {
-            setSyndicateProps({ initialTab: tab as any });
-          }
+          const id = parts[3];
+          applyDestinationState({ section, tab, id });
         } else if (detail === 'admin') {
           setActiveSection('syndicate');
         }
@@ -247,13 +326,76 @@ const AdminPage = () => {
     setActiveSection(sectionId);
   };
 
+  const handleOpenAdminNotification = (notif: AdminPortalNotification) => {
+    if (!notif.is_read) {
+      setAdminNotifications((prev) =>
+        prev.map((item) => (item.id === notif.id ? { ...item, is_read: true } : item))
+      );
+      void markAdminNotificationReadStatus(notif, true);
+    }
+
+    const parsed = parseAdminNotificationLink(notif.link_url, notif.nav_target);
+    const nextParams = new URLSearchParams();
+    nextParams.set('section', parsed.section);
+    if (parsed.tab) nextParams.set('tab', parsed.tab);
+    if (parsed.userId) nextParams.set('userId', parsed.userId);
+    if (parsed.ticketId) nextParams.set('ticketId', parsed.ticketId);
+    if (parsed.id) nextParams.set('id', parsed.id);
+    if (parsed.taskId) nextParams.set('taskId', parsed.taskId);
+    setSearchParams(nextParams, { replace: false });
+
+    applyDestinationState(parsed);
+    setMobileMenuOpen(false);
+  };
+
+  const handleToggleAdminNotificationRead = (notif: AdminPortalNotification) => {
+    const nextRead = !notif.is_read;
+    setAdminNotifications((prev) =>
+      prev.map((item) => (item.id === notif.id ? { ...item, is_read: nextRead } : item))
+    );
+    void markAdminNotificationReadStatus(notif, nextRead);
+  };
+
+  const handleMarkAllAdminNotificationsRead = () => {
+    setAdminNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    void markAllAdminNotificationsRead(adminNotifications, adminUserId);
+  };
+
+  const handleDeleteAdminNotification = (notif: AdminPortalNotification) => {
+    setAdminNotifications((prev) => prev.filter((item) => item.id !== notif.id));
+    void deleteAdminNotification(notif);
+  };
+
+  const handleRefreshAdminAlerts = async () => {
+    setAlertsLoading(true);
+    try {
+      const items = await fetchAdminPortalNotifications(adminUserId);
+      setAdminNotifications(items);
+    } finally {
+      setAlertsLoading(false);
+    }
+  };
+
   const renderContent = () => {
     switch (activeSection) {
+      case 'admin-alerts':
+        return (
+          <AdminAlertsFeed
+            notifications={adminNotifications}
+            loading={alertsLoading}
+            onRefresh={handleRefreshAdminAlerts}
+            onOpenNotification={handleOpenAdminNotification}
+            onToggleRead={handleToggleAdminNotificationRead}
+            onMarkAllRead={handleMarkAllAdminNotificationsRead}
+            onDeleteNotification={handleDeleteAdminNotification}
+          />
+        );
       case 'guide': return <AdminGuide />;
       case 'analytics': return <AdminAnalytics />;
       case 'users': return <AdminUserManager />;
       case 'activation-fee': return <AdminActivationManager />;
-      case 'verification': return <AdminVerificationManager />;
+      case 'verification':
+        return <AdminVerificationManager initialRecordId={verificationProps.initialRecordId} />;
       case 'syndicate': return (
         <AdminSyndicateManager 
           initialCampaignId={syndicateProps.initialCampaignId} 
@@ -264,7 +406,7 @@ const AdminPage = () => {
       case 'sabuss':
       case 'airtime':
       case 'redeem':
-        return <AdminRedeemManager />;
+        return <AdminRedeemManager initialTab={redeemProps.initialTab} />;
       case 'settings': return <AdminSettings />;
       case 'features':
         return (
@@ -275,7 +417,8 @@ const AdminPage = () => {
         );
       case 'slides': return <SlideManager />;
       case 'tasks': return <TaskManager />;
-      case 'task-proofs': return <TaskProofReviewList />;
+      case 'task-proofs':
+        return <TaskProofReviewList taskId={taskProofsProps.initialTaskId} />;
       case 'api': return <AdminApiManager />;
       case 'apps': return <AdminMarketingApps />;
       case 'digital-products':
@@ -284,6 +427,7 @@ const AdminPage = () => {
       case 'videos': return <AdminVideoManager />;
       case 'ads': return (
         <AdminAdManager 
+          initialAdId={adManagerProps.initialAdId}
           onNavigateSyndicate={(ad) => navigateToSection('syndicate', { initialCampaignId: ad.id, initialTab: 'campaigns' })} 
         />
       );
@@ -294,9 +438,16 @@ const AdminPage = () => {
       case 'vixora':
         return <AdminVixoraManager />;
       case 'email-studio': return <AdminEmailStudio />;
-      case 'contact-gain': return <AdminContactGainManager />;
+      case 'contact-gain':
+        return <AdminContactGainManager initialTab={contactGainProps.initialTab} />;
       case 'notifications': return <AdminNotificationSender />;
-      case 'chat': return <AdminChatSystem />;
+      case 'chat':
+        return (
+          <AdminChatSystem
+            initialUserId={chatProps.initialUserId}
+            initialTicketId={chatProps.initialTicketId}
+          />
+        );
       case 'coowners': return <AdminCoOwnerManager />;
       default: return <AdminGuide />;
     }
@@ -334,6 +485,11 @@ const AdminPage = () => {
             {item.sublabel}
           </span>
         </span>
+        {item.id === 'admin-alerts' && unreadAlertsCount > 0 && (
+          <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold tabular-nums shrink-0">
+            {unreadAlertsCount > 99 ? '99+' : unreadAlertsCount}
+          </span>
+        )}
       </button>
     );
   };
@@ -398,10 +554,23 @@ const AdminPage = () => {
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Exit
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <AdminNotificationBell
+              notifications={adminNotifications}
+              onOpenNotification={handleOpenAdminNotification}
+              onToggleRead={handleToggleAdminNotificationRead}
+              onMarkAllRead={handleMarkAllAdminNotificationsRead}
+              onDeleteNotification={handleDeleteAdminNotification}
+              onViewAllFeed={() => {
+                setSearchParams({ section: 'admin-alerts' });
+                setActiveSection('admin-alerts');
+              }}
+            />
+            <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+              Exit
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -452,9 +621,24 @@ const AdminPage = () => {
       {/* Main Content Area - Full-Page Flow */}
       <main className="flex-1 min-h-screen min-w-0 bg-background overflow-x-hidden">
         <div className="w-full max-w-[1700px] min-w-0 mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-4 sm:space-y-5 overflow-x-hidden">
-          {/* Admin Portal Search Bar for Features, Toggles, Sections, Users & Campaigns */}
-          <div className="w-full">
-            <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-2xl" />
+          {/* Admin Portal Top Toolbar: Realtime Search + Desktop Admin Notification Bell */}
+          <div className="w-full flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-2xl" />
+            </div>
+            <div className="hidden md:flex items-center gap-2 shrink-0">
+              <AdminNotificationBell
+                notifications={adminNotifications}
+                onOpenNotification={handleOpenAdminNotification}
+                onToggleRead={handleToggleAdminNotificationRead}
+                onMarkAllRead={handleMarkAllAdminNotificationsRead}
+                onDeleteNotification={handleDeleteAdminNotification}
+                onViewAllFeed={() => {
+                  setSearchParams({ section: 'admin-alerts' });
+                  setActiveSection('admin-alerts');
+                }}
+              />
+            </div>
           </div>
 
           {/* Top Active Section Header (for non-syndicate sections) */}

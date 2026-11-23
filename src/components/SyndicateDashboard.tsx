@@ -47,7 +47,7 @@ import SyndicateGuide from "@/components/SyndicateGuide";
 import PromoterNetworkChat from "@/components/PromoterNetworkChat";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useActivationStatus } from "@/hooks/useActivationStatus";
-import { notifyAdminsOfApprovalRequired } from "@/services/adminNotificationHelper";
+import { notifyAdminsSystemUpdate } from "@/services/adminNotificationHelper";
 import ggdLogo from '@/assets/ggd-logo.png';
 
 const isVideoProof = (url?: string | null) => {
@@ -389,10 +389,18 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
 
       // Notify Admins
       try {
-        await notifyAdminsOfApprovalRequired({
-          title: 'Syndicate proof submitted',
-          message: `${mainProfile?.display_name || userEmail.split('@')[0]} submitted proof for "${task.title}"`,
-          tab: 'verification',
+        await notifyAdminsSystemUpdate({
+          title: `Syndicate Proof Submitted: ${task.title}`,
+          summary: `${mainProfile?.display_name || userEmail.split('@')[0]} submitted campaign proof for "${task.title}" awaiting review.`,
+          category: 'syndicate_update',
+          section: 'syndicate',
+          tab: 'tasks',
+          itemId: task.id,
+          userId: user.id,
+          actionLabel: 'Review Syndicate Proof',
+          actorName: mainProfile?.display_name || undefined,
+          actorEmail: userEmail || undefined,
+          urgent: false,
         });
       } catch (e) {
         console.warn('Admin notification non-blocking:', e);

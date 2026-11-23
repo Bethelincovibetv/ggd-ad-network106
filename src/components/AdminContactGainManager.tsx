@@ -33,8 +33,8 @@ import {
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { playMoneyTransferSound } from "@/utils/audio";
 
-export const AdminContactGainManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'contacts' | 'proofs' | 'campaigns' | 'add' | 'settings'>('contacts');
+export const AdminContactGainManager: React.FC<{ initialTab?: 'contacts' | 'proofs' | 'campaigns' | 'add' | 'settings' }> = ({ initialTab }) => {
+  const [activeTab, setActiveTab] = useState<'contacts' | 'proofs' | 'campaigns' | 'add' | 'settings'>(initialTab || 'contacts');
   const [contacts, setContacts] = useState<ContactEntry[]>([]);
   const [campaigns, setCampaigns] = useState<ContactCampaign[]>([]);
   const [proofs, setProofs] = useState<ContactProofSubmission[]>([]);
@@ -84,6 +84,12 @@ export const AdminContactGainManager: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();

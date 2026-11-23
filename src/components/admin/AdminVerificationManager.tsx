@@ -50,7 +50,7 @@ import {
 } from "@/services/businessVerificationEngine";
 import { BusinessVerificationBadge } from "@/components/business/BusinessVerificationBadge";
 
-export const AdminVerificationManager: React.FC = () => {
+export const AdminVerificationManager: React.FC<{ initialRecordId?: string }> = ({ initialRecordId }) => {
   const [submissions, setSubmissions] = useState<VerificationSubmissionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +61,7 @@ export const AdminVerificationManager: React.FC = () => {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [adminNote, setAdminNote] = useState('');
   const [processingAction, setProcessingAction] = useState(false);
+  const handledInitialRecordRef = React.useRef<string | null>(null);
 
   // Sandbox Simulator State
   const [sandboxOpen, setSandboxOpen] = useState(false);
@@ -101,6 +102,16 @@ export const AdminVerificationManager: React.FC = () => {
     setAdminNote(submission.admin_note || '');
     setReviewModalOpen(true);
   };
+
+  useEffect(() => {
+    if (!initialRecordId || submissions.length === 0 || handledInitialRecordRef.current === initialRecordId) return;
+    const match = submissions.find((s) => s.id === initialRecordId);
+    if (match) {
+      handledInitialRecordRef.current = initialRecordId;
+      setStatusFilter('ALL');
+      handleOpenReview(match);
+    }
+  }, [initialRecordId, submissions]);
 
   const handleExecuteAdminOverride = async (action: 'APPROVE' | 'REJECT') => {
     if (!selectedSubmission) return;

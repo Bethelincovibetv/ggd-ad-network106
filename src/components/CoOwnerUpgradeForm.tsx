@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import coOwnerBanner from '@/assets/co-owner-banner.jpg';
 import { POPULAR_NIGERIAN_BANKS, findBankCode } from '@/utils/nigerianBanks';
 import { resolveBankAccountPaystack } from '@/utils/paystackBank';
+import { notifyAdminsSystemUpdate } from '@/services/adminNotificationHelper';
 
 interface CoOwnerUpgradeFormProps {
   onUpgraded: () => void;
@@ -95,17 +96,18 @@ const CoOwnerUpgradeForm = ({ onUpgraded, credits }: CoOwnerUpgradeFormProps) =>
         earning_percentage: percentage,
       });
 
-      // Notify admin
-      const { data: admins } = await supabase.from('user_roles').select('user_id').eq('role', 'admin' as any);
-      if (admins?.length) {
-        const notifications = admins.map((a: any) => ({
-          user_id: a.user_id,
-          title: '🤝 New Co-Owner Application',
-          message: `A user has applied to become a co-owner. Bank: ${form.bank_name}, Account: ${form.account_number}, Name: ${form.account_name}`,
-          type: 'co_owner',
-        }));
-        await supabase.from('notifications').insert(notifications);
-      }
+      // Notify admins across Portal Bell, Firestore & Supabase
+      await notifyAdminsSystemUpdate({
+        title: 'New Co-Owner Application',
+        summary: `${user.email || 'A user'} applied to become a Co-Owner (${form.bank_name}, ${form.account_name}).`,
+        category: 'co_owner',
+        section: 'coowners',
+        userId: user.id,
+        actionLabel: 'Review Co-Owner',
+        actorName: form.account_name || undefined,
+        actorEmail: user.email || undefined,
+        urgent: true,
+      });
 
       toast.success("🎉 Co-Owner application submitted! Awaiting admin approval.");
       setExisting({ ...form, status: 'pending', earning_percentage: percentage, total_earnings: 0 });

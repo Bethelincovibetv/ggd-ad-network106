@@ -45,7 +45,27 @@ const PRESET_REJECTION_REASONS = [
   "Required hashtags, flyer image, or tags are missing",
 ];
 
-const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?: string; onNavigateSection?: (sectionId: string, extraProps?: any) => void } = {}) => {
+const resolveSyndicateTab = (tab?: string): string => {
+  switch ((tab || '').toLowerCase()) {
+    case 'applications':
+    case 'verification':
+      return 'applications';
+    case 'syndicates':
+    case 'members':
+      return 'syndicates';
+    case 'withdrawals':
+    case 'payouts':
+      return 'withdrawals';
+    case 'pricing':
+      return 'pricing';
+    case 'tasks':
+    case 'campaigns':
+    default:
+      return 'tasks';
+  }
+};
+
+const AdminSyndicateManager = (props: { initialCampaignId?: string; initialTab?: string; onNavigateSection?: (sectionId: string, extraProps?: any) => void } = {}) => {
   const [applications, setApplications] = useState<any[]>([]);
   const [syndicates, setSyndicates] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -54,7 +74,8 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   const [platformPricing, setPlatformPricing] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>(() => resolveSyndicateTab(props.initialTab));
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(props.initialCampaignId || null);
   const [paused, setPaused] = useState(false);
   const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null);
   const [withdrawalFilter, setWithdrawalFilter] = useState<'pending' | 'completed' | 'failed' | 'all'>('pending');
@@ -102,6 +123,19 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (props.initialTab) {
+      setActiveTab(resolveSyndicateTab(props.initialTab));
+    }
+  }, [props.initialTab]);
+
+  useEffect(() => {
+    if (props.initialCampaignId) {
+      setActiveTab('tasks');
+      void viewTaskSubmissions(props.initialCampaignId);
+    }
+  }, [props.initialCampaignId]);
 
   const fetchData = async () => {
     try {
@@ -650,7 +684,7 @@ const AdminSyndicateManager = (_props: { initialCampaignId?: string; initialTab?
         </div>
       </div>
 
-      <Tabs defaultValue="tasks" className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
         <TabsList className="w-full max-w-full justify-start flex overflow-x-auto no-scrollbar gap-1.5 h-auto p-1.5 rounded-2xl bg-secondary/80 border border-border/50">
           <TabsTrigger value="tasks" className="flex-1 min-w-max h-10 px-3.5 rounded-xl text-xs font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-md cursor-pointer">
             <Briefcase className="h-3.5 w-3.5 mr-1.5" /> Campaigns ({allTasks.length})

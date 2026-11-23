@@ -67,6 +67,7 @@ import { createBannerAdIdempotent } from "@/services/bannerAdService";
 export type Ad = BannerAdRecord;
 
 interface AdminAdManagerProps {
+  initialAdId?: string;
   onNavigateSyndicate?: (ad: Ad) => void;
 }
 
@@ -84,7 +85,7 @@ const statusBadgeMap: Record<string, { label: string; cls: string }> = {
   expired: { label: 'Expired', cls: 'bg-muted text-muted-foreground border-border' },
 };
 
-const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) => {
+const AdminAdManager: React.FC<AdminAdManagerProps> = ({ initialAdId, onNavigateSyndicate }) => {
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -200,9 +201,21 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
     setLoading(false);
   };
 
+  const handledInitialAdIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     fetchAds();
   }, []);
+
+  useEffect(() => {
+    if (!initialAdId || ads.length === 0 || handledInitialAdIdRef.current === initialAdId) return;
+    const match = ads.find((a) => a.id === initialAdId);
+    if (match) {
+      handledInitialAdIdRef.current = initialAdId;
+      setStatusFilter('all');
+      openManageModal(match);
+    }
+  }, [initialAdId, ads]);
 
   const saveBannerEdits = async () => {
     if (!selectedAd) return;

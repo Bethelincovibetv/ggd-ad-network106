@@ -214,6 +214,21 @@ const NotificationBell = () => {
 
     setOpen(false);
 
+    // Admin portal update notifications -> route straight to exact Admin Portal destination
+    if (link?.startsWith('/admin') || navTarget?.startsWith('admin:')) {
+      if (link && link.startsWith('/admin')) {
+        window.location.assign(link);
+        return;
+      }
+      const parts = (navTarget || '').split(':');
+      const params = new URLSearchParams();
+      params.set('section', parts[1] || 'admin-alerts');
+      if (parts[2]) params.set('tab', parts[2]);
+      if (parts[3]) params.set('id', parts[3]);
+      window.location.assign(`/admin?${params.toString()}`);
+      return;
+    }
+
     // Task creator submission alert -> route straight to Creator Task Management for that task
     if (parseTaskSubmissionNotification(n).isTaskSubmission) {
       navigateToTaskManagement(n);

@@ -30,6 +30,7 @@ import { NetworkLogo, GGDRewardBrandBadge } from "@/components/telecom/TelecomLo
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { RedeemFallingAnimation } from "@/components/RedeemFallingAnimation";
 import { playRedeemSound } from "@/utils/redeemSound";
+import { notifyAdminsSystemUpdate } from "@/services/adminNotificationHelper";
 
 interface CreditRedeemAirtimeProps {
   currentCredits?: number;
@@ -164,6 +165,19 @@ export const CreditRedeemAirtime: React.FC<CreditRedeemAirtimeProps> = ({
         setIsConfirmOpen(false);
         setUnlockedOffer({ offer: selectedOfferForRedeem, appLink: res.appLink });
         setIsSuccessOpen(true);
+
+        void notifyAdminsSystemUpdate({
+          title: `Redemption Completed: ${selectedOfferForRedeem.title}`,
+          summary: `${user.email || 'Member'} redeemed ${selectedOfferForRedeem.title} (${selectedOfferForRedeem.credit_cost} credits).`,
+          category: 'redemption',
+          section: 'airtime',
+          tab: 'logs',
+          itemId: selectedOfferForRedeem.id,
+          userId: user.id,
+          actionLabel: 'View Redemptions',
+          actorEmail: user.email || undefined,
+          urgent: false,
+        }).catch(() => {});
 
         toast.success(`🎉 Successfully unlocked ${selectedOfferForRedeem.title}!`);
       }
