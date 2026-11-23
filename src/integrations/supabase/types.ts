@@ -102,8 +102,11 @@ export type Database = {
           clicks: number | null
           created_at: string
           description: string | null
+          duration_days: number
           expires_at: string | null
+          external_reference: string | null
           id: string
+          idempotency_key: string | null
           image_url: string | null
           impressions: number | null
           is_active: boolean | null
@@ -123,8 +126,11 @@ export type Database = {
           clicks?: number | null
           created_at?: string
           description?: string | null
+          duration_days?: number
           expires_at?: string | null
+          external_reference?: string | null
           id?: string
+          idempotency_key?: string | null
           image_url?: string | null
           impressions?: number | null
           is_active?: boolean | null
@@ -144,8 +150,11 @@ export type Database = {
           clicks?: number | null
           created_at?: string
           description?: string | null
+          duration_days?: number
           expires_at?: string | null
+          external_reference?: string | null
           id?: string
+          idempotency_key?: string | null
           image_url?: string | null
           impressions?: number | null
           is_active?: boolean | null

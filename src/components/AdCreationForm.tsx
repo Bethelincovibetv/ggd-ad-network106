@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,19 +6,25 @@ import AICampaignAssistant from "@/components/AICampaignAssistant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins, Users, MessageCircle, Store } from "lucide-react";
+import { Upload, CreditCard, X, Megaphone, Link2, Clock, ImagePlus, Sparkles, ArrowRight, Zap, Eye, MousePointerClick, TrendingUp, MapPin, Youtube, Image as ImageIcon, Coins, Users, MessageCircle, Store, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { NIGERIAN_STATES } from "@/utils/nigerianStates";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
+import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
 
 interface AdCreationFormProps {
-  onAdCreated: (adData: any) => void;
+  onAdCreated: (adData: any) => Promise<boolean | void> | boolean | void;
   onCancel: () => void;
+  submitting?: boolean;
 }
 
-const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }) => {
+const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel, submitting = false }) => {
+  const attemptKeyRef = useRef<string>(generateBannerIdempotencyKey('rotator_ad'));
+  const submitLockRef = useRef<boolean>(false);
+  const [localSubmitting, setLocalSubmitting] = useState(false);
+  const isBusy = submitting || localSubmitting;
   const [newAd, setNewAd] = useState({
     title: '',
     description: '',
@@ -67,12 +73,31 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
     }
   };
 
-  const createAd = () => {
+  const dispatchAdCreation = async (payload: any) => {
+    if (submitLockRef.current || isBusy) return;
+    submitLockRef.current = true;
+    setLocalSubmitting(true);
+    try {
+      const outcome = await onAdCreated({
+        ...payload,
+        idempotencyKey: attemptKeyRef.current,
+      });
+      if (outcome !== false) {
+        attemptKeyRef.current = generateBannerIdempotencyKey('rotator_ad');
+      }
+    } finally {
+      submitLockRef.current = false;
+      setLocalSubmitting(false);
+    }
+  };
+
+  const createAd = async () => {
+    if (submitLockRef.current || isBusy) return;
     if (newAd.adType === 'watch') {
       if (!newAd.title.trim() || !newAd.youtubeUrl.trim()) { toast.error("Title and YouTube URL are required"); return; }
       if (newAd.watchDurationSeconds < 5) { toast.error("Minimum watch duration is 5 seconds"); return; }
       if (newAd.rewardCredits < 1 || newAd.budgetCredits < newAd.rewardCredits) { toast.error("Reward and budget must be valid"); return; }
-      onAdCreated(newAd);
+      await dispatchAdCreation(newAd);
       return;
     }
     if (!newAd.title.trim() || !newAd.description.trim() || !newAd.targetUrl.trim()) {
@@ -81,7 +106,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
     }
     const amount = getPriceForDuration(newAd.durationDays);
     if (confirm(`Create ad for ${newAd.durationDays} days at ₦${(amount * 1600).toLocaleString()}? This will redirect you to payment.`)) {
-      onAdCreated(newAd);
+      await dispatchAdCreation(newAd);
     }
   };
 
@@ -179,9 +204,10 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
               </Select>
             </div>
             <div className="flex gap-2 pt-1">
-              <Button variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl">Cancel</Button>
-              <Button onClick={createAd} className="flex-1 h-12 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold">
-                <Youtube className="h-4 w-4 mr-2" /> Submit for Review
+              <Button variant="outline" disabled={isBusy} onClick={onCancel} className="flex-1 h-12 rounded-xl">Cancel</Button>
+              <Button disabled={isBusy} onClick={createAd} className="flex-1 h-12 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold">
+                {isBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Youtube className="h-4 w-4 mr-2" />}
+                {isBusy ? 'Submitting...' : 'Submit for Review'}
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">Watch ads need admin approval before going live.</p>
@@ -526,13 +552,14 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({ onAdCreated, onCancel }
             </div>
 
             <div className="flex gap-2.5">
-              <Button variant="outline" onClick={() => setStep(2)} className="flex-1 h-12 rounded-2xl text-sm font-semibold border-border/40">Back</Button>
+              <Button variant="outline" disabled={isBusy} onClick={() => setStep(2)} className="flex-1 h-12 rounded-2xl text-sm font-semibold border-border/40">Back</Button>
               <Button
                 onClick={createAd}
+                disabled={isBusy}
                 className="flex-1 h-13 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm font-bold shadow-lg shadow-green-500/25 transition-all"
               >
-                <CreditCard className="h-4 w-4 mr-2" />
-                Pay & Launch
+                {isBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
+                {isBusy ? 'Submitting...' : 'Pay & Launch'}
               </Button>
             </div>
           </CardContent>

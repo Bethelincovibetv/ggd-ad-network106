@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,8 @@ import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 import { useActivationStatus } from "@/hooks/useActivationStatus";
 import { MarketingLinkGeneratorModal } from "@/components/MarketingLinkGeneratorModal";
 import { ProductPhotoViewerModal } from "@/components/ProductPhotoViewerModal";
+import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
 
 const DEFAULT_PLATFORMS = [
   { platform_key: 'whatsapp', platform_name: 'WhatsApp Status', price_per_task: 50, is_active: true },
@@ -61,6 +63,8 @@ const BusinessTaskCreator = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [bannerCostPerDay, setBannerCostPerDay] = useState<number>(50);
   const [converting, setConverting] = useState(false);
+  const convertingRef = useRef(false);
+  const convertAttemptKeysRef = useRef<Record<string, string>>({});
   const [exchangeRate, setExchangeRate] = useState<number>(0.48);
   const [credits, setCredits] = useState<number>(0);
   const [loginBonusCredits, setLoginBonusCredits] = useState<number>(0);
@@ -296,38 +300,67 @@ const BusinessTaskCreator = () => {
   };
 
   const convertToBannerAd = async (task: any) => {
+    if (convertingRef.current || converting) return;
+    if (!task.share_link) { toast.error('Campaign needs a share link to convert'); return; }
+
     const daysStr = prompt(`Convert "${task.title}" into a banner ad?\n\nCost: ${bannerCostPerDay} credits/day\n\nHow many days should the banner run?`, '7');
     if (!daysStr) return;
-    const days = parseInt(daysStr);
-    if (!days || days < 1) { toast.error('Enter valid days'); return; }
+    const days = parseInt(daysStr, 10);
+    if (!days || days < 1 || days > 365) { toast.error('Enter valid days (1-365)'); return; }
     const cost = days * bannerCostPerDay;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
-    if (!profile || (profile.credits || 0) < cost) {
-      toast.error(`Need ${cost} credits, have ${profile?.credits || 0}`);
-      return;
-    }
-    if (!task.share_link) { toast.error('Campaign needs a share link to convert'); return; }
+    const attemptKeyId = `${task.id}:${days}`;
+    const attemptKey =
+      convertAttemptKeysRef.current[attemptKeyId] ||
+      (convertAttemptKeysRef.current[attemptKeyId] = generateBannerIdempotencyKey(`conv_${task.id.slice(0, 8)}`));
 
+    convertingRef.current = true;
     setConverting(true);
-    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-    const { error: adErr } = await supabase.from('ads').insert({
-      user_id: user.id,
-      title: task.title,
-      description: task.description,
-      image_url: task.flyer_url || null,
-      target_url: task.share_link,
-      is_active: true,
-      expires_at: expiresAt,
-    });
-    if (adErr) { toast.error('Failed to create banner ad'); setConverting(false); return; }
+    try {
+      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+      const result = await createBannerAdIdempotent({
+        idempotencyKey: attemptKey,
+        title: task.title,
+        description: task.description || '',
+        image_url: task.flyer_url || null,
+        target_url: task.share_link,
+        ad_type: 'banner',
+        duration_days: days,
+        is_active: true,
+        approved: false,
+        expires_at: expiresAt,
+        deduct_credits: true,
+        billing_mode: 'daily_banner',
+      });
 
-    await supabase.from('profiles').update({ credits: (profile.credits || 0) - cost }).eq('user_id', user.id);
-    toast.success(`Banner ad live for ${days} days! ${cost} credits deducted.`);
-    setConverting(false);
+      if (!result.success) {
+        if (typeof result.credits === 'number') setCredits(result.credits);
+        toast.error(result.error || 'Failed to create banner ad');
+        return;
+      }
+
+      if (typeof result.credits === 'number') {
+        setCredits(result.credits);
+      } else if (!result.alreadyExists) {
+        const { data: profile } = await supabase.from('profiles').select('credits').eq('user_id', user.id).maybeSingle();
+        const nextCredits = Math.max(0, Number(profile?.credits || 0) - cost);
+        await supabase.from('profiles').update({ credits: nextCredits }).eq('user_id', user.id);
+        setCredits(nextCredits);
+      }
+
+      delete convertAttemptKeysRef.current[attemptKeyId];
+      toast.success(
+        result.alreadyExists
+          ? 'Banner ad already created from this campaign — no extra credits deducted.'
+          : `Banner ad live for ${days} days! ${cost} credits deducted.`
+      );
+    } finally {
+      convertingRef.current = false;
+      setConverting(false);
+    }
   };
 
   // Per-task stats

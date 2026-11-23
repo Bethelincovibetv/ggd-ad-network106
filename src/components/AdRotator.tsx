@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,10 +11,14 @@ import { supabase, SUPABASE_URL, SUPABASE_PROJECT_ID } from "@/integrations/supa
 import AdCreationForm from "./AdCreationForm";
 import AdDisplayPreview from "./AdDisplayPreview";
 import { MarketingLinkGeneratorModal } from "./MarketingLinkGeneratorModal";
+import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
 
 const AdRotator = () => {
   const [ads, setAds] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [submittingAd, setSubmittingAd] = useState(false);
+  const paymentInFlightRef = useRef(false);
   const [editingAd, setEditingAd] = useState<any | null>(null);
   const [rotatorCode, setRotatorCode] = useState('');
   const [linkGenOpen, setLinkGenOpen] = useState(false);
@@ -28,57 +32,74 @@ const AdRotator = () => {
     setAds(data || []);
   };
 
-  const handlePayment = async (adData: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const handlePayment = async (adData: any): Promise<boolean> => {
+    if (paymentInFlightRef.current) return false;
+    paymentInFlightRef.current = true;
+    setSubmittingAd(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
 
-    const amount = adData.durationDays * 1.00;
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + adData.durationDays);
+      const amount = adData.durationDays * 1.00;
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(startDate.getDate() + adData.durationDays);
 
-    // Upload image if it's a data URL
-    let imageUrl = adData.imageUrl || null;
-    if (imageUrl && imageUrl.startsWith('data:')) {
-      const base64 = imageUrl.split(',')[1];
-      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-      const fileName = `${user.id}/${Date.now()}.jpg`;
-      const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, bytes, { contentType: 'image/jpeg' });
-      if (uploadData) {
-        const { data: urlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
-        imageUrl = urlData.publicUrl;
+      // Upload image if it's a data URL
+      let imageUrl = adData.imageUrl || null;
+      if (imageUrl && imageUrl.startsWith('data:')) {
+        const base64 = imageUrl.split(',')[1];
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const fileName = `${user.id}/${Date.now()}.jpg`;
+        const { data: uploadData } = await supabase.storage.from('ad-images').upload(fileName, bytes, { contentType: 'image/jpeg' });
+        if (uploadData) {
+          const { data: urlData } = supabase.storage.from('ad-images').getPublicUrl(fileName);
+          imageUrl = urlData.publicUrl;
+        }
       }
-    }
 
-    const isWatch = adData.adType === 'watch';
-    const insertPayload: any = {
-      user_id: user.id,
-      title: adData.title,
-      description: adData.description || (isWatch ? 'Watch and earn credits' : ''),
-      target_url: isWatch ? (adData.youtubeUrl || '') : adData.targetUrl,
-      image_url: imageUrl,
-      is_active: false,
-      approved: false,
-      ad_type: isWatch ? 'watch' : 'banner',
-      target_state: adData.targetState && adData.targetState !== 'all' ? adData.targetState : null,
-      expires_at: isWatch ? null : endDate.toISOString(),
-    };
-    if (isWatch) {
-      insertPayload.youtube_url = adData.youtubeUrl;
-      insertPayload.watch_duration_seconds = adData.watchDurationSeconds;
-      insertPayload.reward_credits = adData.rewardCredits;
-      insertPayload.budget_credits = adData.budgetCredits;
-    }
-    const { error } = await supabase.from('ads').insert(insertPayload);
+      const isWatch = adData.adType === 'watch';
+      const idempotencyKey =
+        typeof adData.idempotencyKey === 'string' && adData.idempotencyKey.trim()
+          ? adData.idempotencyKey.trim()
+          : generateBannerIdempotencyKey('rotator_ad');
 
-    if (error) {
-      toast.error("Failed to create ad");
-      return;
-    }
+      const result = await createBannerAdIdempotent({
+        idempotencyKey,
+        title: adData.title,
+        description: adData.description || (isWatch ? 'Watch and earn credits' : ''),
+        target_url: isWatch ? (adData.youtubeUrl || '') : adData.targetUrl,
+        image_url: imageUrl,
+        duration_days: Number(adData.durationDays) || 7,
+        is_active: false,
+        approved: false,
+        ad_type: isWatch ? 'watch' : 'banner',
+        target_state: adData.targetState && adData.targetState !== 'all' ? adData.targetState : null,
+        expires_at: isWatch ? null : endDate.toISOString(),
+        deduct_credits: false,
+        youtube_url: isWatch ? adData.youtubeUrl : null,
+        watch_duration_seconds: isWatch ? adData.watchDurationSeconds : null,
+        reward_credits: isWatch ? adData.rewardCredits : null,
+        budget_credits: isWatch ? adData.budgetCredits : null,
+      });
 
-    toast.success(isWatch ? 'Watch ad submitted for admin approval!' : `Ad submitted for review. Payment of $${amount.toFixed(2)} processed.`);
-    setIsCreating(false);
-    fetchAds();
+      if (!result.success) {
+        toast.error(result.error || "Failed to create ad");
+        return false;
+      }
+
+      if (result.alreadyExists) {
+        toast.success('Campaign already submitted — restored your existing ad.');
+      } else {
+        toast.success(isWatch ? 'Watch ad submitted for admin approval!' : `Ad submitted for review. Payment of $${amount.toFixed(2)} processed.`);
+      }
+      setIsCreating(false);
+      await fetchAds();
+      return true;
+    } finally {
+      paymentInFlightRef.current = false;
+      setSubmittingAd(false);
+    }
   };
 
   const handleDeleteAd = async (id: string) => {
@@ -277,7 +298,7 @@ const AdRotator = () => {
           </div>
 
           {isCreating && (
-            <AdCreationForm onAdCreated={handlePayment} onCancel={() => setIsCreating(false)} />
+            <AdCreationForm submitting={submittingAd} onAdCreated={handlePayment} onCancel={() => setIsCreating(false)} />
           )}
 
           <div className="grid gap-4">

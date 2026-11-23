@@ -71,13 +71,17 @@ Response:
 
 --- ENDPOINT 2: SUBMIT AD (POST) ---
 URL: ${API_BASE}
-Headers: { "Content-Type": "application/json", "x-api-key": "${activeKey}" }
-Body: { "title": "My Ad", "description": "...", "target_url": "https://...", "image_url": "https://...", "duration_days": 30 }
+Headers: { "Content-Type": "application/json", "x-api-key": "${activeKey}", "Idempotency-Key": "<unique-uuid>" }
+Body: { "title": "My Ad", "description": "...", "target_url": "https://...", "image_url": "https://...", "duration_days": 30, "idempotency_key": "<unique-uuid>" }
 
 Example (JavaScript):
 fetch("${API_BASE}", {
   method: "POST",
-  headers: { "Content-Type": "application/json", "x-api-key": "${activeKey}" },
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-key": "${activeKey}",
+    "Idempotency-Key": crypto.randomUUID()
+  },
   body: JSON.stringify({
     title: "My Product",
     description: "Best deal!",
@@ -86,6 +90,7 @@ fetch("${API_BASE}", {
     duration_days: 30
   })
 }).then(r => r.json()).then(console.log);
+// Retrying with the same Idempotency-Key returns the existing ad (already_exists: true) instead of creating a duplicate.
 
 --- ENDPOINT 3: TRACK EVENTS (POST) ---
 URL: ${API_BASE}
@@ -268,12 +273,15 @@ Body: { "ad_id": "uuid", "event_type": "impression" or "click" }
                 <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">POST</span>
                 <code className="text-[10px] text-muted-foreground">/ad-network-api</code>
               </div>
-              <p className="text-xs text-muted-foreground">Submit an ad to the GGD network.</p>
+              <p className="text-xs text-muted-foreground">
+                Submit a banner ad to the GGD network. Include a unique <code className="bg-muted px-1 rounded">Idempotency-Key</code> header (or <code className="bg-muted px-1 rounded">idempotency_key</code> in JSON) per creation attempt so network retries return the existing ad instead of creating duplicates.
+              </p>
               <CodeBlock code={`fetch("${API_BASE}", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "x-api-key": "${activeKey}"
+    "x-api-key": "${activeKey}",
+    "Idempotency-Key": crypto.randomUUID()
   },
   body: JSON.stringify({
     title: "My Product Launch",

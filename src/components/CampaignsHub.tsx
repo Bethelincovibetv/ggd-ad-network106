@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,11 +61,13 @@ import {
   computeBannerCtr,
   computeBannerStats,
   filterBannerAds,
+  generateBannerIdempotencyKey,
   getBannerDaysLeft,
   getBannerShareUrl,
   getBannerStatus,
   isBannerAdvert,
 } from "@/lib/bannerAds";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
 
 export interface CampaignsHubProps {
   onNavigate?: (tab: string) => void;
@@ -113,9 +115,16 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
   const [analyticsId, setAnalyticsId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number>(userCredits ?? 0);
 
-  // Create form state
+  // Create form state & idempotency guards
   const [isCreating, setIsCreating] = useState<boolean>(initialCreating);
   const [creatingSubmitting, setCreatingSubmitting] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const createInFlightRef = useRef(false);
+  const createAttemptKeyRef = useRef<string | null>(
+    initialCreating ? generateBannerIdempotencyKey("banner_hub") : null
+  );
+  const duplicatingIdRef = useRef<string | null>(null);
+  const duplicateAttemptKeysRef = useRef<Record<string, string>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
   const [newAd, setNewAd] = useState({
     title: "",
@@ -145,20 +154,34 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
 
   useEffect(() => {
     setIsCreating(initialCreating);
-    if (initialCreating && typeof window !== "undefined") {
-      setTimeout(() => {
-        document.getElementById("banner-create-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 80);
+    if (initialCreating) {
+      if (!createAttemptKeyRef.current) {
+        createAttemptKeyRef.current = generateBannerIdempotencyKey("banner_hub");
+      }
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          document.getElementById("banner-create-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+      }
+    } else {
+      createAttemptKeyRef.current = null;
     }
   }, [initialCreating]);
 
   const setCreatingState = (val: boolean) => {
     setIsCreating(val);
     onCreatingChange?.(val);
-    if (val && typeof window !== "undefined") {
-      setTimeout(() => {
-        document.getElementById("banner-create-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 80);
+    if (val) {
+      if (!createAttemptKeyRef.current) {
+        createAttemptKeyRef.current = generateBannerIdempotencyKey("banner_hub");
+      }
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          document.getElementById("banner-create-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+      }
+    } else {
+      createAttemptKeyRef.current = null;
     }
   };
 
@@ -229,6 +252,7 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
   };
 
   const handleCreateBanner = async () => {
+    if (createInFlightRef.current || creatingSubmitting) return;
     if (!requireActivation("create banner adverts")) return;
     if (!newAd.title.trim() || !newAd.target_url.trim()) {
       toast.error("Title and target URL are required");
@@ -245,6 +269,11 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
       return;
     }
 
+    const attemptKey =
+      createAttemptKeyRef.current ||
+      (createAttemptKeyRef.current = generateBannerIdempotencyKey("banner_hub"));
+
+    createInFlightRef.current = true;
     setCreatingSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -252,32 +281,47 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + duration);
 
-      const { error } = await supabase.from("ads").insert({
-        user_id: user.id,
+      const result = await createBannerAdIdempotent({
+        idempotencyKey: attemptKey,
         title: newAd.title.trim(),
         description: newAd.description.trim() || "",
         image_url: newAd.image_url || null,
         target_url: newAd.target_url.trim(),
         target_state: newAd.target_state === "all" ? null : newAd.target_state,
         ad_type: "banner",
+        duration_days: duration,
         is_active: isAdmin ? newAd.is_active : true,
         approved: isAdmin,
         expires_at: expiresAt.toISOString(),
+        deduct_credits: !isAdmin,
+        billing_mode: "standard",
       });
 
-      if (error) {
-        toast.error(error.message || "Failed to create banner advert");
+      if (!result.success || !result.ad) {
+        if (typeof result.credits === "number") {
+          setCredits(result.credits);
+          onCreditsUpdated?.(result.credits);
+        }
+        toast.error(result.error || "Failed to create banner advert");
         return;
       }
 
-      if (!isAdmin) {
+      if (typeof result.credits === "number") {
+        setCredits(result.credits);
+        onCreditsUpdated?.(result.credits);
+      } else if (!isAdmin && !result.alreadyExists) {
         const nextCredits = Math.max(0, credits - adCostCredits);
         await supabase.from("profiles").update({ credits: nextCredits }).eq("user_id", user.id);
         setCredits(nextCredits);
         onCreditsUpdated?.(nextCredits);
       }
 
-      toast.success("Banner advert created!");
+      toast.success(
+        result.alreadyExists
+          ? "Banner advert already created — restored existing campaign."
+          : "Banner advert created!"
+      );
+      createAttemptKeyRef.current = null;
       setNewAd({
         title: "",
         description: "",
@@ -291,6 +335,7 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
       await load();
       onAdsChanged?.();
     } finally {
+      createInFlightRef.current = false;
       setCreatingSubmitting(false);
     }
   };
@@ -341,18 +386,50 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
   };
 
   const duplicateBanner = async (ad: BannerAdRecord) => {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    const payload = buildDuplicateBannerPayload(ad, auth.user.id);
-    const { error } = await supabase.from("ads").insert(payload);
-    if (error) {
-      toast.error(error.message || "Failed to duplicate banner");
-      return;
+    if (duplicatingIdRef.current) return;
+    const attemptKey =
+      duplicateAttemptKeysRef.current[ad.id] ||
+      (duplicateAttemptKeysRef.current[ad.id] = generateBannerIdempotencyKey(`dup_${ad.id.slice(0, 8)}`));
+
+    duplicatingIdRef.current = ad.id;
+    setDuplicatingId(ad.id);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const payload = buildDuplicateBannerPayload(ad, auth.user.id, attemptKey);
+      const result = await createBannerAdIdempotent({
+        idempotencyKey: attemptKey,
+        title: payload.title,
+        description: payload.description,
+        image_url: payload.image_url,
+        target_url: payload.target_url,
+        target_state: payload.target_state,
+        ad_type: "banner",
+        duration_days: 7,
+        is_active: false,
+        approved: false,
+        deduct_credits: false,
+        allow_draft_url: true,
+      });
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to duplicate banner");
+        return;
+      }
+
+      delete duplicateAttemptKeysRef.current[ad.id];
+      toast.success(
+        result.alreadyExists
+          ? "Banner duplicate already created — showing existing draft"
+          : "Banner duplicated as a paused draft"
+      );
+      setStatusFilter("inactive");
+      await load();
+      onAdsChanged?.();
+    } finally {
+      duplicatingIdRef.current = null;
+      setDuplicatingId(null);
     }
-    toast.success("Banner duplicated as a paused draft");
-    setStatusFilter("inactive");
-    await load();
-    onAdsChanged?.();
   };
 
   const shareBanner = async (ad: BannerAdRecord) => {
@@ -619,10 +696,13 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
                 className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold text-xs h-10"
               >
                 {creatingSubmitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
-                Publish Banner ({isAdmin ? "Free" : `${adCostCredits} credits`})
+                {creatingSubmitting
+                  ? "Publishing..."
+                  : `Publish Banner (${isAdmin ? "Free" : `${adCostCredits} credits`})`}
               </Button>
               <Button
                 type="button"
+                disabled={creatingSubmitting}
                 onClick={() => setCreatingState(false)}
                 variant="outline"
                 className="flex-1 text-xs font-bold h-10"
@@ -887,11 +967,16 @@ const CampaignsHub: React.FC<CampaignsHubProps> = ({
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={duplicatingId === ad.id}
                       className="h-9 text-xs font-bold rounded-xl"
                       onClick={() => duplicateBanner(ad)}
                     >
-                      <Copy className="h-3.5 w-3.5 mr-1.5" />
-                      Duplicate
+                      {duplicatingId === ad.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      {duplicatingId === ad.id ? "Duplicating..." : "Duplicate"}
                     </Button>
 
                     <Button

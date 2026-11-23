@@ -70,7 +70,7 @@ app.use('/uploads', express.static(UPLOADS_BASE_DIR));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, X-Requested-With, X-Project-Id, x-api-key');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, X-Requested-With, X-Project-Id, x-api-key, Idempotency-Key, X-Idempotency-Key');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
@@ -1908,6 +1908,604 @@ async function verifyServerAdminToken(req: express.Request): Promise<{ isAdmin: 
     return { isAdmin: false, error: `Authentication error: ${err.message}`, status: 500 };
   }
 }
+
+// ----------------------------------------------------
+// Idempotent Banner Ad Creation (POST /api/banner-ads & POST /api/ads)
+// ----------------------------------------------------
+interface BannerIdempotencyRecord {
+  ad: any;
+  userId: string;
+  credits: number | null;
+  createdAt: string;
+}
+
+const BANNER_IDEMPOTENCY_STORE_PATH = path.join(UPLOADS_BASE_DIR, '.banner_ad_idempotency.json');
+const inFlightBannerCreations = new Map<string, Promise<{ status: number; payload: any; replayed: boolean }>>();
+let bannerIdempotencyMemoryStore: Record<string, BannerIdempotencyRecord> | null = null;
+
+function loadBannerIdempotencyStore(): Record<string, BannerIdempotencyRecord> {
+  if (bannerIdempotencyMemoryStore) return bannerIdempotencyMemoryStore;
+  try {
+    if (fs.existsSync(BANNER_IDEMPOTENCY_STORE_PATH)) {
+      const raw = fs.readFileSync(BANNER_IDEMPOTENCY_STORE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        bannerIdempotencyMemoryStore = parsed;
+        return bannerIdempotencyMemoryStore!;
+      }
+    }
+  } catch (err) {
+    console.warn('[banner-ads idempotency] Failed to load store file:', err);
+  }
+  bannerIdempotencyMemoryStore = {};
+  return bannerIdempotencyMemoryStore;
+}
+
+function saveBannerIdempotencyRecord(compositeKey: string, record: BannerIdempotencyRecord) {
+  const store = loadBannerIdempotencyStore();
+  store[compositeKey] = record;
+
+  // Keep store bounded to latest 5000 records
+  const keys = Object.keys(store);
+  if (keys.length > 5000) {
+    keys.sort((a, b) => String(store[a]?.createdAt || '').localeCompare(String(store[b]?.createdAt || '')));
+    for (let i = 0; i < keys.length - 5000; i++) {
+      delete store[keys[i]];
+    }
+  }
+
+  try {
+    const tmpPath = `${BANNER_IDEMPOTENCY_STORE_PATH}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf8');
+    fs.renameSync(tmpPath, BANNER_IDEMPOTENCY_STORE_PATH);
+  } catch (err) {
+    console.warn('[banner-ads idempotency] Failed to persist store file:', err);
+  }
+}
+
+async function verifyServerUserToken(req: express.Request): Promise<{
+  ok: boolean;
+  userId?: string;
+  email?: string;
+  isAdmin?: boolean;
+  token?: string;
+  error?: string;
+  status: number;
+}> {
+  const superAdminEmails = [
+    'goodgiftdigital@gmail.com',
+    'accessa787@gmail.com',
+    'bethelincovibetv@gmail.com',
+  ];
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { ok: false, error: 'Unauthorized: Missing session token.', status: 401 };
+  }
+
+  const token = authHeader.substring(7).trim();
+  if (!token || token === 'null' || token === 'undefined') {
+    return { ok: false, error: 'Unauthorized: Empty session token.', status: 401 };
+  }
+
+  const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
+  try {
+    const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!userRes.ok) {
+      return { ok: false, error: 'Unauthorized: Session token is invalid or expired.', status: 401 };
+    }
+    const userData = await userRes.json();
+    const userId = userData?.id;
+    const email = String(userData?.email || '').toLowerCase().trim();
+    if (!userId) {
+      return { ok: false, error: 'Unauthorized: Valid user identity not found.', status: 401 };
+    }
+
+    let isAdmin = superAdminEmails.includes(email);
+    if (!isAdmin) {
+      const roleRes = await fetch(`${supabaseUrl}/rest/v1/user_roles?user_id=eq.${encodeURIComponent(userId)}&role=eq.admin&select=role`, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (roleRes.ok) {
+        const roles = await roleRes.json();
+        if (Array.isArray(roles) && roles.length > 0) {
+          isAdmin = true;
+        }
+      }
+    }
+
+    return { ok: true, userId, email, isAdmin, token, status: 200 };
+  } catch (err: any) {
+    return { ok: false, error: `Authentication check failed: ${err.message}`, status: 500 };
+  }
+}
+
+function normalizeServerIdemKey(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isValidBannerTargetUrl(rawUrl: string, allowHashDraft = false): boolean {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return false;
+  if (allowHashDraft && trimmed === '#') return true;
+  if (trimmed.startsWith('/')) return !trimmed.startsWith('//');
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isSupabaseMissingColError(status: number, bodyText: string): boolean {
+  return (
+    status === 400 &&
+    (bodyText.includes('42703') ||
+      bodyText.includes('PGRST204') ||
+      bodyText.includes('does not exist') ||
+      bodyText.includes('schema cache'))
+  );
+}
+
+function isSupabaseDuplicateError(status: number, bodyText: string): boolean {
+  const lower = bodyText.toLowerCase();
+  return (
+    status === 409 ||
+    bodyText.includes('23505') ||
+    lower.includes('duplicate key') ||
+    lower.includes('unique constraint')
+  );
+}
+
+async function fetchExistingBannerByIdempotencyKey(
+  supabaseUrl: string,
+  supabaseKey: string,
+  token: string,
+  userId: string,
+  key: string
+): Promise<any | null> {
+  for (const col of ['idempotency_key', 'external_reference']) {
+    try {
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/ads?user_id=eq.${encodeURIComponent(userId)}&${col}=eq.${encodeURIComponent(key)}&select=*&limit=1`,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (resp.ok) {
+        const rows = await resp.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows[0];
+        }
+      }
+    } catch {
+      // Ignore query errors when column does not exist yet
+    }
+  }
+  return null;
+}
+
+async function fetchUserProfileCredits(
+  supabaseUrl: string,
+  supabaseKey: string,
+  token: string,
+  userId: string
+): Promise<number> {
+  const resp = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=credits&limit=1`,
+    {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  if (!resp.ok) return 0;
+  const rows = await resp.json();
+  return Number(rows?.[0]?.credits ?? 0) || 0;
+}
+
+async function handleIdempotentBannerAdCreate(req: express.Request, res: express.Response) {
+  const auth = await verifyServerUserToken(req);
+  if (!auth.ok || !auth.userId || !auth.token) {
+    return res.status(auth.status).json({
+      success: false,
+      error: auth.error || 'Unauthorized',
+    });
+  }
+
+  const body = req.body || {};
+  const headerKey = normalizeServerIdemKey(req.headers['idempotency-key'] || req.headers['x-idempotency-key']);
+  const bodyKey = normalizeServerIdemKey(body.idempotency_key ?? body.idempotencyKey ?? body.external_reference);
+
+  if (headerKey && bodyKey && headerKey !== bodyKey) {
+    return res.status(400).json({
+      success: false,
+      error: 'Conflicting Idempotency-Key header and request payload key.',
+    });
+  }
+
+  const idempotencyKey = headerKey || bodyKey;
+  if (!idempotencyKey || idempotencyKey.length > 128) {
+    return res.status(400).json({
+      success: false,
+      error: 'A valid Idempotency-Key header or idempotency_key payload (1-128 chars) is required.',
+    });
+  }
+
+  const cleanTitle = typeof body.title === 'string' ? body.title.trim() : '';
+  const cleanDescription = typeof body.description === 'string' ? body.description.trim() : '';
+  const cleanTargetUrl = typeof body.target_url === 'string' ? body.target_url.trim() : '';
+  const cleanImageUrl = typeof body.image_url === 'string' && body.image_url.trim() ? body.image_url.trim() : null;
+  const cleanTargetState =
+    typeof body.target_state === 'string' && body.target_state.trim() && body.target_state.trim() !== 'all'
+      ? body.target_state.trim()
+      : null;
+
+  const isWatchAd = String(body.ad_type || '').trim().toLowerCase() === 'watch';
+  const requestedOwnerId =
+    auth.isAdmin && typeof body.owner_user_id === 'string' && body.owner_user_id.trim()
+      ? body.owner_user_id.trim()
+      : auth.userId;
+
+  if (!cleanTitle || cleanTitle.length > 255) {
+    return res.status(400).json({
+      success: false,
+      error: 'Campaign title is required and must be 255 characters or fewer.',
+    });
+  }
+
+  if (!isWatchAd && !isValidBannerTargetUrl(cleanTargetUrl, body.allow_draft_url === true || body.deduct_credits === false)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Valid destination URL (http://, https://, or relative path) is required.',
+    });
+  }
+
+  const rawDuration = body.duration_days ?? body.duration ?? 7;
+  const durationDays = Number.parseInt(String(rawDuration), 10);
+  if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 365) {
+    return res.status(400).json({
+      success: false,
+      error: 'duration_days must be a whole number between 1 and 365.',
+    });
+  }
+
+  const compositeKey = `${requestedOwnerId}:${idempotencyKey}`;
+  const { url: supabaseUrl, key: supabaseKey } = getServerSupabaseConfig();
+
+  const runIdempotentCreate = async (): Promise<{ status: number; payload: any; replayed: boolean }> => {
+    // 1. Check durable server ledger first
+    const store = loadBannerIdempotencyStore();
+    const cachedRecord = store[compositeKey];
+    if (cachedRecord && cachedRecord.ad?.id) {
+      let verifiedAd = cachedRecord.ad;
+      let existsInDb = true;
+      try {
+        const checkResp = await fetch(
+          `${supabaseUrl}/rest/v1/ads?id=eq.${encodeURIComponent(cachedRecord.ad.id)}&select=*&limit=1`,
+          {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${auth.token}`,
+            },
+          }
+        );
+        if (checkResp.ok) {
+          const rows = await checkResp.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            verifiedAd = rows[0];
+          } else {
+            existsInDb = false;
+          }
+        }
+      } catch {
+        // Use cached ad record on transient read failure
+      }
+
+      if (existsInDb) {
+        const currentCredits = await fetchUserProfileCredits(supabaseUrl, supabaseKey, auth.token!, auth.userId!);
+        return {
+          status: 200,
+          replayed: true,
+          payload: {
+            success: true,
+            already_exists: true,
+            idempotent_replay: true,
+            idempotency_key: idempotencyKey,
+            ad: verifiedAd,
+            credits: currentCredits,
+          },
+        };
+      }
+    }
+
+    // 2. Check DB directly in case another instance/worker created it with idempotency_key/external_reference
+    const existingDbAd = await fetchExistingBannerByIdempotencyKey(
+      supabaseUrl,
+      supabaseKey,
+      auth.token!,
+      requestedOwnerId,
+      idempotencyKey
+    );
+    if (existingDbAd) {
+      const currentCredits = await fetchUserProfileCredits(supabaseUrl, supabaseKey, auth.token!, auth.userId!);
+      saveBannerIdempotencyRecord(compositeKey, {
+        ad: existingDbAd,
+        userId: requestedOwnerId,
+        credits: currentCredits,
+        createdAt: new Date().toISOString(),
+      });
+      return {
+        status: 200,
+        replayed: true,
+        payload: {
+          success: true,
+          already_exists: true,
+          idempotent_replay: true,
+          idempotency_key: idempotencyKey,
+          ad: existingDbAd,
+          credits: currentCredits,
+        },
+      };
+    }
+
+    // 3. Determine server-authoritative credit cost and check balance BEFORE insert
+    const billingMode = String(body.billing_mode || 'standard');
+    const shouldDeductCredits = !auth.isAdmin && body.deduct_credits !== false;
+    let creditCost = 0;
+    let currentCredits = await fetchUserProfileCredits(supabaseUrl, supabaseKey, auth.token!, auth.userId!);
+
+    if (shouldDeductCredits) {
+      if (billingMode === 'daily_banner') {
+        let perDay = 50;
+        try {
+          const sRes = await fetch(`${supabaseUrl}/rest/v1/app_settings?key=eq.banner_credit_cost_per_day&select=value&limit=1`, {
+            headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+          });
+          if (sRes.ok) {
+            const rows = await sRes.json();
+            const parsed = Number.parseInt(String(rows?.[0]?.value || ''), 10);
+            if (!Number.isNaN(parsed) && parsed >= 0) perDay = parsed;
+          }
+        } catch {}
+        creditCost = durationDays * perDay;
+      } else {
+        let flatCost = 5;
+        let maxPlanDays = 365;
+        try {
+          const sRes = await fetch(
+            `${supabaseUrl}/rest/v1/app_settings?key=in.(ad_cost_credits,free_max_ad_days)&select=key,value`,
+            { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+          );
+          if (sRes.ok) {
+            const rows = await sRes.json();
+            if (Array.isArray(rows)) {
+              for (const row of rows) {
+                if (row?.key === 'ad_cost_credits') {
+                  const val = Number.parseInt(String(row.value || ''), 10);
+                  if (!Number.isNaN(val) && val >= 0) flatCost = val;
+                }
+              }
+            }
+          }
+        } catch {}
+        creditCost = flatCost;
+        void maxPlanDays;
+      }
+
+      if (currentCredits < creditCost) {
+        return {
+          status: 400,
+          replayed: false,
+          payload: {
+            success: false,
+            error: `Not enough credits. Need ${creditCost}, have ${currentCredits}`,
+            credits: currentCredits,
+          },
+        };
+      }
+    }
+
+    // 4. Construct authoritative DB payload
+    const expiresAt =
+      isWatchAd
+        ? null
+        : typeof body.expires_at === 'string' && body.expires_at.trim()
+        ? body.expires_at.trim()
+        : new Date(Date.now() + durationDays * 86400000).toISOString();
+
+    const isDraftWithoutCredits = !auth.isAdmin && body.deduct_credits === false;
+    const baseAdPayload: Record<string, any> = {
+      user_id: requestedOwnerId,
+      title: cleanTitle.slice(0, 255),
+      description: cleanDescription.slice(0, 1000),
+      image_url: cleanImageUrl,
+      target_url: cleanTargetUrl || '#',
+      target_state: cleanTargetState,
+      ad_type: isWatchAd ? 'watch' : 'banner',
+      is_active: isDraftWithoutCredits ? false : auth.isAdmin ? body.is_active !== false : true,
+      approved: isDraftWithoutCredits ? false : Boolean(auth.isAdmin),
+      expires_at: expiresAt,
+    };
+
+    if (isWatchAd) {
+      baseAdPayload.youtube_url = typeof body.youtube_url === 'string' ? body.youtube_url.trim() : null;
+      baseAdPayload.watch_duration_seconds = Number(body.watch_duration_seconds) || 30;
+      baseAdPayload.reward_credits = Number(body.reward_credits) || 5;
+      baseAdPayload.budget_credits = Number(body.budget_credits) || 500;
+    }
+
+    const candidatePayloads: Record<string, any>[] = [
+      { ...baseAdPayload, idempotency_key: idempotencyKey, duration_days: durationDays },
+      { ...baseAdPayload, idempotency_key: idempotencyKey },
+      { ...baseAdPayload, external_reference: idempotencyKey },
+      baseAdPayload,
+    ];
+
+    let createdAd: any = null;
+    let lastStatus = 500;
+    let lastErrorText = 'Failed to create banner advert';
+
+    for (const candidate of candidatePayloads) {
+      const insertRes = await fetch(`${supabaseUrl}/rest/v1/ads?select=*`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseKey,
+          Authorization: `Bearer ${auth.token}`,
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(candidate),
+      });
+
+      const respText = await insertRes.text().catch(() => '');
+      if (insertRes.ok) {
+        try {
+          const parsed = JSON.parse(respText);
+          createdAd = Array.isArray(parsed) ? parsed[0] : parsed;
+        } catch {
+          createdAd = null;
+        }
+        if (createdAd) break;
+      }
+
+      if (isSupabaseDuplicateError(insertRes.status, respText)) {
+        const dupAd = await fetchExistingBannerByIdempotencyKey(
+          supabaseUrl,
+          supabaseKey,
+          auth.token!,
+          requestedOwnerId,
+          idempotencyKey
+        );
+        if (dupAd) {
+          const latestCredits = await fetchUserProfileCredits(supabaseUrl, supabaseKey, auth.token!, auth.userId!);
+          saveBannerIdempotencyRecord(compositeKey, {
+            ad: dupAd,
+            userId: requestedOwnerId,
+            credits: latestCredits,
+            createdAt: new Date().toISOString(),
+          });
+          return {
+            status: 200,
+            replayed: true,
+            payload: {
+              success: true,
+              already_exists: true,
+              idempotent_replay: true,
+              idempotency_key: idempotencyKey,
+              ad: dupAd,
+              credits: latestCredits,
+            },
+          };
+        }
+      }
+
+      if (isSupabaseMissingColError(insertRes.status, respText)) {
+        lastStatus = insertRes.status;
+        lastErrorText = respText;
+        continue;
+      }
+
+      lastStatus = insertRes.status;
+      lastErrorText = respText;
+      break;
+    }
+
+    if (!createdAd) {
+      let friendlyMsg = 'Failed to create banner advert';
+      try {
+        const parsedErr = JSON.parse(lastErrorText);
+        if (parsedErr?.message) friendlyMsg = parsedErr.message;
+      } catch {
+        if (lastErrorText) friendlyMsg = lastErrorText;
+      }
+      return {
+        status: lastStatus >= 400 && lastStatus < 600 ? lastStatus : 500,
+        replayed: false,
+        payload: {
+          success: false,
+          error: friendlyMsg,
+        },
+      };
+    }
+
+    // 5. Deduct credits strictly once AFTER ad creation succeeds
+    let nextCredits = currentCredits;
+    if (shouldDeductCredits && creditCost > 0) {
+      nextCredits = Math.max(0, currentCredits - creditCost);
+      await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(auth.userId!)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseKey,
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ credits: nextCredits }),
+      }).catch((err) => {
+        console.warn('[banner-ads] Credit deduction warning:', err);
+      });
+    }
+
+    saveBannerIdempotencyRecord(compositeKey, {
+      ad: createdAd,
+      userId: requestedOwnerId,
+      credits: nextCredits,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      status: 201,
+      replayed: false,
+      payload: {
+        success: true,
+        already_exists: false,
+        idempotent_replay: false,
+        idempotency_key: idempotencyKey,
+        ad: createdAd,
+        credits: nextCredits,
+        credits_deducted: shouldDeductCredits ? creditCost : 0,
+      },
+    };
+  };
+
+  try {
+    let inflight = inFlightBannerCreations.get(compositeKey);
+    if (!inflight) {
+      inflight = runIdempotentCreate().finally(() => {
+        inFlightBannerCreations.delete(compositeKey);
+      });
+      inFlightBannerCreations.set(compositeKey, inflight);
+    }
+
+    const result = await inflight;
+    if (result.replayed) {
+      res.setHeader('X-Idempotent-Replay', 'true');
+    }
+    return res.status(result.status).json(result.payload);
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Unexpected error creating banner advert',
+    });
+  }
+}
+
+app.post('/api/banner-ads', handleIdempotentBannerAdCreate);
+app.post('/api/ads', handleIdempotentBannerAdCreate);
 
 // ----------------------------------------------------
 // Public Route: Read landing_whatsapp_positioning setting (Visitors can read it)

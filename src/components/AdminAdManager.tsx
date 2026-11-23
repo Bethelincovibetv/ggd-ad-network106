@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -56,11 +56,13 @@ import {
   computeBannerCtr,
   computeBannerStats,
   filterBannerAds,
+  generateBannerIdempotencyKey,
   getBannerDaysLeft,
   getBannerShareUrl,
   getBannerStatus,
   isBannerAdvert,
 } from "@/lib/bannerAds";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
 
 export type Ad = BannerAdRecord;
 
@@ -109,6 +111,9 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
   const [deleteTarget, setDeleteTarget] = useState<Ad | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const duplicatingIdRef = useRef<string | null>(null);
+  const duplicateAttemptKeysRef = useRef<Record<string, string>>({});
 
   const openManageModal = (ad: Ad) => {
     setSelectedAd(ad);
@@ -363,20 +368,54 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
   };
 
   const duplicateBanner = async (ad: Ad) => {
+    if (duplicatingIdRef.current) return;
     const { data: auth } = await supabase.auth.getUser();
     const ownerId = ad.user_id || auth.user?.id;
     if (!ownerId) {
       toast.error('Missing owner ID for duplication');
       return;
     }
-    const payload = buildDuplicateBannerPayload(ad, ownerId);
-    const { error } = await supabase.from('ads').insert(payload);
-    if (error) {
-      toast.error(error.message || 'Failed to duplicate banner advert');
-      return;
+
+    const attemptKey =
+      duplicateAttemptKeysRef.current[ad.id] ||
+      (duplicateAttemptKeysRef.current[ad.id] = generateBannerIdempotencyKey(`admin_dup_${ad.id.slice(0, 8)}`));
+
+    duplicatingIdRef.current = ad.id;
+    setDuplicatingId(ad.id);
+    try {
+      const payload = buildDuplicateBannerPayload(ad, ownerId, attemptKey);
+      const result = await createBannerAdIdempotent({
+        idempotencyKey: attemptKey,
+        title: payload.title,
+        description: payload.description,
+        image_url: payload.image_url,
+        target_url: payload.target_url,
+        target_state: payload.target_state,
+        ad_type: 'banner',
+        duration_days: 7,
+        is_active: false,
+        approved: false,
+        deduct_credits: false,
+        allow_draft_url: true,
+        owner_user_id: ownerId,
+      });
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to duplicate banner advert');
+        return;
+      }
+
+      delete duplicateAttemptKeysRef.current[ad.id];
+      toast.success(
+        result.alreadyExists
+          ? 'Duplicate draft already created — showing existing banner'
+          : 'Banner advert duplicated as pending draft'
+      );
+      await fetchAds();
+    } finally {
+      duplicatingIdRef.current = null;
+      setDuplicatingId(null);
     }
-    toast.success('Banner advert duplicated as pending draft');
-    fetchAds();
   };
 
   const shareBanner = async (ad: Ad) => {
@@ -709,10 +748,16 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={duplicatingId === ad.id}
                       className="h-8 px-2.5 text-xs rounded-xl font-bold"
                       onClick={() => duplicateBanner(ad)}
                     >
-                      <Copy className="h-3.5 w-3.5 mr-1" /> Duplicate
+                      {duplicatingId === ad.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {duplicatingId === ad.id ? 'Duplicating...' : 'Duplicate'}
                     </Button>
                     <Button
                       size="sm"
@@ -857,12 +902,13 @@ const AdminAdManager: React.FC<AdminAdManagerProps> = ({ onNavigateSyndicate }) 
                             <Button
                               variant="ghost"
                               size="icon"
+                              disabled={duplicatingId === ad.id}
                               className="h-8 w-8 rounded-xl"
                               onClick={() => duplicateBanner(ad)}
                               aria-label={`Duplicate ${ad.title}`}
                               title="Duplicate"
                             >
-                              <Copy className="h-4 w-4" />
+                              {duplicatingId === ad.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
                             </Button>
                             <Button
                               variant="ghost"

@@ -171,6 +171,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
   const { isEnabled } = useFeatureToggles();
   const { requireActivation } = useActivationStatus();
   const [me, setMe] = useState<{ id: string; profile?: PostAuthor } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [taskPosts, setTaskPosts] = useState<any[]>([]);
   const [featuredListings, setFeaturedListings] = useState<any[]>([]);
@@ -259,6 +260,9 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
         .maybeSingle();
       setMe({ id: user.id, profile: (profile as any) || undefined });
       setCredits((profile as any)?.credits || 0);
+
+      const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+      setIsAdmin(!!roleData);
     }
     await loadFeed(user?.id);
     await loadTasks(user?.id);
@@ -1047,6 +1051,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                   post={item.data}
                   blog={blogData}
                   currentUserId={me?.id || null}
+                  isAdmin={isAdmin}
                   onReact={react}
                   onDelete={deletePost}
                   onEdit={(p) => setEditingPost(p)}
@@ -1069,6 +1074,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
                 key={item.data.id}
                 post={item.data}
                 currentUserId={me?.id || null}
+                isAdmin={isAdmin}
                 currentUserCredits={credits}
                 currentUserName={myName}
                 currentUserAvatar={myAvatar}
@@ -1165,6 +1171,7 @@ const CommunityFeed: React.FC<CommunityFeedProps> = ({ onNavigate }) => {
 interface PostCardProps {
   post: Post;
   currentUserId: string | null;
+  isAdmin?: boolean;
   currentUserCredits?: number;
   currentUserName?: string;
   currentUserAvatar?: string | null;
@@ -1247,6 +1254,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({ task, completed, verifying,
 const PostCard: React.FC<PostCardProps> = ({
   post,
   currentUserId,
+  isAdmin = false,
   currentUserCredits = 0,
   currentUserName,
   currentUserAvatar,
@@ -1579,7 +1587,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                   Copy Link
                 </button>
-                {isOwner && (
+                {(isOwner || isAdmin) && (
                   <button
                     onClick={() => onDelete(post)}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-destructive/10 text-destructive transition text-left"
@@ -1870,7 +1878,7 @@ const PostCard: React.FC<PostCardProps> = ({
                               {replies.length > 0 ? `${replies.length} replies` : 'Thread View'}
                             </button>
 
-                            {currentUserId === c.user_id && (
+                            {(currentUserId === c.user_id || isAdmin) && (
                               <button onClick={() => deleteComment(c.id)} className="hover:text-destructive text-muted-foreground transition-colors">
                                 Delete
                               </button>

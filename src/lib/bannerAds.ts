@@ -20,6 +20,9 @@ export interface BannerAdRecord {
   watch_duration_seconds?: number | null;
   reward_credits?: number | null;
   budget_credits?: number | null;
+  idempotency_key?: string | null;
+  external_reference?: string | null;
+  duration_days?: number | null;
 }
 
 export type BannerStatus = 'active' | 'paused' | 'pending' | 'rejected' | 'expired';
@@ -209,8 +212,91 @@ export function filterBannerAds<T extends BannerAdRecord>(
   });
 }
 
-export function buildDuplicateBannerPayload(ad: BannerAdRecord, userId: string) {
-  return {
+export function generateBannerIdempotencyKey(prefix = 'banner'): string {
+  const cleanPrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '') || 'banner';
+  const uuid =
+    typeof globalThis !== 'undefined' &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${cleanPrefix}_${uuid}`.slice(0, 128);
+}
+
+export function normalizeIdempotencyKey(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 128) return null;
+  return trimmed;
+}
+
+export function resolveIdempotencyHeaders(idempotencyKey?: string | null): Record<string, string> {
+  const normalized = normalizeIdempotencyKey(idempotencyKey);
+  return normalized ? { 'Idempotency-Key': normalized } : {};
+}
+
+export function isDuplicateIdempotencyError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const record = err as { code?: unknown; status?: unknown; message?: unknown };
+  const code = String(record.code || '').trim();
+  const status = Number(record.status || 0);
+  const message = String(record.message || '').toLowerCase();
+  return (
+    code === '23505' ||
+    status === 409 ||
+    message.includes('duplicate key') ||
+    message.includes('unique constraint')
+  );
+}
+
+export function isMissingSchemaColumnError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const record = err as { code?: unknown; message?: unknown };
+  const code = String(record.code || '').trim();
+  const message = String(record.message || '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    message.includes('does not exist') ||
+    message.includes('schema cache')
+  );
+}
+
+export function coalesceIdempotentRequest<T>(
+  inFlightMap: Map<string, Promise<T>>,
+  key: string,
+  task: () => Promise<T>
+): Promise<T> {
+  const normalized = normalizeIdempotencyKey(key);
+  if (!normalized) return task();
+  const existing = inFlightMap.get(normalized);
+  if (existing) return existing;
+  const promise = Promise.resolve()
+    .then(task)
+    .finally(() => {
+      inFlightMap.delete(normalized);
+    });
+  inFlightMap.set(normalized, promise);
+  return promise;
+}
+
+export function buildDuplicateBannerPayload(
+  ad: BannerAdRecord,
+  userId: string,
+  idempotencyKey?: string
+) {
+  const payload: {
+    user_id: string;
+    title: string;
+    description: string;
+    image_url: string | null;
+    target_url: string;
+    target_state: string | null;
+    ad_type: string;
+    is_active: boolean;
+    approved: boolean;
+    idempotency_key?: string;
+  } = {
     user_id: userId,
     title: `${ad.title.replace(/\s*\(Copy\)$/i, '')} (Copy)`,
     description: ad.description || '',
@@ -221,6 +307,13 @@ export function buildDuplicateBannerPayload(ad: BannerAdRecord, userId: string) 
     is_active: false,
     approved: false,
   };
+
+  const normalized = normalizeIdempotencyKey(idempotencyKey);
+  if (normalized) {
+    payload.idempotency_key = normalized;
+  }
+
+  return payload;
 }
 
 export function getBannerShareUrl(ad: Pick<BannerAdRecord, 'target_url'>, fallbackOrigin: string): string {

@@ -19,6 +19,7 @@ interface BlogFeedCardProps {
   post: any;
   blog: CommunityBlogPostData;
   currentUserId: string | null;
+  isAdmin?: boolean;
   onReact: (post: any, reaction: any) => void;
   onDelete: (post: any) => void;
   onEdit?: (post: any) => void;
@@ -42,6 +43,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
   post,
   blog,
   currentUserId,
+  isAdmin = false,
   onReact,
   onDelete,
   onEdit,
@@ -167,7 +169,7 @@ export const BlogFeedCard: React.FC<BlogFeedCardProps> = ({
                     <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                     Copy Link
                   </button>
-                  {isOwner && (
+                  {(isOwner || isAdmin) && (
                     <button
                       onClick={() => onDelete(post)}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-destructive/10 text-destructive transition text-left"

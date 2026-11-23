@@ -2,6 +2,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
 import { safeStorage } from "@/utils/safeStorage";
+import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
 
 export interface BusinessListingItem {
   id: string;
@@ -588,7 +590,7 @@ export async function publishCommunityPostOnBehalf(userId: string, data: {
 }
 
 /**
- * Creates an ad campaign in ads table on behalf of the user
+ * Creates an ad campaign in ads table on behalf of the user (idempotently)
  */
 export async function createAdCampaignOnBehalf(userId: string, data: {
   title: string;
@@ -596,29 +598,42 @@ export async function createAdCampaignOnBehalf(userId: string, data: {
   imageUrl?: string;
   targetUrl?: string;
   durationDays?: number;
-}): Promise<{ success: boolean; ad?: any; message: string }> {
+  idempotencyKey?: string;
+}): Promise<{ success: boolean; ad?: any; alreadyExists?: boolean; message: string }> {
   try {
     const days = data.durationDays || 7;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
 
-    const { data: inserted, error } = await supabase.from('ads').insert({
-      user_id: userId,
+    const idempotencyKey =
+      data.idempotencyKey?.trim() || generateBannerIdempotencyKey('vixora_banner');
+
+    const result = await createBannerAdIdempotent({
+      idempotencyKey,
       title: data.title.trim(),
       description: data.description.trim(),
       image_url: data.imageUrl || null,
       target_url: data.targetUrl || `/store/${userId}`,
+      ad_type: 'banner',
+      duration_days: days,
       is_active: true,
       approved: true,
-      expires_at: expiresAt.toISOString()
-    }).select('*').single();
+      expires_at: expiresAt.toISOString(),
+      deduct_credits: false,
+      owner_user_id: userId,
+    });
 
-    if (error) throw error;
+    if (!result.success || !result.ad) {
+      throw new Error(result.error || 'Failed to create ad campaign');
+    }
 
     return {
       success: true,
-      ad: inserted,
-      message: `Created banner ad "${data.title}" live for ${days} days!`
+      ad: result.ad,
+      alreadyExists: result.alreadyExists,
+      message: result.alreadyExists
+        ? `Restored existing banner ad "${data.title}" without creating a duplicate.`
+        : `Created banner ad "${data.title}" live for ${days} days!`,
     };
   } catch (err: any) {
     return {

@@ -8,6 +8,12 @@ import {
   buildDuplicateBannerPayload,
   computeBannerCtr,
   getBannerShareUrl,
+  generateBannerIdempotencyKey,
+  normalizeIdempotencyKey,
+  resolveIdempotencyHeaders,
+  isDuplicateIdempotencyError,
+  isMissingSchemaColumnError,
+  coalesceIdempotentRequest,
   type BannerAdRecord,
 } from './bannerAds';
 
@@ -172,3 +178,56 @@ test('computeBannerCtr and getBannerShareUrl handle edge cases', () => {
   assert.equal(getBannerShareUrl({ target_url: 'https://ggd.ng/offer' }, 'https://ggd.ng'), 'https://ggd.ng/offer');
   assert.equal(getBannerShareUrl({ target_url: '#' }, 'https://ggd.ng'), 'https://ggd.ng');
 });
+
+test('generateBannerIdempotencyKey creates unique keys per attempt', () => {
+  const k1 = generateBannerIdempotencyKey('banner');
+  const k2 = generateBannerIdempotencyKey('banner');
+  assert.ok(k1.startsWith('banner_'));
+  assert.ok(k2.startsWith('banner_'));
+  assert.notEqual(k1, k2);
+  assert.ok(k1.length <= 128);
+});
+
+test('normalizeIdempotencyKey and resolveIdempotencyHeaders sanitize input', () => {
+  assert.equal(normalizeIdempotencyKey('  key-123  '), 'key-123');
+  assert.equal(normalizeIdempotencyKey('   '), null);
+  assert.equal(normalizeIdempotencyKey(null), null);
+  assert.equal(normalizeIdempotencyKey('x'.repeat(129)), null);
+  assert.deepEqual(resolveIdempotencyHeaders('  abc-1  '), { 'Idempotency-Key': 'abc-1' });
+  assert.deepEqual(resolveIdempotencyHeaders(''), {});
+});
+
+test('isDuplicateIdempotencyError and isMissingSchemaColumnError classify DB errors', () => {
+  assert.equal(isDuplicateIdempotencyError({ code: '23505', message: 'duplicate key value' }), true);
+  assert.equal(isDuplicateIdempotencyError({ status: 409, message: 'Conflict' }), true);
+  assert.equal(isDuplicateIdempotencyError({ code: '42703', message: 'column does not exist' }), false);
+  assert.equal(isMissingSchemaColumnError({ code: '42703', message: 'column does not exist' }), true);
+  assert.equal(isMissingSchemaColumnError({ code: 'PGRST204', message: 'schema cache' }), true);
+});
+
+test('buildDuplicateBannerPayload optionally attaches idempotency_key', () => {
+  const payload = buildDuplicateBannerPayload(sampleAds[0], 'user-99', 'dup-key-42');
+  assert.equal(payload.idempotency_key, 'dup-key-42');
+});
+
+test('coalesceIdempotentRequest executes once for concurrent identical keys', async () => {
+  const map = new Map<string, Promise<{ id: string }>>();
+  let runs = 0;
+  const factory = async () => {
+    runs += 1;
+    await new Promise((r) => setTimeout(r, 10));
+    return { id: `created-${runs}` };
+  };
+
+  const [a, b, c] = await Promise.all([
+    coalesceIdempotentRequest(map, 'same-key', factory),
+    coalesceIdempotentRequest(map, 'same-key', factory),
+    coalesceIdempotentRequest(map, 'same-key', factory),
+  ]);
+
+  assert.equal(runs, 1);
+  assert.deepEqual(a, { id: 'created-1' });
+  assert.deepEqual(b, { id: 'created-1' });
+  assert.deepEqual(c, { id: 'created-1' });
+});
+
