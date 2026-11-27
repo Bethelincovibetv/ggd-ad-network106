@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { VIXORA_CHAT_MODELS, DEFAULT_VIXORA_MODEL } from "@/lib/vixoraModels";
 
 interface VixoraApiKey {
   id: string;
@@ -54,7 +55,7 @@ const AdminVixoraManager: React.FC = () => {
   const [pexelsKey, setPexelsKey] = useState('');
   const [fishAudioKey, setFishAudioKey] = useState('');
   const [defaultVoice, setDefaultVoice] = useState('Kore');
-  const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash');
+  const [defaultModel, setDefaultModel] = useState(DEFAULT_VIXORA_MODEL);
   const [autoSfxEnabled, setAutoSfxEnabled] = useState(true);
   const [allowPublicApi, setAllowPublicApi] = useState(true);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
@@ -228,8 +229,8 @@ const AdminVixoraManager: React.FC = () => {
               </Badge>
               <span className="text-xs font-bold text-amber-200">v1.0 Production Engine</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black mt-0.5 tracking-tight">Vixora AI Studio & API Management</h1>
-            <p className="text-xs text-white/80">Configure AI models, manage external API keys, inspect video rendering jobs, and embed widgets.</p>
+            <h1 className="text-xl sm:text-2xl font-black mt-0.5 tracking-tight">Vixora AI Chat &amp; API Management</h1>
+            <p className="text-xs text-white/80">Configure Gemini &amp; Gemma chat models, manage external API keys, inspect queued jobs, and embed widgets.</p>
           </div>
         </div>
 
@@ -239,7 +240,7 @@ const AdminVixoraManager: React.FC = () => {
             onClick={() => window.open('/vixora', '_blank')}
             className="bg-white hover:bg-white/90 text-orange-600 font-bold text-xs shadow-md rounded-xl cursor-pointer"
           >
-            Launch Studio <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+            Open AI Chat <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
           </Button>
         </div>
       </div>
@@ -395,7 +396,7 @@ const AdminVixoraManager: React.FC = () => {
         <Card className="border shadow-md rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-black flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-purple-600" /> Vixora AI Studio Master Engine Configuration
+              <Cpu className="h-4 w-4 text-purple-600" /> Vixora AI Chat Master Engine Configuration
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -467,14 +468,17 @@ const AdminVixoraManager: React.FC = () => {
 
               {/* DEFAULT AI MODEL */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Default Gemini Model</Label>
+                <Label className="text-xs font-bold">Default Gemini / Gemma Model</Label>
                 <Select value={defaultModel} onValueChange={setDefaultModel}>
                   <SelectTrigger className="rounded-xl text-xs">
                     <SelectValue placeholder="Select AI model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra Fast & Responsive)</SelectItem>
-                    <SelectItem value="gemini-3.7-flash">Gemini 3.7 Flash (Latest Advanced Reasoning)</SelectItem>
+                    {VIXORA_CHAT_MODELS.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label} ({m.badge})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

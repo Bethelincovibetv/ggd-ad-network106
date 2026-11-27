@@ -181,22 +181,12 @@ const App = () => (
                 <Route path="/support" element={<SupportDedicatedPage />} />
                 <Route path="/help" element={<SupportDedicatedPage />} />
 
-                {/* Vixora AI Video Creator Routes */}
+                {/* Vixora AI Chat Routes */}
                 {[
                   "/vixora",
                   "/vixora-creator",
                   "/creator",
                   "/studio",
-                  "/autopilot",
-                  "/voiceover",
-                  "/scripts",
-                  "/videos",
-                  "/bgmusic",
-                  "/tools",
-                  "/growth",
-                  "/contact",
-                  "/coach",
-                  "/developer",
                 ].map(path => (
                   <Route
                     key={path}

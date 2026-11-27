@@ -544,7 +544,7 @@ Return JSON in this EXACT schema:
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
           });
           const response = await ai.models.generateContent({
-            model: 'gemini-4-hydrogen',
+            model: 'gemini-3.8-flash',
             contents: `Analyze the script text below. Determine the single most dominant mood or theme of this script. Select EXACTLY one of the following words: "motivational", "calm", "upbeat", "dramatic", "tech", "corporate".\n\nScript: "${scriptText.replace(/"/g, '\\"')}"`
           });
           const text = response.text?.trim().toLowerCase() || '';
@@ -634,7 +634,7 @@ Return JSON in this EXACT schema:
             `Please output a JSON list of objects, representing every word in order: [{"text": "word", "start": 0.0, "end": 0.5}].`;
 
           const response = await ai.models.generateContent({
-            model: 'gemini-4-hydrogen',
+            model: 'gemini-3.8-flash',
             contents: [
               {
                 inlineData: {
@@ -729,7 +729,7 @@ CORE DIRECTIVES:
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
           });
           const response = await ai.models.generateContent({
-            model: 'gemini-4-hydrogen',
+            model: 'gemini-3.8-flash',
             contents: `User Niche: ${niche}\nUser Goal: ${goal}\nUser Message: ${message || 'Guide my content strategy'}`,
             config: { systemInstruction, temperature: 0.7 }
           });
@@ -857,7 +857,7 @@ CORE DIRECTIVES:
           const prompt = `Create a 4-week Viral Content Roadmap for the niche "${niche}" with goal "${goal}".
 Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignment, roadmapItems (array of objects with week, topic, hook, platform, monetizationAngle).`;
           const resAI = await ai.models.generateContent({
-            model: 'gemini-4-hydrogen',
+            model: 'gemini-3.8-flash',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
           });

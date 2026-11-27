@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Wand2, Video, Mic, ScrollText, Music, Flame, Search } from "lucide-react";
+import { ExternalLink, Gift, Lock, Sparkles, Check, ArrowRight, Link2, Grid, Bot, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import LinkShortener from "@/components/LinkShortener";
@@ -215,7 +215,7 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
             <span>Naija Script & Copy Genius</span>
             <Badge className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0">🇳🇬 AI</Badge>
           </button>
-          {isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
+          {(isEnabled('vixora_ai') || isEnabled('ggd_ai_chat')) && isEnabled('vixora_tools') && (
             <button
               onClick={() => setActiveMarketTab('vixora_tools')}
               className={`flex-1 min-w-[160px] flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -225,8 +225,8 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
               }`}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Vixora AI Studio & Tools</span>
-              <Badge className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0 animate-pulse">HOT</Badge>
+              <span>Vixora AI Chat &amp; Tools</span>
+              <Badge className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0 animate-pulse">AI</Badge>
             </button>
           )}
           <button
@@ -339,8 +339,8 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
           <NaijaScriptWriter 
             onNavigateToStudio={(script) => {
               localStorage.setItem('vixora_preloaded_script', script);
-              navigate('/vixora');
-              toast.success('🚀 Script transferred to Vixora AI Video Studio!');
+              navigate(`/vixora?prompt=${encodeURIComponent(`Polish and adapt this script for WhatsApp & social ads:\n${script}`)}`);
+              toast.success('Script transferred to Vixora AI Chat!');
             }}
           />
         </div>
@@ -354,48 +354,32 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
       )}
 
       {/* When Vixora Tools tab is active on Marketing page */}
-      {pagePlacement === 'marketplace' && activeMarketTab === 'vixora_tools' && isEnabled('vixora_ai') && isEnabled('vixora_tools') && (
+      {pagePlacement === 'marketplace' && activeMarketTab === 'vixora_tools' && (isEnabled('vixora_ai') || isEnabled('ggd_ai_chat')) && isEnabled('vixora_tools') && (
         <div className="space-y-4 pt-1">
           {/* Vixora Hero Launch Banner */}
           <div className="rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-purple-800 p-6 text-white shadow-xl relative overflow-hidden border border-orange-400/30">
             <div className="relative z-10 space-y-3 max-w-2xl">
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30 backdrop-blur-xs">
-                  GGD Marketing & AI Video Suite
+                  GGD Server-Side AI Chat Suite
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-400 text-neutral-950">
-                  12+ Built-in Tools
+                  Free-Tier Gemini &amp; Gemma
                 </span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black tracking-tight">
-                Vixora AI Creator Studio — Automated Video, Voice & Growth Engine
+                Vixora AI Chat — Ad Copy, Storefront &amp; Campaign Assistant
               </h3>
               <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-medium">
-                Produce high-retention viral shorts, AI voiceover narrations with natural accents, YouTube scripts, stock video sequencer timelines, and promotional flyers directly on GGD.
+                Chat directly with Gemini 3.8 Flash, Gemini 3.6 Flash, Flash Lite, or Gemma 4 to write sales copy, create GGD banner adverts, inspect storefront products, and get clear direct answers.
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <Button
                   onClick={() => navigate('/vixora')}
                   className="bg-white text-orange-600 hover:bg-orange-50 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
-                  <Sparkles className="h-4 w-4 mr-1.5 text-orange-500" />
-                  Open Full Vixora AI Studio
-                </Button>
-                <Button
-                  onClick={() => navigate('/autopilot')}
-                  variant="outline"
-                  className="bg-black/30 border-white/30 text-white hover:bg-black/50 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
-                >
-                  <Wand2 className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
-                  1-Click Video Autopilot
-                </Button>
-                <Button
-                  onClick={() => navigate('/voiceover')}
-                  variant="outline"
-                  className="bg-black/30 border-white/30 text-white hover:bg-black/50 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
-                >
-                  <Mic className="h-3.5 w-3.5 mr-1.5 text-cyan-300" />
-                  Voiceover Studio
+                  <Bot className="h-4 w-4 mr-1.5 text-orange-500" />
+                  Open Vixora AI Chat
                 </Button>
               </div>
             </div>
@@ -477,19 +461,12 @@ const MarketingAppsMarketplace: React.FC<MarketingAppsMarketplaceProps> = ({
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (tool.actionType === 'chat_command') {
-                        navigate(`/vixora?tab=studio&chat=open&prompt=${encodeURIComponent(tool.suggestedPrompt || `Help me with ${tool.name}`)}`);
-                      } else if (tool.actionType === 'live_voice') {
-                        navigate('/vixora?tab=studio&voice=start');
-                      } else if (tool.targetTab) {
-                        navigate(`/${tool.targetTab === 'more' ? 'growth' : tool.targetTab}`);
-                      } else {
-                        navigate('/vixora');
-                      }
+                      const prompt = tool.suggestedPrompt || `Help me with ${tool.name}`;
+                      navigate(`/vixora?prompt=${encodeURIComponent(prompt)}`);
                     }}
                     className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1.5 cursor-pointer"
                   >
-                    <span>{tool.actionType === 'chat_command' ? 'Invoke in AI Chat' : tool.actionType === 'live_voice' ? 'Start Voice Call' : 'Launch Studio'}</span>
+                    <span>Open in AI Chat</span>
                     <ArrowRight className="h-3.5 w-3.5 ml-auto" />
                   </Button>
                 </div>

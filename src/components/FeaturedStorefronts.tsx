@@ -75,93 +75,105 @@ const FeaturedStorefronts: React.FC<Props> = ({ onRequireAuth }) => {
   return (
     <section className="py-14 px-4 bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-xs font-bold mb-3">
-            <Store className="h-3.5 w-3.5" /> LIVE ON GGD NETWORK
-          </div>
-          <h2 className="text-3xl md:text-4xl font-black text-white">
-            Explore Active Business Storefronts & Products
+        <div className="text-center mb-10">
+          <p className="text-xs font-semibold uppercase tracking-widest text-orange-400 mb-2 inline-flex items-center gap-1.5">
+            <Store className="h-3.5 w-3.5" /> Live on GGD Network
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white text-balance">
+            Explore Active Business Storefronts &amp; Products
           </h2>
-          <p className="text-gray-400 mt-2 max-w-2xl mx-auto text-sm md:text-base">
+          <p className="text-gray-400 mt-2.5 max-w-2xl mx-auto text-sm md:text-base">
             Real businesses selling to real customers on GGD Ad Network right now.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((biz) => (
             <Card
               key={biz.user_id}
               onClick={gate}
-              className="cursor-pointer group overflow-hidden bg-gray-900/70 border-white/10 hover:border-orange-500/50 hover:-translate-y-1 transition-all"
+              className="cursor-pointer group overflow-hidden rounded-2xl bg-gray-900/85 border border-white/10 hover:border-orange-500/60 shadow-[0_14px_34px_-16px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-14px_rgba(234,88,12,0.28)] transition-all duration-200"
             >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-orange-500/10 flex-shrink-0">
-                    {biz.business_logo_url ? (
-                      <img src={biz.business_logo_url} alt={biz.business_name || ""} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Store className="h-6 w-6 text-orange-400" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <h3 className="font-bold text-white text-sm truncate">{biz.business_name}</h3>
-                      <BadgeCheck className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                    </div>
-                    {biz.business_category && (
-                      <Badge variant="outline" className="text-[9px] mt-0.5 border-orange-500/30 text-orange-300">
-                        {biz.business_category}
-                      </Badge>
-                    )}
-                  </div>
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <FavoriteButton
-                      item={{
-                        targetId: biz.user_id,
-                        type: 'business',
-                        title: biz.business_name || 'Partner Storefront',
-                        subtitle: biz.business_category,
-                        imageUrl: biz.business_logo_url,
-                        location: biz.business_location,
-                        category: biz.business_category,
-                        verified: true,
-                        linkUrl: biz.business_slug ? `/b/${biz.business_slug}` : `/user/${biz.user_id}`,
-                        businessName: biz.business_name,
-                      }}
-                      variant="overlay"
-                      size="sm"
-                    />
-                  </div>
-                </div>
-
-                {biz.business_location && (
-                  <div className="flex items-center gap-1 mt-2 text-[11px] text-gray-400">
-                    <MapPin className="h-3 w-3" />
-                    {biz.business_location}, NG
-                  </div>
-                )}
-
-                <div className="grid grid-cols-3 gap-1.5 mt-3">
-                  {biz.products.slice(0, 3).map((p) => (
-                    <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-gray-800">
-                      {p.image_url ? (
-                        <img src={p.image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+              <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl overflow-hidden bg-orange-500/10 border border-white/10 flex-shrink-0">
+                      {biz.business_logo_url ? (
+                        <img
+                          src={biz.business_logo_url}
+                          alt={biz.business_name || "Storefront"}
+                          referrerPolicy="no-referrer"
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-[9px] text-gray-500 text-center p-1">
-                          {p.title}
+                        <div className="h-full w-full flex items-center justify-center">
+                          <Store className="h-6 w-6 text-orange-400" />
                         </div>
                       )}
                     </div>
-                  ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-bold text-white text-base truncate">{biz.business_name}</h3>
+                        <BadgeCheck className="h-4 w-4 text-sky-400 flex-shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 truncate mt-0.5">
+                        {biz.business_category && (
+                          <span className="text-orange-300/90 font-medium truncate">{biz.business_category}</span>
+                        )}
+                        {biz.business_category && biz.business_location && <span aria-hidden="true">·</span>}
+                        {biz.business_location && (
+                          <span className="inline-flex items-center gap-1 truncate">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span>{biz.business_location}, NG</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                      <FavoriteButton
+                        item={{
+                          targetId: biz.user_id,
+                          type: 'business',
+                          title: biz.business_name || 'Partner Storefront',
+                          subtitle: biz.business_category,
+                          imageUrl: biz.business_logo_url,
+                          location: biz.business_location,
+                          category: biz.business_category,
+                          verified: true,
+                          linkUrl: biz.business_slug ? `/b/${biz.business_slug}` : `/user/${biz.user_id}`,
+                          businessName: biz.business_name,
+                        }}
+                        variant="overlay"
+                        size="sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {biz.products.slice(0, 3).map((p) => (
+                      <div key={p.id} className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-800 border border-white/5">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.title}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-[10px] text-gray-400 text-center p-1.5">
+                            {p.title}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <Button
                   onClick={(e) => { e.stopPropagation(); gate(); }}
-                  className="w-full mt-3 h-10 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs font-bold"
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-bold shadow-[0_8px_18px_-6px_rgba(234,88,12,0.5),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all duration-150"
                 >
-                  <Share2 className="h-3.5 w-3.5 mr-1.5" /> Share this Flyer & Earn
+                  <Share2 className="h-3.5 w-3.5 mr-1.5" /> Share this Flyer &amp; Earn
                 </Button>
               </CardContent>
             </Card>

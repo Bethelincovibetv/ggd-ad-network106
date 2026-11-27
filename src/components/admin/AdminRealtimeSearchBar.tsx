@@ -104,11 +104,11 @@ const STATIC_ADMIN_ENTRIES: SearchEntry[] = [
   {
     id: 'vixora-admin',
     sectionId: 'vixora-admin',
-    title: 'Vixora AI Creator Studio & Video Engine',
+    title: 'Vixora AI Chat & API Engine',
     category: 'ADVERTISING & CAMPAIGNS',
-    description: 'AI video generation, TTS voices, stock assets, and render queue',
-    keywords: ['vixora', 'video', 'ai video', 'creator studio', 'autopilot', 'tts'],
-    icon: Video,
+    description: 'Server-side Gemini & Gemma chat models, API keys, and job queue',
+    keywords: ['vixora', 'ai chat', 'gemini', 'gemma', 'models', 'api keys'],
+    icon: MessageSquare,
     color: 'from-orange-500 via-purple-600 to-indigo-700'
   },
   {

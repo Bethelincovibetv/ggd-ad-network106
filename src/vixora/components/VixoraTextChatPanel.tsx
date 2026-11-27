@@ -1641,24 +1641,6 @@ You can answer questions directly, inspect account overview and active campaigns
                 </button>
 
                 <button
-                  onClick={() => {
-                    setIsAddMenuOpen(false);
-                    handleSendMessage('Generate a 30s vertical video on 5 rules of wealth');
-                  }}
-                  className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 active:scale-95 transition-all ${
-                    themeMode === 'light' ? 'bg-orange-50 hover:bg-orange-100 border-orange-200' : 'bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20'
-                  }`}
-                >
-                  <div className="w-7 h-7 rounded-lg bg-orange-500/20 text-ggd-orange flex items-center justify-center text-xs">
-                    <i className="fa-solid fa-clapperboard"></i>
-                  </div>
-                  <div>
-                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Autopilot Video</p>
-                    <p className="text-[8px] text-slate-400">Cook 30s Short</p>
-                  </div>
-                </button>
-
-                <button
                   type="button"
                   onClick={() => {
                     setIsAddMenuOpen(false);

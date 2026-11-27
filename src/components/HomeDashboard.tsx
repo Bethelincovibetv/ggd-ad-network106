@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote, Video, ArrowRight, Sparkles } from "lucide-react";
+import { Eye, MousePointer, Coins, Wallet, TrendingUp, Activity, Zap, Radio, CheckCircle2, Percent, Trophy, Signal, Banknote, Bot, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import WatchVideoAds from "@/components/WatchVideoAd";
 import AdDisplayPreview from "@/components/AdDisplayPreview";
@@ -175,8 +175,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
         )}
       </div>
 
-      {/* Vixora AI Creator Studio Hero Card */}
-      {isEnabled('vixora_ai_studio') && (
+      {/* Vixora AI Chat Hero Card */}
+      {(isEnabled('vixora_ai_studio') || isEnabled('ggd_ai_chat')) && (
         <Card
           className="border-0 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white console-hero-3d console-card-3d-interactive cursor-pointer overflow-hidden relative group"
           onClick={() => onNavigate('vixora-creator')}
@@ -185,22 +185,22 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
           <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 console-pill-3d text-white">
-                <Video className="h-6 w-6 text-amber-200" />
+                <Bot className="h-6 w-6 text-amber-200" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-amber-300" /> NEW AI STUDIO
+                    <Sparkles className="h-3 w-3 text-amber-300" /> AI CHAT READY
                   </span>
-                  <span className="text-[10px] font-bold text-amber-200 uppercase">Viral Video & Script Suite</span>
+                  <span className="text-[10px] font-bold text-amber-200 uppercase">Gemini 3.8 Flash &amp; Gemma 4</span>
                 </div>
-                <h2 className="text-base sm:text-lg font-black text-white truncate mt-0.5">Vixora AI Creator Studio</h2>
-                <p className="text-xs text-white/80 line-clamp-1">Generate automated viral shorts, multi-scene video timelines, AI scripts, voiceovers & subtitles in 1 click.</p>
+                <h2 className="text-base sm:text-lg font-black text-white truncate mt-0.5">Vixora AI Chat Assistant</h2>
+                <p className="text-xs text-white/80 line-clamp-1">Ask questions, write WhatsApp &amp; ad copy, design banner graphics, and manage storefront campaigns directly.</p>
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
               <Button size="sm" className="bg-white hover:bg-white/90 text-orange-600 font-black text-xs uppercase px-4 py-2 console-pill-3d rounded-xl">
-                Open Studio <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                Open AI Chat <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
           </CardContent>

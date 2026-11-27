@@ -38,7 +38,7 @@ import AboutPage from "@/components/AboutPage";
 import SetupWizard from "@/components/SetupWizard";
 import PromotionalContent from "@/components/PromotionalContent";
 import PremiumRenewalBanner from "@/components/PremiumRenewalBanner";
-const VixoraCreatorApp = lazy(() => import('@/vixora/VixoraCreatorApp'));
+const VixoraChatWorkspace = lazy(() => import('@/vixora/components/VixoraChatWorkspace'));
 
 import AdDisplayPreview from "@/components/AdDisplayPreview";
 import MarketingAppsMarketplace from "@/components/MarketingAppsMarketplace";
@@ -184,7 +184,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       return isEnabled('chat_and_calls') || isEnabled('nav_inbox');
     }
     if (['vixora', 'vixora-creator', 'creator', 'vixora-studio', 'studio'].includes(tab)) {
-      return isEnabled('vixora_ai_studio');
+      return isEnabled('vixora_ai_studio') || isEnabled('ggd_ai_chat');
     }
     if (['directory'].includes(tab)) {
       return isEnabled('business_directory');
@@ -792,17 +792,17 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
       case 'vixora-creator':
       case 'creator':
       case 'vixora-studio':
-        if (!isEnabled('vixora_ai_studio') && !isAdmin) {
+        if (!isEnabled('vixora_ai_studio') && !isEnabled('ggd_ai_chat') && !isAdmin) {
           return disabled;
         }
         return (
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center p-12 space-y-3">
               <div className="animate-spin h-9 w-9 border-4 border-orange-500 border-t-transparent rounded-full" />
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Loading Vixora AI Creator Studio...</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Loading Vixora AI Chat...</p>
             </div>
           }>
-            <VixoraCreatorApp
+            <VixoraChatWorkspace
               embedded={true}
               onBackToDashboard={() => setActiveTab('ads')}
               userEmail={userEmail}

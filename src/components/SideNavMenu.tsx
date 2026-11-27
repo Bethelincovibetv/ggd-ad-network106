@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard, Briefcase, Users, Wallet, Crown, CreditCard, Send, BarChart2,
-  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Video, Smartphone
+  Megaphone, Store, Key, Info, Share2, BookOpen, Building2, Headphones, User, Link2, ClipboardList, Edit3, LogOut, Shield, Sparkles, MessageCircle, Rocket, Heart, Bot, Smartphone
 } from "lucide-react";
 import ggdLogo from '@/assets/ggd-logo.png';
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -43,7 +43,7 @@ const SideNavMenu = ({ activeTab, onTabChange, isBusiness, isSyndicate, isAdmin,
 
   const main = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home' }] : []),
-    ...(isEnabled('vixora_ai_studio') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI Creator' }] : []),
+    ...((isEnabled('vixora_ai_studio') || isEnabled('ggd_ai_chat')) && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Bot, label: 'Vixora AI Chat' }] : []),
     ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community' }] : []),
     ...(isEnabled('credit_tasks') && isEnabled('nav_credit_tasks') ? [{ id: 'tasks', icon: ClipboardList, label: 'Credit Tasks' }] : []),
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: BarChart2, label: 'Banner Ads' }] : []),

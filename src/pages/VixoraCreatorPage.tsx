@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MetaTags from '@/components/MetaTags';
-import VixoraCreatorApp from '@/vixora/VixoraCreatorApp';
+import VixoraChatWorkspace from '@/vixora/components/VixoraChatWorkspace';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -28,16 +28,16 @@ const VixoraCreatorPage: React.FC = () => {
     });
   }, []);
 
-  if (!loading && !isEnabled('vixora_ai') && !isAdmin) {
+  if (!loading && !isEnabled('vixora_ai_studio') && !isEnabled('ggd_ai_chat') && !isAdmin) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md p-8 rounded-3xl bg-slate-900 border border-white/10 space-y-4 shadow-2xl">
           <div className="h-16 w-16 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center mx-auto border border-orange-500/30">
             <ShieldAlert className="h-8 w-8" />
           </div>
-          <h2 className="text-xl font-black uppercase tracking-tight">Vixora AI Studio is Currently Offline</h2>
+          <h2 className="text-xl font-black uppercase tracking-tight">Vixora AI Chat is Currently Offline</h2>
           <p className="text-xs text-slate-400 font-medium leading-relaxed">
-            The administrator has temporarily switched off the Vixora AI Creator Studio for maintenance or updates. Please check back shortly.
+            The administrator has temporarily switched off Vixora AI Chat for maintenance or updates. Please check back shortly.
           </p>
           <Button 
             onClick={() => navigate('/')} 
@@ -53,12 +53,12 @@ const VixoraCreatorPage: React.FC = () => {
   return (
     <>
       <MetaTags
-        title="Vixora AI Creator Studio — Automated Viral Videos, Voiceovers & Script Engine"
-        description="Create high-retention viral shorts, AI voiceovers, multi-scene video sequences, and scripts with Vixora AI Creator Studio on GGD Ad Network."
-        badge="AI CREATOR SUITE"
-        keywords={['Vixora AI', 'AI video generator', 'viral video sequencer', 'AI voiceover', 'Gemini Kore TTS', 'automated video production', 'GGD Ad Network']}
+        title="Vixora AI Chat — Server-Side Gemini & Gemma Assistant"
+        description="Chat directly with Vixora AI powered by free-tier Gemini and Gemma models on GGD Ad Network for ad copy, products, campaigns, and clear direct answers."
+        badge="AI CHAT AGENT"
+        keywords={['Vixora AI Chat', 'Gemini 3.8 Flash', 'Gemma 4', 'AI business assistant', 'GGD Ad Network']}
       />
-      <VixoraCreatorApp
+      <VixoraChatWorkspace
         embedded={false}
         onBackToDashboard={() => navigate('/')}
         userEmail={userEmail}

@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard, Users, Wallet, Crown, Megaphone, Store, Key, Info, Share2,
-  BookOpen, Building2, Sparkles, CheckSquare, Smartphone, Video, MessageCircle,
+  BookOpen, Building2, Sparkles, CheckSquare, Smartphone, Bot, MessageCircle,
   Heart, Link2, Send, CreditCard, Headphones, User
 } from "lucide-react";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
@@ -23,7 +23,7 @@ const TopNavMenu = ({ activeTab, onTabChange, isBusiness: _isBusiness, isSyndica
 
   const items = [
     ...(isEnabled('nav_home') ? [{ id: 'ads', icon: LayoutDashboard, label: 'Home', matches: ['ads'] }] : []),
-    ...(isEnabled('vixora_ai_studio') && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Video, label: 'Vixora AI', matches: ['vixora-creator', 'vixora', 'creator', 'vixora-studio'] }] : []),
+    ...((isEnabled('vixora_ai_studio') || isEnabled('ggd_ai_chat')) && isEnabled('nav_vixora_ai') ? [{ id: 'vixora-creator', icon: Bot, label: 'Vixora AI Chat', matches: ['vixora-creator', 'vixora', 'creator', 'vixora-studio'] }] : []),
     ...(isEnabled('community_feed') && isEnabled('nav_feed') ? [{ id: 'feed', icon: Sparkles, label: 'Community', matches: ['feed', 'community'] }] : []),
     ...(isEnabled('banner_ads') && isEnabled('nav_campaigns') ? [{ id: 'campaigns', icon: Megaphone, label: 'Advertising', matches: ['campaigns', 'ads-create'] }] : []),
     ...(isEnabled('storefronts') && isEnabled('nav_my_business') ? [{ id: 'my-business', icon: Store, label: 'My Business', matches: ['my-business', 'business', 'growth'] }] : []),

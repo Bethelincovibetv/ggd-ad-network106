@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { 
-  Sparkles, Copy, Check, Share2, Video, Mic, RefreshCw, 
-  MessageSquare, Flame, TrendingUp, Zap, Target, BookOpen, Download
+  Sparkles, Copy, Check, Share2, RefreshCw, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
@@ -200,8 +199,8 @@ Respond in valid JSON format with an array of 3 variations:
       onNavigateToStudio(scriptText);
     } else {
       localStorage.setItem('vixora_preloaded_script', scriptText);
-      navigate('/vixora');
-      toast.success('🚀 Transferred script to Vixora AI Video Studio!');
+      navigate(`/vixora?prompt=${encodeURIComponent(`Polish this Nigerian sales script for WhatsApp & ads:\n${scriptText}`)}`);
+      toast.success('Transferred script to Vixora AI Chat!');
     }
   };
 
@@ -451,22 +450,22 @@ Respond in valid JSON format with an array of 3 variations:
                         onClick={() => handleCookVideoInStudio(variations[activeTabIdx].fullText)}
                         className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                       >
-                        <Video className="h-3.5 w-3.5 mr-1.5" />
-                        Cook Video with Vixora Autopilot
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        Refine in Vixora AI Chat
                       </Button>
 
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          localStorage.setItem('vixora_preloaded_voiceover', variations[activeTabIdx].fullText);
-                          navigate('/voiceover');
-                          toast.success('🎙️ Opened in Vixora Voiceover Studio!');
+                          localStorage.setItem('vixora_preloaded_script', variations[activeTabIdx].fullText);
+                          navigate(`/vixora?prompt=${encodeURIComponent(`Create follow-up variations and hooks for this pitch:\n${variations[activeTabIdx].fullText}`)}`);
+                          toast.success('Opened in Vixora AI Chat!');
                         }}
                         className="border-border text-xs font-bold rounded-xl cursor-pointer"
                       >
-                        <Mic className="h-3.5 w-3.5 mr-1.5 text-cyan-500" />
-                        Synthesize AI Voiceover (Kore TTS)
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5 text-orange-500" />
+                        Create Campaign Hooks in AI Chat
                       </Button>
                     </div>
                   </CardContent>

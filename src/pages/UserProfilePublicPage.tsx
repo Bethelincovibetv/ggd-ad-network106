@@ -495,13 +495,13 @@ const UserProfilePublicPage: React.FC = () => {
       )}
 
       {/* Top Mobile Bar */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between shadow-xs">
+      <header className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-2.5 flex items-center justify-between shadow-[0_6px_18px_-12px_rgba(15,23,42,0.12)]">
         <div className="flex items-center gap-3 min-w-0">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
-            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0 h-9 w-9 rounded-xl"
+            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0 h-10 w-10 rounded-xl"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -515,7 +515,7 @@ const UserProfilePublicPage: React.FC = () => {
                 {name}
                 {premiumTier >= 1 && <CheckCircle className={`h-3.5 w-3.5 ${activeTemplate.verifiedIconColor}`} />}
               </h1>
-              <span className={`text-[10px] ${activeTemplate.accentText} font-semibold truncate block`}>{catName || 'Verified Store'}</span>
+              <span className={`text-[11px] ${activeTemplate.accentText} font-semibold truncate block`}>{catName || 'Verified Store'}</span>
             </div>
           </div>
         </div>
@@ -525,7 +525,7 @@ const UserProfilePublicPage: React.FC = () => {
             variant="ghost" 
             size="icon" 
             onClick={share} 
-            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 h-9 w-9 rounded-xl"
+            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 h-10 w-10 rounded-xl"
           >
             <Share2 className="h-4 w-4" />
           </Button>
@@ -533,7 +533,7 @@ const UserProfilePublicPage: React.FC = () => {
             variant="outline" 
             size="sm"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold gap-1.5 h-9 px-3 rounded-xl shadow-xs"
+            className={`${activeTemplate.secondaryBtn} text-xs gap-1.5 h-10 px-3.5 rounded-xl`}
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             <span>Menu</span>
@@ -624,22 +624,20 @@ const UserProfilePublicPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Status Pill */}
+            {/* Quick Status Row */}
             <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border ${
               isVerified ? 'bg-emerald-50 border-emerald-200/80' : 'bg-amber-50/90 border-amber-300/80'
             }`}>
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <ShieldCheck className={`h-3.5 w-3.5 shrink-0 ${isVerified ? 'text-emerald-600' : 'text-amber-600'}`} />
                 <span className={`${isVerified ? 'text-emerald-700' : 'text-amber-900'} font-bold text-[11px]`}>
                   {isVerified ? 'Open for Inquiries' : 'Ordinary Profile'}
                 </span>
               </div>
               {isVerified ? (
-                <span className="text-[10px] text-emerald-600 font-semibold">Verified Partner</span>
+                <span className="text-[11px] text-emerald-700 font-semibold">Verified Partner</span>
               ) : (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 bg-amber-100 text-amber-800 font-black">
-                  Not Verified
-                </Badge>
+                <span className="text-[11px] text-amber-800 font-bold">Not Verified</span>
               )}
             </div>
           </div>
@@ -742,13 +740,13 @@ const UserProfilePublicPage: React.FC = () => {
         {/* ======================================================== */}
         {/* MAIN WEBSITE STAGE CANVAS                                */}
         {/* ======================================================== */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-10 space-y-12 max-w-5xl mx-auto w-full">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-10 space-y-14 max-w-6xl mx-auto w-full pb-24">
           
           {/* SECTION 1: HERO OVERVIEW */}
           <section id="overview" className="scroll-mt-6">
-            <Card className={`${activeTemplate.cardBg} ${activeTemplate.cardBorder} overflow-hidden rounded-3xl shadow-sm relative border`}>
+            <Card className={`${activeTemplate.cardBg} ${activeTemplate.cardBorder} overflow-hidden rounded-2xl sm:rounded-3xl relative border`}>
               {/* Hero Banner Image with dynamic gradient overlay */}
-              <div className={`relative min-h-[220px] sm:min-h-[280px] md:min-h-[340px] max-h-[460px] w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden flex items-center justify-center`}>
+              <div className={`relative min-h-[220px] sm:min-h-[280px] md:min-h-[340px] max-h-[440px] w-full bg-gradient-to-br ${activeTemplate.heroCoverGradient} overflow-hidden flex items-center justify-center`}>
                 {heroBanner ? (
                   <>
                     {/* Ambient backdrop blur so wide container looks filled */}
@@ -756,13 +754,15 @@ const UserProfilePublicPage: React.FC = () => {
                       src={heroBanner} 
                       alt="" 
                       aria-hidden="true"
+                      referrerPolicy="no-referrer"
                       className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none" 
                     />
                     {/* Full Banner Advert / Storefront Cover - completely uncropped */}
                     <img 
                       src={heroBanner} 
                       alt={name} 
-                      className="relative z-10 w-full h-auto max-h-[440px] object-contain mx-auto transition-transform duration-700 ease-out" 
+                      referrerPolicy="no-referrer"
+                      className="relative z-10 w-full h-auto max-h-[420px] object-contain mx-auto transition-transform duration-700 ease-out" 
                     />
                   </>
                 ) : (
@@ -770,9 +770,9 @@ const UserProfilePublicPage: React.FC = () => {
                     <Store className="h-24 w-24 text-white/30" />
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/40 to-transparent z-10" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/50 to-transparent z-10" />
                 
-                {/* Badges on Hero Banner */}
+                {/* Verification Marker on Hero Banner */}
                 {isVerified ? (
                   <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
                     <Badge className="bg-emerald-600 text-white gap-1.5 font-bold text-xs py-1 px-3 shadow-md border-0">
@@ -781,7 +781,7 @@ const UserProfilePublicPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="absolute top-4 right-4 z-20 flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 gap-1.5 font-black text-xs py-1 px-3 shadow-md">
+                    <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 gap-1.5 font-bold text-xs py-1 px-3 shadow-md">
                       <ShieldAlert className="h-3.5 w-3.5" /> Not Verified
                     </Badge>
                   </div>
@@ -789,17 +789,17 @@ const UserProfilePublicPage: React.FC = () => {
               </div>
 
               {/* Business Identity and Introduction Info */}
-              <div className="p-6 sm:p-8 md:p-10 -mt-16 sm:-mt-20 relative z-10 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="p-5 sm:p-8 md:p-10 -mt-14 sm:-mt-16 relative z-10 space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
                   <div className="flex items-end gap-4">
-                    <Avatar className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-4 border-white shadow-xl ring-2 ring-orange-400/40 bg-white">
+                    <Avatar className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-4 border-white shadow-[0_14px_30px_-10px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/80 bg-white shrink-0">
                       <AvatarImage src={logoImage || ''} className="object-cover" />
                       <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-white text-3xl font-black">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="pb-1">
-                      <h1 className={`text-2xl sm:text-4xl font-black ${activeTemplate.headingText} tracking-tight flex items-center gap-2 flex-wrap`}>
+                    <div className="pb-1 min-w-0">
+                      <h1 className={`text-2xl sm:text-4xl font-extrabold ${activeTemplate.headingText} tracking-tight text-balance flex items-center gap-2 flex-wrap`}>
                         <span>{name}</span>
                         <BusinessVerificationBadge 
                           status={isVerified ? 'VERIFIED' : (verificationRecord?.status || 'UNVERIFIED')} 
@@ -807,12 +807,12 @@ const UserProfilePublicPage: React.FC = () => {
                           size="md" 
                         />
                       </h1>
-                      <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mt-1 flex-wrap font-medium">
-                        {catName && <span className={`${activeTemplate.accentText} font-bold`}>{catName}</span>}
-                        {catName && address && <span>•</span>}
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 mt-1.5 flex-wrap font-medium">
+                        {catName && <span className={`${activeTemplate.accentText} font-semibold`}>{catName}</span>}
+                        {catName && address && <span aria-hidden="true">·</span>}
                         {address && (
                           <span className="flex items-center gap-1 text-slate-500">
-                            <MapPin className="h-3.5 w-3.5 text-red-500" /> {address}
+                            <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" /> {address}
                           </span>
                         )}
                       </div>
@@ -823,7 +823,7 @@ const UserProfilePublicPage: React.FC = () => {
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <Button
                       onClick={() => handleChatDirect()}
-                      className={`${activeTemplate.primaryBtn} text-xs sm:text-sm h-11 px-5 rounded-xl gap-2`}
+                      className={`${activeTemplate.primaryBtn} text-xs sm:text-sm h-11 px-5 rounded-xl gap-2 whitespace-nowrap`}
                     >
                       <MessageCircle className="h-4 w-4" />
                       <span>Chat on GGD</span>
@@ -838,7 +838,7 @@ const UserProfilePublicPage: React.FC = () => {
                           callType="audio"
                           variant="outline"
                           size="default"
-                          className="border-slate-200 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 hover:border-emerald-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl shadow-xs"
+                          className={`${activeTemplate.secondaryBtn} hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl`}
                           showLabel
                         />
                         <CallButton
@@ -848,7 +848,7 @@ const UserProfilePublicPage: React.FC = () => {
                           callType="video"
                           variant="outline"
                           size="default"
-                          className="border-slate-200 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 hover:border-orange-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl shadow-xs"
+                          className={`${activeTemplate.secondaryBtn} hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300 text-xs sm:text-sm h-11 px-3.5 rounded-xl`}
                           showLabel
                         />
                       </>
@@ -857,7 +857,7 @@ const UserProfilePublicPage: React.FC = () => {
                     {brandedWa && (
                       <Button
                         onClick={() => window.open(brandedWa, '_blank')}
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-xs"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-[0_8px_18px_-6px_rgba(5,150,105,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all whitespace-nowrap"
                       >
                         <MessageCircle className="h-4 w-4" />
                         <span>WhatsApp Chat</span>
@@ -867,7 +867,7 @@ const UserProfilePublicPage: React.FC = () => {
                     {business?.whatsapp_group_link && isVerified && (
                       <Button
                         onClick={() => window.open(business.whatsapp_group_link, '_blank')}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-sm animate-pulse"
+                        className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl gap-2 shadow-[0_8px_18px_-6px_rgba(5,150,105,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all whitespace-nowrap"
                       >
                         <Users className="h-4 w-4" />
                         <span>Join WA Group</span>
@@ -893,13 +893,13 @@ const UserProfilePublicPage: React.FC = () => {
                       variant="outline"
                       size="md"
                       showLabel
-                      className="border-slate-200 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 hover:border-rose-300 text-xs sm:text-sm h-11 px-4 rounded-xl shadow-xs"
+                      className={`${activeTemplate.secondaryBtn} hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 text-xs sm:text-sm h-11 px-4 rounded-xl`}
                     />
 
                     <Button
                       variant="outline"
                       onClick={share}
-                      className="border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm h-11 px-3 rounded-xl gap-1.5 shadow-xs"
+                      className={`${activeTemplate.secondaryBtn} text-xs sm:text-sm h-11 px-3.5 rounded-xl gap-1.5`}
                     >
                       <Share2 className="h-4 w-4" />
                     </Button>
@@ -914,10 +914,8 @@ const UserProfilePublicPage: React.FC = () => {
                     </div>
                     <div className="text-xs space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-black text-sm text-amber-950">Ordinary Business Profile</span>
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-amber-400 bg-amber-100 text-amber-800 font-black">
-                          Not Verified
-                        </Badge>
+                        <span className="font-bold text-sm text-amber-950">Ordinary Business Profile</span>
+                        <span className="text-[11px] font-bold text-amber-800">· Not Verified</span>
                       </div>
                       <p className="text-amber-900/90 leading-relaxed font-medium">
                         This business profile has not completed official identity verification. Storefront website extras, commercial catalog products, and accredited ratings are withheld until verified. You can reach out directly via GGD Chat, WhatsApp, or Phone below.
@@ -928,45 +926,45 @@ const UserProfilePublicPage: React.FC = () => {
 
                 {/* Key Highlights Metrics Bar (Storefront Extras vs Ordinary Profile) */}
                 {isVerified ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
-                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Catalog</p>
-                      <p className={`text-lg sm:text-xl font-black ${activeTemplate.headingText} mt-0.5`}>{listings.length} Listings</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-5 border-t border-slate-100">
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3.5 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Catalog</p>
+                      <p className={`text-lg sm:text-xl font-extrabold tabular-nums ${activeTemplate.headingText} mt-0.5`}>{listings.length} Listings</p>
                     </div>
-                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Satisfaction</p>
-                      <p className="text-lg sm:text-xl font-black text-amber-500 mt-0.5 flex items-center justify-center gap-1">
-                        <Star className="h-4 w-4 fill-current" />
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3.5 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Satisfaction</p>
+                      <p className="text-lg sm:text-xl font-extrabold tabular-nums text-amber-600 mt-0.5 flex items-center justify-center gap-1">
+                        <Star className="h-4 w-4 fill-current shrink-0" />
                         {reviewStats.totalReviews > 0 ? `${reviewStats.averageRating.toFixed(1)} / 5.0` : '5.0 (New)'}
                       </p>
-                      <span className="text-[9px] text-slate-400 font-medium block">
-                        {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} genuine ratings` : 'Real client rating'}
+                      <span className="text-[11px] text-slate-500 font-medium block tabular-nums">
+                        {reviewStats.totalReviews > 0 ? `${reviewStats.totalReviews} verified ratings` : 'Verified rating'}
                       </span>
                     </div>
-                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Response</p>
-                      <p className="text-lg sm:text-xl font-black text-emerald-600 mt-0.5">&lt; 15 mins</p>
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3.5 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Response</p>
+                      <p className="text-lg sm:text-xl font-extrabold tabular-nums text-emerald-600 mt-0.5">&lt; 15 mins</p>
                     </div>
-                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3 text-center border ${activeTemplate.statCardBorder}`}>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Accreditation</p>
-                      <p className={`text-lg sm:text-xl font-black ${activeTemplate.accentText} mt-0.5`}>Verified</p>
+                    <div className={`${activeTemplate.statCardBg} rounded-2xl p-3.5 text-center border ${activeTemplate.statCardBorder}`}>
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Accreditation</p>
+                      <p className={`text-lg sm:text-xl font-extrabold ${activeTemplate.accentText} mt-0.5`}>Verified</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-5 border-t border-slate-100">
                     <div className="bg-slate-50/80 rounded-2xl p-3.5 text-center border border-slate-200">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Profile Mode</p>
-                      <p className="text-sm sm:text-base font-black text-slate-800 mt-0.5">Ordinary Profile</p>
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Profile Mode</p>
+                      <p className="text-sm sm:text-base font-bold text-slate-800 mt-0.5">Ordinary Profile</p>
                     </div>
                     <div className="bg-amber-50/80 rounded-2xl p-3.5 text-center border border-amber-200">
-                      <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Verification Status</p>
-                      <p className="text-sm sm:text-base font-black text-amber-800 mt-0.5 flex items-center justify-center gap-1.5">
+                      <p className="text-[11px] text-amber-700 font-semibold uppercase tracking-wider">Verification Status</p>
+                      <p className="text-sm sm:text-base font-bold text-amber-800 mt-0.5 flex items-center justify-center gap-1.5">
                         <ShieldAlert className="h-4 w-4 text-amber-600" /> Not Verified
                       </p>
                     </div>
                     <div className="bg-emerald-50/80 rounded-2xl p-3.5 text-center border border-emerald-200">
-                      <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Direct Communication</p>
-                      <p className="text-sm sm:text-base font-black text-emerald-700 mt-0.5 flex items-center justify-center gap-1.5">
+                      <p className="text-[11px] text-emerald-700 font-semibold uppercase tracking-wider">Direct Communication</p>
+                      <p className="text-sm sm:text-base font-bold text-emerald-700 mt-0.5 flex items-center justify-center gap-1.5">
                         <MessageCircle className="h-4 w-4" /> Available for Chat
                       </p>
                     </div>
@@ -981,24 +979,24 @@ const UserProfilePublicPage: React.FC = () => {
             <section id="catalog" className="scroll-mt-24 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
               <div>
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl ${activeTemplate.statCardBg} ${activeTemplate.accentText} border ${activeTemplate.statCardBorder}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${activeTemplate.statCardBg} ${activeTemplate.accentText} border ${activeTemplate.statCardBorder}`}>
                     <ShoppingBag className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Products & Services</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Direct commercial catalog and verified client solutions</p>
+                    <h2 className={`text-2xl font-extrabold ${activeTemplate.headingText} tracking-tight`}>Products &amp; Services</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Direct commercial catalog and verified client solutions</p>
                   </div>
                 </div>
               </div>
 
-              {/* Filter Pills */}
+              {/* Filter Segmented Control */}
               {productCount > 0 && serviceCount > 0 && (
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 self-start sm:self-auto">
+                <div className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/90 self-start sm:self-auto shadow-inner">
                   <button
                     type="button"
                     onClick={() => setListingFilter('all')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all tabular-nums ${
                       listingFilter === 'all' 
                         ? `${activeTemplate.primaryBtn}` 
                         : 'text-slate-600 hover:text-slate-900'
@@ -1009,9 +1007,9 @@ const UserProfilePublicPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setListingFilter('products')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all tabular-nums ${
                       listingFilter === 'products' 
-                        ? 'bg-blue-600 text-white shadow-xs' 
+                        ? 'bg-blue-600 text-white shadow-[0_6px_14px_-4px_rgba(37,99,235,0.45)]' 
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -1020,9 +1018,9 @@ const UserProfilePublicPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setListingFilter('services')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all tabular-nums ${
                       listingFilter === 'services' 
-                        ? 'bg-purple-600 text-white shadow-xs' 
+                        ? 'bg-purple-600 text-white shadow-[0_6px_14px_-4px_rgba(147,51,234,0.45)]' 
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -1038,18 +1036,19 @@ const UserProfilePublicPage: React.FC = () => {
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-600 uppercase tracking-wider">
                   <Crown className="h-4 w-4" /> Featured Spotlight
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {featured.map((listing) => (
                     <Card 
                       key={listing.id}
-                      className="bg-white border-2 border-amber-300 rounded-3xl overflow-hidden hover:border-amber-500 transition-all shadow-md group cursor-pointer"
+                      className="bg-white border border-amber-300/90 rounded-2xl overflow-hidden hover:border-amber-500 transition-all duration-200 hover:-translate-y-0.5 shadow-[0_12px_30px_-14px_rgba(245,158,11,0.28)] hover:shadow-[0_18px_36px_-12px_rgba(245,158,11,0.34)] group cursor-pointer flex flex-col justify-between"
                       onClick={() => navigate(`/product/${listing.id}`)}
                     >
-                      <div className="relative h-52 bg-slate-100 overflow-hidden">
+                      <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
                         {listing.image_url ? (
                           <img 
                             src={listing.image_url} 
                             alt={listing.title} 
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                           />
                         ) : (
@@ -1057,7 +1056,7 @@ const UserProfilePublicPage: React.FC = () => {
                             <Store className="h-16 w-16 text-slate-300" />
                           </div>
                         )}
-                        <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
+                        <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
                           <Crown className="h-3 w-3" /> Featured {listing.listing_type === 'service' ? 'Service' : 'Product'}
                         </div>
 
@@ -1093,23 +1092,26 @@ const UserProfilePublicPage: React.FC = () => {
                         )}
                       </div>
 
-                      <CardContent className="p-5 space-y-4">
+                      <CardContent className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
                         <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                            {listing.listing_type === 'service' ? 'Featured Service' : 'Featured Product'}
+                          </p>
                           <h3 className="text-lg font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">
                             {listing.title}
                           </h3>
                           {listing.description && (
-                            <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                            <p className="text-xs sm:text-sm text-slate-600 mt-1.5 line-clamp-2 leading-relaxed">
                               {listing.description}
                             </p>
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
                           <div>
-                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Pricing</span>
+                            <span className="text-[11px] text-slate-400 uppercase font-semibold block">Pricing</span>
                             {Number(listing.price) > 0 ? (
-                              <p className="text-xl font-black text-amber-600">
+                              <p className="text-xl font-extrabold tabular-nums text-amber-600">
                                 {listing.listing_type === 'service' ? 'From ' : ''}₦{Number(listing.price).toLocaleString()}
                               </p>
                             ) : (
@@ -1117,11 +1119,11 @@ const UserProfilePublicPage: React.FC = () => {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Button
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-md hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-[0_6px_16px_-4px_rgba(5,150,105,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all cursor-pointer"
                             >
                               <MessageCircle className="h-4 w-4 fill-white" />
                               <span>{listing.listing_type === 'service' ? 'Book via WhatsApp' : 'WhatsApp Order'}</span>
@@ -1130,14 +1132,14 @@ const UserProfilePublicPage: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={(e) => { e.stopPropagation(); handleChatDirect(listing); }}
-                              className="border-amber-300 text-amber-700 hover:bg-amber-50 font-bold text-xs h-10 px-3 rounded-xl gap-1 shadow-xs"
+                              className="border-amber-300 bg-white text-amber-700 hover:bg-amber-50 font-semibold text-xs h-10 px-3 rounded-xl gap-1 shadow-xs active:translate-y-[1px] transition-all"
                             >
                               <MessageCircle className="h-3.5 w-3.5" /> Inquire
                             </Button>
                             <Button
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                              className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs h-10 px-3.5 rounded-xl gap-1.5 shadow-sm cursor-pointer"
+                              className={`${activeTemplate.primaryBtn} text-xs h-10 px-3.5 rounded-xl gap-1.5 cursor-pointer`}
                             >
                               <Eye className="h-4 w-4" />
                               <span>View Details</span>
@@ -1153,18 +1155,19 @@ const UserProfilePublicPage: React.FC = () => {
 
             {/* Standard Catalog Grid */}
             {rest.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
                 {rest.map((listing) => (
                   <Card 
                     key={listing.id}
-                    className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-orange-400 hover:shadow-lg transition-all group flex flex-col justify-between cursor-pointer shadow-xs"
+                    className={`${activeTemplate.cardBg} ${activeTemplate.cardBorder} rounded-2xl overflow-hidden hover:border-orange-400/80 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-14px_rgba(15,23,42,0.18)] transition-all duration-200 group flex flex-col justify-between cursor-pointer border`}
                     onClick={() => navigate(`/product/${listing.id}`)}
                   >
-                    <div className="relative h-44 bg-slate-100 overflow-hidden">
+                    <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
                       {listing.image_url ? (
                         <img 
                           src={listing.image_url} 
                           alt={listing.title} 
+                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                         />
                       ) : (
@@ -1172,9 +1175,6 @@ const UserProfilePublicPage: React.FC = () => {
                           <Store className="h-12 w-12 text-slate-300" />
                         </div>
                       )}
-                      <Badge className="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur text-slate-800 text-[10px] border border-slate-200 font-bold shadow-xs">
-                        {listing.listing_type === 'service' ? 'Service' : 'Product'}
-                      </Badge>
 
                       {/* Favorite Button on Standard Catalog Card */}
                       <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
@@ -1200,29 +1200,32 @@ const UserProfilePublicPage: React.FC = () => {
                         />
                       </div>
                       {listing.video_url && (
-                        <div className="absolute top-2.5 right-2.5 bg-orange-600 text-white p-1 rounded-full shadow">
-                          <Play className="h-3 w-3 fill-current" />
+                        <div className="absolute bottom-2.5 right-2.5 z-10 bg-black/75 text-white p-1.5 rounded-full shadow-md">
+                          <Play className="h-3.5 w-3.5 fill-current" />
                         </div>
                       )}
                     </div>
 
-                    <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <CardContent className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
                       <div>
-                        <h4 className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                          {listing.listing_type === 'service' ? 'Service' : 'Product'}
+                        </p>
+                        <h4 className="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1">
                           {listing.title}
                         </h4>
                         {listing.description && (
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                          <p className="text-xs sm:text-sm text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                             {listing.description}
                           </p>
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-slate-100">
+                      <div className="pt-3 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-[10px] text-slate-400 font-medium">Price</span>
+                          <span className="text-xs text-slate-400 font-medium">Price</span>
                           {Number(listing.price) > 0 ? (
-                            <span className={`text-base font-black ${activeTemplate.accentText}`}>
+                            <span className={`text-base font-extrabold tabular-nums ${activeTemplate.accentText}`}>
                               {listing.listing_type === 'service' ? 'From ' : ''}₦{Number(listing.price).toLocaleString()}
                             </span>
                           ) : (
@@ -1234,7 +1237,7 @@ const UserProfilePublicPage: React.FC = () => {
                           <Button
                             size="sm"
                             onClick={(e) => { e.stopPropagation(); setCheckoutProduct(listing); }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] h-9 rounded-xl gap-1 shadow-sm hover:shadow-emerald-600/30 transition-all cursor-pointer"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 rounded-xl gap-1.5 shadow-[0_6px_14px_-4px_rgba(5,150,105,0.4),inset_0_1px_0_rgba(255,255,255,0.22)] active:translate-y-[1px] transition-all cursor-pointer"
                           >
                             <MessageCircle className="h-3.5 w-3.5 fill-white" />
                             <span>{listing.listing_type === 'service' ? 'Book via WA' : 'WhatsApp Buy'}</span>
@@ -1243,9 +1246,9 @@ const UserProfilePublicPage: React.FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={(e) => { e.stopPropagation(); navigate(`/product/${listing.id}`); }}
-                            className="w-full border-orange-500/30 bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold text-[11px] h-9 rounded-xl gap-1 shadow-xs cursor-pointer"
+                            className={`w-full ${activeTemplate.secondaryBtn} text-xs h-10 rounded-xl gap-1.5 cursor-pointer`}
                           >
-                            <Eye className="h-3.5 w-3.5 text-orange-600" />
+                            <Eye className={`h-3.5 w-3.5 ${activeTemplate.accentText}`} />
                             <span>View Details</span>
                           </Button>
                         </div>
@@ -1265,34 +1268,34 @@ const UserProfilePublicPage: React.FC = () => {
           )}
 
           {/* SECTION 3: ABOUT THE BUSINESS */}
-          <section id="about" className="scroll-mt-24 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80">
+          <section id="about" className="scroll-mt-24 space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-200/80 pb-4">
+              <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80">
                 <Info className="h-5 w-5" />
               </div>
               <div>
-                <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>About {name}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Corporate profile, background, and service pledge</p>
+                <h2 className={`text-2xl font-extrabold ${activeTemplate.headingText} tracking-tight`}>About {name}</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Corporate profile, background, and service pledge</p>
               </div>
             </div>
 
-            <Card className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+            <Card className={`${activeTemplate.cardBg} border ${activeTemplate.cardBorder} rounded-2xl p-6 sm:p-8 space-y-6`}>
               <p className="text-sm sm:text-base text-slate-700 leading-relaxed whitespace-pre-line">
                 {description || `${name} is an officially accredited commercial enterprise on GGD Ad Network, committed to delivering verified products and top-quality professional services across Nigeria and beyond.`}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-100 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-slate-100 text-xs">
                 <div className="space-y-1">
-                  <span className="text-slate-400 block font-bold uppercase text-[10px]">Industry Category</span>
+                  <span className="text-slate-400 block font-semibold uppercase text-[11px]">Industry Category</span>
                   <span className="text-slate-900 font-bold text-sm">{catName || 'Commercial Enterprise'}</span>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-slate-400 block font-bold uppercase text-[10px]">Operational Base</span>
+                  <span className="text-slate-400 block font-semibold uppercase text-[11px]">Operational Base</span>
                   <span className="text-slate-900 font-bold text-sm">{address || 'Nigeria'}</span>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-slate-400 block font-bold uppercase text-[10px]">Member Since</span>
-                  <span className="text-slate-900 font-bold text-sm">
+                  <span className="text-slate-400 block font-semibold uppercase text-[11px]">Member Since</span>
+                  <span className="text-slate-900 font-bold text-sm tabular-nums">
                     {profile.created_at ? new Date(profile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }) : 'Verified GGD Member'}
                   </span>
                 </div>
@@ -1301,14 +1304,14 @@ const UserProfilePublicPage: React.FC = () => {
           </section>
 
           {/* SECTION 4: CONTACT & LOCATION */}
-          <section id="contact" className="scroll-mt-24 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80">
+          <section id="contact" className="scroll-mt-24 space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-200/80 pb-4">
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80">
                 <Phone className="h-5 w-5" />
               </div>
               <div>
-                <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Contact & Location</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Reach our dedicated sales, service, and inquiry desk</p>
+                <h2 className={`text-2xl font-extrabold ${activeTemplate.headingText} tracking-tight`}>Contact &amp; Location</h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Reach our dedicated sales, service, and inquiry desk</p>
               </div>
             </div>
 
@@ -1317,15 +1320,15 @@ const UserProfilePublicPage: React.FC = () => {
               {phone && (
                 <Card 
                   onClick={() => window.open(`tel:${phone}`)}
-                  className="bg-white border border-slate-200 hover:border-orange-400 rounded-2xl p-5 cursor-pointer transition-all group shadow-xs"
+                  className={`${activeTemplate.cardBg} border ${activeTemplate.cardBorder} hover:border-orange-400 hover:-translate-y-0.5 rounded-2xl p-5 cursor-pointer transition-all duration-150 group`}
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="h-12 w-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="h-12 w-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                       <Phone className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Telephone</span>
-                      <p className="text-base font-black text-slate-900 truncate">{phone}</p>
+                      <span className="text-[11px] text-slate-400 uppercase font-semibold block">Telephone</span>
+                      <p className="text-base font-bold text-slate-900 truncate tabular-nums">{phone}</p>
                       <span className="text-xs text-orange-600 font-semibold">Click to dial directly</span>
                     </div>
                   </div>
@@ -1336,16 +1339,16 @@ const UserProfilePublicPage: React.FC = () => {
               {waPhone && (
                 <Card 
                   onClick={() => brandedWa && window.open(brandedWa, '_blank')}
-                  className="bg-white border border-slate-200 hover:border-green-500 rounded-2xl p-5 cursor-pointer transition-all group shadow-xs"
+                  className={`${activeTemplate.cardBg} border ${activeTemplate.cardBorder} hover:border-emerald-500 hover:-translate-y-0.5 rounded-2xl p-5 cursor-pointer transition-all duration-150 group`}
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="h-12 w-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                       <MessageCircle className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">WhatsApp Business</span>
-                      <p className="text-base font-black text-slate-900 truncate">{phone || 'Instant Chat'}</p>
-                      <span className="text-xs text-green-600 font-semibold">Send verified inquiry</span>
+                      <span className="text-[11px] text-slate-400 uppercase font-semibold block">WhatsApp Business</span>
+                      <p className="text-base font-bold text-slate-900 truncate tabular-nums">{phone || 'Instant Chat'}</p>
+                      <span className="text-xs text-emerald-600 font-semibold">Send verified inquiry</span>
                     </div>
                   </div>
                 </Card>
@@ -1355,33 +1358,33 @@ const UserProfilePublicPage: React.FC = () => {
               {website && (
                 <Card 
                   onClick={() => window.open(website, '_blank')}
-                  className="bg-white border border-slate-200 hover:border-blue-400 rounded-2xl p-5 cursor-pointer transition-all group sm:col-span-2 shadow-xs"
+                  className={`${activeTemplate.cardBg} border ${activeTemplate.cardBorder} hover:border-blue-400 hover:-translate-y-0.5 rounded-2xl p-5 cursor-pointer transition-all duration-150 group sm:col-span-2`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                      <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                         <Globe className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Corporate Web Portal</span>
-                        <p className="text-base font-black text-slate-900 truncate">{website}</p>
+                        <span className="text-[11px] text-slate-400 uppercase font-semibold block">Corporate Web Portal</span>
+                        <p className="text-base font-bold text-slate-900 truncate">{website}</p>
                         <span className="text-xs text-blue-600 font-semibold">Open external website</span>
                       </div>
                     </div>
-                    <ExternalLink className="h-5 w-5 text-slate-400 group-hover:text-slate-800" />
+                    <ExternalLink className="h-5 w-5 text-slate-400 group-hover:text-slate-800 shrink-0" />
                   </div>
                 </Card>
               )}
 
               {/* Physical Location Address */}
               {address && (
-                <Card className="bg-white border border-slate-200 rounded-2xl p-5 sm:col-span-2 shadow-xs">
+                <Card className={`${activeTemplate.cardBg} border ${activeTemplate.cardBorder} rounded-2xl p-5 sm:col-span-2`}>
                   <div className="flex items-start gap-3.5">
                     <div className="h-12 w-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
                       <MapPin className="h-5 w-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Registered Address</span>
+                      <span className="text-[11px] text-slate-400 uppercase font-semibold block">Registered Address</span>
                       <p className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">{address}</p>
                       <p className="text-xs text-slate-500 mt-1">Available for local dispatch, order pickup, and in-person consultations.</p>
                     </div>
@@ -1393,25 +1396,25 @@ const UserProfilePublicPage: React.FC = () => {
 
           {/* SECTION 5: SOCIAL CHANNELS */}
           {socials.length > 0 && (
-            <section id="socials" className="scroll-mt-24 space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
-                <div className="p-2 rounded-xl bg-purple-50 text-purple-600 border border-purple-200/80">
+            <section id="socials" className="scroll-mt-24 space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-200/80 pb-4">
+                <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-200/80">
                   <Globe className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Social Channels & Community</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Follow and engage with {name} across digital networks</p>
+                  <h2 className={`text-2xl font-extrabold ${activeTemplate.headingText} tracking-tight`}>Social Channels &amp; Community</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Follow and engage with {name} across digital networks</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                 {socials.map((s) => (
                   <Button
                     key={s.key}
                     onClick={() => window.open(s.href!, '_blank')}
-                    className={`${s.color} text-white font-bold justify-start gap-3 h-12 rounded-xl shadow-xs`}
+                    className={`${s.color} text-white font-bold justify-start gap-3 h-12 rounded-xl shadow-[0_8px_18px_-8px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.22)] active:translate-y-[1px] transition-all`}
                   >
-                    <s.icon className="h-5 w-5" />
+                    <s.icon className="h-5 w-5 shrink-0" />
                     <span className="text-sm">{s.label}</span>
                   </Button>
                 ))}
@@ -1434,23 +1437,23 @@ const UserProfilePublicPage: React.FC = () => {
 
           {/* SECTION 7: TRUST & ACCREDITATION (Verified Stores Only) */}
           {isVerified && (
-            <section id="trust" className="scroll-mt-24 space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-4">
-                <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
+            <section id="trust" className="scroll-mt-24 space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-200/80 pb-4">
+                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className={`text-2xl font-black ${activeTemplate.headingText} tracking-tight`}>Accreditation & Trust</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Verification status and accredited business pledge</p>
+                  <h2 className={`text-2xl font-extrabold ${activeTemplate.headingText} tracking-tight`}>Accreditation &amp; Trust</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Verification status and accredited business pledge</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Official Verification Status Card */}
-                <Card className={`rounded-2xl p-6 shadow-xs border ${
+                <Card className={`rounded-2xl p-6 border ${
                   isVerified 
-                    ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200' 
-                    : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200'
+                    ? 'bg-gradient-to-br from-emerald-50/80 via-white to-white border-emerald-200 shadow-[0_10px_28px_-14px_rgba(5,150,105,0.18)]' 
+                    : 'bg-gradient-to-br from-slate-50 via-white to-white border-slate-200 shadow-[0_10px_28px_-14px_rgba(15,23,42,0.12)]'
                 }`}>
                   <div className="flex items-start gap-3.5">
                     <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
@@ -1460,7 +1463,7 @@ const UserProfilePublicPage: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                        <h3 className="text-base font-black text-slate-900">
+                        <h3 className="text-base font-bold text-slate-900">
                           {isVerified ? 'Accredited & Verified Merchant' : 'Unverified Merchant Profile'}
                         </h3>
                         <BusinessVerificationBadge 
@@ -1469,7 +1472,7 @@ const UserProfilePublicPage: React.FC = () => {
                           size="sm" 
                         />
                       </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">
+                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                         {isVerified 
                           ? `This merchant has completed official identity verification${verificationRecord?.document_type ? ` via ${verificationRecord.document_type}` : ''} on the GGD Merchant Network.` 
                           : 'This store has not yet completed official CAC or NIN identity verification.'
@@ -1480,25 +1483,25 @@ const UserProfilePublicPage: React.FC = () => {
                 </Card>
 
                 {syndicate && (
-                  <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-xs">
+                  <Card className="bg-gradient-to-br from-purple-50/70 via-white to-white border border-purple-200 rounded-2xl p-6 shadow-[0_10px_28px_-14px_rgba(147,51,234,0.18)]">
                     <div className="flex items-start gap-3.5">
                       <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                         <Award className="h-6 w-6" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-base font-black text-slate-900">Syndicate Promoter Verified</h3>
+                        <h3 className="text-base font-bold text-slate-900">Syndicate Promoter Verified</h3>
                         <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                            <p className="text-[9px] text-purple-700 uppercase font-bold">Score</p>
-                            <p className="text-sm font-black text-slate-900">{syndicate.ranking_score || 0}</p>
+                          <div className="bg-purple-50/70 rounded-xl p-2 border border-purple-100">
+                            <p className="text-[10px] text-purple-700 uppercase font-semibold">Score</p>
+                            <p className="text-sm font-bold tabular-nums text-slate-900">{syndicate.ranking_score || 0}</p>
                           </div>
-                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                            <p className="text-[9px] text-purple-700 uppercase font-bold">Tasks</p>
-                            <p className="text-sm font-black text-slate-900">{syndicate.tasks_completed || 0}</p>
+                          <div className="bg-purple-50/70 rounded-xl p-2 border border-purple-100">
+                            <p className="text-[10px] text-purple-700 uppercase font-semibold">Tasks</p>
+                            <p className="text-sm font-bold tabular-nums text-slate-900">{syndicate.tasks_completed || 0}</p>
                           </div>
-                          <div className="bg-purple-50/70 rounded-lg p-2 border border-purple-100">
-                            <p className="text-[9px] text-purple-700 uppercase font-bold">Channels</p>
-                            <p className="text-sm font-black text-slate-900">{(syndicate.verified_platforms || []).length}</p>
+                          <div className="bg-purple-50/70 rounded-xl p-2 border border-purple-100">
+                            <p className="text-[10px] text-purple-700 uppercase font-semibold">Channels</p>
+                            <p className="text-sm font-bold tabular-nums text-slate-900">{(syndicate.verified_platforms || []).length}</p>
                           </div>
                         </div>
                       </div>
@@ -1507,14 +1510,14 @@ const UserProfilePublicPage: React.FC = () => {
                 )}
 
                 {/* Network Security Guarantee Card */}
-                <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-xs`}>
+                <Card className={`bg-gradient-to-br from-blue-50/70 via-white to-white border border-blue-200 rounded-2xl p-6 ${syndicate ? 'sm:col-span-2' : ''} shadow-[0_10px_28px_-14px_rgba(37,99,235,0.15)]`}>
                   <div className="flex items-start gap-3.5">
                     <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                       <ShieldCheck className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="text-base font-black text-slate-900">GGD Safe Commerce Pledge</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      <h3 className="text-base font-bold text-slate-900">GGD Safe Commerce Pledge</h3>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
                         Identity, commercial phone lines, and corporate profiles are monitored on GGD Ad Network to protect buyers and foster authentic commercial growth across Nigerian commerce.
                       </p>
                     </div>
@@ -1525,15 +1528,15 @@ const UserProfilePublicPage: React.FC = () => {
           )}
 
           {/* Sponsored Ad Banner & Network Footer */}
-          <div className="pt-4 border-t border-slate-200 space-y-4">
+          <div className="pt-6 border-t border-slate-200 space-y-4">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-1.5">
                 <Megaphone className="h-3.5 w-3.5 text-orange-500" />
-                <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/15 text-orange-600 px-2.5 py-0.5 rounded-full">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600">
                   Sponsored Network Advert
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
                 Full Display Banner
               </span>
             </div>
@@ -1552,16 +1555,13 @@ const UserProfilePublicPage: React.FC = () => {
 
       {/* Floating Chat Launcher on mobile/desktop */}
       {profile?.user_id && (
-        <aside aria-label="Chat with business" className="fixed bottom-6 right-6 z-40">
+        <aside aria-label="Chat with business" className="fixed bottom-5 right-4 sm:right-6 z-40">
           <button
             type="button"
             onClick={() => handleChatDirect()}
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl ${activeTemplate.primaryBtn} text-xs sm:text-sm shadow-xl hover:-translate-y-0.5 active:translate-y-0.5 transition-all cursor-pointer ring-2 ring-white`}
+            className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl ${activeTemplate.primaryBtn} text-xs sm:text-sm shadow-[0_14px_30px_-8px_rgba(15,23,42,0.38)] hover:-translate-y-0.5 active:translate-y-[1px] transition-all cursor-pointer ring-2 ring-white`}
           >
-            <div className="relative">
-              <MessageCircle className="h-5 w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
-            </div>
+            <MessageCircle className="h-5 w-5 shrink-0" />
             <span className="truncate max-w-[140px] sm:max-w-[180px]">Chat with {name}</span>
           </button>
         </aside>

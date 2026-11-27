@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Wallet, Video, Share2, Sparkles, Check, Bell } from 'lucide-react';
+import { Loader2, Camera, User, Mail, Lock, Shield, Crown, Briefcase, Users, Bot, Share2, Sparkles, Check, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
@@ -20,6 +20,13 @@ import {
   setUserPushEnabled,
   showPushNotification,
 } from '@/services/pushNotificationService';
+import ProfileMiniMeNotes from '@/components/profile/ProfileMiniMeNotes';
+import { ProfileExistingCapability } from '@/lib/profileNotes';
+import {
+  VIXORA_CHAT_MODELS,
+  getStoredVixoraModel,
+  setStoredVixoraModel,
+} from '@/lib/vixoraModels';
 
 const UserProfilePage = () => {
   const { isEnabled } = useFeatureToggles();
@@ -44,7 +51,9 @@ const UserProfilePage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Creator & Channel Preferences state
+  // Creator & AI Chat Preferences state
+  const [activeTab, setActiveTab] = useState<'profile' | 'creator' | 'email' | 'password'>('profile');
+  const [selectedChatModel, setSelectedChatModel] = useState<string>(() => getStoredVixoraModel());
   const [creatorNiche, setCreatorNiche] = useState('finance');
   const [preferredVoice, setPreferredVoice] = useState('Kore');
   const [preferredRatio, setPreferredRatio] = useState('vertical');
@@ -61,9 +70,30 @@ const UserProfilePage = () => {
       setPushEnabled(isPushEnabled());
       setPushPermission(getPushPermission());
     };
+    const syncModel = (evt: any) => {
+      setSelectedChatModel(evt?.detail?.model || getStoredVixoraModel());
+    };
     window.addEventListener('ggd-push-preference-changed', syncPush);
-    return () => window.removeEventListener('ggd-push-preference-changed', syncPush);
+    window.addEventListener('vixora-model-changed', syncModel);
+    return () => {
+      window.removeEventListener('ggd-push-preference-changed', syncPush);
+      window.removeEventListener('vixora-model-changed', syncModel);
+    };
   }, []);
+
+  const handleJumpToCapability = (cap: ProfileExistingCapability) => {
+    const mappedTab =
+      cap.tabTarget === 'info' || cap.tabTarget === 'push'
+        ? 'profile'
+        : cap.tabTarget;
+    setActiveTab(mappedTab);
+    window.setTimeout(() => {
+      const target = document.getElementById(cap.anchorId);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 90);
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -142,7 +172,8 @@ const UserProfilePage = () => {
         aspectRatio: preferredRatio
       }));
 
-      toast.success('Creator channel and video preferences saved!');
+      setStoredVixoraModel(selectedChatModel);
+      toast.success('Creator & Vixora AI Chat preferences saved!');
     } catch (err: any) {
       toast.error('Error saving creator preferences');
     } finally {
@@ -304,10 +335,12 @@ const UserProfilePage = () => {
 
   const initials = (displayName || authUser?.email || 'U').slice(0, 2).toUpperCase();
 
+  const showAiSettingsTab = isEnabled('vixora_ai') || isEnabled('ggd_ai_chat');
+
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl mx-auto overflow-x-hidden relative pb-12">
       {/* Hero */}
-      <Card className="overflow-hidden border-0 shadow-lg">
+      <Card id="profile-identity" className="overflow-hidden border-0 shadow-lg">
         <div className="bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-5 text-white relative">
           <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="flex items-center gap-4 relative">
@@ -360,18 +393,18 @@ const UserProfilePage = () => {
         </div>
       </Card>
 
-      <Tabs defaultValue="profile">
-        <TabsList className={`grid ${isEnabled('vixora_ai') ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} w-full`}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className={`grid ${showAiSettingsTab ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'} w-full`}>
           <TabsTrigger value="profile" className="text-xs"><User className="h-3.5 w-3.5 mr-1" />Profile</TabsTrigger>
-          {isEnabled('vixora_ai') && (
-            <TabsTrigger value="creator" className="text-xs"><Video className="h-3.5 w-3.5 mr-1 text-orange-500" />Creator Channels</TabsTrigger>
+          {showAiSettingsTab && (
+            <TabsTrigger value="creator" className="text-xs"><Bot className="h-3.5 w-3.5 mr-1 text-orange-500" />AI &amp; Channels</TabsTrigger>
           )}
           <TabsTrigger value="email" className="text-xs"><Mail className="h-3.5 w-3.5 mr-1" />Email</TabsTrigger>
           <TabsTrigger value="password" className="text-xs"><Lock className="h-3.5 w-3.5 mr-1" />Password</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-3">
-          <Card>
+          <Card id="profile-business">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Personal information</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -443,7 +476,7 @@ const UserProfilePage = () => {
 
           {/* Referral share card */}
           {profile?.referral_code && isEnabled('referral_system') && (
-            <Card>
+            <Card id="profile-referral">
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-1.5"><Users className="h-4 w-4 text-orange-500" />Refer & earn</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">Share your link — earn credits when friends join.</p>
@@ -468,6 +501,7 @@ const UserProfilePage = () => {
           )}
 
           {/* Web Push Notification Settings Card */}
+          <div id="profile-push">
           {isPushSupported() && (
             <Card id="push-notification-settings-card">
               <CardHeader className="pb-3">
@@ -572,23 +606,53 @@ const UserProfilePage = () => {
               </CardContent>
             </Card>
           )}
+          </div>
         </TabsContent>
 
-        {/* CREATOR & CHANNEL PREFERENCES TAB */}
-        {isEnabled('vixora_ai') && (
+        {/* CREATOR & AI CHAT PREFERENCES TAB */}
+        {showAiSettingsTab && (
           <TabsContent value="creator" className="space-y-4">
-            <Card className="border shadow-md rounded-2xl">
+            <Card id="profile-creator" className="border shadow-md rounded-2xl">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-black flex items-center justify-between">
+                <CardTitle className="text-sm font-black flex items-center justify-between gap-2 flex-wrap">
                   <span className="flex items-center gap-2">
-                    <Video className="h-4 w-4 text-orange-500" /> Creator Channel & Distribution Settings
+                    <Bot className="h-4 w-4 text-orange-500" /> Creator &amp; Vixora AI Chat Settings
                   </span>
                   <Badge className="bg-orange-500/15 text-orange-600 border-orange-500/30 text-[10px] uppercase font-black">
-                    Vixora Studio Sync
+                    Server-Side AI Sync
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* DEFAULT VIXORA AI CHAT MODEL SELECTOR */}
+                <div className="space-y-1.5 p-3 rounded-xl border border-orange-500/25 bg-orange-500/5">
+                  <Label className="text-xs font-black flex items-center justify-between">
+                    <span>Default Vixora AI Chat Model</span>
+                    <span className="text-[10px] font-bold text-orange-600">Free-Tier Server Gateway</span>
+                  </Label>
+                  <Select
+                    value={selectedChatModel}
+                    onValueChange={(val) => {
+                      const next = setStoredVixoraModel(val);
+                      setSelectedChatModel(next);
+                      toast.success(`Default AI model set to ${next}`);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl text-xs bg-background">
+                      <SelectValue placeholder="Select Gemini / Gemma model" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50">
+                      {VIXORA_CHAT_MODELS.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.label} ({m.badge})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Applied across Vixora AI Chat, GGD AI Assistant, and Business Copilot. All calls run securely on the server.
+                  </p>
+                </div>
                 {/* PUBLISHING CHANNELS */}
                 <div className="space-y-2">
                   <Label className="text-xs font-bold flex items-center justify-between">
@@ -709,7 +773,7 @@ const UserProfilePage = () => {
         )}
 
         <TabsContent value="email" className="space-y-3">
-          <Card>
+          <Card id="profile-security">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Change email</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[11px] text-blue-800">
@@ -731,7 +795,7 @@ const UserProfilePage = () => {
         </TabsContent>
 
         <TabsContent value="password" className="space-y-3">
-          <Card>
+          <Card id="profile-security">
             <CardHeader className="pb-3"><CardTitle className="text-sm">Change password</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -753,6 +817,13 @@ const UserProfilePage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ProfileMiniMeNotes
+        userId={authUser?.id}
+        avatarUrl={profile?.avatar_url}
+        displayName={displayName}
+        onJumpToCapability={handleJumpToCapability}
+      />
     </div>
   );
 };

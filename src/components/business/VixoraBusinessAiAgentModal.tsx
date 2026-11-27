@@ -40,6 +40,12 @@ import {
   verifyIsCurrentUserAdmin,
 } from "@/services/vixoraAdminAgentService";
 import vixoraAgentAvatar from "@/assets/images/vixora_agent_avatar_1786108775324.jpg";
+import {
+  VIXORA_CHAT_MODELS,
+  formatLegacyDirectResponse,
+  getStoredVixoraModel,
+  setStoredVixoraModel,
+} from "@/lib/vixoraModels";
 
 export interface BusinessChatMessage {
   id: string;
@@ -133,6 +139,15 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
     customLearnedNotes: []
   });
   const [newMemoryNote, setNewMemoryNote] = useState('');
+  const [selectedModel, setSelectedModel] = useState<string>(() => getStoredVixoraModel());
+
+  useEffect(() => {
+    const syncModel = (evt: any) => {
+      setSelectedModel(evt?.detail?.model || getStoredVixoraModel());
+    };
+    window.addEventListener('vixora-model-changed', syncModel);
+    return () => window.removeEventListener('vixora-model-changed', syncModel);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -433,7 +448,7 @@ YOUR MANDATE:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'agent',
-            model: 'gemini-4-hydrogen',
+            model: selectedModel,
             contents,
             systemInstruction,
             functionDeclarations: activeToolDefs,
@@ -464,7 +479,7 @@ YOUR MANDATE:
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     action: 'agent',
-                    model: 'gemini-4-hydrogen',
+                    model: selectedModel,
                     systemInstruction,
                     functionDeclarations: activeToolDefs,
                     contents: [
@@ -485,7 +500,7 @@ YOUR MANDATE:
                 if (secondResp.ok) {
                   const secondPass = await secondResp.json().catch(() => null);
                   if (secondPass?.text) {
-                    responseText = String(secondPass.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
+                    responseText = formatLegacyDirectResponse(String(secondPass.text));
                   }
                 }
               } catch {}
@@ -495,7 +510,7 @@ YOUR MANDATE:
               }
             }
           } else if (res.ok && res.text) {
-            responseText = String(res.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
+            responseText = formatLegacyDirectResponse(String(res.text));
           }
         }
         if (!toolExecuted && missingKeyError && !actionBadge) {
@@ -752,6 +767,22 @@ YOUR MANDATE:
                 <Store className="h-3 w-3 shrink-0" /> Store Hub
               </button>
             </div>
+
+            <select
+              aria-label="Select AI model"
+              value={selectedModel}
+              onChange={(e) => {
+                const next = setStoredVixoraModel(e.target.value);
+                setSelectedModel(next);
+              }}
+              className="h-8 max-w-[140px] rounded-xl bg-white/15 border border-white/20 text-white text-[11px] font-bold px-2 outline-none cursor-pointer shrink-0"
+            >
+              {VIXORA_CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id} className="text-slate-900 bg-white">
+                  {m.shortLabel}
+                </option>
+              ))}
+            </select>
 
             <Button
               size="sm"

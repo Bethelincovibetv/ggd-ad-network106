@@ -154,22 +154,22 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
   return (
     <>
       <Card
-        className={`overflow-hidden border transition-all duration-200 hover:shadow-md ${
+        className={`overflow-hidden rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${
           isFeatured
-            ? 'border-amber-300/80 bg-gradient-to-br from-amber-500/[0.04] to-orange-500/[0.02] shadow-amber-500/5'
+            ? 'border-amber-300/90 bg-gradient-to-br from-amber-500/[0.04] to-orange-500/[0.02] shadow-[0_12px_28px_-14px_rgba(245,158,11,0.28)] hover:shadow-[0_16px_32px_-12px_rgba(245,158,11,0.34)]'
             : !isActive
-            ? 'border-border/60 opacity-80 bg-muted/20'
-            : 'border-border/70 bg-card'
+            ? 'border-border/70 opacity-85 bg-muted/20 shadow-xs'
+            : 'border-border/80 bg-card shadow-[0_10px_26px_-14px_rgba(15,23,42,0.14)] hover:shadow-[0_16px_32px_-12px_rgba(15,23,42,0.18)]'
         }`}
       >
-        <CardContent className="p-3.5 sm:p-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4">
             {/* Visual Thumbnail */}
             <div 
               role="button"
               tabIndex={0}
               onClick={() => window.open(`/product/${item.id}`, '_blank')}
-              className="relative h-24 w-full sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-muted flex-shrink-0 cursor-pointer group/thumb focus:outline-hidden"
+              className="relative h-28 w-full sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-muted border border-border/60 flex-shrink-0 cursor-pointer group/thumb focus:outline-hidden"
               title="Click to view product details"
             >
               {item.image_url ? (
@@ -177,6 +177,7 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                   loading="lazy"
                   src={item.image_url}
                   alt={item.title}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
                 />
               ) : (
@@ -192,7 +193,7 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
               {/* Badges on Thumbnail */}
               <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
                 <Badge
-                  className={`text-[9px] font-black uppercase px-2 py-0.5 border-0 shadow-sm ${
+                  className={`text-[9px] font-bold uppercase px-2 py-0.5 border-0 shadow-xs ${
                     isService
                       ? 'bg-purple-600 text-white'
                       : 'bg-blue-600 text-white'
@@ -230,11 +231,11 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                     {/* Price Display */}
                     <div className="mt-1">
                       {Number(item.price) > 0 ? (
-                        <p className="text-base sm:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                        <p className="text-base sm:text-lg font-bold tabular-nums text-orange-600 dark:text-orange-400">
                           {isService ? 'Starting at ' : ''}₦{Number(item.price).toLocaleString()}
                         </p>
                       ) : (
-                        <p className="text-xs font-bold text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground">
                           {isService ? 'Rate: Contact for Quote' : 'Price on Inquiry'}
                         </p>
                       )}
@@ -242,8 +243,8 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                   </div>
 
                   {/* Quick Active Toggle */}
-                  <div className="flex items-center gap-1.5 shrink-0 bg-muted/40 px-2 py-1 rounded-xl border border-border/40">
-                    <span className="text-[10px] font-bold text-muted-foreground hidden sm:inline">
+                  <div className="flex items-center gap-1.5 shrink-0 bg-muted/40 px-2.5 py-1 rounded-xl border border-border/50">
+                    <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">
                       {isActive ? 'Active' : 'Draft'}
                     </span>
                     <Switch
@@ -257,20 +258,20 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
 
                 {/* Description */}
                 {item.description && (
-                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
                     {item.description}
                   </p>
                 )}
               </div>
 
               {/* Action Buttons Toolbar */}
-              <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-border/50">
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => onEdit(item)}
-                    className="h-9 px-3 text-xs font-bold gap-1 rounded-xl border-border/70 hover:bg-muted"
+                    className="h-9 px-3 text-xs font-semibold gap-1 rounded-xl border-border/80 bg-background hover:bg-muted shadow-xs active:translate-y-[1px] transition-all"
                   >
                     <Pencil className="h-3.5 w-3.5 text-blue-600" />
                     Edit
@@ -280,7 +281,7 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                     size="sm"
                     variant="outline"
                     onClick={() => window.open(`/product/${item.id}`, '_blank')}
-                    className="h-9 px-3 text-xs font-bold gap-1.5 text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 rounded-xl shadow-xs cursor-pointer"
+                    className="h-9 px-3 text-xs font-semibold gap-1.5 text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/40 rounded-xl shadow-xs active:translate-y-[1px] transition-all cursor-pointer"
                     title="View public product details page"
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -296,7 +297,7 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                       onClick={handleFeature}
                       disabled={featuring}
                       title="Feature at top of storefront & directory for 7 days (10 credits)"
-                      className="h-9 px-2.5 text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-400/50 hover:bg-amber-50 dark:hover:bg-amber-950/20 gap-1 rounded-xl"
+                      className="h-9 px-2.5 text-xs font-semibold text-amber-700 dark:text-amber-300 border-amber-400/50 hover:bg-amber-50 dark:hover:bg-amber-950/20 gap-1 rounded-xl shadow-xs active:translate-y-[1px] transition-all"
                     >
                       {featuring ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -306,9 +307,9 @@ export const ProductCardItem: React.FC<ProductCardItemProps> = ({
                       Feature (10c)
                     </Button>
                   ) : (
-                    <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 h-8 px-2">
-                      ⭐ Featured Active
-                    </Badge>
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 px-2">
+                      Featured Active
+                    </span>
                   )}
 
                   <Button

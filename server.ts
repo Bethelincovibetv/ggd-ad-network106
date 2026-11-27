@@ -225,7 +225,17 @@ app.use(async (req, res, next) => {
   } else if (path.startsWith('/api/generate-ebook')) {
     requiredFeature = 'ebook_generator';
   } else if (path.startsWith('/api/vixora')) {
-    requiredFeature = 'vixora_ai_studio';
+    const toggles = await refreshServerFeatureToggles();
+    const anyVixoraChatEnabled =
+      isServerFeatureEnabled('vixora_ai_studio', toggles) ||
+      isServerFeatureEnabled('ggd_ai_chat', toggles) ||
+      isServerFeatureEnabled('vixora_business_agent', toggles);
+    if (!anyVixoraChatEnabled) {
+      return res.status(404).json({
+        error: "Endpoint not found: feature 'vixora_ai_studio' is disabled.",
+        statusCode: 404,
+      });
+    }
   } else if (path.startsWith('/api/posts')) {
     requiredFeature = 'community_feed';
   }
@@ -390,7 +400,7 @@ app.post('/api/admin/config', (req, res) => {
 // ----------------------------------------------------
 app.post('/api/ai/generate', async (req, res) => {
   try {
-    const { contents, systemInstruction, temperature = 0.7, model = 'gemini-2.5-flash', responseMimeType, apiKey } = req.body || {};
+    const { contents, systemInstruction, temperature = 0.7, model = 'gemini-3.8-flash', responseMimeType, apiKey } = req.body || {};
     const candidateKeys = await getCandidateGeminiKeys(apiKey);
 
     const toggles = await refreshServerFeatureToggles();
@@ -403,7 +413,7 @@ app.post('/api/ai/generate', async (req, res) => {
       ['business_directory', 'Business Directory'],
       ['storefronts', 'Storefronts'],
       ['blogmate_ai', 'BlogMate AI'],
-      ['vixora_ai_studio', 'Vixora AI Studio'],
+      ['vixora_ai_studio', 'Vixora AI Chat'],
       ['ebook_generator', 'Ebook Generator'],
       ['sales_funnel', 'Sales Funnel Generator'],
       ['community_feed', 'Community Feed'],
@@ -436,7 +446,7 @@ app.post('/api/ai/generate', async (req, res) => {
         });
 
         const response = await client.models.generateContent({
-          model: model || 'gemini-2.5-flash',
+          model: model || 'gemini-3.8-flash',
           contents,
           config: Object.keys(config).length > 0 ? config : undefined,
         });
@@ -485,7 +495,7 @@ app.all('/api/vixora', async (req, res) => {
       ['business_directory', 'Business Directory'],
       ['storefronts', 'Storefronts'],
       ['blogmate_ai', 'BlogMate AI'],
-      ['vixora_ai_studio', 'Vixora AI Studio'],
+      ['vixora_ai_studio', 'Vixora AI Chat'],
       ['ebook_generator', 'Ebook Generator'],
       ['sales_funnel', 'Sales Funnel Generator'],
       ['community_feed', 'Community Feed'],

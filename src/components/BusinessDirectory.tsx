@@ -465,7 +465,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
       </section>
 
       {/* Search Bar, Compact State / Industry Filters & Segment Switcher */}
-      <section className="rounded-2xl bg-card border border-border p-4 sm:p-5 space-y-4 shadow-xs">
+      <section className="rounded-2xl bg-card border border-border/90 p-4 sm:p-6 space-y-4 shadow-[0_10px_28px_-14px_rgba(15,23,42,0.12)]">
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
@@ -853,7 +853,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
 
       {/* Nearby Recommended Businesses (when a Nigerian state is active or GPS detected) */}
       {activeNearbyState && nearbyBusinesses.length > 0 && (
-        <section className="rounded-2xl bg-card border border-rose-500/25 p-4 sm:p-5 space-y-4">
+        <section className="rounded-2xl bg-card border border-rose-500/25 p-4 sm:p-6 space-y-4 shadow-[0_10px_26px_-14px_rgba(225,29,72,0.16)]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
@@ -871,14 +871,14 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                 setSelectedState(activeNearbyState);
                 setDirectoryTab('businesses');
               }}
-              className="h-11 min-h-[44px] px-4 rounded-xl text-sm font-semibold border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 self-start sm:self-auto whitespace-nowrap"
+              className="h-11 min-h-[44px] px-4 rounded-xl text-sm font-semibold border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 shadow-xs active:translate-y-[1px] transition-all self-start sm:self-auto whitespace-nowrap"
             >
               View All ({nearbyBusinesses.length})
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {nearbyBusinesses.slice(0, 3).map((biz) => {
               const bizCat = categories.find((c) => c.id === biz.category_id);
               const bState = getBusinessEffectiveState(biz);
@@ -887,7 +887,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                   type="button"
                   key={`nearby-${biz.id}`}
                   onClick={() => navigate(`/business/${biz.id}`)}
-                  className="p-3.5 rounded-xl bg-background border border-border hover:border-rose-500/60 transition-colors text-left flex items-center gap-3.5 group min-h-[76px]"
+                  className="p-3.5 rounded-xl bg-background border border-border/90 hover:border-rose-500/60 shadow-[0_6px_18px_-10px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-10px_rgba(225,29,72,0.16)] transition-all duration-150 text-left flex items-center gap-3.5 group min-h-[76px]"
                 >
                   {biz.logo_url ? (
                     <img
@@ -938,13 +938,13 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
             </span>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-4 overflow-x-auto pb-3 no-scrollbar">
             {featuredListings.slice(0, 12).map((l) => {
               const isSrv = l.listing_type === 'service';
               return (
                 <div
                   key={l.id}
-                  className="flex-shrink-0 w-72 sm:w-80 rounded-2xl overflow-hidden bg-card border border-amber-400/70 hover:border-orange-500 transition-colors flex flex-col justify-between shadow-xs"
+                  className="flex-shrink-0 w-72 sm:w-80 rounded-2xl overflow-hidden bg-card border border-amber-400/80 hover:border-orange-500 transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between shadow-[0_10px_28px_-14px_rgba(245,158,11,0.28)] hover:shadow-[0_16px_34px_-12px_rgba(234,88,12,0.28)]"
                 >
                   <div
                     role="button"
@@ -986,9 +986,9 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                       <p className="text-xs font-medium text-muted-foreground truncate">
                         {isSrv ? 'Service' : 'Product'} · {l.business_profiles?.business_name || 'Verified Store'}
                       </p>
-                      <h3 className="text-base font-semibold text-foreground line-clamp-1">{l.title}</h3>
+                      <h3 className="text-base font-bold text-foreground line-clamp-1">{l.title}</h3>
                       {l.price ? (
-                        <p className="text-base font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                        <p className="text-base font-extrabold tabular-nums text-orange-600 dark:text-orange-400">
                           ₦{Number(l.price).toLocaleString()}
                         </p>
                       ) : (
@@ -1001,7 +1001,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                     <Button
                       type="button"
                       onClick={() => navigate(`/product/${l.id}`)}
-                      className="w-full h-11 min-h-[44px] rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm gap-2"
+                      className="w-full h-11 min-h-[44px] rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-semibold text-sm gap-2 shadow-[0_8px_18px_-6px_rgba(234,88,12,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all"
                     >
                       <Eye className="h-4 w-4" />
                       <span>View Offer</span>
@@ -1089,7 +1089,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
             }
 
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
                 {listToShow.map((l) => {
                   const catObj = categories.find((c) => c.id === l.business_profiles?.category_id);
                   const isSrv = l.listing_type === 'service';
@@ -1099,7 +1099,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                   return (
                     <article
                       key={l.id}
-                      className="rounded-2xl overflow-hidden bg-card border border-border hover:border-orange-500/70 transition-all duration-150 hover:-translate-y-0.5 shadow-xs flex flex-col justify-between group"
+                      className="rounded-2xl overflow-hidden bg-card border border-border/90 hover:border-orange-500/70 transition-all duration-200 hover:-translate-y-0.5 shadow-[0_10px_26px_-14px_rgba(15,23,42,0.14)] hover:shadow-[0_16px_32px_-12px_rgba(15,23,42,0.18)] flex flex-col justify-between group"
                     >
                       <div>
                         {/* Compact Multi-Column Card Media */}
@@ -1219,7 +1219,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                         <Button
                           type="button"
                           onClick={() => navigate(`/product/${l.id}`)}
-                          className="w-full h-10 sm:h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm gap-1.5"
+                          className="w-full h-10 sm:h-11 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-semibold text-xs sm:text-sm gap-1.5 shadow-[0_6px_14px_-4px_rgba(234,88,12,0.42),inset_0_1px_0_rgba(255,255,255,0.22)] active:translate-y-[1px] transition-all"
                         >
                           <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                           <span>View Details</span>
@@ -1314,7 +1314,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                 return (
                   <article
                     key={biz.id}
-                    className="rounded-2xl bg-card border border-border hover:border-orange-500/70 transition-all duration-150 hover:-translate-y-0.5 shadow-xs flex flex-col justify-between overflow-hidden group"
+                    className="rounded-2xl bg-card border border-border/90 hover:border-orange-500/70 transition-all duration-200 hover:-translate-y-0.5 shadow-[0_10px_28px_-14px_rgba(15,23,42,0.14)] hover:shadow-[0_16px_34px_-12px_rgba(15,23,42,0.18)] flex flex-col justify-between overflow-hidden group"
                   >
                     {/* Card Overview Body */}
                     <div
@@ -1452,7 +1452,7 @@ const BusinessDirectory = ({ hideCarousel = false }: BusinessDirectoryProps) => 
                       <Button
                         type="button"
                         onClick={() => navigate(`/business/${biz.id}`)}
-                        className="w-full h-11 min-h-[44px] rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm gap-2"
+                        className="w-full h-11 min-h-[44px] rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-semibold text-sm gap-2 shadow-[0_8px_18px_-6px_rgba(234,88,12,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] active:translate-y-[1px] transition-all"
                       >
                         <Store className="h-4 w-4" />
                         <span>View Store</span>
