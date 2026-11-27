@@ -320,7 +320,7 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       let adminUsers: any[] | undefined;
       let responseText = '';
 
-      // Upload image to Supabase/Cloud SQL storage if present
+      // Upload image to Supabase storage if present
       let uploadedPublicUrl = '';
       if (currentFile) {
         try {
@@ -1500,7 +1500,7 @@ YOUR MANDATE:
                 </Button>
               </form>
               <p className="text-[10px] text-center text-muted-foreground mt-2">
-                Vixora AI modifies your storefront catalog, community posts & ads in real time • Connected to Cloud SQL
+                Vixora AI modifies your storefront catalog, community posts & ads in real time
               </p>
             </div>
           </>

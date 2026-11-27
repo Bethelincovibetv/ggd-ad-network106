@@ -209,7 +209,7 @@ export async function deleteUserBusinessMemoryNote(userId: string, noteText: str
 }
 
 /**
- * Uploads media (images / photos) to Cloud SQL / Supabase storage
+ * Uploads media (images / photos) to Supabase storage
  * with fallback to base64 Data URL if bucket access is constrained
  */
 export async function uploadAgentMedia(file: File, userId: string): Promise<string> {

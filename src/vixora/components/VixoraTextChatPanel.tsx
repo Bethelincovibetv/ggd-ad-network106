@@ -337,7 +337,7 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
 YOUR MANDATE:
 You can CONTROL the Vixora AI Studio app directly for the user using function calls/tools!
 Whenever the user asks you to make a video, switch tabs, change voice, edit script, change caption style, generate a flyer, or learn a skill, CALL THE APPROPRIATE TOOL!
-You have full direct platform authority. All AI video generation, scripts, voiceover TTS, and stock media are handled automatically by the platform backend connected to Cloud SQL. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.
+You have full direct platform authority. All AI video generation, scripts, voiceover TTS, and stock media are handled automatically by the platform AI backend. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.
 
 AMBIGUITY RULE:
 If the user's request is ambiguous or missing information, ask a quick, friendly clarifying question first in chat.
@@ -738,8 +738,8 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
       // Other platform navigation intents
       else if (!responseText) {
         if (lower.includes('key') || lower.includes('setting') || lower.includes('developer') || lower.includes('fish.audio') || lower.includes('fish audio')) {
-          actionBadgeText = '⚡ Backend AI & Cloud SQL Active';
-          responseText = "All AI and video generation engines are fully managed by the platform backend connected to Cloud SQL. You don't need to configure or provide any API keys!";
+          actionBadgeText = '⚡ Backend AI Engine Active';
+          responseText = "All AI and video generation engines are fully managed by the platform backend. You don't need to configure or provide any API keys!";
         } else if (lower.includes('channel') || lower.includes('niche') || lower.includes('preference')) {
           appContext.setActiveTab('studio');
           targetNavTab = 'studio';
