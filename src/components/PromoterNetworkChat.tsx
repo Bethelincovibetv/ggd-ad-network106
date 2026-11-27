@@ -361,7 +361,31 @@ export const PromoterNetworkChat: React.FC = () => {
       {/* VIEW MODE: CALL HISTORY LOGS */}
       {activeSubTab === 'call-logs' && (
         <Card className="border border-border shadow-xs rounded-2xl overflow-hidden bg-card p-4">
-          <CallHistoryList userId={me} />
+          <CallHistoryList
+            userId={me}
+            onChatWithUser={(targetId, targetName, targetAvatar) => {
+              const matched = promoters.find((p) => p.user_id === targetId);
+              if (matched) {
+                setActivePromoter(matched);
+                setActiveSubTab('promoter-directory');
+                return;
+              }
+              try {
+                localStorage.setItem(
+                  'ggd_pending_chat_target',
+                  JSON.stringify({ userId: targetId, name: targetName, avatar: targetAvatar })
+                );
+              } catch {}
+              setActiveSubTab('full-inbox');
+              setTimeout(() => {
+                window.dispatchEvent(
+                  new CustomEvent('ggd-open-chat', {
+                    detail: { userId: targetId, name: targetName, avatar: targetAvatar },
+                  })
+                );
+              }, 60);
+            }}
+          />
         </Card>
       )}
 

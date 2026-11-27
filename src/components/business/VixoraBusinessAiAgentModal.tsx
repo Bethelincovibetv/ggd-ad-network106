@@ -1,35 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Bot, Sparkles, Send, Loader2, Store, Package, Briefcase, Plus, 
   TrendingUp, RefreshCw, CheckCircle2, ShieldCheck, Download, 
   ExternalLink, MessageCircle, AlertCircle, Trash2, Edit3, X,
-  Image as ImageIcon, Upload, Brain, Megaphone, Share2, FileText,
-  CreditCard, Phone, MapPin, ArrowRight, Check, Zap, ShoppingBag
+  Image as ImageIcon, Brain, Megaphone, Share2, FileText,
+  CreditCard, Phone, MapPin, ArrowRight, Check, Zap, Shield,
+  ClipboardList, Crown, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   fetchUserBusinessContext, 
-  createProductOrService, 
-  updateProductOrService, 
-  updateBusinessProfileDetails,
-  generateProductPromoCanvas,
-  publishCommunityPostOnBehalf,
-  createAdCampaignOnBehalf,
-  generateBusinessGrowthStrategy,
-  generateCustomerSupportClosingReply,
-  generateOrderClosingInvoice,
   uploadAgentMedia,
   getUserBusinessMemory,
   fetchUserBusinessMemoryFromServer,
-  saveUserBusinessMemory,
   saveUserBusinessMemoryAsync,
   deleteUserBusinessMemoryNote,
   executeBusinessAgentTool,
@@ -39,7 +28,17 @@ import {
   BusinessAgentMemory,
   BUSINESS_AGENT_TOOL_DEFINITIONS
 } from "@/services/vixoraBusinessAgentService";
-import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
+import {
+  ADMIN_AGENT_TOOL_DEFINITIONS,
+  AdminPlatformOverview,
+  AdminSyndicateAppItem,
+  AdminTaskProofItem,
+  AdminToolExecutionResult,
+  AdminVerificationItem,
+  executeAdminAgentTool,
+  parseAndExecuteAdminIntent,
+  verifyIsCurrentUserAdmin,
+} from "@/services/vixoraAdminAgentService";
 import vixoraAgentAvatar from "@/assets/images/vixora_agent_avatar_1786108775324.jpg";
 
 export interface BusinessChatMessage {
@@ -56,37 +55,66 @@ export interface BusinessChatMessage {
   communityPostResult?: any;
   strategyResult?: any;
   accountOverviewResult?: any;
+  adminVerifications?: AdminVerificationItem[];
+  adminTaskProofs?: AdminTaskProofItem[];
+  adminSyndicateApps?: AdminSyndicateAppItem[];
+  adminOverview?: AdminPlatformOverview;
+  adminBannerAds?: any[];
+  adminWithdrawals?: any[];
+  adminUsers?: any[];
   isThinking?: boolean;
 }
+
+const ADMIN_TOOL_NAMES = new Set(ADMIN_AGENT_TOOL_DEFINITIONS.map((t) => t.name));
 
 interface VixoraBusinessAiAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefreshData?: () => void;
   initialPrompt?: string;
+  mode?: 'business' | 'admin';
 }
 
 export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProps> = ({
   isOpen,
   onClose,
   onRefreshData,
-  initialPrompt = ''
+  initialPrompt = '',
+  mode = 'business',
 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'memory' | 'account'>('chat');
+  const [isVerifiedAdmin, setIsVerifiedAdmin] = useState(false);
+  const [copilotMode, setCopilotMode] = useState<'business' | 'admin'>(mode);
+  const [inlineBusyId, setInlineBusyId] = useState<string | null>(null);
+  const historyStorageKey = copilotMode === 'admin'
+    ? 'vixora_admin_agent_history'
+    : 'vixora_business_agent_history';
+
+  const getDefaultWelcome = (activeMode: 'business' | 'admin'): BusinessChatMessage =>
+    activeMode === 'admin'
+      ? {
+          id: 'welcome',
+          sender: 'agent',
+          text: "Welcome, Administrator! I am Vixora Admin Copilot with full operational control over GGD Ad Network.\n\nTell me what you want to handle:\n• Verify Businesses — inspect & approve or reject pending NIN/CAC verifications\n• Confirm Submitted Tasks — review & pay community credit tasks or syndicate task proofs\n• Confirm Syndicate Applications — review & approve or reject promoter applications\n• Create & Moderate Banner Adverts — launch live pre-approved banners or approve pending ads\n• Manage Withdrawals, Credits & Users — inspect pending payouts, activate accounts, or credit wallets",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionBadge: "Vixora Admin Command Engine"
+        }
+      : {
+          id: 'welcome',
+          sender: 'agent',
+          text: "Hello! I am Vixora AI Business Copilot! I am your autonomous store manager, advertising strategist, and WhatsApp sales closer on GGD Ad Network.\n\nTell me what you need done:\n• Add new products/services with photos (upload or describe them)\n• Update pricing, store details, WhatsApp phone, or address\n• Create & publish Banner Adverts directly to GGD Ad Network\n• Post directly to Community Feed on your behalf\n• Diagnose store strategy & give a 7-day revenue sprint plan\n• Close customer WhatsApp chats & prepare instant invoices\n\nHow can I help grow your business today?",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionBadge: "Vixora Autonomous Business Engine"
+        };
+
   const [messages, setMessages] = useState<BusinessChatMessage[]>(() => {
     try {
-      const saved = localStorage.getItem('vixora_business_agent_history');
+      const saved = localStorage.getItem(
+        mode === 'admin' ? 'vixora_admin_agent_history' : 'vixora_business_agent_history'
+      );
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      {
-        id: 'welcome',
-        sender: 'agent',
-        text: "Hello! I am Vixora AI Business Copilot! I am your autonomous store manager, advertising strategist, and WhatsApp sales closer on GGD Ad Network.\n\nTell me what you need done:\n• Add new products/services with photos (upload or describe them)\n• Update pricing, store details, WhatsApp phone, or address\n• Generate marketing flyers & banner adverts\n• Post directly to Community Feed on your behalf\n• Diagnose store strategy & give a 7-day revenue sprint plan\n• Close customer WhatsApp chats & prepare instant invoices\n\nHow can I help grow your business today?",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionBadge: "Vixora Autonomous Business Engine"
-      }
-    ];
+    return [getDefaultWelcome(mode)];
   });
 
   const [input, setInput] = useState(initialPrompt);
@@ -116,15 +144,25 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
   }, [initialPrompt]);
 
   useEffect(() => {
+    setCopilotMode(mode);
+  }, [mode]);
+
+  useEffect(() => {
     try {
-      localStorage.setItem('vixora_business_agent_history', JSON.stringify(messages));
+      localStorage.setItem(historyStorageKey, JSON.stringify(messages));
     } catch {}
-  }, [messages]);
+  }, [messages, historyStorageKey]);
 
   useEffect(() => {
     if (isOpen) {
       window.dispatchEvent(new CustomEvent('ggd-ai-chat-open'));
       loadContext();
+      verifyIsCurrentUserAdmin().then((res) => {
+        setIsVerifiedAdmin(res.isAdmin);
+        if (mode === 'admin' && !res.isAdmin) {
+          setCopilotMode('business');
+        }
+      });
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 150);
@@ -135,7 +173,20 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
     return () => {
       window.dispatchEvent(new CustomEvent('ggd-ai-chat-close'));
     };
-  }, [isOpen]);
+  }, [isOpen, mode]);
+
+  const switchCopilotMode = (nextMode: 'business' | 'admin') => {
+    setCopilotMode(nextMode);
+    try {
+      const nextKey = nextMode === 'admin' ? 'vixora_admin_agent_history' : 'vixora_business_agent_history';
+      const saved = localStorage.getItem(nextKey);
+      if (saved) {
+        setMessages(JSON.parse(saved));
+        return;
+      }
+    } catch {}
+    setMessages([getDefaultWelcome(nextMode)]);
+  };
 
   const loadContext = async () => {
     try {
@@ -169,16 +220,9 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
   };
 
   const clearChat = () => {
-    const welcome: BusinessChatMessage = {
-      id: `w_${Date.now()}`,
-      sender: 'agent',
-      text: "Chat refreshed! I am ready to manage your products, post to community, run strategic growth plans, and close WhatsApp sales. What would you like to do next?",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      actionBadge: "Ready for Instructions"
-    };
-    setMessages([welcome]);
+    setMessages([getDefaultWelcome(copilotMode)]);
     try {
-      localStorage.removeItem('vixora_business_agent_history');
+      localStorage.removeItem(historyStorageKey);
     } catch {}
   };
 
@@ -239,10 +283,14 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
+    const isAdminSession = copilotMode === 'admin' && isVerifiedAdmin;
+
     const thinkingMsg: BusinessChatMessage = {
       id: `think_${Date.now()}`,
       sender: 'agent',
-      text: "Vixora Business Copilot is evaluating your request & executing store actions...",
+      text: isAdminSession
+        ? "Vixora Admin Copilot is checking platform queues & executing admin operations..."
+        : "Vixora Business Copilot is evaluating your request & executing store actions...",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isThinking: true
     };
@@ -254,7 +302,6 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
     try {
       const currentCtx = businessContext || await fetchUserBusinessContext(user.id);
       const activeMemory = getUserBusinessMemory(user.id);
-      const lower = query.toLowerCase();
 
       let actionBadge = '';
       let productResult: BusinessListingItem | undefined;
@@ -264,6 +311,13 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
       let communityPostResult: any;
       let strategyResult: any;
       let accountOverviewResult: any;
+      let adminVerifications: AdminVerificationItem[] | undefined;
+      let adminTaskProofs: AdminTaskProofItem[] | undefined;
+      let adminSyndicateApps: AdminSyndicateAppItem[] | undefined;
+      let adminOverview: AdminPlatformOverview | undefined;
+      let adminBannerAds: any[] | undefined;
+      let adminWithdrawals: any[] | undefined;
+      let adminUsers: any[] | undefined;
       let responseText = '';
 
       // Upload image to Supabase/Cloud SQL storage if present
@@ -276,23 +330,52 @@ export const VixoraBusinessAiAgentModal: React.FC<VixoraBusinessAiAgentModalProp
         }
       }
 
-      // Step 1: AI-First Execution with Gemini Function Calling & Tool Invocation
+      const applyExecResult = (execRes: AdminToolExecutionResult) => {
+        if (execRes.badge) actionBadge = execRes.badge;
+        if (execRes.data?.productResult) productResult = execRes.data.productResult;
+        if (execRes.data?.profileResult) profileResult = execRes.data.profileResult;
+        if (execRes.data?.flyerUrl) flyerUrl = execRes.data.flyerUrl;
+        if (execRes.data?.bannerAdResult) bannerAdResult = execRes.data.bannerAdResult;
+        if (execRes.data?.communityPostResult) communityPostResult = execRes.data.communityPostResult;
+        if (execRes.data?.strategyResult) strategyResult = execRes.data.strategyResult;
+        if (execRes.data?.accountOverviewResult) accountOverviewResult = execRes.data.accountOverviewResult;
+        if (execRes.data?.adminVerifications) adminVerifications = execRes.data.adminVerifications;
+        if (execRes.data?.adminTaskProofs) adminTaskProofs = execRes.data.adminTaskProofs;
+        if (execRes.data?.adminSyndicateApps) adminSyndicateApps = execRes.data.adminSyndicateApps;
+        if (execRes.data?.adminOverview) adminOverview = execRes.data.adminOverview;
+        if (execRes.data?.adminBannerAds) adminBannerAds = execRes.data.adminBannerAds;
+        if (execRes.data?.adminWithdrawals) adminWithdrawals = execRes.data.adminWithdrawals;
+        if (execRes.data?.adminUsers) adminUsers = execRes.data.adminUsers;
+      };
+
+      // Step 1: Server-side Gemini Function Calling Proxy (credentials remain strictly server-side)
       let toolExecuted = false;
-      const apiKey = await resolveAdminAiApiKey();
+      try {
+        const brandVoicePrompt =
+          activeMemory.brandVoice === 'luxury_elite' ? 'Tone: High-end luxury, exclusive, ultra-refined, premium aesthetics.' :
+          activeMemory.brandVoice === 'urgent_closer' ? 'Tone: High-urgency sales closer, fast-paced, action-oriented, clear calls-to-action.' :
+          activeMemory.brandVoice === 'corporate_friendly' ? 'Tone: Corporate, trustworthy, professional, precise.' :
+          'Tone: Warm, enthusiastic, highly knowledgeable, street-smart Nigerian business energy.';
 
-      if (apiKey && apiKey.length > 10) {
-        try {
-          const ai = new GoogleGenAI({ apiKey });
+        const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
 
-          const brandVoicePrompt = 
-            activeMemory.brandVoice === 'luxury_elite' ? 'Tone: High-end luxury, exclusive, ultra-refined, premium aesthetics.' :
-            activeMemory.brandVoice === 'urgent_closer' ? 'Tone: High-urgency sales closer, fast-paced, action-oriented, clear calls-to-action.' :
-            activeMemory.brandVoice === 'corporate_friendly' ? 'Tone: Corporate, trustworthy, professional, precise.' :
-            'Tone: Warm, enthusiastic, highly knowledgeable, street-smart Nigerian business energy ("No wahala at all!", "Oya let\'s scale this business!", "Super sharp!").';
+        const systemInstruction = isAdminSession
+          ? `You are 'Vixora Admin Copilot', the authoritative platform administration assistant for GGD Ad Network administrators.
+Admin User: ${currentCtx.displayName} (${currentCtx.userEmail})
 
-          const memoryList = (activeMemory.customLearnedNotes || []).map(n => `• ${n}`).join('\n');
-
-          const systemInstruction = `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
+YOUR ADMIN MANDATE:
+1. You have direct administrative authority through your Admin Tools to:
+   - List and verify/reject pending business verifications (verifyBusinessOrReview)
+   - List and confirm/reject submitted community credit task proofs (reviewSubmittedCreditTasks)
+   - List and confirm/reject submitted syndicate task proofs (reviewSyndicateSubmissions)
+   - List and confirm/reject syndicate promoter applications (reviewSyndicateApplications)
+   - Create live pre-approved banner adverts and approve/reject/pause ads (manageBannerAdvertsAdmin)
+   - Inspect/approve/reject withdrawal requests, find users, grant credits, or activate accounts (manageUsersAndWithdrawalsAdmin)
+   - Summarize all pending platform queues (getAdminPlatformOverview)
+   - Navigate directly to any Admin Portal section (navigateAdminSection)
+2. ALWAYS invoke the matching tool directly whenever the administrator asks to inspect, verify, confirm, approve, reject, or create an item.
+3. Never output markdown asterisks (* or **).`
+          : `You are 'Vixora AI Business Copilot', an elite autonomous AI business manager and store optimization assistant for African & international merchants on GGD Ad Network.
 User Name: ${currentCtx.displayName}
 Business Name: ${currentCtx.profile?.business_name || 'Not set'}
 Active Products: ${currentCtx.activeProductsCount}
@@ -310,114 +393,122 @@ ${memoryList || 'None yet'}
 
 YOUR MANDATE:
 1. You have direct database authority to execute commands for the merchant using function calls/tools!
-2. When the user asks to add or create a product/service, update prices, update profile, post to community, audit their store, create a banner, or close an order, YOU MUST CALL THE APPROPRIATE TOOL! Do not merely give advice when action is requested.
+2. When the user asks to add or create a product/service, update prices, update profile, post to community, audit their store, create/publish a banner advert, or close an order, YOU MUST CALL THE APPROPRIATE TOOL!
 3. If an image is provided, inspect it visually (identify item, recommend retail price, draft marketing hooks).
 4. Never output asterisks (no * or **). Keep typography clean and readable.`;
 
-          const historyTurns: any[] = messages
-            .filter(m => !m.isThinking && m.id !== 'welcome')
-            .slice(-6)
-            .map(m => ({
-              role: m.sender === 'user' ? 'user' : 'model',
-              parts: [{ text: m.text }]
-            }));
+        const historyTurns: any[] = messages
+          .filter(m => !m.isThinking && m.id !== 'welcome')
+          .slice(-6)
+          .map(m => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }]
+          }));
 
-          const userParts: any[] = [{ text: query || 'Please analyze this attached photo and execute appropriate store action.' }];
-          if (currentImg) {
-            const match = currentImg.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              userParts.push({
-                inlineData: {
-                  mimeType: match[1],
-                  data: match[2]
-                }
-              });
-            }
+        const userParts: any[] = [{ text: query || 'Please analyze this attached photo and execute appropriate action.' }];
+        if (currentImg) {
+          const match = currentImg.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            userParts.push({
+              inlineData: {
+                mimeType: match[1],
+                data: match[2]
+              }
+            });
           }
+        }
 
-          const contents = [
-            ...historyTurns,
-            { role: 'user', parts: userParts }
-          ];
+        const contents = [
+          ...historyTurns,
+          { role: 'user', parts: userParts }
+        ];
 
-          const res = await ai.models.generateContent({
+        const activeToolDefs = isAdminSession
+          ? [...ADMIN_AGENT_TOOL_DEFINITIONS, ...BUSINESS_AGENT_TOOL_DEFINITIONS]
+          : BUSINESS_AGENT_TOOL_DEFINITIONS;
+
+        const aiResp = await fetch('/api/ai/vixora-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             model: 'gemini-2.5-flash',
             contents,
-            config: {
-              systemInstruction,
-              tools: [{
-                functionDeclarations: BUSINESS_AGENT_TOOL_DEFINITIONS
-              }]
-            }
-          });
+            systemInstruction,
+            functionDeclarations: activeToolDefs,
+          }),
+        });
 
-          // Check if Gemini invoked any function calls
-          if (res.functionCalls && res.functionCalls.length > 0) {
+        if (aiResp.ok) {
+          const res = await aiResp.json();
+          if (res.ok && Array.isArray(res.functionCalls) && res.functionCalls.length > 0) {
             for (const fc of res.functionCalls) {
-              const execRes = await executeBusinessAgentTool(fc.name, fc.args, currentCtx, uploadedPublicUrl);
+              const execRes: AdminToolExecutionResult =
+                isAdminSession && ADMIN_TOOL_NAMES.has(fc.name)
+                  ? await executeAdminAgentTool(fc.name, fc.args, currentCtx, uploadedPublicUrl)
+                  : await executeBusinessAgentTool(fc.name, fc.args, currentCtx, uploadedPublicUrl);
               toolExecuted = true;
-              if (execRes.badge) actionBadge = execRes.badge;
-              if (execRes.data?.productResult) productResult = execRes.data.productResult;
-              if (execRes.data?.profileResult) profileResult = execRes.data.profileResult;
-              if (execRes.data?.flyerUrl) flyerUrl = execRes.data.flyerUrl;
-              if (execRes.data?.communityPostResult) communityPostResult = execRes.data.communityPostResult;
-              if (execRes.data?.strategyResult) strategyResult = execRes.data.strategyResult;
-              if (execRes.data?.accountOverviewResult) accountOverviewResult = execRes.data.accountOverviewResult;
+              applyExecResult(execRes);
 
-              // 2nd pass with Gemini to provide natural confirming commentary
               try {
-                const secondPass = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: [
-                    ...contents,
-                    {
-                      role: 'model',
-                      parts: [{ functionCall: { name: fc.name, args: fc.args } }]
-                    },
-                    {
-                      role: 'user',
-                      parts: [{
-                        functionResponse: {
-                          name: fc.name,
-                          response: { result: execRes.message }
-                        }
-                      }]
-                    }
-                  ],
-                  config: { systemInstruction }
+                const modelTurn =
+                  res.candidates?.[0]?.content || {
+                    role: 'model',
+                    parts: [{ functionCall: { name: fc.name, args: fc.args } }],
+                  };
+                const secondResp = await fetch('/api/ai/vixora-agent', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    model: 'gemini-2.5-flash',
+                    systemInstruction,
+                    functionDeclarations: activeToolDefs,
+                    contents: [
+                      ...contents,
+                      modelTurn,
+                      {
+                        role: 'user',
+                        parts: [{
+                          functionResponse: {
+                            name: fc.name,
+                            response: { result: execRes.message }
+                          }
+                        }]
+                      }
+                    ],
+                  }),
                 });
-                if (secondPass.text) {
-                  responseText = secondPass.text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+                if (secondResp.ok) {
+                  const secondPass = await secondResp.json();
+                  if (secondPass?.text) {
+                    responseText = String(secondPass.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
+                  }
                 }
-              } catch {
-                responseText = execRes.message;
-              }
+              } catch {}
 
               if (!responseText) {
                 responseText = execRes.message;
               }
             }
-          } else if (res.text) {
-            responseText = res.text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+          } else if (res.ok && res.text) {
+            responseText = String(res.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
           }
-        } catch (aiErr) {
-          console.warn("Gemini execution notice, running resilient intent parser:", aiErr);
         }
+      } catch (aiErr) {
+        console.warn("Server AI proxy notice, running deterministic intent parser:", aiErr);
       }
 
-      // Step 2: Resilient Natural Language Execution (if no tool was called by Gemini or if Gemini errored)
+      // Step 2: Resilient Natural Language Execution (if no tool was called by Gemini or proxy fell back)
       if (!toolExecuted) {
-        const nlpRes = await parseAndExecuteNaturalLanguageIntent(query, currentCtx, uploadedPublicUrl);
+        let nlpRes: AdminToolExecutionResult | null = null;
+        if (isAdminSession) {
+          nlpRes = await parseAndExecuteAdminIntent(query, currentCtx, uploadedPublicUrl);
+        }
+        if (!nlpRes) {
+          nlpRes = await parseAndExecuteNaturalLanguageIntent(query, currentCtx, uploadedPublicUrl);
+        }
         if (nlpRes) {
           toolExecuted = true;
-          if (nlpRes.badge) actionBadge = nlpRes.badge;
-          if (nlpRes.data?.productResult) productResult = nlpRes.data.productResult;
-          if (nlpRes.data?.profileResult) profileResult = nlpRes.data.profileResult;
-          if (nlpRes.data?.flyerUrl) flyerUrl = nlpRes.data.flyerUrl;
-          if (nlpRes.data?.communityPostResult) communityPostResult = nlpRes.data.communityPostResult;
-          if (nlpRes.data?.strategyResult) strategyResult = nlpRes.data.strategyResult;
-          if (nlpRes.data?.accountOverviewResult) accountOverviewResult = nlpRes.data.accountOverviewResult;
-          
+          applyExecResult(nlpRes);
           if (!responseText) {
             responseText = nlpRes.message;
           }
@@ -426,8 +517,10 @@ YOUR MANDATE:
 
       // Step 3: Proactive, action-oriented response if no text was generated
       if (!responseText) {
-        if (currentCtx.listings.length > 0) {
-          responseText = `Ready for your next business command! Your catalog currently has ${currentCtx.activeProductsCount} products and ${currentCtx.activeServicesCount} services.\n\nTell me what to execute:\n• "Add product: [Name] for [₦Price]"\n• "Update price of ${currentCtx.listings[0]?.title} to [₦Price]"\n• "Post on community about our latest products"\n• "Plan strategy and audit my store"\n• "Create a 1200x628 banner advert"`;
+        if (isAdminSession) {
+          responseText = `Admin Copilot standing by! Ask me to:\n• "Check all pending items overview"\n• "Show pending business verifications"\n• "Confirm submitted tasks pending review"\n• "Show pending syndicate applications"\n• "Create a live banner advert for GGD Promo"\n• "Show pending withdrawals"`;
+        } else if (currentCtx.listings.length > 0) {
+          responseText = `Ready for your next business command! Your catalog currently has ${currentCtx.activeProductsCount} products and ${currentCtx.activeServicesCount} services.\n\nTell me what to execute:\n• "Add product: [Name] for [₦Price]"\n• "Update price of ${currentCtx.listings[0]?.title} to [₦Price]"\n• "Post on community about our latest products"\n• "Plan strategy and audit my store"\n• "Create and launch a 1200x628 banner advert"`;
         } else {
           responseText = `Welcome! I am ready to build and scale your storefront catalog right now.\n\nTry sending:\n• "Add product: Luxury Wristwatch for ₦25,000"\n• "Post our new arrival announcement on the community feed"\n• "Run growth strategy for my business"\n• "Create a banner advert for my store"`;
         }
@@ -450,7 +543,14 @@ YOUR MANDATE:
         bannerAdResult,
         communityPostResult,
         strategyResult,
-        accountOverviewResult
+        accountOverviewResult,
+        adminVerifications,
+        adminTaskProofs,
+        adminSyndicateApps,
+        adminOverview,
+        adminBannerAds,
+        adminWithdrawals,
+        adminUsers,
       };
 
       setMessages(prev => [...prev.filter(m => !m.isThinking), agentResponse]);
@@ -461,13 +561,50 @@ YOUR MANDATE:
         {
           id: `err_${Date.now()}`,
           sender: 'agent',
-          text: "I encountered a minor glitch while processing that instruction. Please restate what you'd like me to update or create!",
+          text: "I encountered a minor glitch while processing that instruction. Please restate what you'd like me to update or execute!",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionBadge: "Attention Needed"
         }
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInlineAdminAction = async (
+    toolName: string,
+    args: Record<string, any>,
+    busyKey: string
+  ) => {
+    if (inlineBusyId) return;
+    setInlineBusyId(busyKey);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const ctx = businessContext || await fetchUserBusinessContext(user.id);
+      const res = await executeAdminAgentTool(toolName, args, ctx);
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `adm_${Date.now()}`,
+          sender: 'agent',
+          text: res.message,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionBadge: res.badge || 'Admin Action Executed',
+          bannerAdResult: res.data?.bannerAdResult,
+          flyerUrl: res.data?.flyerUrl,
+        },
+      ]);
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      toast.error(err?.message || 'Admin action failed');
+    } finally {
+      setInlineBusyId(null);
     }
   };
 
@@ -536,7 +673,11 @@ YOUR MANDATE:
         className="w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl h-[100dvh] sm:h-[96vh] sm:max-h-[1080px] p-0 gap-0 overflow-hidden bg-background border-0 sm:border sm:border-border/90 shadow-2xl flex flex-col rounded-none sm:rounded-3xl z-[120]"
       >
         {/* Header */}
-        <DialogHeader className="p-3 sm:px-5 bg-gradient-to-r from-violet-950 via-purple-900 to-slate-950 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between">
+        <DialogHeader className={`p-3 sm:px-5 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between gap-2 flex-wrap ${
+          copilotMode === 'admin' && isVerifiedAdmin
+            ? 'bg-gradient-to-r from-slate-950 via-orange-950 to-amber-950'
+            : 'bg-gradient-to-r from-violet-950 via-purple-900 to-slate-950'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="relative">
               <img
@@ -547,16 +688,32 @@ YOUR MANDATE:
               <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <DialogTitle className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
-                  Vixora Business Copilot <Sparkles className="h-4 w-4 text-amber-300" />
+                  {copilotMode === 'admin' && isVerifiedAdmin ? 'Vixora Admin Copilot' : 'Vixora Business Copilot'}
+                  <Sparkles className="h-4 w-4 text-amber-300" />
                 </DialogTitle>
-                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold py-0">
-                  Online Copilot
+                <Badge className={
+                  copilotMode === 'admin' && isVerifiedAdmin
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold py-0'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold py-0'
+                }>
+                  {copilotMode === 'admin' && isVerifiedAdmin ? 'Full Admin Authority' : 'Online Copilot'}
                 </Badge>
+                {isVerifiedAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => switchCopilotMode(copilotMode === 'admin' ? 'business' : 'admin')}
+                    className="px-2 py-0.5 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] font-bold text-white border border-white/20 transition cursor-pointer"
+                  >
+                    {copilotMode === 'admin' ? 'Switch to Storefront Mode' : 'Switch to Admin Copilot'}
+                  </button>
+                )}
               </div>
               <p className="text-[11px] text-violet-200/80">
-                Autonomous Store & Product Manager • Social Marketing • Sales Closer
+                {copilotMode === 'admin' && isVerifiedAdmin
+                  ? 'Verify Businesses • Confirm Tasks & Syndicate Apps • Publish & Moderate Banner Ads'
+                  : 'Autonomous Store & Product Manager • Banner Ads • Sales Closer'}
               </p>
             </div>
           </div>
@@ -607,42 +764,104 @@ YOUR MANDATE:
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1">
                 <Zap className="h-3 w-3 text-amber-500" /> Actions:
               </span>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[11px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                <ImageIcon className="h-3 w-3" /> Upload Photo & Add
-              </button>
-              <button
-                onClick={() => handleSendMessage("Publish a promotional showcase post to the community on my behalf")}
-                className="text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                <Megaphone className="h-3 w-3" /> Auto-Post to Community
-              </button>
-              <button
-                onClick={() => handleSendMessage("Save memory: Remember that we deliver within 24-48 hours nationwide with free return within 7 days")}
-                className="text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 px-2.5 py-1 rounded-xl transition border border-purple-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                <Brain className="h-3 w-3" /> Save Memory Direct
-              </button>
-              <button
-                onClick={() => handleSendMessage("Perform an audit and plan business growth strategy for my store")}
-                className="text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                <TrendingUp className="h-3 w-3" /> Plan Growth Strategy
-              </button>
-              <button
-                onClick={() => handleSendMessage("Generate a 1200x628 banner advert for my store")}
-                className="text-[11px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                🎨 Create Banner Ad
-              </button>
-              <button
-                onClick={() => handleSendMessage("Customer wants to buy: 2 pairs of Sneakers. Prepare order invoice and WhatsApp closing script")}
-                className="text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                💬 Close Order in WhatsApp
-              </button>
+              {copilotMode === 'admin' && isVerifiedAdmin ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Check all pending items overview")}
+                    className="text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 px-2.5 py-1 rounded-xl transition border border-amber-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <TrendingUp className="h-3 w-3" /> Platform Audit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Show pending business verifications")}
+                    className="text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Verify Businesses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Confirm submitted tasks pending review")}
+                    className="text-[11px] font-bold bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ClipboardList className="h-3 w-3" /> Confirm Credit Tasks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Review pending syndicate task proofs")}
+                    className="text-[11px] font-bold bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Briefcase className="h-3 w-3" /> Confirm Syndicate Tasks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Show pending syndicate applications")}
+                    className="text-[11px] font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 px-2.5 py-1 rounded-xl transition border border-purple-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Crown className="h-3 w-3" /> Confirm Syndicate Apps
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Create a live banner advert for GGD Official Spotlight")}
+                    className="text-[11px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Megaphone className="h-3 w-3" /> Create Live Banner Ad
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Show pending withdrawals")}
+                    className="text-[11px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 px-2.5 py-1 rounded-xl transition border border-rose-500/25 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <CreditCard className="h-3 w-3" /> Withdrawals
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 px-2.5 py-1 rounded-xl transition border border-violet-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ImageIcon className="h-3 w-3" /> Upload Photo & Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Publish a promotional showcase post to the community on my behalf")}
+                    className="text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 px-2.5 py-1 rounded-xl transition border border-blue-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Megaphone className="h-3 w-3" /> Auto-Post to Community
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Save memory: Remember that we deliver within 24-48 hours nationwide with free return within 7 days")}
+                    className="text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 px-2.5 py-1 rounded-xl transition border border-purple-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Brain className="h-3 w-3" /> Save Memory Direct
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Perform an audit and plan business growth strategy for my store")}
+                    className="text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 px-2.5 py-1 rounded-xl transition border border-emerald-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <TrendingUp className="h-3 w-3" /> Plan Growth Strategy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Create and publish a 1200x628 banner advert for my store")}
+                    className="text-[11px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-xl transition border border-orange-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    🎨 Create Banner Ad
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendMessage("Customer wants to buy: 2 pairs of Sneakers. Prepare order invoice and WhatsApp closing script")}
+                    className="text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl transition border border-amber-500/20 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    💬 Close Order in WhatsApp
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Messages Stream */}
@@ -821,6 +1040,55 @@ YOUR MANDATE:
                           </div>
                         )}
 
+                        {/* Rich Published Banner Advert Campaign Card */}
+                        {msg.bannerAdResult && (
+                          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-orange-500/10 via-card to-amber-500/10 border-2 border-orange-500/35 space-y-2.5 shadow-md">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-[10px] font-black uppercase text-orange-600 dark:text-orange-400 tracking-wider flex items-center gap-1">
+                                <Megaphone className="h-3.5 w-3.5" /> GGD Banner Advert Campaign
+                              </span>
+                              <Badge className={`text-[10px] font-black ${
+                                msg.bannerAdResult.approved
+                                  ? 'bg-emerald-600 text-white'
+                                  : msg.bannerAdResult.is_active
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-muted text-foreground'
+                              }`}>
+                                {msg.bannerAdResult.approved
+                                  ? 'Live on Ad Network'
+                                  : msg.bannerAdResult.is_active
+                                  ? 'Pending Admin Approval'
+                                  : 'Saved Draft'}
+                              </Badge>
+                            </div>
+                            {(msg.bannerAdResult.imageUrl || msg.bannerAdResult.image_url) && !msg.flyerUrl && (
+                              <div className="rounded-xl overflow-hidden bg-slate-900 border border-border">
+                                <img
+                                  src={msg.bannerAdResult.imageUrl || msg.bannerAdResult.image_url}
+                                  alt={msg.bannerAdResult.title}
+                                  className="w-full h-auto max-h-60 object-cover"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="text-sm font-black text-foreground">{msg.bannerAdResult.title}</h4>
+                              {msg.bannerAdResult.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{msg.bannerAdResult.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-border/50 flex-wrap">
+                              <span className="font-mono text-muted-foreground">
+                                Ad ID: {String(msg.bannerAdResult.id || '').slice(0, 8)}...
+                              </span>
+                              {msg.bannerAdResult.target_url && (
+                                <span className="text-orange-600 dark:text-orange-400 font-semibold truncate max-w-[220px]">
+                                  Target: {msg.bannerAdResult.target_url}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Rich Banner Ad & Flyer Card */}
                         {msg.flyerUrl && (
                           <div className="p-3 rounded-2xl bg-card border border-border space-y-2 shadow-md">
@@ -847,6 +1115,299 @@ YOUR MANDATE:
                               >
                                 Post to Community
                               </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Platform Overview Audit Card */}
+                        {msg.adminOverview && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-amber-500/35 space-y-2.5 shadow-md">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider flex items-center gap-1">
+                                <Shield className="h-3.5 w-3.5" /> Pending Admin Queues
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-semibold">Click any item to review</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {[
+                                { label: 'Business Verifications', count: msg.adminOverview.pendingVerifications, prompt: 'Show pending business verifications' },
+                                { label: 'Credit Task Proofs', count: msg.adminOverview.pendingTaskProofs, prompt: 'Confirm submitted tasks pending review' },
+                                { label: 'Syndicate Proofs', count: msg.adminOverview.pendingSyndicateProofs, prompt: 'Review pending syndicate task proofs' },
+                                { label: 'Syndicate Apps', count: msg.adminOverview.pendingSyndicateApps, prompt: 'Show pending syndicate applications' },
+                                { label: 'Pending Banner Ads', count: msg.adminOverview.pendingAds, prompt: 'List pending banner ads' },
+                                { label: 'Withdrawals', count: msg.adminOverview.pendingWithdrawals, prompt: 'Show pending withdrawals' },
+                              ].map((q, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => handleSendMessage(q.prompt)}
+                                  className="p-2.5 rounded-xl bg-muted/50 hover:bg-amber-500/10 border border-border text-left transition cursor-pointer"
+                                >
+                                  <p className="text-lg font-black text-foreground">{q.count}</p>
+                                  <p className="text-[10px] font-bold text-muted-foreground leading-tight">{q.label}</p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Business Verifications Queue Card */}
+                        {msg.adminVerifications && msg.adminVerifications.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-emerald-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1">
+                              <ShieldCheck className="h-3.5 w-3.5" /> Business Verifications ({msg.adminVerifications.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminVerifications.map((v) => (
+                                <div key={v.id} className="p-2.5 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">{v.business_name || v.submitted_name || 'Business'}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">
+                                      {v.user_email} · {v.document_type || 'ID'}: {v.document_number || 'N/A'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      disabled={inlineBusyId === `ver_${v.id}`}
+                                      onClick={() => handleInlineAdminAction('verifyBusinessOrReview', { action: 'approve', recordIdOrQuery: v.id }, `ver_${v.id}`)}
+                                      className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1"
+                                    >
+                                      <Check className="h-3.5 w-3.5" /> Verify
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={inlineBusyId === `ver_${v.id}`}
+                                      onClick={() => handleInlineAdminAction('verifyBusinessOrReview', { action: 'reject', recordIdOrQuery: v.id }, `ver_${v.id}`)}
+                                      className="h-8 rounded-xl text-xs font-bold gap-1"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" /> Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Submitted Credit & Syndicate Task Proofs Card */}
+                        {msg.adminTaskProofs && msg.adminTaskProofs.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-orange-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-orange-600 dark:text-orange-400 tracking-wider flex items-center gap-1">
+                              <ClipboardList className="h-3.5 w-3.5" /> Submitted Task Proofs ({msg.adminTaskProofs.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminTaskProofs.map((tp) => {
+                                const tool = tp.source === 'syndicate_task' ? 'reviewSyndicateSubmissions' : 'reviewSubmittedCreditTasks';
+                                const argKey = tp.source === 'syndicate_task' ? 'assignmentIdOrQuery' : 'submissionIdOrQuery';
+                                return (
+                                  <div key={tp.id} className="p-2.5 rounded-xl bg-muted/40 border border-border space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-black text-foreground truncate">{tp.task_title}</p>
+                                        <p className="text-[11px] text-muted-foreground truncate">
+                                          {tp.member_name} · {tp.source === 'syndicate_task' ? 'Syndicate' : `+${tp.reward_credits} GGG`}
+                                        </p>
+                                      </div>
+                                      <Badge variant="outline" className="text-[10px] shrink-0">{tp.status}</Badge>
+                                    </div>
+                                    {tp.proof_url && (
+                                      <a href={tp.proof_url} target="_blank" rel="noreferrer" className="block">
+                                        <img src={tp.proof_url} alt="Submitted proof" className="max-h-32 rounded-lg border border-border object-contain bg-background" />
+                                      </a>
+                                    )}
+                                    <div className="flex items-center gap-1.5">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={inlineBusyId === `tp_${tp.id}`}
+                                        onClick={() => handleInlineAdminAction(tool, { action: 'approve', [argKey]: tp.id }, `tp_${tp.id}`)}
+                                        className="h-8 flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1"
+                                      >
+                                        <Check className="h-3.5 w-3.5" /> Confirm & Pay
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="destructive"
+                                        disabled={inlineBusyId === `tp_${tp.id}`}
+                                        onClick={() => handleInlineAdminAction(tool, { action: 'reject', [argKey]: tp.id }, `tp_${tp.id}`)}
+                                        className="h-8 flex-1 rounded-xl text-xs font-bold gap-1"
+                                      >
+                                        <XCircle className="h-3.5 w-3.5" /> Reject
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Syndicate Applications Card */}
+                        {msg.adminSyndicateApps && msg.adminSyndicateApps.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-purple-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider flex items-center gap-1">
+                              <Crown className="h-3.5 w-3.5" /> Syndicate Applications ({msg.adminSyndicateApps.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminSyndicateApps.map((app) => (
+                                <div key={app.id} className="p-2.5 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">{app.full_name}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">
+                                      {app.email} · {app.state || 'Nigeria'} · {app.platforms.join(', ')}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      disabled={inlineBusyId === `syn_${app.id}`}
+                                      onClick={() => handleInlineAdminAction('reviewSyndicateApplications', { action: 'approve', applicationIdOrQuery: app.id }, `syn_${app.id}`)}
+                                      className="h-8 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold gap-1"
+                                    >
+                                      <Check className="h-3.5 w-3.5" /> Confirm
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={inlineBusyId === `syn_${app.id}`}
+                                      onClick={() => handleInlineAdminAction('reviewSyndicateApplications', { action: 'reject', applicationIdOrQuery: app.id }, `syn_${app.id}`)}
+                                      className="h-8 rounded-xl text-xs font-bold gap-1"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" /> Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Pending Banner Ads Moderation Card */}
+                        {msg.adminBannerAds && msg.adminBannerAds.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-blue-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider flex items-center gap-1">
+                              <Megaphone className="h-3.5 w-3.5" /> Pending Banner Adverts ({msg.adminBannerAds.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminBannerAds.map((ad: any) => (
+                                <div key={ad.id} className="p-2.5 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">{ad.title}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">{ad.target_url || 'No URL'}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      disabled={inlineBusyId === `ad_${ad.id}`}
+                                      onClick={() => handleInlineAdminAction('manageBannerAdvertsAdmin', { action: 'approve', adIdOrQuery: ad.id }, `ad_${ad.id}`)}
+                                      className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1"
+                                    >
+                                      <Check className="h-3.5 w-3.5" /> Approve Ad
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={inlineBusyId === `ad_${ad.id}`}
+                                      onClick={() => handleInlineAdminAction('manageBannerAdvertsAdmin', { action: 'reject', adIdOrQuery: ad.id }, `ad_${ad.id}`)}
+                                      className="h-8 rounded-xl text-xs font-bold gap-1"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" /> Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Admin Withdrawals & Users Cards */}
+                        {msg.adminWithdrawals && msg.adminWithdrawals.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-rose-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider flex items-center gap-1">
+                              <CreditCard className="h-3.5 w-3.5" /> Pending Withdrawals ({msg.adminWithdrawals.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminWithdrawals.map((w: any) => (
+                                <div key={w.id} className="p-2.5 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">{w.member_name} — ₦{Number(w.amount || 0).toLocaleString()}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">{w.bank_name || ''} {w.account_number || ''}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      disabled={inlineBusyId === `wd_${w.id}`}
+                                      onClick={() => handleInlineAdminAction('manageUsersAndWithdrawalsAdmin', { action: 'approve_withdrawal', targetIdOrQuery: w.id }, `wd_${w.id}`)}
+                                      className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                                    >
+                                      Mark Paid
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      disabled={inlineBusyId === `wd_${w.id}`}
+                                      onClick={() => handleInlineAdminAction('manageUsersAndWithdrawalsAdmin', { action: 'reject_withdrawal', targetIdOrQuery: w.id }, `wd_${w.id}`)}
+                                      className="h-8 rounded-xl text-xs font-bold"
+                                    >
+                                      Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {msg.adminUsers && msg.adminUsers.length > 0 && (
+                          <div className="p-3.5 rounded-2xl bg-card border-2 border-indigo-500/30 space-y-2 shadow-md">
+                            <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1">
+                              <Users className="h-3.5 w-3.5" /> Matching Accounts ({msg.adminUsers.length})
+                            </span>
+                            <div className="space-y-2">
+                              {msg.adminUsers.map((u: any) => (
+                                <div key={u.user_id} className="p-2.5 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">{u.display_name || u.business_name || u.email}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">
+                                      {u.email} · {Number(u.credits || 0).toLocaleString()} GGG · {u.is_activated ? 'Activated' : 'Unactivated'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {!u.is_activated && (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={inlineBusyId === `usr_act_${u.user_id}`}
+                                        onClick={() => handleInlineAdminAction('manageUsersAndWithdrawalsAdmin', { action: 'activate_user', targetIdOrQuery: u.user_id }, `usr_act_${u.user_id}`)}
+                                        className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                                      >
+                                        Activate
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={inlineBusyId === `usr_cr_${u.user_id}`}
+                                      onClick={() => handleInlineAdminAction('manageUsersAndWithdrawalsAdmin', { action: 'grant_credits', targetIdOrQuery: u.user_id, amount: 200 }, `usr_cr_${u.user_id}`)}
+                                      className="h-8 rounded-xl text-xs font-bold"
+                                    >
+                                      +200 Credits
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}

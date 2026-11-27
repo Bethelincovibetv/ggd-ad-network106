@@ -470,6 +470,76 @@ app.post('/api/ai/generate', async (req, res) => {
   }
 });
 
+// Server-side Gemini Function-Calling Proxy for Vixora Business & Admin Copilot
+app.post('/api/ai/vixora-agent', async (req, res) => {
+  try {
+    const {
+      contents,
+      systemInstruction,
+      functionDeclarations,
+      temperature = 0.4,
+      model = 'gemini-2.5-flash',
+    } = req.body || {};
+
+    if (!contents) {
+      return res.status(400).json({ ok: false, error: 'Missing contents payload.' });
+    }
+
+    const candidateKeys = await getCandidateGeminiKeys();
+    const config: any = {};
+    if (systemInstruction) config.systemInstruction = systemInstruction;
+    if (typeof temperature === 'number') config.temperature = temperature;
+    if (Array.isArray(functionDeclarations) && functionDeclarations.length > 0) {
+      config.tools = [{ functionDeclarations }];
+    }
+
+    for (const key of candidateKeys) {
+      try {
+        const client = new GoogleGenAI({
+          apiKey: key,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        });
+        const response = await client.models.generateContent({
+          model: model || 'gemini-2.5-flash',
+          contents,
+          config: Object.keys(config).length > 0 ? config : undefined,
+        });
+
+        const functionCalls = (response.functionCalls || []).map((fc: any) => ({
+          name: fc.name,
+          args: fc.args || {},
+        }));
+
+        if (functionCalls.length > 0 || response.text) {
+          return res.json({
+            ok: true,
+            text: response.text || '',
+            functionCalls,
+            candidates: response.candidates || [],
+          });
+        }
+      } catch (keyErr: any) {
+        console.warn('[vixora-agent key attempt failed]:', keyErr?.message || keyErr);
+      }
+    }
+
+    return res.json({
+      ok: false,
+      fallback: true,
+      text: '',
+      functionCalls: [],
+    });
+  } catch (err: any) {
+    console.warn('[vixora-agent error]:', err?.message || err);
+    return res.json({
+      ok: false,
+      fallback: true,
+      text: '',
+      functionCalls: [],
+    });
+  }
+});
+
 // Ephemeral live key resolution for Web Audio live agent
 app.get('/api/vixora/ai/live-key', async (req, res) => {
   const key = await getGeminiApiKey();

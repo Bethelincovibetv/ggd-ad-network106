@@ -9,12 +9,19 @@ import {
   Bell, CheckCircle2, Check, Mail, MailOpen, Trash2, Volume2, Search, ArrowRight,
   ExternalLink, ArrowDownLeft, ArrowUpRight, BookOpen, Sparkles, Filter,
   ShieldCheck, Loader2, RefreshCw, Receipt, Eye, EyeOff, CheckCheck, ClipboardList,
+  Phone, Video, PhoneMissed, MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime, playMoneyTransferSound, playGuideSuccessSound } from '@/utils/audio';
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import NotificationMessageDetailModal, { FullNotificationData } from '@/components/NotificationMessageDetailModal';
 import { parseTaskSubmissionNotification, navigateToTaskManagement } from '@/lib/taskNotificationLink';
+import {
+  dispatchOpenDirectChat,
+  extractMissedCallContact,
+  isMissedCallNotification,
+} from '@/lib/callChatNavigation';
+import { useWebRTCCall } from '@/contexts/CallContext';
 import { getTransferHistory, TransferRecord } from '@/services/transferService';
 import {
   isPushSupported,
@@ -32,6 +39,7 @@ interface NotificationsPageProps {
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate }) => {
   const { isEnabled } = useFeatureToggles();
+  const { startCall, callStatus } = useWebRTCCall();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'read' | 'transfers' | 'history' | 'guide' | 'system'>('all');
@@ -444,6 +452,16 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
     markAsRead(n.id);
 
     const navTarget: string | null = n.nav_target || null;
+
+    const missedContact = extractMissedCallContact(n);
+    if (missedContact) {
+      dispatchOpenDirectChat({
+        userId: missedContact.callerId,
+        name: missedContact.callerName,
+        avatar: missedContact.callerAvatar,
+      });
+      return;
+    }
 
     if (parseTaskSubmissionNotification(n).isTaskSubmission) {
       navigateToTaskManagement(n, onNavigate);
@@ -940,8 +958,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
               n.title?.toLowerCase().includes('credit') ||
               n.title?.toLowerCase().includes('transfer'));
 
+            const isMissedCall = isMissedCallNotification(n);
+            const missedContact = isMissedCall ? extractMissedCallContact(n) : null;
+
             const isGuide =
               !isTaskSubmission &&
+              !isMissedCall &&
               (n.type === 'guide_step_completion' ||
               n.title?.toLowerCase().includes('guide') ||
               n.nav_target?.toLowerCase().includes('guide'));
@@ -966,7 +988,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                     {/* Icon Badge */}
                     <div
                       className={`h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
-                        isTaskSubmission
+                        isMissedCall
+                          ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                          : isTaskSubmission
                           ? 'bg-orange-500/20 text-orange-500'
                           : isTransfer
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
@@ -977,7 +1001,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
-                      {isTaskSubmission ? (
+                      {isMissedCall ? (
+                        <PhoneMissed className="h-5 w-5" />
+                      ) : isTaskSubmission ? (
                         <ClipboardList className="h-5 w-5" />
                       ) : isTransfer ? (
                         <ArrowDownLeft className="h-5 w-5" />
@@ -1013,6 +1039,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                         </h4>
 
                         {/* Category tag */}
+                        {isMissedCall && (
+                          <Badge className="bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/25 text-[10px] font-bold">
+                            Missed Call
+                          </Badge>
+                        )}
                         {isTaskSubmission && (
                           <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/25 text-[10px] font-bold">
                             📋 Task Submission
@@ -1090,6 +1121,49 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             <Sparkles className="h-3 w-3 text-orange-500" /> Read
                           </Button>
 
+                          {isMissedCall && missedContact && (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={callStatus !== 'idle'}
+                                onClick={() => {
+                                  markAsRead(n.id, true);
+                                  startCall({
+                                    calleeId: missedContact.callerId,
+                                    calleeName: missedContact.callerName,
+                                    calleeAvatar: missedContact.callerAvatar,
+                                    callType: missedContact.callType,
+                                  });
+                                }}
+                                className="h-8 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-3 shadow-xs"
+                              >
+                                {missedContact.callType === 'video' ? (
+                                  <Video className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Phone className="h-3.5 w-3.5" />
+                                )}
+                                Call Back
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  markAsRead(n.id, true);
+                                  dispatchOpenDirectChat({
+                                    userId: missedContact.callerId,
+                                    name: missedContact.callerName,
+                                    avatar: missedContact.callerAvatar,
+                                  });
+                                }}
+                                className="h-8 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white gap-1.5 px-3 shadow-xs"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                Chat
+                              </Button>
+                            </>
+                          )}
+
                           {isTaskSubmission && (
                             <Button
                               size="sm"
@@ -1121,7 +1195,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onNavigate
                             </Button>
                           )}
 
-                          {!isTaskSubmission && !isTransfer && !isGuide && (n.nav_target || n.link_url) && (
+                          {!isMissedCall && !isTaskSubmission && !isTransfer && !isGuide && (n.nav_target || n.link_url) && (
                             <Button
                               size="sm"
                               variant="outline"

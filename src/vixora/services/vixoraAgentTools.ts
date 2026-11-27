@@ -1,5 +1,9 @@
 import { Type } from "@google/genai";
 import { generateBannerAdvertCanvas } from "./vixoraBannerEngine";
+import { createBannerAdIdempotent } from "@/services/bannerAdService";
+import { uploadAgentDataUrl } from "@/services/vixoraBusinessAgentService";
+import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface VixoraAppContext {
   setActiveTab: (tab: string) => void;
@@ -554,7 +558,7 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
   },
   {
     name: 'generateBannerAdvert',
-    description: 'Generates a high-converting banner advert for GGD Ad Network or social marketing campaigns in formats like 300x250, 728x90, 1080x1080, or 320x100.',
+    description: 'Generates a high-converting banner advert for GGD Ad Network or social marketing campaigns in formats like 300x250, 728x90, 1080x1080, or 320x100, and can publish it directly to GGD Banner Ads.',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -562,6 +566,9 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
         subheadline: { type: Type.STRING, description: 'Supporting benefit, discount, or promotional copy.' },
         ctaText: { type: Type.STRING, description: 'Call to action button text e.g. "Claim Offer", "Join Now", "Get Started".' },
         brandName: { type: Type.STRING, description: 'Name of the sponsor, product, or advertiser brand.' },
+        targetUrl: { type: Type.STRING, description: 'Optional destination URL for ad clicks.' },
+        durationDays: { type: Type.NUMBER, description: 'Optional campaign duration in days (default 7).' },
+        publishToAdNetwork: { type: Type.BOOLEAN, description: 'Whether to save/publish this banner advert directly to GGD Ad Network (default true).' },
         format: { type: Type.STRING, enum: ['300x250', '728x90', '1080x1080', '1080x1920', '320x100'], description: 'Ad banner dimension.' },
         themeColor: { type: Type.STRING, enum: ['orange', 'gold', 'emerald', 'cyber', 'blue'], description: 'Visual style palette.' }
       },
@@ -587,29 +594,73 @@ export const VIXORA_AGENT_TOOLS: VixoraToolDefinition[] = [
         });
       }
 
+      let publishedAd: any = null;
+      if (args.publishToAdNetwork !== false) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const uploadedUrl = await uploadAgentDataUrl(banner.dataUrl, user.id);
+            const days = Math.max(1, Math.min(90, Number(args.durationDays) || 7));
+            const expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+            const adRes = await createBannerAdIdempotent({
+              idempotencyKey: generateBannerIdempotencyKey('vixora_studio_banner'),
+              title: String(args.headline || 'GGD Spotlight Banner').slice(0, 120),
+              description: String(args.subheadline || 'High-converting GGD Ad Network banner').slice(0, 500),
+              image_url: uploadedUrl || banner.dataUrl,
+              target_url: args.targetUrl || `/store/${user.id}`,
+              ad_type: 'banner',
+              duration_days: days,
+              is_active: true,
+              approved: false,
+              expires_at: expiresAt,
+              deduct_credits: true,
+              allow_draft_url: true,
+            });
+            if (adRes.success && adRes.ad) {
+              publishedAd = adRes.ad;
+            } else {
+              const draftRes = await createBannerAdIdempotent({
+                idempotencyKey: generateBannerIdempotencyKey('vixora_studio_draft'),
+                title: String(args.headline || 'GGD Spotlight Banner').slice(0, 120),
+                description: String(args.subheadline || 'High-converting GGD Ad Network banner').slice(0, 500),
+                image_url: uploadedUrl || banner.dataUrl,
+                target_url: args.targetUrl || `/store/${user.id}`,
+                ad_type: 'banner',
+                duration_days: days,
+                is_active: false,
+                approved: false,
+                expires_at: expiresAt,
+                deduct_credits: false,
+                allow_draft_url: true,
+              });
+              if (draftRes.success && draftRes.ad) publishedAd = draftRes.ad;
+            }
+          }
+        } catch {}
+      }
+
+      const bannerPayload = {
+        title: args.headline,
+        description: args.subheadline || '',
+        ctaText: args.ctaText || 'Get Started Now →',
+        format: args.format || '300x250',
+        imageUrl: banner.dataUrl,
+        brandName: args.brandName,
+        adId: publishedAd?.id,
+        publishedStatus: publishedAd ? (publishedAd.approved ? 'Live' : publishedAd.is_active ? 'Submitted' : 'Draft') : undefined,
+      };
+
       return {
         success: true,
         executedActionName: 'generateBannerAdvert',
         data: {
-          bannerAd: {
-            title: args.headline,
-            description: args.subheadline || '',
-            ctaText: args.ctaText || 'Get Started Now →',
-            format: args.format || '300x250',
-            imageUrl: banner.dataUrl,
-            brandName: args.brandName
-          },
-          bannerAdResult: {
-            title: args.headline,
-            description: args.subheadline || '',
-            ctaText: args.ctaText || 'Get Started Now →',
-            format: args.format || '300x250',
-            imageUrl: banner.dataUrl,
-            brandName: args.brandName
-          },
+          bannerAd: bannerPayload,
+          bannerAdResult: bannerPayload,
           imageUrl: banner.dataUrl
         },
-        message: `Successfully generated GGD Banner Advert for "${args.headline}" in ${args.format || '300x250'} format!`
+        message: publishedAd
+          ? `Successfully generated GGD Banner Advert "${args.headline}" (${args.format || '300x250'}) and saved it to GGD Ad Network (${bannerPayload.publishedStatus})!`
+          : `Successfully generated GGD Banner Advert for "${args.headline}" in ${args.format || '300x250'} format!`
       };
     }
   },

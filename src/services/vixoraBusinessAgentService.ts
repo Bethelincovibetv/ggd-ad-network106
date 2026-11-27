@@ -4,6 +4,7 @@ import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
 import { safeStorage } from "@/utils/safeStorage";
 import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
 import { createBannerAdIdempotent } from "@/services/bannerAdService";
+import { buildBannerAdvertInput } from "@/lib/vixoraAdminTools";
 
 export interface BusinessListingItem {
   id: string;
@@ -241,6 +242,28 @@ export async function uploadAgentMedia(file: File, userId: string): Promise<stri
     reader.onerror = () => resolve('');
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Converts a canvas data URL (JPEG/PNG) into a File and uploads to storage buckets
+ */
+export async function uploadAgentDataUrl(dataUrl: string, userId: string): Promise<string | null> {
+  try {
+    if (!dataUrl || !dataUrl.startsWith('data:')) return null;
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = blob.type.includes('png') ? 'png' : 'jpg';
+    const file = new File([blob], `vixora_banner_${Date.now()}.${ext}`, {
+      type: blob.type || 'image/jpeg',
+    });
+    const uploaded = await uploadAgentMedia(file, userId);
+    if (uploaded && uploaded.startsWith('http')) {
+      return uploaded;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -595,10 +618,13 @@ export async function publishCommunityPostOnBehalf(userId: string, data: {
 export async function createAdCampaignOnBehalf(userId: string, data: {
   title: string;
   description: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   targetUrl?: string;
   durationDays?: number;
   idempotencyKey?: string;
+  deductCredits?: boolean;
+  approved?: boolean;
+  allowDraftUrl?: boolean;
 }): Promise<{ success: boolean; ad?: any; alreadyExists?: boolean; message: string }> {
   try {
     const days = data.durationDays || 7;
@@ -617,9 +643,10 @@ export async function createAdCampaignOnBehalf(userId: string, data: {
       ad_type: 'banner',
       duration_days: days,
       is_active: true,
-      approved: true,
+      approved: data.approved ?? false,
       expires_at: expiresAt.toISOString(),
-      deduct_credits: false,
+      deduct_credits: data.deductCredits ?? true,
+      allow_draft_url: data.allowDraftUrl,
       owner_user_id: userId,
     });
 
@@ -633,7 +660,11 @@ export async function createAdCampaignOnBehalf(userId: string, data: {
       alreadyExists: result.alreadyExists,
       message: result.alreadyExists
         ? `Restored existing banner ad "${data.title}" without creating a duplicate.`
-        : `Created banner ad "${data.title}" live for ${days} days!`,
+        : result.ad.approved
+        ? `Published live banner advert "${data.title}" for ${days} days!`
+        : result.ad.is_active
+        ? `Submitted banner advert "${data.title}" (${days} days) for live GGD Ad Network placement.`
+        : `Saved banner advert draft "${data.title}" for your account.`,
     };
   } catch (err: any) {
     return {
@@ -1041,14 +1072,18 @@ export const BUSINESS_AGENT_TOOL_DEFINITIONS = [
   },
   {
     name: 'createBannerAdvert',
-    description: 'Generates a promotional social banner or display advert canvas for campaigns.',
+    description: 'Designs a promotional banner visual AND creates/publishes a real Banner Advert campaign on GGD Ad Network.',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        title: { type: Type.STRING, description: 'Headline of the advert' },
-        price: { type: Type.NUMBER, description: 'Price or offer' },
+        title: { type: Type.STRING, description: 'Headline of the banner advert' },
+        description: { type: Type.STRING, description: 'Short promotional ad copy' },
+        price: { type: Type.NUMBER, description: 'Featured product or offer price in Naira' },
+        targetUrl: { type: Type.STRING, description: 'Destination URL or storefront link when clicked' },
+        durationDays: { type: Type.NUMBER, description: 'Campaign duration in days (default 7)' },
         themeColor: { type: Type.STRING, enum: ['orange', 'purple', 'emerald', 'gold', 'blue'], description: 'Color palette' },
-        format: { type: Type.STRING, enum: ['banner_landscape', 'banner_square', 'flyer_portrait'], description: 'Banner format' }
+        format: { type: Type.STRING, enum: ['banner_landscape', 'banner_square', 'flyer_portrait'], description: 'Banner format' },
+        publishCampaign: { type: Type.BOOLEAN, description: 'Whether to publish/save the advert directly to GGD Banner Ads (default true)' }
       },
       required: ['title']
     }
@@ -1194,20 +1229,86 @@ export async function executeBusinessAgentTool(
 
     case 'createBannerAdvert': {
       const targetTitle = args.title || context.listings[0]?.title || context.profile?.business_name || 'Exclusive Offer';
-      const targetPrice = Number(args.price) || context.listings[0]?.price || 15000;
-      const bannerUrl = generateProductPromoCanvas({
+      const targetPrice = args.price !== undefined ? Number(args.price) : context.listings[0]?.price;
+      const format = args.format || 'banner_landscape';
+      const themeColor = args.themeColor || 'orange';
+      const bannerDataUrl = generateProductPromoCanvas({
         title: targetTitle,
         price: targetPrice,
         businessName: context.profile?.business_name || context.displayName,
-        themeColor: args.themeColor || 'orange',
-        format: args.format || 'banner_landscape'
+        themeColor,
+        format,
+        ctaText: args.ctaText || 'Shop Now'
       });
+
+      let storedImageUrl: string | null = args.imageUrl || uploadedMediaUrl || null;
+      if (!storedImageUrl && bannerDataUrl.startsWith('data:')) {
+        storedImageUrl = await uploadAgentDataUrl(bannerDataUrl, userId);
+      }
+
+      const normalized = buildBannerAdvertInput({
+        args: { ...args, title: targetTitle, format, themeColor },
+        businessName: context.profile?.business_name || context.displayName,
+        userId,
+        uploadedMediaUrl: storedImageUrl || undefined,
+        canvasDataUrl: bannerDataUrl,
+      });
+
+      let bannerAdRecord: any = undefined;
+      let campaignNote = '';
+
+      if (args.publishCampaign !== false) {
+        const shouldUseCredits = Number(context.credits || 0) >= 5;
+        let adRes = await createAdCampaignOnBehalf(userId, {
+          title: normalized.title,
+          description: normalized.description,
+          imageUrl: storedImageUrl || bannerDataUrl,
+          targetUrl: normalized.targetUrl,
+          durationDays: normalized.durationDays,
+          deductCredits: shouldUseCredits,
+          allowDraftUrl: true,
+        });
+
+        // If credit check fails on server, automatically persist as a Banner Ad Draft so user never loses work
+        if (!adRes.success && shouldUseCredits) {
+          adRes = await createAdCampaignOnBehalf(userId, {
+            title: normalized.title,
+            description: normalized.description,
+            imageUrl: storedImageUrl || bannerDataUrl,
+            targetUrl: normalized.targetUrl,
+            durationDays: normalized.durationDays,
+            deductCredits: false,
+            allowDraftUrl: true,
+          });
+        }
+
+        if (adRes.success && adRes.ad) {
+          bannerAdRecord = {
+            ...adRes.ad,
+            format,
+            imageUrl: adRes.ad.image_url || bannerDataUrl,
+          };
+          campaignNote = adRes.message;
+        } else {
+          campaignNote = `Banner graphic generated (Campaign note: ${adRes.message}).`;
+        }
+      }
+
       return {
         toolName,
         success: true,
-        message: `High-converting banner creative generated for "${targetTitle}".`,
-        badge: '🎨 Banner Advert Created',
-        data: { flyerUrl: bannerUrl }
+        message: campaignNote || `High-converting banner creative generated for "${targetTitle}".`,
+        badge: bannerAdRecord
+          ? bannerAdRecord.approved
+            ? '📢 Live Banner Advert Created'
+            : bannerAdRecord.is_active
+            ? '📢 Banner Advert Submitted'
+            : '🎨 Banner Advert Draft Saved'
+          : '🎨 Banner Advert Created',
+        data: {
+          flyerUrl: bannerDataUrl,
+          bannerAdResult: bannerAdRecord,
+        }
       };
     }
 

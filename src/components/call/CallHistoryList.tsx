@@ -23,13 +23,17 @@ import {
   CallLogRecord,
 } from '@/services/callLogService';
 import { useWebRTCCall } from '@/contexts/CallContext';
+import {
+  dispatchOpenDirectChat,
+  resolveCallLogCounterparty,
+} from '@/lib/callChatNavigation';
 
 interface CallHistoryListProps {
   userId: string;
   onClose?: () => void;
   className?: string;
   isCompact?: boolean;
-  onChatWithUser?: (targetId: string, targetName: string) => void;
+  onChatWithUser?: (targetId: string, targetName: string, targetAvatar?: string) => void;
 }
 
 export const CallHistoryList: React.FC<CallHistoryListProps> = ({
@@ -63,10 +67,7 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
   };
 
   const handleCallBack = (log: CallLogRecord, type: 'audio' | 'video') => {
-    const isCaller = log.callerId === userId;
-    const targetId = isCaller ? log.calleeId : log.callerId;
-    const targetName = isCaller ? log.calleeName : log.callerName;
-    const targetAvatar = isCaller ? log.calleeAvatar : log.callerAvatar;
+    const { targetId, targetName, targetAvatar } = resolveCallLogCounterparty(log, userId);
 
     startCall({
       calleeId: targetId,
@@ -78,9 +79,25 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
     if (onClose) onClose();
   };
 
+  const handleOpenChat = (log: CallLogRecord) => {
+    const { targetId, targetName, targetAvatar } = resolveCallLogCounterparty(log, userId);
+    if (!targetId) return;
+
+    if (onChatWithUser) {
+      onChatWithUser(targetId, targetName, targetAvatar);
+    } else {
+      dispatchOpenDirectChat({
+        userId: targetId,
+        name: targetName,
+        avatar: targetAvatar,
+      });
+    }
+
+    if (onClose) onClose();
+  };
+
   const filteredLogs = logs.filter((log) => {
-    const isCaller = log.callerId === userId;
-    const isMissed = log.status === 'missed' || (log.status === 'rejected' && !isCaller);
+    const { isMissed, isCaller } = resolveCallLogCounterparty(log, userId);
 
     if (filter === 'missed') return isMissed;
     if (filter === 'incoming') return !isCaller && !isMissed;
@@ -165,16 +182,21 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
           </div>
         ) : (
           filteredLogs.map((log) => {
-            const isCaller = log.callerId === userId;
-            const otherName = isCaller ? log.calleeName : log.callerName;
-            const otherAvatar = isCaller ? log.calleeAvatar : log.callerAvatar;
-            const isMissed = log.status === 'missed' || (log.status === 'rejected' && !isCaller);
+            const {
+              targetName: otherName,
+              targetAvatar: otherAvatar,
+              isMissed,
+              isCaller,
+            } = resolveCallLogCounterparty(log, userId);
             const isVideo = log.callType === 'video';
+            const primaryCallType: 'audio' | 'video' = isVideo ? 'video' : 'audio';
 
             return (
               <div
                 key={log.id}
-                className="flex items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl inbox-card-3d group"
+                className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 p-2.5 rounded-2xl inbox-card-3d group ${
+                  isMissed ? 'ring-1 ring-red-500/25 bg-red-500/[0.03]' : ''
+                }`}
               >
                 {/* Left: Avatar & Details */}
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -212,7 +234,7 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
                         )}
                         <span className={isMissed ? 'text-red-500 font-semibold' : ''}>
                           {isMissed
-                            ? 'Missed'
+                            ? 'Missed Call'
                             : isCaller
                             ? 'Outgoing'
                             : 'Incoming'}
@@ -228,53 +250,49 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Large Mobile-Friendly 3D Quick Action Callbacks */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Right: Prominent Call Back + Chat Quick Actions */}
+                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                   <Button
                     type="button"
-                    size="icon"
+                    size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      const isCaller = log.callerId === userId;
-                      const targetId = isCaller ? log.calleeId : log.callerId;
-                      const targetName = isCaller ? log.calleeName : log.callerName;
-                      if (onChatWithUser) {
-                        onChatWithUser(targetId, targetName);
-                      }
-                      if (onClose) onClose();
-                    }}
-                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d text-blue-600 dark:text-blue-400"
+                    onClick={() => handleCallBack(log, primaryCallType)}
+                    disabled={callStatus !== 'idle'}
+                    className="h-10 min-h-[40px] px-3 rounded-xl inbox-key-3d-emerald text-xs font-bold gap-1.5"
+                    title={`Call Back ${otherName}`}
+                    aria-label={`Call Back ${otherName}`}
+                  >
+                    {isVideo ? <Video className="h-3.5 w-3.5 shrink-0" /> : <Phone className="h-3.5 w-3.5 shrink-0" />}
+                    <span>Call Back</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleOpenChat(log)}
+                    className="h-10 min-h-[40px] px-3 rounded-xl inbox-key-3d-orange text-xs font-bold gap-1.5"
                     title={`Chat with ${otherName}`}
                     aria-label={`Chat with ${otherName}`}
                   >
-                    <MessageCircle className="h-4 w-4" />
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Chat</span>
                   </Button>
 
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => handleCallBack(log, 'audio')}
-                    disabled={callStatus !== 'idle'}
-                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d-emerald"
-                    title={`Audio call ${otherName}`}
-                    aria-label={`Audio call ${otherName}`}
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => handleCallBack(log, 'video')}
-                    disabled={callStatus !== 'idle'}
-                    className="h-11 w-11 sm:h-10 sm:w-10 min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl inbox-key-3d-blue"
-                    title={`Video call ${otherName}`}
-                    aria-label={`Video call ${otherName}`}
-                  >
-                    <Video className="h-4 w-4" />
-                  </Button>
+                  {!isCompact && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleCallBack(log, isVideo ? 'audio' : 'video')}
+                      disabled={callStatus !== 'idle'}
+                      className="h-10 w-10 min-h-[40px] min-w-[40px] rounded-xl inbox-key-3d-blue hidden sm:inline-flex"
+                      title={isVideo ? `Audio call ${otherName}` : `Video call ${otherName}`}
+                      aria-label={isVideo ? `Audio call ${otherName}` : `Video call ${otherName}`}
+                    >
+                      {isVideo ? <Phone className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+                    </Button>
+                  )}
 
                   <Button
                     type="button"
@@ -296,3 +314,4 @@ export const CallHistoryList: React.FC<CallHistoryListProps> = ({
     </div>
   );
 };
+

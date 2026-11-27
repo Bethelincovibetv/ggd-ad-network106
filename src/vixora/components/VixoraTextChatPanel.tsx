@@ -4,6 +4,11 @@ import { VIXORA_AGENT_TOOLS, VixoraAppContext } from '../services/vixoraAgentToo
 import { generateBannerAdvertCanvas } from '../services/vixoraBannerEngine';
 import { resolveAdminAiApiKey } from '../services/adminKeySync';
 import vixoraAgentAvatar from '@/assets/images/vixora_agent_avatar_1786108775324.jpg';
+import { toast } from 'sonner';
+import { createBannerAdIdempotent } from '@/services/bannerAdService';
+import { uploadAgentDataUrl } from '@/services/vixoraBusinessAgentService';
+import { generateBannerIdempotencyKey } from '@/lib/bannerAds';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ChatMessage {
   id: string;
@@ -30,6 +35,8 @@ export interface ChatMessage {
     format: string;
     imageUrl: string;
     brandName?: string;
+    adId?: string;
+    publishedStatus?: string;
   };
   scriptResult?: {
     title: string;
@@ -1252,7 +1259,9 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                         <span>GGD Ad Network Banner ({msg.bannerAdResult.format})</span>
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black">
-                        ⚡ Ready for Ads
+                        {msg.bannerAdResult.publishedStatus
+                          ? `⚡ ${msg.bannerAdResult.publishedStatus} on GGD Ads`
+                          : '⚡ Ready for Ads'}
                       </span>
                     </div>
 
@@ -1269,7 +1278,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                       {msg.bannerAdResult.description && (
                         <p className="text-[9.5px] text-slate-300 font-medium">{msg.bannerAdResult.description}</p>
                       )}
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
                         <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] font-bold">
                           CTA: {msg.bannerAdResult.ctaText}
                         </span>
@@ -1278,10 +1287,15 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                             {msg.bannerAdResult.brandName}
                           </span>
                         )}
+                        {msg.bannerAdResult.adId && (
+                          <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-[9px] font-mono">
+                            Campaign #{String(msg.bannerAdResult.adId).slice(0, 8)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                       <a 
                         href={msg.bannerAdResult.imageUrl} 
                         download={`GGD_Ad_${msg.bannerAdResult.format}_${Date.now()}.png`}
@@ -1291,16 +1305,93 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                         <span>Download PNG</span>
                       </a>
                       <button 
+                        type="button"
                         onClick={() => {
                           const embedCode = `<a href="https://ggd.ng" target="_blank"><img src="${msg.bannerAdResult?.imageUrl}" alt="${msg.bannerAdResult?.title}" style="max-width:100%;border-radius:12px;"/></a>`;
                           navigator.clipboard?.writeText(embedCode);
-                          alert("Banner embed HTML code copied to clipboard!");
+                          toast.success("Banner embed HTML code copied to clipboard!");
                         }}
                         className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
                       >
                         <i className="fa-solid fa-code"></i>
-                        <span>Copy Embed HTML</span>
+                        <span>Copy Embed</span>
                       </button>
+                      {!msg.bannerAdResult.adId && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const b = msg.bannerAdResult;
+                            if (!b) return;
+                            try {
+                              const { data: { user } } = await supabase.auth.getUser();
+                              if (!user) {
+                                toast.error("Please log in to publish a banner campaign.");
+                                return;
+                              }
+                              const uploaded = b.imageUrl?.startsWith('data:')
+                                ? await uploadAgentDataUrl(b.imageUrl, user.id)
+                                : b.imageUrl;
+                              let res = await createBannerAdIdempotent({
+                                idempotencyKey: generateBannerIdempotencyKey('vixora_chat_publish'),
+                                title: b.title,
+                                description: b.description || 'Promoted via Vixora AI',
+                                image_url: uploaded || b.imageUrl,
+                                target_url: `/store/${user.id}`,
+                                ad_type: 'banner',
+                                duration_days: 7,
+                                is_active: true,
+                                approved: false,
+                                deduct_credits: true,
+                                allow_draft_url: true,
+                              });
+                              if (!res.success) {
+                                res = await createBannerAdIdempotent({
+                                  idempotencyKey: generateBannerIdempotencyKey('vixora_chat_draft'),
+                                  title: b.title,
+                                  description: b.description || 'Promoted via Vixora AI',
+                                  image_url: uploaded || b.imageUrl,
+                                  target_url: `/store/${user.id}`,
+                                  ad_type: 'banner',
+                                  duration_days: 7,
+                                  is_active: false,
+                                  approved: false,
+                                  deduct_credits: false,
+                                  allow_draft_url: true,
+                                });
+                              }
+                              if (res.success && res.ad) {
+                                setMessages((prev) =>
+                                  prev.map((m) =>
+                                    m.id === msg.id && m.bannerAdResult
+                                      ? {
+                                          ...m,
+                                          bannerAdResult: {
+                                            ...m.bannerAdResult,
+                                            adId: res.ad!.id,
+                                            publishedStatus: res.ad!.approved
+                                              ? 'Live'
+                                              : res.ad!.is_active
+                                              ? 'Submitted'
+                                              : 'Draft',
+                                          },
+                                        }
+                                      : m
+                                  )
+                                );
+                                toast.success(`Banner Advert "${b.title}" saved to GGD Ad Network!`);
+                              } else {
+                                toast.error(res.error || "Could not publish banner advert.");
+                              }
+                            } catch (err: any) {
+                              toast.error(err?.message || "Failed to publish banner advert.");
+                            }
+                          }}
+                          className="col-span-2 sm:col-span-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all text-center"
+                        >
+                          <i className="fa-solid fa-rocket"></i>
+                          <span>Launch Ad</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1326,7 +1417,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                       <button 
                         onClick={() => {
                           navigator.clipboard?.writeText(msg.scriptResult?.script || '');
-                          alert("Script copied to clipboard!");
+                          toast.success('Script copied to clipboard!');
                         }}
                         className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
                       >
@@ -1432,7 +1523,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                         onClick={() => {
                           const allText = `Tags: ${(msg.seoResult?.tags || []).join(', ')}\n\nHooks:\n${(msg.seoResult?.hooks || []).join('\n')}`;
                           navigator.clipboard?.writeText(allText);
-                          alert("All SEO tags & hooks copied to clipboard!");
+                          toast.success('All SEO tags & hooks copied to clipboard!');
                         }}
                         className="w-full py-2 px-3 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 active:scale-95 transition-all text-center"
                       >

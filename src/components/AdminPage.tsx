@@ -33,6 +33,7 @@ import AdminRedeemManager from "@/components/AdminRedeemManager";
 import AdminBusinessAgentManager from "@/components/AdminBusinessAgentManager";
 import AdminDigitalProductsManager from "@/components/admin/AdminDigitalProductsManager";
 import AdminActivationManager from "@/components/admin/AdminActivationManager";
+import VixoraBusinessAiAgentModal from "@/components/business/VixoraBusinessAiAgentModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { AdminRealtimeSearchBar } from "@/components/admin/AdminRealtimeSearchBar";
 import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
@@ -139,6 +140,7 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [adminCheckError, setAdminCheckError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminCopilotOpen, setAdminCopilotOpen] = useState(false);
   const { isVisible: isNavVisible } = useScrollNavVisibility({ resetOnDeps: [activeSection] });
 
   const unreadAlertsCount = adminNotifications.filter((n) => !n.is_read).length;
@@ -192,6 +194,18 @@ const AdminPage = () => {
     });
     return () => unsub();
   }, [isAdmin, adminUserId]);
+
+  useEffect(() => {
+    const handleAdminNav = (e: Event) => {
+      const detail = (e as CustomEvent<{ section?: string }>).detail;
+      if (detail?.section) {
+        setSearchParams({ section: detail.section });
+        setActiveSection(detail.section);
+      }
+    };
+    window.addEventListener('ggd-admin-navigate', handleAdminNav);
+    return () => window.removeEventListener('ggd-admin-navigate', handleAdminNav);
+  }, [setSearchParams]);
 
   const applyDestinationState = (dest: {
     section: string;
@@ -555,6 +569,16 @@ const AdminPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setAdminCopilotOpen(true)}
+              className="h-9 px-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-xs font-bold gap-1 shadow-sm"
+              aria-label="Open Vixora Admin AI Copilot"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>AI</span>
+            </Button>
             <AdminNotificationBell
               notifications={adminNotifications}
               onOpenNotification={handleOpenAdminNotification}
@@ -627,6 +651,15 @@ const AdminPage = () => {
               <AdminRealtimeSearchBar onNavigate={navigateToSection} className="max-w-2xl" />
             </div>
             <div className="hidden md:flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setAdminCopilotOpen(true)}
+                className="h-10 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-extrabold gap-1.5 shadow-md"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Vixora Admin AI</span>
+              </Button>
               <AdminNotificationBell
                 notifications={adminNotifications}
                 onOpenNotification={handleOpenAdminNotification}
@@ -696,6 +729,13 @@ const AdminPage = () => {
           })}
         </div>
       </nav>
+
+      {/* Vixora Admin AI Copilot Modal accessible from every Admin section */}
+      <VixoraBusinessAiAgentModal
+        isOpen={adminCopilotOpen}
+        onClose={() => setAdminCopilotOpen(false)}
+        mode="admin"
+      />
     </div>
   );
 };

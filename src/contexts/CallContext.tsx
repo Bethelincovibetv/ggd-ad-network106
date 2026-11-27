@@ -21,6 +21,10 @@ import {
   dismissIncomingCallPush,
 } from '@/services/pushNotificationService';
 import { parseCallActionFromSearch } from '@/lib/pushPolicy';
+import {
+  buildDirectChatUrl,
+  buildMissedCallNavTarget,
+} from '@/lib/callChatNavigation';
 import { toast } from 'sonner';
 
 interface CallContextType {
@@ -287,6 +291,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
               participants: [missed.callerId, missed.calleeId],
               createdAt: missed.createdAt || new Date().toISOString(),
             });
+
+            // Persist in-app missed call notification so NotificationBell & NotificationsPage show Call Back + Chat actions
+            const missedContact = {
+              callerId: missed.callerId,
+              callerName: missed.callerName || 'Member',
+              callerAvatar: missed.callerAvatar,
+              callType: (missed.callType === 'video' ? 'video' : 'audio') as 'audio' | 'video',
+            };
+            Promise.resolve(
+              supabase.from('notifications').insert({
+                user_id: missed.calleeId,
+                type: 'missed_call',
+                title: `Missed ${missedContact.callType === 'video' ? 'Video' : 'Audio'} Call from ${missedContact.callerName}`,
+                message: `You missed a ${missedContact.callType} call from ${missedContact.callerName}. Call back or send a chat message.`,
+                nav_target: buildMissedCallNavTarget(missedContact),
+                link_url: buildDirectChatUrl({
+                  userId: missedContact.callerId,
+                  name: missedContact.callerName,
+                  avatar: missedContact.callerAvatar,
+                }),
+                is_read: false,
+              } as any)
+            ).catch(() => {});
           }
         }
       }

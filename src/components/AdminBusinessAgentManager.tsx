@@ -99,7 +99,7 @@ export const AdminBusinessAgentManager: React.FC = () => {
               </div>
 
               <p className="text-xs sm:text-sm text-violet-200/80 max-w-2xl leading-relaxed">
-                Autonomous AI business copilot that helps merchants create products, publish professional services, update catalog pricing, synchronize business profiles, and generate promotional graphics.
+                Autonomous AI copilot for merchants and administrators: publishes banner adverts, manages storefront catalogs, verifies businesses, confirms submitted tasks, and approves syndicate applications.
               </p>
 
               <div className="pt-2 flex flex-wrap items-center gap-4 text-[11px] text-violet-300">
@@ -109,7 +109,7 @@ export const AdminBusinessAgentManager: React.FC = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                  Direct Database Execution (business_listings & business_profiles)
+                  Direct Database Execution (ads, business_verifications, task_proof_submissions, syndicate_applications)
                 </span>
               </div>
             </div>
@@ -121,7 +121,7 @@ export const AdminBusinessAgentManager: React.FC = () => {
               onClick={() => setTestModalOpen(true)}
               className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-xl gap-2 cursor-pointer"
             >
-              <Play className="h-4 w-4 fill-white" /> Launch Agent Sandbox
+              <Play className="h-4 w-4 fill-white" /> Launch Admin AI Copilot
             </Button>
           </div>
         </CardContent>
@@ -227,11 +227,18 @@ export const AdminBusinessAgentManager: React.FC = () => {
                 color: "text-purple-500 bg-purple-500/10"
               },
               {
-                title: "Generate Marketing Flyers",
-                desc: "Draws 1080x1350 Instagram/WhatsApp promotional flyers with prices, branding, and WhatsApp CTA.",
+                title: "Create & Publish Banner Adverts",
+                desc: "Designs 1200x628 / 1080x1080 banner creatives and publishes live campaigns directly to GGD Ad Network.",
                 icon: Sparkles,
                 badge: "Active",
                 color: "text-orange-500 bg-orange-500/10"
+              },
+              {
+                title: "Verify Businesses & Confirm Tasks/Syndicates",
+                desc: "Admin Copilot approves/rejects business verifications, confirms submitted credit & syndicate tasks, and approves syndicate applications.",
+                icon: ShieldCheck,
+                badge: "Admin Active",
+                color: "text-amber-500 bg-amber-500/10"
               }
             ].map((cap, i) => (
               <div key={i} className="p-3 rounded-xl bg-secondary/30 border border-border/60 flex items-start gap-3">
@@ -257,7 +264,8 @@ export const AdminBusinessAgentManager: React.FC = () => {
       <VixoraBusinessAiAgentModal
         isOpen={testModalOpen}
         onClose={() => setTestModalOpen(false)}
-        initialPrompt="What products are currently in my store?"
+        mode="admin"
+        initialPrompt="Check all pending items overview"
       />
     </div>
   );

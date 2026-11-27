@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, ExternalLink, MailOpen, Trash2, Volume2, ArrowRight,
   ArrowDownLeft, BookOpen, ShieldCheck, Receipt, Sparkles, Check, Mail, Minimize2, ClipboardList,
+  Phone, Video, PhoneMissed, MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +11,16 @@ import { playNotificationChime, cancelOngoingSpeech } from "@/utils/audio";
 import { showPushNotification } from "@/services/pushNotificationService";
 import TransactionReceiptModal, { ReceiptData } from '@/components/TransactionReceiptModal';
 import { parseTaskSubmissionNotification, navigateToTaskManagement } from '@/lib/taskNotificationLink';
+import {
+  dispatchOpenDirectChat,
+  extractMissedCallContact,
+  isMissedCallNotification,
+} from '@/lib/callChatNavigation';
+import { useWebRTCCall } from '@/contexts/CallContext';
 
 
 const NotificationBell = () => {
+  const { startCall, callStatus } = useWebRTCCall();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState<string>('');
@@ -235,6 +243,17 @@ const NotificationBell = () => {
       return;
     }
 
+    // Missed call notification -> direct chat with caller
+    const missedContact = extractMissedCallContact(n);
+    if (missedContact) {
+      dispatchOpenDirectChat({
+        userId: missedContact.callerId,
+        name: missedContact.callerName,
+        avatar: missedContact.callerAvatar,
+      });
+      return;
+    }
+
     // Transfer receipt handling
     if (
       n.type === 'credit_transfer' ||
@@ -371,8 +390,12 @@ const NotificationBell = () => {
                     n.type === 'transfer_credited' ||
                     n.title?.toLowerCase().includes('credit'));
 
+                  const isMissedCall = isMissedCallNotification(n);
+                  const missedContact = isMissedCall ? extractMissedCallContact(n) : null;
+
                   const isGuide =
                     !isTaskSubmission &&
+                    !isMissedCall &&
                     (n.type === 'guide_step_completion' ||
                     n.title?.toLowerCase().includes('guide') ||
                     n.nav_target?.toLowerCase().includes('guide'));
@@ -390,7 +413,9 @@ const NotificationBell = () => {
                         {/* Icon */}
                         <div
                           className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm ${
-                            isTaskSubmission
+                            isMissedCall
+                              ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                              : isTaskSubmission
                               ? 'bg-orange-500/20 text-orange-500'
                               : isTransfer
                               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
@@ -399,7 +424,9 @@ const NotificationBell = () => {
                               : 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
                           }`}
                         >
-                          {isTaskSubmission ? (
+                          {isMissedCall ? (
+                            <PhoneMissed className="h-4 w-4" />
+                          ) : isTaskSubmission ? (
                             <ClipboardList className="h-4 w-4" />
                           ) : isTransfer ? (
                             <ArrowDownLeft className="h-4 w-4" />
@@ -430,6 +457,11 @@ const NotificationBell = () => {
                             <h4 className={`text-xs sm:text-sm leading-tight ${!n.is_read ? 'font-black text-foreground' : 'font-semibold text-foreground/80'}`}>
                               {n.title}
                             </h4>
+                            {isMissedCall && (
+                              <Badge className="bg-red-500/15 text-red-600 dark:text-red-300 border-none text-[9px] font-black px-1.5 py-0">
+                                Missed Call
+                              </Badge>
+                            )}
                             {isTaskSubmission && (
                               <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-300 border-none text-[9px] font-black px-1.5 py-0">
                                 📋 Submission
@@ -453,7 +485,7 @@ const NotificationBell = () => {
                             </p>
                           )}
 
-                          <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <span className="text-[10px] text-muted-foreground font-medium">
                               {new Date(n.created_at).toLocaleString(undefined, {
                                 month: 'short',
@@ -462,6 +494,51 @@ const NotificationBell = () => {
                                 minute: '2-digit',
                               })}
                             </span>
+
+                            {isMissedCall && missedContact && (
+                              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={callStatus !== 'idle'}
+                                  onClick={() => {
+                                    markAsRead(n.id);
+                                    setOpen(false);
+                                    startCall({
+                                      calleeId: missedContact.callerId,
+                                      calleeName: missedContact.callerName,
+                                      calleeAvatar: missedContact.callerAvatar,
+                                      callType: missedContact.callType,
+                                    });
+                                  }}
+                                  className="h-7 rounded-lg px-2.5 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                                >
+                                  {missedContact.callType === 'video' ? (
+                                    <Video className="h-3 w-3" />
+                                  ) : (
+                                    <Phone className="h-3 w-3" />
+                                  )}
+                                  Call Back
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => {
+                                    markAsRead(n.id);
+                                    setOpen(false);
+                                    dispatchOpenDirectChat({
+                                      userId: missedContact.callerId,
+                                      name: missedContact.callerName,
+                                      avatar: missedContact.callerAvatar,
+                                    });
+                                  }}
+                                  className="h-7 rounded-lg px-2.5 text-[11px] font-bold bg-orange-600 hover:bg-orange-700 text-white gap-1"
+                                >
+                                  <MessageCircle className="h-3 w-3" />
+                                  Chat
+                                </Button>
+                              </div>
+                            )}
 
                             {isTaskSubmission && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500 hover:underline">
@@ -481,7 +558,7 @@ const NotificationBell = () => {
                               </span>
                             )}
 
-                            {!isTaskSubmission && !isTransfer && !isGuide && (
+                            {!isMissedCall && !isTaskSubmission && !isTransfer && !isGuide && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:underline">
                                 Read full message <ArrowRight className="h-3 w-3" />
                               </span>

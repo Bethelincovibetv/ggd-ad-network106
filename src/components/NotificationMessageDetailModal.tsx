@@ -29,10 +29,20 @@ import {
   ShieldCheck,
   Zap,
   ClipboardList,
+  Phone,
+  Video,
+  PhoneMissed,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playNotificationChime } from '@/utils/audio';
 import { parseTaskSubmissionNotification } from '@/lib/taskNotificationLink';
+import {
+  dispatchOpenDirectChat,
+  extractMissedCallContact,
+  isMissedCallNotification,
+} from '@/lib/callChatNavigation';
+import { useWebRTCCall } from '@/contexts/CallContext';
 
 export interface FullNotificationData {
   id: string;
@@ -63,6 +73,7 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
   onDelete,
   onToggleRead,
 }) => {
+  const { startCall, callStatus } = useWebRTCCall();
   if (!notification) return null;
 
   const contentText = (notification.message || notification.body || '').trim();
@@ -71,9 +82,12 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
   const isRead = notification.is_read ?? true;
 
   const isTaskSubmission = parseTaskSubmissionNotification(notification).isTaskSubmission;
+  const isMissedCall = isMissedCallNotification(notification);
+  const missedContact = isMissedCall ? extractMissedCallContact(notification) : null;
 
   const isTransfer =
     !isTaskSubmission &&
+    !isMissedCall &&
     (type === 'credit_transfer' ||
     type === 'credit' ||
     type === 'transfer_credited' ||
@@ -82,12 +96,14 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
 
   const isGuide =
     !isTaskSubmission &&
+    !isMissedCall &&
     (type === 'guide_step_completion' ||
     title.toLowerCase().includes('guide') ||
     notification.nav_target?.toLowerCase().includes('guide'));
 
   const isChat =
     !isTaskSubmission &&
+    !isMissedCall &&
     (type === 'chat' ||
     type === 'message' ||
     type === 'urgent_message' ||
@@ -335,8 +351,49 @@ export const NotificationMessageDetailModal: React.FC<NotificationMessageDetailM
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {(notification.nav_target || primaryUrl || isTaskSubmission || isTransfer || isGuide || isChat) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {isMissedCall && missedContact && (
+              <>
+                <Button
+                  type="button"
+                  disabled={callStatus !== 'idle'}
+                  onClick={() => {
+                    onOpenChange(false);
+                    startCall({
+                      calleeId: missedContact.callerId,
+                      calleeName: missedContact.callerName,
+                      calleeAvatar: missedContact.callerAvatar,
+                      callType: missedContact.callType,
+                    });
+                  }}
+                  className="rounded-xl text-xs font-bold gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                >
+                  {missedContact.callType === 'video' ? (
+                    <Video className="h-3.5 w-3.5" />
+                  ) : (
+                    <Phone className="h-3.5 w-3.5" />
+                  )}
+                  Call Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false);
+                    dispatchOpenDirectChat({
+                      userId: missedContact.callerId,
+                      name: missedContact.callerName,
+                      avatar: missedContact.callerAvatar,
+                    });
+                  }}
+                  className="rounded-xl text-xs font-bold gap-1.5 h-9 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-sm"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Chat
+                </Button>
+              </>
+            )}
+
+            {!isMissedCall && (notification.nav_target || primaryUrl || isTaskSubmission || isTransfer || isGuide || isChat) && (
               <Button
                 type="button"
                 onClick={handleMainAction}

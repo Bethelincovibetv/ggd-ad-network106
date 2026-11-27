@@ -127,9 +127,11 @@ const GGDInbox: React.FC = () => {
     image_url?: string;
   } | null>(null);
 
-  // Parse search params for direct seller chat or product inquiry
+  // Parse search params & pending chat targets for direct seller/call-log chat
   useEffect(() => {
     const targetUid = searchParams.get("chatWith") || searchParams.get("chat") || searchParams.get("userId") || searchParams.get("u");
+    const targetName = searchParams.get("chatName") || undefined;
+    const targetAvatar = searchParams.get("chatAvatar") || undefined;
     const tType = searchParams.get("tagType");
     const tTitle = searchParams.get("tagTitle");
     const tPrice = searchParams.get("tagPrice");
@@ -151,21 +153,60 @@ const GGDInbox: React.FC = () => {
       );
     }
 
-    if (targetUid) {
+    let pendingFromStorage: { userId?: string; name?: string; avatar?: string } | null = null;
+    try {
+      const raw = localStorage.getItem("ggd_pending_chat_target");
+      if (raw) {
+        pendingFromStorage = JSON.parse(raw);
+        localStorage.removeItem("ggd_pending_chat_target");
+      }
+    } catch {}
+
+    const resolvedUid = targetUid || pendingFromStorage?.userId || "";
+    const resolvedHint =
+      targetName || targetAvatar || pendingFromStorage?.name || pendingFromStorage?.avatar
+        ? {
+            display_name: targetName || pendingFromStorage?.name,
+            avatar_url: targetAvatar || pendingFromStorage?.avatar,
+          }
+        : undefined;
+
+    if (resolvedUid) {
+      setInboxView("messages");
       if (me) {
-        if (targetUid !== me) {
-          openThread(targetUid, null);
+        if (resolvedUid !== me) {
+          void openThread(resolvedUid, null, resolvedHint);
         }
       } else {
         getCurrentUser().then((currentUser) => {
-          if (currentUser?.id && targetUid !== currentUser.id) {
+          if (currentUser?.id && resolvedUid !== currentUser.id) {
             setMe(currentUser.id);
-            openThread(targetUid, null);
+            void openThread(resolvedUid, null, resolvedHint);
           }
         });
       }
     }
   }, [searchParams, me]);
+
+  // Listen for direct chat open events from anywhere (CallHistoryList, Notifications, etc.)
+  useEffect(() => {
+    const handleOpenDirectChatEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ userId?: string; name?: string; avatar?: string }>).detail;
+      if (!detail?.userId) return;
+      try {
+        localStorage.removeItem("ggd_pending_chat_target");
+      } catch {}
+      setInboxView("messages");
+      if (!me || detail.userId !== me) {
+        void openThread(detail.userId, null, {
+          display_name: detail.name,
+          avatar_url: detail.avatar,
+        });
+      }
+    };
+    window.addEventListener("ggd-open-chat", handleOpenDirectChatEvent);
+    return () => window.removeEventListener("ggd-open-chat", handleOpenDirectChatEvent);
+  }, [me]);
 
   // ---- Init & load threads ----
   useEffect(() => {
@@ -376,7 +417,11 @@ const GGDInbox: React.FC = () => {
   }, [search, tab, me]);
 
   // ---- Open conversation ----
-  const openThread = async (otherId: string, taskId?: string | null) => {
+  const openThread = async (
+    otherId: string,
+    taskId?: string | null,
+    contactHint?: { display_name?: string; avatar_url?: string }
+  ) => {
     if (!otherId) return;
     let currentUid = me;
     if (!currentUid) {
@@ -386,17 +431,32 @@ const GGDInbox: React.FC = () => {
     }
     if (!currentUid) return;
 
+    setInboxView("messages");
     setActiveOther(otherId);
     setActiveTaskId(taskId || null);
     setAssignment(null);
     setTaskTitle("");
+
+    if (contactHint?.display_name || contactHint?.avatar_url) {
+      setOtherProfile({
+        user_id: otherId,
+        email: "",
+        display_name: contactHint.display_name || "Member",
+        avatar_url: contactHint.avatar_url || null,
+        business_name: null,
+      });
+    }
 
     const { data: prof } = await supabase
       .from("profiles")
       .select("user_id, email, display_name, avatar_url, business_name, business_phone, whatsapp_number")
       .eq("user_id", otherId)
       .maybeSingle();
-    setOtherProfile((prof as any) || null);
+    if (prof) {
+      setOtherProfile(prof as any);
+    } else if (!contactHint?.display_name && !contactHint?.avatar_url) {
+      setOtherProfile(null);
+    }
 
     // Load ephemeral peer images from local IndexedDB (zero cloud storage)
     try {
@@ -1241,9 +1301,12 @@ const GGDInbox: React.FC = () => {
       {inboxView === "calls" ? (
         <CallHistoryList
           userId={me}
-          onChatWithUser={(targetId) => {
-            setActiveOther(targetId);
+          onChatWithUser={(targetId, targetName, targetAvatar) => {
             setInboxView("messages");
+            void openThread(targetId, null, {
+              display_name: targetName,
+              avatar_url: targetAvatar,
+            });
           }}
         />
       ) : (
