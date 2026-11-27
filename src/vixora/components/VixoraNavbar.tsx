@@ -69,10 +69,10 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
   return (
     <header className="w-full mb-4 z-30 relative">
       {/* TOP HEADER GLASS CONTAINER */}
-      <div className={`w-full rounded-2xl border backdrop-blur-xl transition-all shadow-lg p-2.5 sm:p-3 ${
+      <div className={`w-full rounded-2xl border backdrop-blur-xl transition-all console-surface-3d p-2.5 sm:p-3 ${
         themeMode === 'light' 
-          ? 'bg-white/95 border-slate-200/90 shadow-slate-200/50 text-slate-900' 
-          : 'bg-slate-900/90 border-white/10 shadow-black/40 text-white'
+          ? 'bg-white/95 border-slate-200/90 text-slate-900' 
+          : 'bg-slate-900/90 border-white/10 text-white'
       }`}>
         <div className="flex items-center justify-between gap-2">
           {/* BRAND LOGO & ACTIVE SECTION BADGE */}
@@ -203,16 +203,16 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
         </div>
 
         {/* HORIZONTAL SCROLLABLE URL NAVIGATION BAR */}
-        <nav className="mt-2.5 pt-2 border-t border-slate-200/40 dark:border-white/5 flex items-center gap-1 overflow-x-auto scrollbar-none pb-1">
+        <nav className="mt-2.5 pt-2 border-t border-slate-200/40 dark:border-white/5 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {MAIN_NAV_ITEMS.map((item) => {
             const active = isCurrentActive(item.path);
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap transition-all duration-150 shrink-0 border ${
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap transition-all duration-150 shrink-0 border console-pill-3d ${
                   active
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400/60 shadow-md scale-102 font-extrabold'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400/60 scale-102 font-extrabold'
                     : themeMode === 'light'
                     ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-950'
                     : 'bg-white/5 hover:bg-white/10 border-white/5 text-slate-300 hover:text-white'
@@ -230,11 +230,11 @@ export const VixoraNavbar: React.FC<VixoraNavbarProps> = ({
       </div>
 
       {/* MOBILE BOTTOM FLOATING QUICK-DOCK */}
-      <div className="sm:hidden fixed bottom-3 left-3 right-3 z-50">
-        <div className={`rounded-2xl border backdrop-blur-2xl shadow-2xl p-1.5 flex items-center justify-around ${
+      <div className="sm:hidden fixed bottom-2.5 left-2.5 right-2.5 z-50 pb-safe">
+        <div className={`rounded-2xl border backdrop-blur-2xl console-dock-3d p-1.5 flex items-center justify-around gap-1 ${
           themeMode === 'light' 
-            ? 'bg-white/95 border-slate-200/90 text-slate-900 shadow-slate-400/30' 
-            : 'bg-slate-950/95 border-white/15 text-white shadow-black/80'
+            ? 'bg-white/95 border-slate-200/90 text-slate-900' 
+            : 'bg-slate-950/95 border-white/15 text-white'
         }`}>
           {[
             { path: '/studio', label: 'Studio', icon: 'fa-microphone-lines' },

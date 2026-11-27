@@ -844,14 +844,14 @@ const GGDInbox: React.FC = () => {
   // ================= UI =================
   if (activeOther) {
     return (
-      <Card className="h-[calc(100dvh-6.5rem)] sm:h-[calc(100vh-8rem)] flex flex-col rounded-2xl overflow-hidden inbox-card-3d border-0">
+      <Card className="h-[calc(100dvh-9.5rem)] sm:h-[calc(100vh-8rem)] min-h-[460px] flex flex-col rounded-2xl overflow-hidden inbox-card-3d console-surface-3d border-0 max-w-full w-full min-w-0">
         {/* Compact Tactile 3D Thread Header */}
-        <div className="flex items-center gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_3px_10px_rgba(234,88,12,0.25)] shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white console-header-3d shrink-0 min-w-0">
           <button
             type="button"
             onClick={closeThread}
             aria-label="Back to inbox"
-            className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 flex items-center justify-center shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_rgba(124,45,18,0.4)] transition-transform duration-150 active:translate-y-[1.5px]"
+            className="h-10 w-10 min-h-[40px] min-w-[40px] sm:h-10 sm:w-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 flex items-center justify-center shrink-0 console-pill-3d"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -883,7 +883,7 @@ const GGDInbox: React.FC = () => {
             href={`/user/${activeOther}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 h-11 min-w-[44px] sm:h-10 sm:min-w-[40px] px-2.5 sm:px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs font-bold shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_0_rgba(124,45,18,0.4)] transition-transform duration-150 active:translate-y-[1.5px]"
+            className="inline-flex items-center justify-center gap-1.5 h-10 min-w-[40px] px-2 sm:px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs font-bold shrink-0 console-pill-3d"
             title="Open Business Website & Public Storefront"
             aria-label="Open Business Website & Public Storefront"
           >
@@ -892,15 +892,15 @@ const GGDInbox: React.FC = () => {
             <ExternalLink className="h-3 w-3 opacity-80 hidden sm:inline" />
           </a>
 
-          {/* WebRTC Live Audio & Video Call Buttons — Large 44px Mobile 3D Targets */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* WebRTC Live Audio & Video Call Buttons — Tactile 3D Targets */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <CallButton
               calleeId={activeOther}
               calleeName={otherProfile?.business_name || otherProfile?.display_name || "Member"}
               calleeAvatar={otherProfile?.avatar_url || undefined}
               callType="audio"
               variant="ghost"
-              className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-emerald"
+              className="h-10 w-10 min-h-[40px] min-w-[40px] inbox-key-3d-emerald"
             />
             <CallButton
               calleeId={activeOther}
@@ -908,7 +908,7 @@ const GGDInbox: React.FC = () => {
               calleeAvatar={otherProfile?.avatar_url || undefined}
               callType="video"
               variant="ghost"
-              className="h-11 w-11 min-h-[44px] min-w-[44px] sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px] inbox-key-3d-blue"
+              className="h-10 w-10 min-h-[40px] min-w-[40px] inbox-key-3d-blue"
             />
           </div>
         </div>
@@ -958,10 +958,10 @@ const GGDInbox: React.FC = () => {
         </div>
 
         {/* Main Content Area with Desktop Business Connect Margin */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-w-0">
           <div className="flex-1 flex flex-col min-w-0">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 bg-muted/15">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-1.5 bg-muted/15 min-w-0">
               {/* P2P Ephemeral Real-time Images */}
               {ephemeralImages.length > 0 && (
                 <div className="space-y-2 pb-3 mb-2 border-b border-dashed border-amber-500/30">
@@ -1007,18 +1007,18 @@ const GGDInbox: React.FC = () => {
                   );
                 }
                 return (
-                  <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                  <div key={m.id} className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[88%] sm:max-w-[78%] min-w-0 flex flex-col ${mine ? "items-end" : "items-start"}`}>
                       <WhatsAppSlideMessage
                         messageId={m.id}
                         currentUserId={me}
                         isMine={mine}
                         onReply={() => setReplyingTo(m)}
                       >
-                        <div className={`rounded-2xl px-3 py-2 text-sm ${
+                        <div className={`rounded-2xl px-3 py-2 text-sm min-w-0 [overflow-wrap:anywhere] break-words ${
                           mine
-                            ? "bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-br-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_3px_8px_-2px_rgba(234,88,12,0.35)]"
-                            : "inbox-card-3d rounded-bl-sm"
+                            ? "bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-br-sm chat-bubble-3d-user"
+                            : "inbox-card-3d chat-bubble-3d-agent rounded-bl-sm"
                         }`}>
                           {/* Quoted reply banner if this message is replying to another */}
                           {m.action_payload?.reply_to && (
@@ -1132,7 +1132,7 @@ const GGDInbox: React.FC = () => {
             </div>
 
             {/* Compact Ergonomic Mobile Composer */}
-            <div className="p-2 border-t bg-card space-y-1.5 shrink-0">
+            <div className="p-2 pb-safe border-t bg-card space-y-1.5 shrink-0 console-header-3d">
               {/* Replying-to Preview Bar */}
               {replyingTo && (
                 <div className="p-1.5 px-2.5 rounded-xl bg-muted/70 border border-orange-500/30 flex items-center justify-between gap-2">
@@ -1183,7 +1183,7 @@ const GGDInbox: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex gap-1.5 items-center">
+              <div className="flex gap-1.5 items-center min-w-0">
                 <VoiceNoteRecorder onSendVoice={sendVoiceNote} disabled={isSending} />
 
                 <Button
@@ -1217,7 +1217,7 @@ const GGDInbox: React.FC = () => {
                       ? "Type your reply..."
                       : "Type a message..."
                   }
-                  className={`flex-1 h-11 min-h-[44px] rounded-xl text-sm ${isUrgentMessage ? "border-red-500/60 focus-visible:ring-red-500" : ""}`}
+                  className={`min-w-0 flex-1 h-11 min-h-[44px] rounded-xl text-sm ${isUrgentMessage ? "border-red-500/60 focus-visible:ring-red-500" : ""}`}
                 />
                 <Button
                   type="button"
@@ -1252,7 +1252,7 @@ const GGDInbox: React.FC = () => {
 
   // Inbox list view
   return (
-    <div className="space-y-2.5 sm:space-y-3">
+    <div className="space-y-2.5 sm:space-y-3 min-w-0 max-w-full overflow-x-hidden">
       {/* Compact Header with Tactile 3D View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/70">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -1353,7 +1353,7 @@ const GGDInbox: React.FC = () => {
                           openThread(p.user_id, null);
                         }
                       }}
-                      className="w-full text-left flex items-center gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive cursor-pointer"
+                      className="w-full min-w-0 overflow-hidden text-left flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive cursor-pointer"
                     >
                       <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-950/50 flex items-center justify-center overflow-hidden shrink-0 border border-border">
                         {p.avatar_url ? (
@@ -1433,7 +1433,7 @@ const GGDInbox: React.FC = () => {
                       openThread(t.otherId, t.taskId);
                     }
                   }}
-                  className="w-full flex items-center gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive group cursor-pointer"
+                  className="w-full min-w-0 overflow-hidden flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-2xl inbox-card-3d inbox-card-3d-interactive group cursor-pointer"
                 >
                   {/* Avatar + Compact Unread Counter */}
                   <div className="relative shrink-0">

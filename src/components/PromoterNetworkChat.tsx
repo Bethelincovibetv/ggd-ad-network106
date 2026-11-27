@@ -299,49 +299,49 @@ export const PromoterNetworkChat: React.FC = () => {
   const newMembersCount = promoters.filter(p => !p.is_current_user && isNewMember(p.created_at)).length;
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto min-w-0 overflow-x-hidden">
       {/* TOP VIEW MODE SUB-TABS */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-card border border-border/80 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-2xl bg-card console-card-3d">
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
           <button
             type="button"
             onClick={() => {
               setActiveSubTab('promoter-directory');
               setActivePromoter(null);
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer console-pill-3d ${
               activeSubTab === 'promoter-directory'
-                ? 'bg-purple-600 text-white shadow-xs'
+                ? 'bg-purple-600 text-white'
                 : 'bg-muted/70 text-muted-foreground hover:bg-muted'
             }`}
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-4 w-4 shrink-0" />
             <span>Promoter Directory & Chat</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('full-inbox')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer console-pill-3d ${
               activeSubTab === 'full-inbox'
-                ? 'bg-purple-600 text-white shadow-xs'
+                ? 'bg-purple-600 text-white'
                 : 'bg-muted/70 text-muted-foreground hover:bg-muted'
             }`}
           >
-            <Inbox className="h-4 w-4 text-purple-400" />
+            <Inbox className="h-4 w-4 text-purple-400 shrink-0" />
             <span>Full GGD Inbox</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('call-logs')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer console-pill-3d ${
               activeSubTab === 'call-logs'
-                ? 'bg-purple-600 text-white shadow-xs'
+                ? 'bg-purple-600 text-white'
                 : 'bg-muted/70 text-muted-foreground hover:bg-muted'
             }`}
           >
-            <Phone className="h-4 w-4 text-emerald-400" />
+            <Phone className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>Voice & Video Call History</span>
           </button>
         </div>
@@ -393,15 +393,16 @@ export const PromoterNetworkChat: React.FC = () => {
       {activeSubTab === 'promoter-directory' && (
         <>
           {activePromoter ? (
-            <Card className="border border-purple-500/30 shadow-lg rounded-2xl overflow-hidden bg-card flex flex-col h-[75vh]">
+            <Card className="border border-purple-500/30 console-surface-3d rounded-2xl overflow-hidden bg-card flex flex-col h-[calc(100dvh-11rem)] min-h-[440px] max-h-[780px] w-full min-w-0">
               {/* Chat Header with WebRTC Live Voice & Video Call Buttons */}
-              <div className="p-3.5 bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-900 text-white flex items-center justify-between gap-3 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2.5 sm:p-3.5 bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-900 text-white flex items-center justify-between gap-2 sm:gap-3 shrink-0 min-w-0 console-header-3d">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <Button
                     size="icon"
                     variant="ghost"
+                    aria-label="Back to promoter list"
                     onClick={() => setActivePromoter(null)}
-                    className="h-8 w-8 text-white hover:bg-white/20 rounded-xl cursor-pointer shrink-0"
+                    className="h-9 w-9 sm:h-8 sm:w-8 text-white hover:bg-white/20 rounded-xl cursor-pointer shrink-0 console-pill-3d"
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
@@ -415,17 +416,17 @@ export const PromoterNetworkChat: React.FC = () => {
                     <h3 className="text-sm font-black text-white truncate leading-tight">
                       {activePromoter.display_name}
                     </h3>
-                    <div className="flex items-center gap-1.5 text-[10px] text-purple-200 mt-0.5">
-                      <span className="font-semibold">{activePromoter.state ? `${activePromoter.state} Station` : 'Nationwide Station'}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-purple-200 mt-0.5 truncate">
+                      <span className="font-semibold truncate">{activePromoter.state ? `${activePromoter.state} Station` : 'Nationwide Station'}</span>
                       {isNewMember(activePromoter.created_at) && (
-                        <Badge className="bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0">New Member</Badge>
+                        <Badge className="bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0 shrink-0">New Member</Badge>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* WebRTC Live Audio & Video Call Actions */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <CallButton
                     calleeId={activePromoter.user_id}
                     calleeName={activePromoter.display_name}
@@ -433,7 +434,7 @@ export const PromoterNetworkChat: React.FC = () => {
                     callType="audio"
                     size="sm"
                     variant="secondary"
-                    className="h-8 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                    className="h-9 w-9 sm:h-8 sm:w-auto sm:px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer console-pill-3d"
                   />
 
                   <CallButton
@@ -443,22 +444,23 @@ export const PromoterNetworkChat: React.FC = () => {
                     callType="video"
                     size="sm"
                     variant="secondary"
-                    className="h-8 px-2.5 bg-purple-500/20 text-purple-200 border-purple-500/30 hover:bg-purple-500/30 cursor-pointer"
+                    className="h-9 w-9 sm:h-8 sm:w-auto sm:px-2.5 bg-purple-500/20 text-purple-200 border-purple-500/30 hover:bg-purple-500/30 cursor-pointer console-pill-3d"
                   />
 
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => setActivePromoter(null)}
-                    className="h-8 px-3 text-xs font-bold rounded-xl cursor-pointer shrink-0 bg-white/15 hover:bg-white/25 text-white border border-white/20"
+                    className="h-9 sm:h-8 px-2.5 sm:px-3 text-xs font-bold rounded-xl cursor-pointer shrink-0 bg-white/15 hover:bg-white/25 text-white border border-white/20 console-pill-3d"
                   >
-                    Close
+                    <span className="hidden sm:inline">Close</span>
+                    <X className="h-4 w-4 sm:hidden" />
                   </Button>
                 </div>
               </div>
 
               {/* Messages History List */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3 bg-muted/20 min-w-0">
                 {messages.length === 0 ? (
                   <div className="text-center py-12 space-y-2">
                     <MessageCircle className="h-10 w-10 text-purple-500/40 mx-auto" />
@@ -471,12 +473,12 @@ export const PromoterNetworkChat: React.FC = () => {
                   messages.map(m => {
                     const isMine = m.sender_id === me;
                     return (
-                      <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[82%] sm:max-w-[70%] space-y-1 ${isMine ? 'items-end' : 'items-start'}`}>
-                          <div className={`p-3 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                      <div key={m.id} className={`flex min-w-0 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[88%] sm:max-w-[70%] min-w-0 space-y-1 flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                          <div className={`p-3 rounded-2xl text-xs leading-relaxed min-w-0 max-w-full [overflow-wrap:anywhere] break-words ${
                             isMine
-                              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-xs'
-                              : 'bg-card border border-border text-foreground rounded-bl-xs'
+                              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-xs chat-bubble-3d-user'
+                              : 'bg-card border border-border text-foreground rounded-bl-xs chat-bubble-3d-agent'
                           }`}>
                             {m.kind === 'voice' ? (
                               <VoiceNotePlayer
@@ -508,7 +510,7 @@ export const PromoterNetworkChat: React.FC = () => {
               </div>
 
               {/* Chat Input Bar */}
-              <div className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0">
+              <div className="p-2.5 sm:p-3 pb-safe bg-card border-t border-border flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0 console-header-3d">
 
                 <VoiceNoteRecorder
                   onSendVoice={(audioUrl, duration) => sendMessage('Voice Note', audioUrl, 'voice', { duration })}
@@ -521,14 +523,15 @@ export const PromoterNetworkChat: React.FC = () => {
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                  className="h-10 text-xs rounded-xl bg-background border-border flex-1"
+                  className="h-11 sm:h-10 text-sm sm:text-xs rounded-xl bg-background border-border min-w-0 flex-1"
                 />
 
                 <Button
                   type="button"
+                  aria-label="Send message"
                   disabled={!chatInput.trim() || isSending}
                   onClick={() => sendMessage()}
-                  className="h-10 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer shrink-0"
+                  className="h-11 sm:h-10 px-3.5 sm:px-4 btn-3d-purple text-white font-bold rounded-xl text-xs cursor-pointer shrink-0"
                 >
                   {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
@@ -536,10 +539,10 @@ export const PromoterNetworkChat: React.FC = () => {
             </Card>
           ) : (
             /* PROMOTER DIRECTORY & DISCOVERY VIEW */
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {/* Header Banner */}
-              <Card className="border border-purple-500/30 shadow-md rounded-2xl overflow-hidden bg-card">
-                <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-950 p-5 sm:p-6 text-white space-y-3">
+              <Card className="border border-purple-500/30 console-surface-3d rounded-2xl overflow-hidden bg-card">
+                <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-slate-950 p-4 sm:p-6 text-white space-y-3 console-hero-3d">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
                     <Users className="h-3.5 w-3.5" /> Direct Promoter Network
                   </div>
@@ -550,18 +553,18 @@ export const PromoterNetworkChat: React.FC = () => {
 
                   {/* Network Quick Stats */}
                   <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <div className="bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl text-xs">
+                    <div className="bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl text-xs console-pill-3d">
                       <span className="text-purple-200 text-[10px] block font-semibold">Total Verified Promoters</span>
                       <span className="font-black text-white text-sm">{promoters.length}</span>
                     </div>
-                    <div className="bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl text-xs">
+                    <div className="bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl text-xs console-pill-3d">
                       <span className="text-purple-200 text-[10px] block font-semibold">New Team Joins (30d)</span>
                       <span className="font-black text-amber-300 text-sm">{newMembersCount} New</span>
                     </div>
                   </div>
                 </div>
 
-                <CardContent className="p-4 space-y-4">
+                <CardContent className="p-3 sm:p-4 space-y-4">
                   {/* Search & Filter Controls Bar */}
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <div className="relative flex-1 min-w-0">
@@ -579,9 +582,9 @@ export const PromoterNetworkChat: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setFilterMode('all')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer console-pill-3d ${
                           filterMode === 'all'
-                            ? 'bg-purple-600 text-white shadow-xs'
+                            ? 'bg-purple-600 text-white'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                       >

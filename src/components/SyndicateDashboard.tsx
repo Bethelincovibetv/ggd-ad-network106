@@ -678,18 +678,19 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
       </aside>
 
       {/* MOBILE HEADER (Sticky Top Bar with Hamburger) */}
-      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md console-header-3d">
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary/80 text-foreground cursor-pointer"
+              aria-label="Open syndicate navigation"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/80 text-foreground cursor-pointer console-pill-3d"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
-            <div className="flex items-center gap-2">
-              <Award className="h-4 w-4 text-purple-600" />
-              <span className="text-xs font-black text-foreground truncate max-w-[180px]">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <Award className="h-4 w-4 text-purple-600 shrink-0" />
+              <span className="text-xs font-black text-foreground truncate">
                 {activeNavItem?.label || 'Syndicate Portal'}
               </span>
             </div>
@@ -697,7 +698,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer" 
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer shrink-0" 
             onClick={() => onNavigate ? onNavigate('home') : window.location.assign('/')}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
@@ -759,7 +760,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
         <div className="w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-12 space-y-5">
           
           {/* Top Real-time Navigation & Quick Stats Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card rounded-2xl p-3 console-card-3d min-w-0">
             {/* Search Input */}
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -773,31 +774,31 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             </div>
 
             {/* Quick Stats Strip */}
-            <div className="flex items-center gap-2 bg-muted/60 p-1.5 rounded-xl border border-border/60 shrink-0 self-start sm:self-auto">
-              <div className="px-2.5 py-1 text-center">
-                <span className="text-[10px] text-muted-foreground block font-medium">Campaigns</span>
+            <div className="grid grid-cols-3 sm:flex items-center gap-1 sm:gap-2 bg-muted/60 p-1.5 rounded-xl border border-border/60 w-full sm:w-auto shrink-0 console-pill-3d">
+              <div className="px-2 sm:px-2.5 py-1 text-center min-w-0">
+                <span className="text-[10px] text-muted-foreground block font-medium truncate">Campaigns</span>
                 <span className="text-xs font-black text-foreground">{tasks.length}</span>
               </div>
-              <div className="h-6 w-px bg-border/80" />
-              <div className="px-2.5 py-1 text-center">
-                <span className="text-[10px] text-muted-foreground block font-medium">Submitted</span>
+              <div className="hidden sm:block h-6 w-px bg-border/80" />
+              <div className="px-2 sm:px-2.5 py-1 text-center min-w-0">
+                <span className="text-[10px] text-muted-foreground block font-medium truncate">Submitted</span>
                 <span className="text-xs font-black text-purple-600">{myAssignments.length}</span>
               </div>
-              <div className="h-6 w-px bg-border/80" />
-              <div className="px-2.5 py-1 text-center">
-                <span className="text-[10px] text-muted-foreground block font-medium">Earnings</span>
-                <span className="text-xs font-black text-emerald-600">₦{(wallet?.balance || 0).toLocaleString()}</span>
+              <div className="hidden sm:block h-6 w-px bg-border/80" />
+              <div className="px-2 sm:px-2.5 py-1 text-center min-w-0">
+                <span className="text-[10px] text-muted-foreground block font-medium truncate">Earnings</span>
+                <span className="text-xs font-black text-emerald-600 truncate block">₦{(wallet?.balance || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
 
           {/* Top Active Section Banner */}
-          <div className={`rounded-2xl bg-gradient-to-r ${activeNavItem.gradient} text-white p-4 sm:p-5 shadow-lg flex items-center justify-between gap-3`}>
-            <div className="flex items-center gap-3">
-              <activeNavItem.icon className="h-6 w-6 text-white drop-shadow" />
-              <div>
-                <h1 className="text-base sm:text-xl font-black drop-shadow tracking-tight">{activeNavItem.label}</h1>
-                <p className="text-xs text-white/85">{activeNavItem.sublabel}</p>
+          <div className={`rounded-2xl bg-gradient-to-r ${activeNavItem.gradient} text-white p-4 sm:p-5 console-hero-3d flex items-center justify-between gap-3 min-w-0`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <activeNavItem.icon className="h-6 w-6 text-white drop-shadow shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-black drop-shadow tracking-tight truncate">{activeNavItem.label}</h1>
+                <p className="text-xs text-white/85 truncate">{activeNavItem.sublabel}</p>
               </div>
             </div>
             {profile?.state && (
@@ -815,7 +816,7 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
             {activeSection === 'campaigns' && (
               <div className="space-y-4">
                 {/* Filter Controls */}
-                <div className="flex flex-col gap-3 p-3.5 rounded-2xl border border-border bg-card shadow-2xs">
+                <div className="flex flex-col gap-3 p-3.5 rounded-2xl bg-card console-card-3d">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2.5">
                     <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                       <Briefcase className="h-4 w-4 text-purple-600" />
@@ -825,9 +826,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                       <button
                         type="button"
                         onClick={() => setCampaignStatusFilter('active')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer console-pill-3d ${
                           campaignStatusFilter === 'active'
-                            ? 'bg-purple-600 text-white shadow-xs'
+                            ? 'bg-purple-600 text-white'
                             : 'bg-muted/70 text-muted-foreground hover:bg-muted'
                         }`}
                       >
@@ -836,9 +837,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                       <button
                         type="button"
                         onClick={() => setCampaignStatusFilter('completed')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer console-pill-3d ${
                           campaignStatusFilter === 'completed'
-                            ? 'bg-purple-600 text-white shadow-xs'
+                            ? 'bg-purple-600 text-white'
                             : 'bg-muted/70 text-muted-foreground hover:bg-muted'
                         }`}
                       >
@@ -847,9 +848,9 @@ const SyndicateDashboard: React.FC<SyndicateDashboardProps> = ({ onNavigate }) =
                       <button
                         type="button"
                         onClick={() => setCampaignStatusFilter('all')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer console-pill-3d ${
                           campaignStatusFilter === 'all'
-                            ? 'bg-purple-600 text-white shadow-xs'
+                            ? 'bg-purple-600 text-white'
                             : 'bg-muted/70 text-muted-foreground hover:bg-muted'
                         }`}
                       >

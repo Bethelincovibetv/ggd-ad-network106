@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { VIXORA_AGENT_TOOLS, VixoraAppContext } from '../services/vixoraAgentTools';
 import { generateBannerAdvertCanvas } from '../services/vixoraBannerEngine';
-import { resolveAdminAiApiKey } from '../services/adminKeySync';
 import vixoraAgentAvatar from '@/assets/images/vixora_agent_avatar_1786108775324.jpg';
 import { toast } from 'sonner';
 import { createBannerAdIdempotent } from '@/services/bannerAdService';
@@ -169,7 +167,7 @@ interface VixoraTextChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   appContext: VixoraAppContext;
-  apiKey: string;
+  apiKey?: string;
   themeMode?: 'light' | 'dark';
   isFullTab?: boolean;
   onStartLiveAssistant?: () => void;
@@ -311,27 +309,6 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
     setIsProcessing(true);
 
     try {
-      const isInvalidKey = (k?: string) => {
-        if (!k) return true;
-        const clean = k.trim();
-        return (
-          !clean ||
-          clean === 'undefined' ||
-          clean === 'null' ||
-          clean === 'your_gemini_api_key_here' ||
-          clean.includes('AIzaSyAd6JjVFP5LYmtiSUXLH-HZGIPlHcseohA') ||
-          clean.includes('AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk') ||
-          clean.includes('AIzaSyCBO1PRv5h9aQAB3rWb') ||
-          clean.startsWith('AIzaSy...')
-        );
-      };
-
-      const envApiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
-      let activeKey = !isInvalidKey(apiKey) ? apiKey : !isInvalidKey(envApiKey) ? envApiKey : '';
-      if (!activeKey || isInvalidKey(activeKey)) {
-        activeKey = await resolveAdminAiApiKey();
-      }
-
       const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${appContext.userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
 
 YOUR MANDATE:
@@ -373,6 +350,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
       });
 
       let responseText = '';
+      let missingKeyError: string | null = null;
       let actionBadgeText: string | undefined = undefined;
       let generatedImageUrl: string | undefined = undefined;
       let targetNavTab: string | undefined = undefined;
@@ -387,31 +365,36 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
 
       if (currentController.signal.aborted) return;
 
-      if (activeKey) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: activeKey });
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+      const functionDeclarations = VIXORA_AGENT_TOOLS.map(t => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters
+      }));
+
+      try {
+        const apiResp = await fetch('/api/vixora', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'agent',
+            model: 'gemini-4-hydrogen',
             contents: historyTurns,
-            config: {
-              systemInstruction,
-              tools: [{
-                functionDeclarations: VIXORA_AGENT_TOOLS.map(t => ({
-                  name: t.name,
-                  description: t.description,
-                  parameters: t.parameters
-                }))
-              }]
-            }
-          });
+            systemInstruction,
+            functionDeclarations,
+          }),
+          signal: currentController.signal,
+        });
 
-          if (currentController.signal.aborted) return;
+        if (currentController.signal.aborted) return;
 
-          responseText = response.text || '';
+        const data = await apiResp.json().catch(() => null);
+        if (data?.missingKey || apiResp.status === 503) {
+          missingKeyError = data?.error || 'Vixora AI requires GEMINI_API_KEY to be configured on the server environment.';
+        } else if (apiResp.ok && data?.ok) {
+          responseText = data.text || '';
 
-          // Handle Function Calls
-          if (response.functionCalls && response.functionCalls.length > 0) {
-            for (const fc of response.functionCalls) {
+          if (Array.isArray(data.functionCalls) && data.functionCalls.length > 0) {
+            for (const fc of data.functionCalls) {
               const tool = VIXORA_AGENT_TOOLS.find(t => t.name === fc.name);
               if (tool) {
                 const toolResult = await tool.execute(fc.args, appContext);
@@ -448,12 +431,14 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 }
 
                 try {
-                  const secondPassTurns = [
-                    ...historyTurns,
-                    {
+                  const modelTurn =
+                    data.candidates?.[0]?.content || {
                       role: 'model',
                       parts: [{ functionCall: { name: fc.name, args: fc.args } }]
-                    },
+                    };
+                  const secondPassTurns = [
+                    ...historyTurns,
+                    modelTurn,
                     {
                       role: 'user',
                       parts: [{
@@ -465,50 +450,40 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                     }
                   ];
 
-                  const secondRes = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: secondPassTurns,
-                    config: { systemInstruction }
+                  const secondResp = await fetch('/api/vixora', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'agent',
+                      model: 'gemini-4-hydrogen',
+                      contents: secondPassTurns,
+                      systemInstruction,
+                      functionDeclarations,
+                    }),
+                    signal: currentController.signal,
                   });
 
-                  if (secondRes.text) {
-                    responseText = secondRes.text;
+                  if (secondResp.ok) {
+                    const secondData = await secondResp.json().catch(() => null);
+                    if (secondData?.text) {
+                      responseText = secondData.text;
+                    }
                   }
-                } catch (err) {
+                } catch {
                   if (!responseText) {
                     responseText = `No wahala! I have executed ${fc.name}: ${toolResult.message}`;
                   }
                 }
+
+                if (!responseText) {
+                  responseText = `No wahala! I have executed ${fc.name}: ${toolResult.message}`;
+                }
               }
             }
           }
-        } catch (firstPassErr) {
-          console.warn("First pass chat model call warning:", firstPassErr);
         }
-      }
-
-      // If client-side GenAI didn't produce a response, use server-side AI assistant proxy
-      if (!responseText && !currentController.signal.aborted) {
-        try {
-          const res = await fetch('/api/vixora/ai/assistant', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: historyTurns,
-              prompt: fullPromptText,
-              userFullName: appContext.userFullName || 'Creator'
-            }),
-            signal: currentController.signal
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.ok && data.text) {
-              responseText = data.text;
-            }
-          }
-        } catch (fetchErr) {
-          console.warn("Server AI assistant proxy error:", fetchErr);
-        }
+      } catch (fetchErr) {
+        console.warn("Server /api/vixora agent request warning:", fetchErr);
       }
 
       if (currentController.signal.aborted) return;
@@ -755,6 +730,9 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
           targetNavTab = 'tools';
           actionBadgeText = '⚡ Navigated to Tools Library';
           responseText = "Opening our unified Vixora AI Tools Library!";
+        } else if (missingKeyError) {
+          actionBadgeText = '⚠️ Server Setup Required (GEMINI_API_KEY)';
+          responseText = missingKeyError;
         } else {
           responseText = "No wahala my creator! Tell me what video topic, GGD banner advert, script, or voiceover you would like to generate, or choose from our Quick Plugins below!";
         }
@@ -833,20 +811,20 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
       data-ai-modal-open="true"
       className={
         isFullTab 
-          ? "w-full h-[calc(100vh-120px)] flex flex-col relative animate-fade-in"
-          : "fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-md flex justify-end animate-fade-in"
+          ? "w-full h-[calc(100dvh-110px)] sm:h-[calc(100vh-120px)] min-w-0 flex flex-col relative animate-fade-in overflow-x-hidden"
+          : "fixed inset-0 z-[250] bg-slate-950/75 backdrop-blur-md flex justify-end animate-fade-in overflow-hidden"
       }
       onClick={isFullTab ? undefined : onClose}
     >
       <div 
         className={
           isFullTab
-            ? `w-full h-full flex flex-col rounded-3xl border shadow-xl relative overflow-hidden ${
+            ? `w-full h-full min-w-0 flex flex-col rounded-2xl sm:rounded-3xl console-surface-3d relative overflow-hidden ${
                 themeMode === 'light' 
                   ? 'bg-slate-50 border-slate-200 text-slate-900' 
-                  : 'bg-slate-900/90 border-white/10 text-white'
+                  : 'bg-slate-900/95 border-white/10 text-white'
               }`
-            : `w-full max-w-xl sm:max-w-2xl lg:max-w-3xl h-full flex flex-col shadow-2xl border-l transition-all duration-300 relative ${
+            : `w-full max-w-full sm:max-w-2xl lg:max-w-3xl h-[100dvh] max-h-[100dvh] min-w-0 flex flex-col console-surface-3d sm:border-l transition-all duration-300 relative overflow-hidden ${
                 themeMode === 'light' 
                   ? 'bg-slate-50 border-slate-200 text-slate-900' 
                   : 'bg-slate-900 border-white/10 text-white'
@@ -855,11 +833,11 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         onClick={e => e.stopPropagation()}
       >
         {/* CHAT HEADER */}
-        <div className={`p-4 border-b flex items-center justify-between ${
-          themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950/80 border-white/10'
+        <div className={`px-3 py-2.5 sm:p-4 border-b flex items-center justify-between gap-2 min-w-0 shrink-0 console-header-3d ${
+          themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950/90 border-white/10'
         }`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-ggd-orange p-0.5 shadow-md bg-slate-900 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden border-2 border-ggd-orange p-0.5 shadow-md bg-slate-900 shrink-0 console-pill-3d">
               <img 
                 src={vixoraAgentAvatar} 
                 alt="Vixora AI" 
@@ -867,26 +845,26 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black uppercase tracking-tight">Vixora AI Assistant</h3>
-                <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight truncate">Vixora AI Assistant</h3>
+                <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
                   VIXORA AI
                 </span>
               </div>
-              <p className="text-[9.5px] font-bold uppercase text-ggd-orange tracking-widest flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Active Workspace Command Agent</span>
+              <p className="text-[9px] sm:text-[9.5px] font-bold uppercase text-ggd-orange tracking-wider sm:tracking-widest flex items-center gap-1.5 mt-0.5 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span className="truncate">Active Workspace Command Agent</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {isProcessing && (
               <button 
                 onClick={interruptAi}
                 title="Interrupt / Stop AI Response"
-                className="px-2.5 py-1.5 rounded-xl border border-red-500/40 bg-red-500/20 text-red-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 animate-pulse shadow-md"
+                className="px-2.5 py-1.5 rounded-xl border border-red-500/40 bg-red-500/20 text-red-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 animate-pulse console-pill-3d"
               >
                 <i className="fa-solid fa-hand text-xs"></i>
                 <span className="hidden sm:inline">Stop</span>
@@ -899,7 +877,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 if (!isFullTab) onClose();
               }}
               title="Studio Workspace"
-              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 ${
+              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-1.5 transition-all console-pill-3d ${
                 themeMode === 'light' 
                   ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
                   : 'bg-orange-500/15 border-orange-500/30 text-orange-300 hover:bg-orange-500/25'
@@ -912,7 +890,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             <button 
               onClick={handleClearHistory} 
               title="Clear Chat History"
-              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all active:scale-95 ${
+              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all console-pill-3d ${
                 themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
               }`}
             >
@@ -922,7 +900,8 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             {!isFullTab && (
               <button 
                 onClick={onClose} 
-                className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs transition-all active:scale-95 ${
+                aria-label="Close Vixora chat"
+                className={`w-9 h-9 rounded-xl flex items-center justify-center border text-xs transition-all console-pill-3d ${
                   themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                 }`}
               >
@@ -933,10 +912,10 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         </div>
 
         {/* CHATGPT-STYLE ACTIVE PLUGINS STATUS BAR */}
-        <div className={`px-4 py-2 border-b flex items-center justify-between text-[9px] font-bold ${
+        <div className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b flex items-center justify-between text-[9px] font-bold min-w-0 max-w-full overflow-hidden shrink-0 ${
           themeMode === 'light' ? 'bg-orange-50/70 border-slate-200 text-slate-700' : 'bg-slate-950/80 border-white/5 text-slate-300'
         }`}>
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 w-full">
             <span className="font-black text-ggd-orange uppercase tracking-wider flex items-center gap-1 shrink-0">
               <i className="fa-solid fa-puzzle-piece text-[10px]"></i>
               <span>Active Plugins:</span>
@@ -966,7 +945,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         </div>
 
         {/* QUICK SUGGESTION CHIPS */}
-        <div className={`p-2.5 border-b overflow-x-auto flex items-center gap-2 scrollbar-none ${
+        <div className={`px-2.5 py-2 sm:p-2.5 border-b overflow-x-auto flex items-center gap-2 no-scrollbar min-w-0 max-w-full shrink-0 ${
           themeMode === 'light' ? 'bg-slate-100/80 border-slate-200' : 'bg-slate-950/40 border-white/5'
         }`}>
           {[
@@ -982,9 +961,9 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             <button
               key={idx}
               onClick={() => handleSendMessage(chip.cmd)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all active:scale-95 shrink-0 ${
+              className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all console-pill-3d shrink-0 ${
                 themeMode === 'light'
-                  ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
+                  ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                   : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
               }`}
             >
@@ -994,11 +973,11 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         </div>
 
         {/* MESSAGES FEED */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 text-xs max-w-3xl mx-auto w-full">
+        <div className="flex-1 px-2.5 py-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 text-xs max-w-3xl mx-auto w-full min-w-0">
           {messages.map((msg) => (
             <div 
               key={msg.id} 
-              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}
+              className={`flex flex-col min-w-0 ${msg.sender === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}
             >
               <div className="flex items-center gap-2 mb-1 px-1">
                 {msg.sender === 'vixora' && (
@@ -1016,12 +995,12 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
               </div>
 
               <div 
-                className={`max-w-[88%] p-4 rounded-3xl space-y-2 shadow-md leading-relaxed ${
+                className={`max-w-[90%] sm:max-w-[82%] min-w-0 [overflow-wrap:anywhere] break-words p-3 sm:p-4 rounded-2xl sm:rounded-3xl space-y-2 leading-relaxed ${
                   msg.sender === 'user'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-tr-none font-medium'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-tr-none font-medium chat-bubble-3d-user'
                     : themeMode === 'light'
-                    ? 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
-                    : 'bg-slate-800/90 border border-white/10 text-slate-100 rounded-tl-none'
+                    ? 'bg-white border border-slate-200 text-slate-900 rounded-tl-none chat-bubble-3d-agent'
+                    : 'bg-slate-800/90 border border-white/10 text-slate-100 rounded-tl-none chat-bubble-3d-agent'
                 }`}
               >
                 {/* ATTACHED IMAGE OR FILE DISPLAY IN MESSAGE */}
@@ -1594,7 +1573,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
 
         {/* ACTION SHEET / TOOLS POPOVER MENU */}
         {isAddMenuOpen && (
-          <div className={`absolute bottom-20 left-4 right-4 z-[260] border rounded-3xl p-4 shadow-2xl animate-rise max-h-96 overflow-y-auto space-y-3 ${
+          <div className={`absolute bottom-[4.75rem] left-2.5 right-2.5 sm:left-4 sm:right-4 z-[260] border rounded-3xl p-3.5 sm:p-4 console-surface-3d animate-rise max-h-[60dvh] overflow-y-auto space-y-3 ${
             themeMode === 'light' ? 'bg-white border-slate-200 text-slate-900' : 'bg-slate-900 border-white/15 text-white'
           }`}>
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
@@ -1802,7 +1781,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         />
 
         {/* FIXED BOTTOM INPUT BAR */}
-        <div className={`p-3 sm:p-4 border-t ${
+        <div className={`px-2.5 py-2.5 sm:p-4 pb-safe border-t shrink-0 console-header-3d ${
           themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-950 border-white/10'
         }`}>
           <form 
@@ -1810,14 +1789,15 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center gap-2 max-w-3xl mx-auto"
+            className="flex items-center gap-1.5 sm:gap-2 max-w-3xl mx-auto w-full min-w-0"
           >
             {/* ADD BUTTON (+) FOR ACTION SHEET */}
             <button
               type="button"
               onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
               title="Add Image, File, or Tool"
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center border text-base transition-all shrink-0 active:scale-90 ${
+              aria-label="Add image, file, or tool"
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center border text-base transition-all shrink-0 console-pill-3d ${
                 isAddMenuOpen
                   ? 'bg-ggd-orange border-ggd-orange text-white rotate-45'
                   : themeMode === 'light'
@@ -1840,7 +1820,8 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 }
               }}
               title="Start Live Voice Assistant Call"
-              className="px-3.5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black uppercase text-[10px] tracking-wider flex items-center gap-1.5 shadow-lg active:scale-90 shrink-0 border border-amber-300/40 cursor-pointer"
+              aria-label="Start Live Voice Assistant Call"
+              className="h-11 px-2.5 sm:px-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black uppercase text-[10px] tracking-wider flex items-center gap-1.5 console-pill-3d shrink-0 border border-amber-300/40 cursor-pointer"
             >
               <i className="fa-solid fa-microphone-lines text-xs animate-pulse"></i>
               <span className="hidden sm:inline">Live Call</span>
@@ -1852,7 +1833,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               placeholder={isProcessing ? "Type to interrupt & ask something new..." : "Ask Vixora anything or type a command..."}
-              className={`flex-1 px-4 py-3 rounded-2xl border text-xs font-medium outline-none transition-all ${
+              className={`min-w-0 flex-1 h-11 px-3 sm:px-4 rounded-2xl border text-sm sm:text-xs font-medium outline-none transition-all ${
                 themeMode === 'light'
                   ? 'bg-slate-100 border-slate-300 text-slate-900 focus:bg-white focus:border-ggd-orange'
                   : 'bg-white/5 border-white/10 text-white focus:bg-slate-900 focus:border-ggd-orange'
@@ -1865,7 +1846,8 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 type="button"
                 onClick={interruptAi}
                 title="Interrupt / Stop AI response"
-                className="px-4 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg active:scale-90 animate-pulse shrink-0 cursor-pointer border border-red-400/40"
+                aria-label="Interrupt AI response"
+                className="h-11 px-3.5 sm:px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg active:scale-90 animate-pulse shrink-0 cursor-pointer border border-red-400/40"
               >
                 <i className="fa-solid fa-hand text-sm"></i>
                 <span className="hidden sm:inline text-[10px]">Stop</span>
@@ -1873,14 +1855,15 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             ) : (
               <button 
                 type="submit"
+                aria-label="Send message"
                 disabled={!inputQuery.trim() && !attachedImage && !attachedFile}
-                className="btn-3d btn-3d-orange px-4 py-3.5 rounded-2xl text-xs tracking-wider disabled:opacity-50 shrink-0 shadow-lg cursor-pointer"
+                className="btn-3d btn-3d-orange h-11 w-11 sm:w-auto sm:px-4 rounded-2xl text-xs tracking-wider disabled:opacity-50 shrink-0 cursor-pointer flex items-center justify-center"
               >
                 <i className="fa-solid fa-paper-plane"></i>
               </button>
             )}
           </form>
-          <p className="text-[8.5px] text-slate-500 font-semibold text-center mt-2">
+          <p className="text-[8.5px] text-slate-500 font-semibold text-center mt-1.5 hidden sm:block">
             Vixora controls video production, voices, & scripts using AI function calling.
           </p>
         </div>

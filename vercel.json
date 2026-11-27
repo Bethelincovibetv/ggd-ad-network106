@@ -1,5 +1,13 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/vixora", "destination": "/api/vixora" },
+    { "source": "/api/vixora/(.*)", "destination": "/api/vixora" },
+    { "source": "/api/ai/vixora-agent", "destination": "/api/vixora" },
+    { "source": "/api/ai/generate", "destination": "/api/vixora" },
+    { "source": "/api/ai/coach-strategy", "destination": "/api/vixora" },
+    { "source": "/api/public/v1/ai/(.*)", "destination": "/api/vixora" },
+    { "source": "/api/public/v1/audio/tts", "destination": "/api/vixora" },
+    { "source": "/api/audio/tts", "destination": "/api/vixora" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

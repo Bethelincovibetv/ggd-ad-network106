@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GoogleGenAI, Modality, LiveServerMessage, Type, FunctionDeclaration } from "@google/genai";
 import { generateBannerAdvertCanvas } from './services/vixoraBannerEngine';
 import { UserProfile, Bank, Project } from './types';
 import { VideoSequencer, SourcedVideo } from './components/VideoSequencer';
@@ -17,7 +16,6 @@ import { VixoraNavbar } from './components/VixoraNavbar';
 import { VoiceSelectorDropdown } from './components/VoiceSelectorDropdown';
 import { supabase } from '@/integrations/supabase/client';
 import { VixoraAppContext } from './services/vixoraAgentTools';
-import { resolveAdminAiApiKey, getCachedAdminGeminiKey } from './services/adminKeySync';
 import { PRESET_MUSIC_TRACKS, VOICE_AVATAR_OPTIONS, VIRAL_PROMPT_NICHES } from './constants';
 import { synthesizeFishAudio, FISH_AUDIO_VOICES } from './services/fishAudioService';
 import { playProceduralSFX } from './sfxLibrary';
@@ -1143,97 +1141,51 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
     return false;
   };
 
-  const getEffectiveApiKey = (userApiKey?: string): string => {
-    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
-    if (!isInvalidOrLeakedKey(userApiKey)) {
-      return userApiKey!.trim();
-    }
-    if (!isInvalidOrLeakedKey(envKey)) {
-      return envKey.trim();
-    }
-    const adminCached = getCachedAdminGeminiKey();
-    if (!isInvalidOrLeakedKey(adminCached)) {
-      return adminCached.trim();
-    }
+  const getEffectiveApiKey = (_userApiKey?: string): string => {
     return '';
   };
 
   const generateGeminiContentWithFallback = async (
-    userApiKey: string | undefined,
+    _userApiKey: string | undefined,
     requestParams: {
       model?: string;
       contents: any;
       config?: any;
     }
   ) => {
-    let primaryKey = getEffectiveApiKey(userApiKey);
-    if (!primaryKey) {
-      primaryKey = await resolveAdminAiApiKey();
-    }
-    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || (process as any).env?.API_KEY || '';
-    const targetModel = requestParams.model || "gemini-2.5-flash";
+    const targetModel = requestParams.model || 'gemini-4-hydrogen';
 
-    // Attempt 1: Server proxy with environment credentials (most secure & reliable)
     try {
-      const serverRes = await fetch('/api/ai/generate', {
+      const serverRes = await fetch('/api/vixora', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'generate',
           contents: requestParams.contents,
           systemInstruction: requestParams.config?.systemInstruction,
           temperature: requestParams.config?.temperature,
           model: targetModel,
           responseMimeType: requestParams.config?.responseMimeType,
-          apiKey: primaryKey || undefined
-        })
+        }),
       });
 
-      if (serverRes.ok) {
-        const serverData = await serverRes.json();
-        if (serverData && serverData.ok) {
-          return {
-            text: serverData.text || '',
-            candidates: serverData.candidates || []
-          };
-        }
+      const serverData = await serverRes.json().catch(() => null);
+      if (serverRes.ok && serverData?.ok) {
+        return {
+          text: serverData.text || '',
+          candidates: serverData.candidates || [],
+        };
+      }
+      if (serverData?.missingKey && serverData?.error) {
+        setAppError(serverData.error);
       }
     } catch (serverErr) {
-      console.warn("[Server AI proxy attempt failed, falling back to direct client execution]:", serverErr);
-    }
-
-    // Attempt 2: Primary resolved key on client
-    if (primaryKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: primaryKey });
-        return await ai.models.generateContent({
-          model: targetModel,
-          contents: requestParams.contents,
-          config: requestParams.config
-        });
-      } catch (err1: any) {
-        console.warn(`[Gemini API Attempt with primaryKey failed]:`, err1?.message || err1);
-      }
-    }
-
-    // Attempt 3: Retry without tools parameter if present
-    if (requestParams.config?.tools && (envKey || primaryKey)) {
-      try {
-        const activeKey = envKey || primaryKey;
-        const aiNoTools = new GoogleGenAI({ apiKey: activeKey });
-        const { tools, ...configWithoutTools } = requestParams.config;
-        return await aiNoTools.models.generateContent({
-          model: targetModel,
-          contents: requestParams.contents,
-          config: Object.keys(configWithoutTools).length > 0 ? configWithoutTools : undefined
-        });
-      } catch (err3: any) {
-        console.warn("[Gemini API Attempt without tools failed]:", err3?.message || err3);
-      }
+      console.warn('[Vixora /api/vixora request notice]:', serverErr);
     }
 
     return {
-      text: "",
-      candidates: []
+      text: '',
+      candidates: [],
     };
   };
 
@@ -1350,7 +1302,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
             fullName: 'Remote Creator',
             email: 'guest@remote-embed.vixora',
             phone: '',
-            apiKey: apiKeyParam || process.env.GEMINI_API_KEY || process.env.API_KEY || '',
+            apiKey: apiKeyParam || '',
             niche: 'general'
           };
           setUser(remoteGuestUser);
@@ -1373,8 +1325,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
           return;
         }
 
-        const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-        const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
+        const defaultEnvKey = '';
 
         try {
           // Automatically check logged-in Supabase user from GGD Ad Network
@@ -1469,8 +1420,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
         }
       } catch (e) {
         console.warn("User state restoration fallback:", e);
-        const rawEnvKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-        const defaultEnvKey = isInvalidOrLeakedKey(rawEnvKey) ? '' : rawEnvKey;
+        const defaultEnvKey = '';
         const autoUser: UserProfile = {
           fullName: 'Creator',
           email: 'creator@vixora.studio',
@@ -1650,7 +1600,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
       return;
     }
     const emailLower = wizardData.email.trim().toLowerCase();
-    const defaultKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+    const defaultKey = '';
     const userApiKey = wizardData.apiKey?.trim() || defaultKey;
     const newUser = { 
       fullName: wizardData.fullName.trim(), 
@@ -1703,7 +1653,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
         }
 
         const fullName = sbUser?.user_metadata?.full_name || wizardData.fullName || email.split('@')[0];
-        const defaultKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+        const defaultKey = '';
         const userObj: UserProfile = {
           fullName,
           email: email.toLowerCase(),
@@ -1726,7 +1676,7 @@ Return JSON with format: {"tags": ["#tag1", "#tag2"], "hooks": ["hook 1", "hook 
         }
 
         const fullName = wizardData.fullName.trim() || sbUser?.user_metadata?.full_name || email.split('@')[0];
-        const defaultKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+        const defaultKey = '';
         const userObj: UserProfile = {
           fullName,
           email: email.toLowerCase(),
@@ -2462,23 +2412,16 @@ Formatting Rules:
       return;
     }
 
-    let activeApiKey = getEffectiveApiKey(user?.apiKey);
-    if (!activeApiKey) {
-      activeApiKey = await resolveAdminAiApiKey();
-    }
-
-    if (!activeApiKey) {
-      try {
-        const res = await fetch('/api/vixora/ai/live-key');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok && data.apiKey) {
-            activeApiKey = data.apiKey;
-          }
+    try {
+      const healthRes = await fetch('/api/vixora?action=health');
+      if (healthRes.ok) {
+        const healthData = await healthRes.json();
+        if (healthData?.missingKey && healthData?.setupMessage) {
+          setAppError(healthData.setupMessage);
         }
-      } catch (keyErr) {
-        console.warn('Could not fetch server live key:', keyErr);
       }
+    } catch (keyErr) {
+      console.warn('Could not check /api/vixora health:', keyErr);
     }
 
     try {
@@ -2630,23 +2573,27 @@ Formatting Rules:
           return;
         }
 
-        // 3. Conversational AI fallback via server assistant
+        // 3. Conversational AI fallback via /api/vixora serverless assistant
         try {
-          const res = await fetch('/api/vixora/ai/chat', {
+          const res = await fetch('/api/vixora', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              action: 'assistant',
               prompt: text,
-              history: [],
-              userFullName: user?.fullName || 'Creator'
-            })
+              messages: [],
+              userFullName: user?.fullName || 'Creator',
+            }),
           });
 
-          if (res.ok) {
-            const data = await res.json();
+          const data = await res.json().catch(() => null);
+          if (res.ok && data?.ok) {
             const reply = (data.text || `I hear you crystal clear ${user?.fullName || 'my creator'}! What viral masterpiece are we cooking today?`).replace(/[*_#`]/g, '');
             setLiveTranscription(`🎙️ Vixora: ${reply.slice(0, 150)}`);
             speakVoiceResponse(reply);
+          } else if (data?.missingKey && data?.error) {
+            setLiveTranscription(`⚠️ ${data.error}`);
+            speakVoiceResponse('Please configure GEMINI_API_KEY in your environment settings to enable live AI replies.');
           }
         } catch (chatErr) {
           console.warn('Voice chat response fallback:', chatErr);
@@ -2782,65 +2729,7 @@ Formatting Rules:
       mediaSource.connect(scriptProcessor);
       scriptProcessor.connect(inputCtx.destination);
 
-      // Connect Gemini Live WebSocket if API key is active
-      if (activeApiKey && !isInvalidOrLeakedKey(activeApiKey)) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: activeApiKey });
-          const sessionPromise = ai.live.connect({
-            model: 'gemini-3.8-live',
-            callbacks: {
-              onopen: () => {
-                sessionPromise.then(session => {
-                  session.sendClientContent({
-                    turns: [
-                      {
-                        role: 'user',
-                        parts: [
-                          { text: `[System Event: The live voice call has connected! Greet ${user?.fullName || 'Creator'} with maximum enthusiasm in your signature energetic Nigerian Vixora persona, and ask what video topic or idea they want to create today!]` }
-                        ]
-                      }
-                    ],
-                    turnComplete: true
-                  });
-                }).catch(console.error);
-              },
-              onmessage: async (message: LiveServerMessage) => {
-                if (message.serverContent?.outputTranscription) {
-                  setLiveTranscription(prev => (prev + ' ' + message.serverContent!.outputTranscription!.text).slice(-150));
-                }
-
-                const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                if (base64Audio && outputCtx) {
-                  nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
-                  const buffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
-                  const source = outputCtx.createBufferSource();
-                  source.buffer = buffer;
-                  source.connect(outputCtx.destination);
-                  source.start(nextStartTimeRef.current);
-                  nextStartTimeRef.current += buffer.duration;
-                  audioSourcesRef.current.add(source);
-                  source.onended = () => audioSourcesRef.current.delete(source);
-                }
-              },
-              onclose: () => {},
-              onerror: (e) => {
-                console.warn("Live websocket notice:", e);
-              }
-            },
-            config: {
-              responseModalities: [Modality.AUDIO],
-              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-              systemInstruction: `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${user?.fullName || 'Creator'}). Speak with 100% authentic, high-energy Nigerian enthusiasm. No asterisks (*). Listen intently and help them cook viral videos.`,
-              outputAudioTranscription: {},
-            }
-          });
-
-          liveSessionRef.current = await sessionPromise;
-        } catch (liveErr) {
-          console.warn('Gemini Live websocket optional fallback active:', liveErr);
-        }
-      }
-
+      // Voice conversation uses Web Speech API + /api/vixora serverless endpoint so GEMINI_API_KEY remains server-only.
     } catch (err: any) {
       console.error("Failed to start live assistant:", err);
       setAppError(err?.message || "Microphone access denied or connection failed.");
@@ -2974,7 +2863,7 @@ Formatting Rules:
                     fullName: 'Bethel Inco',
                     email: 'bethelincovibetv@gmail.com',
                     phone: '',
-                    apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || '',
+                    apiKey: '',
                     niche: 'finance'
                   };
                   setUser(demoUser);
@@ -3145,7 +3034,7 @@ Formatting Rules:
   const isVideoCreationView = activeTab === 'videos' || activeTab === 'autopilot';
 
   return (
-    <div className={`w-full max-w-4xl lg:max-w-5xl mx-auto min-h-screen relative flex flex-col px-3 sm:px-6 pt-3 transition-colors duration-300 ${
+    <div className={`w-full max-w-4xl lg:max-w-5xl mx-auto min-h-[100dvh] overflow-x-hidden relative flex flex-col px-2.5 sm:px-6 pt-3 transition-colors duration-300 ${
       isVideoCreationView ? 'pb-8 sm:pb-12' : 'pb-32 sm:pb-36'
     } ${themeMode === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-white'}`}>
       

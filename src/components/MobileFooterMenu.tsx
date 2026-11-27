@@ -119,7 +119,7 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
     >
       <div className={`mx-auto max-w-lg flex items-center justify-around gap-1 px-1.5 py-2
         rounded-[1.75rem] bg-card/95 backdrop-blur-2xl border border-border/80
-        shadow-[0_12px_36px_-6px_rgba(0,0,0,0.38),0_4px_12px_rgba(0,0,0,0.15)] overflow-x-auto no-scrollbar
+        console-dock-3d overflow-x-auto no-scrollbar
         ${isNavVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
         {items.map(item => {
           const active = item.matches ? item.matches.includes(activeTab) : activeTab === item.id;
@@ -130,15 +130,14 @@ const MobileFooterMenu = ({ activeTab, onTabChange, isAdmin, isSyndicate, isVisi
               key={item.id}
               type="button"
               onClick={() => handleClick(item.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-1 rounded-2xl transition-all duration-200 flex-1 min-w-[50px] max-w-[76px] active:scale-95
-                ${active ? 'scale-[1.04]' : 'opacity-80 hover:opacity-100'}`}
+              className={`flex flex-col items-center justify-center gap-1 py-1 rounded-2xl transition-all duration-200 flex-1 min-w-[48px] max-w-[76px] active:translate-y-[1.5px]
+                ${active ? '-translate-y-0.5 scale-[1.04]' : 'opacity-85 hover:opacity-100'}`}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
             >
               {/* 3D Gradient Icon Badge with gloss reflection */}
               <span
-                className={`relative inline-grid place-items-center rounded-2xl h-10 w-10 bg-gradient-to-br ${item.grad}
-                  shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-2px_4px_rgba(0,0,0,0.2)]
+                className={`relative inline-grid place-items-center rounded-2xl h-10 w-10 bg-gradient-to-br ${item.grad} console-pill-3d
                   ${active ? 'ring-2 ring-orange-400 ring-offset-2 ring-offset-card shadow-lg' : ''}`}
               >
                 <span className="absolute inset-x-1 top-0.5 h-2.5 rounded-full bg-white/35 blur-[1px] pointer-events-none" />

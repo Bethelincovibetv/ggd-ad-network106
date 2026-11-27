@@ -1,4 +1,3 @@
-import { Type } from "@google/genai";
 import { generateBannerAdvertCanvas } from "./vixoraBannerEngine";
 import { createBannerAdIdempotent } from "@/services/bannerAdService";
 import { uploadAgentDataUrl } from "@/services/vixoraBusinessAgentService";
@@ -50,13 +49,23 @@ export interface VixoraToolResult {
   data?: any;
 }
 
+type SchemaType = 'STRING' | 'NUMBER' | 'INTEGER' | 'BOOLEAN' | 'ARRAY' | 'OBJECT';
+const Type = {
+  STRING: 'STRING' as SchemaType,
+  NUMBER: 'NUMBER' as SchemaType,
+  INTEGER: 'INTEGER' as SchemaType,
+  BOOLEAN: 'BOOLEAN' as SchemaType,
+  ARRAY: 'ARRAY' as SchemaType,
+  OBJECT: 'OBJECT' as SchemaType,
+} as const;
+
 export interface VixoraToolDefinition {
   name: string;
   description: string;
   parameters: {
-    type: Type;
+    type: SchemaType;
     properties: Record<string, {
-      type: Type;
+      type: SchemaType;
       description: string;
       enum?: string[];
     }>;

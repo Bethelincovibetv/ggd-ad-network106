@@ -2,6 +2,7 @@ import type express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { handleVixoraApiRequest } from '../../lib/vixoraServerHandler';
 import { 
   enqueueVideoJob, 
   getJob, 
@@ -543,7 +544,7 @@ Return JSON in this EXACT schema:
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
           });
           const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-4-hydrogen',
             contents: `Analyze the script text below. Determine the single most dominant mood or theme of this script. Select EXACTLY one of the following words: "motivational", "calm", "upbeat", "dramatic", "tech", "corporate".\n\nScript: "${scriptText.replace(/"/g, '\\"')}"`
           });
           const text = response.text?.trim().toLowerCase() || '';
@@ -633,7 +634,7 @@ Return JSON in this EXACT schema:
             `Please output a JSON list of objects, representing every word in order: [{"text": "word", "start": 0.0, "end": 0.5}].`;
 
           const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-4-hydrogen',
             contents: [
               {
                 inlineData: {
@@ -728,7 +729,7 @@ CORE DIRECTIVES:
             httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
           });
           const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-4-hydrogen',
             contents: `User Niche: ${niche}\nUser Goal: ${goal}\nUser Message: ${message || 'Guide my content strategy'}`,
             config: { systemInstruction, temperature: 0.7 }
           });
@@ -757,75 +758,23 @@ CORE DIRECTIVES:
   // VIXORA SERVER-SIDE AI ASSISTANT (NO USER API KEY REQUIRED)
   // ==========================================================================
   const handleAssistantChat = async (req: express.Request, res: express.Response) => {
-    try {
-      const { messages = [], prompt = '', userFullName = 'Creator', apiKey } = req.body || {};
-      const isInvalidKey = (k?: string) => {
-        if (!k) return true;
-        const clean = k.trim();
-        return !clean || clean === 'undefined' || clean === 'null' || clean === 'your_gemini_api_key_here' || clean.startsWith('AIzaSy...');
-      };
-      const effectiveKey = (!isInvalidKey(apiKey) ? apiKey : '') || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
-
-      const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
-You have full direct platform authority. All video generation, AI scripting, and audio synthesis are handled automatically by the platform backend. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.`;
-
-      let responseText = '';
-      if (effectiveKey) {
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: effectiveKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          const historyTurns = (Array.isArray(messages) ? messages : []).slice(-8);
-          const contents = [
-            ...historyTurns,
-            { role: 'user', parts: [{ text: prompt || 'Hello Vixora!' }] }
-          ];
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents,
-            config: { systemInstruction }
-          });
-          responseText = response.text || '';
-        } catch (e: any) {
-          console.warn('Backend Assistant Gemini error:', e?.message);
-        }
-      }
-
-      if (!responseText) {
-        const lower = (prompt || '').toLowerCase();
-        if (lower.includes('video') || lower.includes('cook') || lower.includes('generate')) {
-          responseText = `Oya! Let's cook this viral video! Head straight over to the Autopilot or Studio tab, select your topic, and I'll generate the full script, stock visuals, and voiceover in seconds. No wahala at all!`;
-        } else if (lower.includes('banner') || lower.includes('advert') || lower.includes('300x250') || lower.includes('728x90') || lower.includes('ad network')) {
-          responseText = `Super sharp! I can generate high-converting 300x250, 728x90, and 1080x1080 banner adverts tailored for GGD Ad Network! Your custom graphic banner with headline and CTA button has been prepared for instant download!`;
-        } else if (lower.includes('channel') || lower.includes('youtube') || lower.includes('tiktok')) {
-          responseText = `Super sharp! Your channel preferences are synchronized directly with your GGD profile. Tap the Channel button in the top bar to adjust your target platforms, niche, and viral CTA!`;
-        } else if (lower.includes('voice') || lower.includes('audio')) {
-          responseText = `I hear you crystal clear! Kore is our signature flagship voice, but we also have Aoede for storytelling and Puck for high-energy hype. You can preview them in the Voiceover tab anytime!`;
-        } else {
-          responseText = `Hello ${userFullName}! Vixora is live and ready to elevate your creative game! What viral video, script, or campaign are we cooking today?`;
-        }
-      }
-
-      if (responseText) {
-        // Ensure no stray asterisks or raw markdown symbols
-        responseText = responseText.replace(/\*\*/g, '').replace(/\*/g, '').trim();
-      }
-
-      return res.json({ ok: true, text: responseText });
-    } catch (err: any) {
-      return res.json({
-        ok: true,
-        text: "I am right here with you! Tell me your video topic, banner ad, or campaign idea, and we'll cook a high-impact masterpiece together!"
-      });
+    const result = await handleVixoraApiRequest({
+      method: 'POST',
+      url: '/api/vixora/ai/assistant',
+      body: { ...(req.body || {}), action: req.body?.functionDeclarations?.length ? 'agent' : 'assistant' },
+      env: process.env,
+    });
+    if (result.body?.text) {
+      result.body.text = String(result.body.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
     }
+    return res.status(result.status).json(result.body);
   };
 
   app.post(['/api/vixora/ai/chat', '/api/vixora/ai/assistant', '/api/public/v1/ai/assistant'], handleAssistantChat);
 
-  app.get(['/api/vixora/ai/live-key', '/api/public/v1/ai/live-key'], (req, res) => {
-    const effectiveKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY || '';
-    return res.json({ ok: true, apiKey: effectiveKey });
+  app.get(['/api/vixora/ai/live-key', '/api/public/v1/ai/live-key'], (_req, res) => {
+    const configured = Boolean(process.env.GEMINI_API_KEY || process.env.API_KEY);
+    return res.json({ ok: true, configured, serverManaged: true });
   });
 
   // ==========================================================================
@@ -908,7 +857,7 @@ You have full direct platform authority. All video generation, AI scripting, and
           const prompt = `Create a 4-week Viral Content Roadmap for the niche "${niche}" with goal "${goal}".
 Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignment, roadmapItems (array of objects with week, topic, hook, platform, monetizationAngle).`;
           const resAI = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-4-hydrogen',
             contents: prompt,
             config: { responseMimeType: 'application/json' }
           });

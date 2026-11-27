@@ -118,7 +118,7 @@ const AdminChatWidget = () => {
       );
     } catch {}
 
-    if (!isDismissed) {
+    if (!isDismissed && typeof window !== 'undefined' && window.innerWidth >= 640) {
       const timer = setTimeout(() => {
         setShowRecommendation(true);
       }, 7000);
@@ -292,7 +292,7 @@ const AdminChatWidget = () => {
       {/* 2. Contextual Recommendation Notification anchored safely near bubble */}
       {showRecommendation && !isOpen && !isDragging && (
         <div
-          className="fixed z-40 animate-in fade-in slide-in-from-bottom-3 duration-300"
+          className="hidden sm:block fixed z-40 animate-in fade-in slide-in-from-bottom-3 duration-300"
           style={{
             left: `${recLeft}px`,
             top: `${recTop}px`,

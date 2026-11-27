@@ -427,19 +427,23 @@ YOUR MANDATE:
           ? [...ADMIN_AGENT_TOOL_DEFINITIONS, ...BUSINESS_AGENT_TOOL_DEFINITIONS]
           : BUSINESS_AGENT_TOOL_DEFINITIONS;
 
-        const aiResp = await fetch('/api/ai/vixora-agent', {
+        let missingKeyError: string | null = null;
+        const aiResp = await fetch('/api/vixora', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'gemini-2.5-flash',
+            action: 'agent',
+            model: 'gemini-4-hydrogen',
             contents,
             systemInstruction,
             functionDeclarations: activeToolDefs,
           }),
         });
 
-        if (aiResp.ok) {
-          const res = await aiResp.json();
+        const res = await aiResp.json().catch(() => null);
+        if (res?.missingKey || aiResp.status === 503) {
+          missingKeyError = res?.error || 'Vixora AI requires GEMINI_API_KEY to be configured on the server environment.';
+        } else if (aiResp.ok && res) {
           if (res.ok && Array.isArray(res.functionCalls) && res.functionCalls.length > 0) {
             for (const fc of res.functionCalls) {
               const execRes: AdminToolExecutionResult =
@@ -455,11 +459,12 @@ YOUR MANDATE:
                     role: 'model',
                     parts: [{ functionCall: { name: fc.name, args: fc.args } }],
                   };
-                const secondResp = await fetch('/api/ai/vixora-agent', {
+                const secondResp = await fetch('/api/vixora', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    model: 'gemini-2.5-flash',
+                    action: 'agent',
+                    model: 'gemini-4-hydrogen',
                     systemInstruction,
                     functionDeclarations: activeToolDefs,
                     contents: [
@@ -478,7 +483,7 @@ YOUR MANDATE:
                   }),
                 });
                 if (secondResp.ok) {
-                  const secondPass = await secondResp.json();
+                  const secondPass = await secondResp.json().catch(() => null);
                   if (secondPass?.text) {
                     responseText = String(secondPass.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
                   }
@@ -492,6 +497,12 @@ YOUR MANDATE:
           } else if (res.ok && res.text) {
             responseText = String(res.text).replace(/\*\*/g, '').replace(/\*/g, '').trim();
           }
+        }
+        if (!toolExecuted && missingKeyError && !actionBadge) {
+          actionBadge = 'Setup Required (GEMINI_API_KEY)';
+        }
+        if (!responseText && missingKeyError && !toolExecuted) {
+          responseText = missingKeyError;
         }
       } catch (aiErr) {
         console.warn("Server AI proxy notice, running deterministic intent parser:", aiErr);
@@ -509,9 +520,7 @@ YOUR MANDATE:
         if (nlpRes) {
           toolExecuted = true;
           applyExecResult(nlpRes);
-          if (!responseText) {
-            responseText = nlpRes.message;
-          }
+          responseText = nlpRes.message;
         }
       }
 
@@ -670,33 +679,33 @@ YOUR MANDATE:
     <Dialog open={isOpen} onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent 
         data-ai-modal-open="true"
-        className="w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl h-[100dvh] sm:h-[96vh] sm:max-h-[1080px] p-0 gap-0 overflow-hidden bg-background border-0 sm:border sm:border-border/90 shadow-2xl flex flex-col rounded-none sm:rounded-3xl z-[120]"
+        className="w-full max-w-full sm:max-w-[96vw] md:max-w-6xl lg:max-w-7xl h-[100dvh] sm:h-[94dvh] max-h-[100dvh] sm:max-h-[1080px] min-w-0 p-0 gap-0 overflow-hidden bg-background border-0 sm:border sm:border-border/90 console-surface-3d flex flex-col rounded-none sm:rounded-3xl z-[120]"
       >
         {/* Header */}
-        <DialogHeader className={`p-3 sm:px-5 text-white border-b border-white/10 shrink-0 flex flex-row items-center justify-between gap-2 flex-wrap ${
+        <DialogHeader className={`p-3 sm:px-5 text-white border-b border-white/10 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 min-w-0 console-header-3d ${
           copilotMode === 'admin' && isVerifiedAdmin
             ? 'bg-gradient-to-r from-slate-950 via-orange-950 to-amber-950'
             : 'bg-gradient-to-r from-violet-950 via-purple-900 to-slate-950'
         }`}>
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-8 sm:pr-0">
+            <div className="relative shrink-0">
               <img
                 src={vixoraAgentAvatar}
                 alt="Vixora AI"
-                className="h-10 w-10 rounded-2xl object-cover ring-2 ring-violet-400/50 shadow-md"
+                className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl object-cover ring-2 ring-violet-400/50 shadow-md"
               />
               <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <DialogTitle className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                <DialogTitle className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1.5 truncate">
                   {copilotMode === 'admin' && isVerifiedAdmin ? 'Vixora Admin Copilot' : 'Vixora Business Copilot'}
-                  <Sparkles className="h-4 w-4 text-amber-300" />
+                  <Sparkles className="h-4 w-4 text-amber-300 shrink-0" />
                 </DialogTitle>
                 <Badge className={
                   copilotMode === 'admin' && isVerifiedAdmin
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold py-0'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold py-0'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold py-0 shrink-0'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold py-0 shrink-0'
                 }>
                   {copilotMode === 'admin' && isVerifiedAdmin ? 'Full Admin Authority' : 'Online Copilot'}
                 </Badge>
@@ -704,13 +713,13 @@ YOUR MANDATE:
                   <button
                     type="button"
                     onClick={() => switchCopilotMode(copilotMode === 'admin' ? 'business' : 'admin')}
-                    className="px-2 py-0.5 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] font-bold text-white border border-white/20 transition cursor-pointer"
+                    className="px-2 py-0.5 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] font-bold text-white border border-white/20 transition cursor-pointer console-pill-3d shrink-0"
                   >
                     {copilotMode === 'admin' ? 'Switch to Storefront Mode' : 'Switch to Admin Copilot'}
                   </button>
                 )}
               </div>
-              <p className="text-[11px] text-violet-200/80">
+              <p className="text-[10.5px] sm:text-[11px] text-violet-200/80 truncate text-left mt-0.5">
                 {copilotMode === 'admin' && isVerifiedAdmin
                   ? 'Verify Businesses • Confirm Tasks & Syndicate Apps • Publish & Moderate Banner Ads'
                   : 'Autonomous Store & Product Manager • Banner Ads • Sales Closer'}
@@ -719,28 +728,28 @@ YOUR MANDATE:
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center bg-white/10 p-1 rounded-xl text-xs font-bold border border-white/10">
+          <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto min-w-0 shrink-0">
+            <div className="flex items-center bg-white/10 p-1 rounded-xl text-[11px] sm:text-xs font-bold border border-white/10 overflow-x-auto no-scrollbar max-w-full console-pill-3d">
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${activeTab === 'chat' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 transition-all ${activeTab === 'chat' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
               >
                 Chat
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('memory')}
-                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${activeTab === 'memory' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 transition-all flex items-center gap-1 ${activeTab === 'memory' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
               >
-                <Brain className="h-3 w-3" /> Voice & Memory
+                <Brain className="h-3 w-3 shrink-0" /> Voice & Memory
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('account')}
-                className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${activeTab === 'account' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 transition-all flex items-center gap-1 ${activeTab === 'account' ? 'bg-white text-slate-900 shadow-sm' : 'text-white/80 hover:text-white'}`}
               >
-                <Store className="h-3 w-3" /> Store Hub
+                <Store className="h-3 w-3 shrink-0" /> Store Hub
               </button>
             </div>
 
@@ -748,7 +757,7 @@ YOUR MANDATE:
               size="sm"
               variant="ghost"
               onClick={clearChat}
-              className="h-8 text-xs text-white/70 hover:text-white hover:bg-white/10 rounded-xl px-2"
+              className="h-8 text-xs text-white/70 hover:text-white hover:bg-white/10 rounded-xl px-2 shrink-0"
               title="Reset conversation"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -760,7 +769,7 @@ YOUR MANDATE:
         {activeTab === 'chat' && (
           <>
             {/* Quick Autonomous Routines / Action Chips */}
-            <div className="bg-muted/40 border-b border-border px-3 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            <div className="bg-muted/40 border-b border-border px-2.5 sm:px-3 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 min-w-0 max-w-full">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1">
                 <Zap className="h-3 w-3 text-amber-500" /> Actions:
               </span>
@@ -865,34 +874,34 @@ YOUR MANDATE:
             </div>
 
             {/* Messages Stream */}
-            <ScrollArea className="flex-1 p-3 sm:p-4">
-              <div className="space-y-3.5 max-w-4xl mx-auto w-full">
+            <ScrollArea className="flex-1 min-w-0 px-2.5 py-3 sm:p-4 overflow-x-hidden">
+              <div className="space-y-3.5 max-w-4xl mx-auto w-full min-w-0">
                 {messages.map(msg => {
                   const isUser = msg.sender === 'user';
                   return (
                     <div
                       key={msg.id}
-                      className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
+                      className={`flex gap-2 sm:gap-2.5 min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}
                     >
                       {!isUser && (
                         <img
                           src={vixoraAgentAvatar}
                           alt="Vixora"
-                          className="h-8 w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/30 shadow-xs"
+                          className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl object-cover shrink-0 ring-2 ring-violet-500/30 shadow-xs"
                         />
                       )}
 
-                      <div className={`space-y-1.5 max-w-[92%] sm:max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
+                      <div className={`space-y-1.5 max-w-[90%] sm:max-w-[85%] min-w-0 flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                         {msg.actionBadge && (
-                          <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
-                            <Sparkles className="h-3 w-3 text-amber-500" />
-                            {msg.actionBadge}
+                          <div className="inline-flex items-center gap-1.5 bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold max-w-full break-words">
+                            <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span className="truncate">{msg.actionBadge}</span>
                           </div>
                         )}
 
                         {/* Image Preview in Message Bubble */}
                         {msg.imageUrl && (
-                          <div className="rounded-2xl overflow-hidden border border-border shadow-xs max-w-sm">
+                          <div className="rounded-2xl overflow-hidden border border-border shadow-xs max-w-full sm:max-w-sm">
                             <img
                               src={msg.imageUrl}
                               alt="Attached visual"
@@ -902,10 +911,10 @@ YOUR MANDATE:
                         )}
 
                         <div
-                          className={`p-3.5 sm:p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed tracking-normal shadow-xs ${
+                          className={`p-3 sm:p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed tracking-normal min-w-0 max-w-full [overflow-wrap:anywhere] break-words ${
                             isUser
-                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs font-semibold whitespace-pre-wrap'
-                              : 'bg-card border-2 border-border/80 text-foreground dark:text-slate-100 rounded-tl-xs font-bold'
+                              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-xs font-semibold whitespace-pre-wrap chat-bubble-3d-user'
+                              : 'bg-card border border-border/80 text-foreground dark:text-slate-100 rounded-tl-xs font-bold chat-bubble-3d-agent'
                           }`}
                         >
                           {msg.isThinking ? (
@@ -1458,7 +1467,7 @@ YOUR MANDATE:
                   e.preventDefault();
                   handleSendMessage();
                 }}
-                className="flex items-center gap-2 max-w-4xl mx-auto w-full"
+                className="flex items-center gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full min-w-0 pb-safe"
               >
                 {/* Hidden File Input */}
                 <input
@@ -1473,8 +1482,9 @@ YOUR MANDATE:
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  className="h-11 w-11 rounded-2xl shrink-0 p-0 hover:bg-violet-500/10 hover:border-violet-500/40 text-violet-600 dark:text-violet-400"
+                  className="h-11 w-11 rounded-2xl shrink-0 p-0 hover:bg-violet-500/10 hover:border-violet-500/40 text-violet-600 dark:text-violet-400 console-pill-3d"
                   title="Upload product or banner photo"
+                  aria-label="Upload product or banner photo"
                 >
                   <ImageIcon className="h-5 w-5" />
                 </Button>
@@ -1482,15 +1492,16 @@ YOUR MANDATE:
                 <Input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder={attachedImage ? "Describe this item or tell Vixora the price..." : "Ask Vixora to add products, post to community, plan strategy, close orders..."}
+                  placeholder={attachedImage ? "Describe this item or tell Vixora the price..." : "Ask Vixora to add products, post to community, plan strategy..."}
                   disabled={loading}
-                  className="h-11 rounded-2xl bg-secondary/40 border-border text-xs sm:text-sm font-medium focus-visible:ring-violet-500"
+                  className="min-w-0 flex-1 h-11 rounded-2xl bg-secondary/40 border-border text-sm sm:text-sm font-medium focus-visible:ring-violet-500"
                 />
 
                 <Button
                   type="submit"
+                  aria-label="Send command to Vixora"
                   disabled={(!input.trim() && !attachedImage) || loading}
-                  className="h-11 w-11 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-md shrink-0 cursor-pointer"
+                  className="h-11 w-11 rounded-2xl btn-3d-purple text-white shrink-0 cursor-pointer p-0 flex items-center justify-center"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1499,7 +1510,7 @@ YOUR MANDATE:
                   )}
                 </Button>
               </form>
-              <p className="text-[10px] text-center text-muted-foreground mt-2">
+              <p className="text-[10px] text-center text-muted-foreground mt-1.5 hidden sm:block">
                 Vixora AI modifies your storefront catalog, community posts & ads in real time
               </p>
             </div>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { ContentRoadmap, RoadmapItem, VideoTemplate } from '../types';
 import { 
   syncFirebaseSaveRoadmap, 

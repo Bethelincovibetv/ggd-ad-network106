@@ -961,7 +961,7 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-gray-50 to-orange-50">
+      <div className="min-h-screen flex w-full max-w-full overflow-x-hidden bg-gradient-to-br from-gray-50 to-orange-50 dark:from-slate-950 dark:to-slate-900">
         <SideNavMenu
           activeTab={activeTab}
           onTabChange={handleTabChange}
@@ -975,15 +975,15 @@ const Dashboard = ({ onLogout, userEmail, initialTab }: DashboardProps) => {
         <div className="flex-1 flex flex-col min-w-0">
           <header
             onFocusCapture={showNav}
-            className={`bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
-              isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+            className={`bg-white/95 dark:bg-card/95 backdrop-blur-md border-b border-border sticky top-0 z-40 console-header-3d transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+              isNavVisible ? 'translate-y-0' : '-translate-y-full shadow-none pointer-events-none'
             }`}
           >
-            <div className="px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 max-w-7xl mx-auto w-full">
+            <div className="px-2.5 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 max-w-7xl mx-auto w-full min-w-0">
               <div className="flex items-center justify-between gap-2 min-w-0">
                 {/* Left Brand & Sidebar Trigger Zone */}
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink">
-                  <SidebarTrigger className="flex-shrink-0 h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-red-700 [&_svg]:h-5 sm:[&_svg]:h-6 [&_svg]:w-5 sm:[&_svg]:w-6 [&_svg]:text-white transition-all active:scale-95" />
+                  <SidebarTrigger className="flex-shrink-0 h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white console-pill-3d hover:from-orange-600 hover:to-red-700 [&_svg]:h-5 sm:[&_svg]:h-6 [&_svg]:w-5 sm:[&_svg]:w-6 [&_svg]:text-white transition-all" />
                   <img loading="lazy" src={ggdLogo} alt="GGD" className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex-shrink-0 md:hidden" />
                   <h1 className="text-xs sm:text-base md:text-lg font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent truncate hidden min-[360px]:inline">
                     GGD AD NETWORK

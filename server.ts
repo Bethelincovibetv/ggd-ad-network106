@@ -24,6 +24,7 @@ import nodemailer from 'nodemailer';
 import { registerVixoraRoutes } from './src/vixora/server/vixoraRoutes';
 import { registerAirtimeRoutes } from './src/server/airtimeRoutes';
 import { registerWebPushRoutes, sendWebPushNotification } from './src/server/webPushRoutes';
+import { handleVixoraApiRequest } from './src/lib/vixoraServerHandler';
 
 const resolvedDirname =
   typeof __dirname !== 'undefined'
@@ -470,82 +471,82 @@ app.post('/api/ai/generate', async (req, res) => {
   }
 });
 
-// Server-side Gemini Function-Calling Proxy for Vixora Business & Admin Copilot
-app.post('/api/ai/vixora-agent', async (req, res) => {
+// Unified Serverless-Parity Vixora Gemini Gateway (Preview + Vercel Parity)
+app.all('/api/vixora', async (req, res) => {
   try {
-    const {
-      contents,
-      systemInstruction,
-      functionDeclarations,
-      temperature = 0.4,
-      model = 'gemini-2.5-flash',
-    } = req.body || {};
-
-    if (!contents) {
-      return res.status(400).json({ ok: false, error: 'Missing contents payload.' });
-    }
-
-    const candidateKeys = await getCandidateGeminiKeys();
-    const config: any = {};
-    if (systemInstruction) config.systemInstruction = systemInstruction;
-    if (typeof temperature === 'number') config.temperature = temperature;
-    if (Array.isArray(functionDeclarations) && functionDeclarations.length > 0) {
-      config.tools = [{ functionDeclarations }];
-    }
-
-    for (const key of candidateKeys) {
-      try {
-        const client = new GoogleGenAI({
-          apiKey: key,
-          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-        });
-        const response = await client.models.generateContent({
-          model: model || 'gemini-2.5-flash',
-          contents,
-          config: Object.keys(config).length > 0 ? config : undefined,
-        });
-
-        const functionCalls = (response.functionCalls || []).map((fc: any) => ({
-          name: fc.name,
-          args: fc.args || {},
-        }));
-
-        if (functionCalls.length > 0 || response.text) {
-          return res.json({
-            ok: true,
-            text: response.text || '',
-            functionCalls,
-            candidates: response.candidates || [],
-          });
-        }
-      } catch (keyErr: any) {
-        console.warn('[vixora-agent key attempt failed]:', keyErr?.message || keyErr);
+    const candidateKeys = await getCandidateGeminiKeys(req.body?.apiKey);
+    const toggles = await refreshServerFeatureToggles();
+    const disabledList: string[] = [];
+    const featureNamePairs = [
+      ['banner_ads', 'Banner Ads'],
+      ['credit_tasks', 'Credit Tasks / Community GGG Credits'],
+      ['watch_and_earn', 'Watch & Earn'],
+      ['youtube_boost', 'YouTube Boost'],
+      ['business_directory', 'Business Directory'],
+      ['storefronts', 'Storefronts'],
+      ['blogmate_ai', 'BlogMate AI'],
+      ['vixora_ai_studio', 'Vixora AI Studio'],
+      ['ebook_generator', 'Ebook Generator'],
+      ['sales_funnel', 'Sales Funnel Generator'],
+      ['community_feed', 'Community Feed'],
+      ['digital_products_store', 'Digital Products Store'],
+      ['marketing_apps_marketplace', 'Marketing Apps Marketplace'],
+      ['cpa_marketing', 'CPA Marketing'],
+      ['premium_vip_upgrade', 'VIP / Premium Upgrade'],
+    ];
+    for (const [key, name] of featureNamePairs) {
+      if (!isServerFeatureEnabled(key, toggles)) {
+        disabledList.push(name);
       }
     }
 
-    return res.json({
-      ok: false,
-      fallback: true,
-      text: '',
-      functionCalls: [],
+    const result = await handleVixoraApiRequest({
+      method: req.method,
+      url: req.originalUrl || req.url,
+      body: req.body,
+      env: process.env,
+      fallbackKeys: candidateKeys,
+      disabledFeatures: disabledList,
     });
+    return res.status(result.status).json(result.body);
+  } catch (err: any) {
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || 'Unexpected Vixora server error.',
+    });
+  }
+});
+
+// Server-side Gemini Function-Calling Proxy for Vixora Business & Admin Copilot
+app.post('/api/ai/vixora-agent', async (req, res) => {
+  try {
+    const candidateKeys = await getCandidateGeminiKeys();
+    const result = await handleVixoraApiRequest({
+      method: 'POST',
+      url: '/api/ai/vixora-agent',
+      body: { ...(req.body || {}), action: 'agent' },
+      env: process.env,
+      fallbackKeys: candidateKeys,
+    });
+    return res.status(result.status).json(result.body);
   } catch (err: any) {
     console.warn('[vixora-agent error]:', err?.message || err);
-    return res.json({
+    return res.status(500).json({
       ok: false,
-      fallback: true,
+      error: err?.message || 'Vixora agent proxy failed.',
       text: '',
       functionCalls: [],
     });
   }
 });
 
-// Ephemeral live key resolution for Web Audio live agent
-app.get('/api/vixora/ai/live-key', async (req, res) => {
+// Non-secret server key status check for Vixora Live Session
+app.get('/api/vixora/ai/live-key', async (_req, res) => {
   const key = await getGeminiApiKey();
   return res.json({
     ok: true,
-    apiKey: key || '',
+    configured: Boolean(key),
+    serverManaged: true,
   });
 });
 

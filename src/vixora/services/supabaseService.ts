@@ -1,11 +1,13 @@
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { Project, CreatedVideo } from '../types';
 
-// Supabase and Lovable Cloud Configuration
-// Credentials supplied by environment variables or default fallbacks
-export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://yyejcbbcqirsigphzxxo.supabase.co';
-export const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ';
-export const LOVABLE_API_BASE_URL = (import.meta as any).env?.VITE_LOVABLE_API_BASE_URL || 'https://project--0ac951e1-eb85-437f-bffe-bc341e2037d2.lovable.app/api/public/v1';
+// Supabase and Same-Origin API Configuration
+export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://sdgxpquruczhkpyhjaxn.supabase.co';
+export const SUPABASE_ANON_KEY =
+  (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkZ3hwcXVydWN6aGtweWhqYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDA5MTIsImV4cCI6MjA5NDMxNjkxMn0.HwJv2cazvcLAbN1YkiwrMZ07HA5Kt0jq-OSUHQ3BB20';
+export const LOVABLE_API_BASE_URL = (import.meta as any).env?.VITE_LOVABLE_API_BASE_URL || '/api/public/v1';
 
 // Initialize Supabase Client with Safe Anon Key & Token Storage
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

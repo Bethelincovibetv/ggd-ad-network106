@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
 import { PRESET_MUSIC_TRACKS } from '../constants';
 import { PRESET_SFX_CATALOG, playProceduralSFX } from '../sfxLibrary';
 import { SFXPlacement, VideoTemplate } from '../types';
@@ -245,7 +244,7 @@ export const VideoSequencer: React.FC<VideoSequencerProps> = ({
     try {
       const orientationParam = aspectRatio === 'vertical' ? 'portrait' : aspectRatio === 'horizontal' ? 'landscape' : 'square';
       const usedIds = new Set(segments.map(s => s.videoId));
-      const activeKey = (window as any).PEXELS_API_KEY || process.env.API_KEY || '';
+      const activeKey = (window as any).PEXELS_API_KEY || '';
 
       const { clip } = await scoreAndFetchBeatVisual(
         targetSeg.text,

@@ -109,7 +109,10 @@ const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
-    return safeGet(MINIMIZED_KEY) === 'true';
+    const saved = safeGet(MINIMIZED_KEY);
+    if (saved === 'true') return true;
+    if (saved === 'false') return false;
+    return typeof window !== 'undefined' && window.innerWidth < 640;
   });
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [isInstalledState, setIsInstalledState] = useState<boolean>(() => isAppInstalled());
@@ -198,6 +201,9 @@ const InstallPrompt = () => {
       hasTriggeredRef.current = true;
       timerRef.current = setTimeout(() => {
         if (checkPromptNeeded()) {
+          if (typeof window !== 'undefined' && window.innerWidth < 640 && safeGet(MINIMIZED_KEY) !== 'false') {
+            setIsMinimized(true);
+          }
           setShowPrompt(true);
         }
       }, 5000);
@@ -331,7 +337,7 @@ const InstallPrompt = () => {
       {isMinimized ? (
         <aside
           aria-label="Minimized install prompt"
-          className="fixed bottom-20 sm:bottom-6 right-3 z-40 animate-in fade-in zoom-in-95 duration-200"
+          className="fixed bottom-4 left-3 sm:left-auto sm:bottom-6 sm:right-3 z-40 animate-in fade-in zoom-in-95 duration-200"
         >
           <div className="flex items-center gap-1.5 bg-neutral-950/95 border border-orange-500/60 rounded-full py-1.5 pl-2.5 pr-1.5 shadow-xl backdrop-blur-md text-white text-xs font-bold hover:border-orange-400 transition-all">
             <button

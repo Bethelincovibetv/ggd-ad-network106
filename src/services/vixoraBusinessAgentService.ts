@@ -1,6 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveAdminAiApiKey } from "@/vixora/services/adminKeySync";
 import { safeStorage } from "@/utils/safeStorage";
 import { generateBannerIdempotencyKey } from "@/lib/bannerAds";
 import { createBannerAdIdempotent } from "@/services/bannerAdService";
@@ -999,8 +997,17 @@ _Please reply with your payment receipt and delivery address to initiate immedia
 }
 
 /**
- * Tools definition for Gemini Function Calling
+ * Tools definition for Gemini Function Calling (server-proxied via /api/vixora)
  */
+const Type = {
+  STRING: 'STRING',
+  NUMBER: 'NUMBER',
+  INTEGER: 'INTEGER',
+  BOOLEAN: 'BOOLEAN',
+  ARRAY: 'ARRAY',
+  OBJECT: 'OBJECT',
+} as const;
+
 export const BUSINESS_AGENT_TOOL_DEFINITIONS = [
   {
     name: 'createProductOrService',

@@ -509,7 +509,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row w-full max-w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex min-h-screen w-64 flex-col border-r border-border bg-card shadow-sm lg:w-72 flex-shrink-0">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
@@ -550,30 +550,31 @@ const AdminPage = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className={`md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
-        isNavVisible ? 'translate-y-0 shadow-xs' : '-translate-y-full shadow-none pointer-events-none'
+      <header className={`md:hidden sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md console-header-3d transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        isNavVisible ? 'translate-y-0' : '-translate-y-full shadow-none pointer-events-none'
       }`}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary/80 text-foreground"
+              aria-label="Open admin menu"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/80 text-foreground console-pill-3d"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              <span className="text-xs font-bold text-foreground truncate max-w-[180px]">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <Shield className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-xs font-bold text-foreground truncate">
                 {activeItem?.label || 'Admin'}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               type="button"
               size="sm"
               onClick={() => setAdminCopilotOpen(true)}
-              className="h-9 px-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-xs font-bold gap-1 shadow-sm"
+              className="h-9 px-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white text-xs font-bold gap-1 console-pill-3d"
               aria-label="Open Vixora Admin AI Copilot"
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -655,7 +656,7 @@ const AdminPage = () => {
                 type="button"
                 size="sm"
                 onClick={() => setAdminCopilotOpen(true)}
-                className="h-10 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-extrabold gap-1.5 shadow-md"
+                className="h-10 px-3.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-extrabold gap-1.5 console-pill-3d"
               >
                 <Sparkles className="h-4 w-4" />
                 <span>Vixora Admin AI</span>
@@ -676,7 +677,7 @@ const AdminPage = () => {
 
           {/* Top Active Section Header (for non-syndicate sections) */}
           {activeSection !== 'syndicate' && (
-            <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 shadow-lg flex items-center justify-between gap-3 w-full min-w-0 overflow-hidden`}>
+            <div className={`rounded-2xl bg-gradient-to-r ${activeItem.gradient} text-white p-4 md:p-5 console-hero-3d flex items-center justify-between gap-3 w-full min-w-0 overflow-hidden`}>
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <activeItem.icon className="h-6 w-6 text-white drop-shadow shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -697,7 +698,7 @@ const AdminPage = () => {
       </main>
 
       {/* Mobile Bottom Quick Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-md shadow-2xl safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-md console-dock-3d pb-safe">
         <div className="flex items-center justify-around px-2 py-2">
           {[
             { id: 'syndicate', label: 'Syndicate', icon: Briefcase, grad: 'from-purple-600 to-indigo-700' },

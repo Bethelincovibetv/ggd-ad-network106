@@ -110,66 +110,66 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
   const ctr = insights.reach > 0 ? ((stats.clicks / insights.reach) * 100).toFixed(1) : '0.0';
 
   const Metric = ({ icon: Icon, label, value, tint }: any) => (
-    <div className="rounded-2xl border border-border/60 bg-card p-3.5">
-      <div className="flex items-center gap-2">
-        <span className={`h-9 w-9 rounded-xl grid place-items-center ${tint}`}><Icon className="h-[18px] w-[18px]" /></span>
-        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+    <div className="rounded-2xl bg-card p-3.5 console-card-3d console-card-3d-interactive min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`h-9 w-9 rounded-xl grid place-items-center shrink-0 console-pill-3d ${tint}`}><Icon className="h-[18px] w-[18px]" /></span>
+        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
       </div>
-      <p className="text-2xl font-black mt-2 text-foreground">{value}</p>
+      <p className="text-xl sm:text-2xl font-black mt-2 text-foreground truncate">{value}</p>
     </div>
   );
 
   return (
-    <div id="overview-tab" className="space-y-4">
+    <div id="overview-tab" className="space-y-4 min-w-0 overflow-x-hidden">
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
-          <CardContent className="p-3">
+        <Card className="border-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white console-hero-3d console-card-3d-interactive">
+          <CardContent className="p-3 sm:p-3.5">
             <div className="flex items-center justify-between">
               <Eye className="h-5 w-5 opacity-80" />
               <span className="text-[10px] opacity-80 font-bold uppercase">Views</span>
             </div>
-            <p className="text-2xl font-black mt-2">{stats.impressions.toLocaleString()}</p>
+            <p className="text-xl sm:text-2xl font-black mt-2 truncate">{stats.impressions.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg">
-          <CardContent className="p-3">
+        <Card className="border-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white console-hero-3d console-card-3d-interactive">
+          <CardContent className="p-3 sm:p-3.5">
             <div className="flex items-center justify-between">
               <MousePointer className="h-5 w-5 opacity-80" />
               <span className="text-[10px] opacity-80 font-bold uppercase">Clicks</span>
             </div>
-            <p className="text-2xl font-black mt-2">{(stats.clicks + stats.shareClicks).toLocaleString()}</p>
+            <p className="text-xl sm:text-2xl font-black mt-2 truncate">{(stats.clicks + stats.shareClicks).toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('wallet')}>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <Banknote className="h-5 w-5 opacity-80" />
-              <div className="flex items-center gap-1">
-                <span className="relative flex h-1.5 w-1.5">
+        <Card className="border-0 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 text-white console-hero-3d console-card-3d-interactive cursor-pointer" onClick={() => onNavigate('wallet')}>
+          <CardContent className="p-3 sm:p-3.5">
+            <div className="flex items-center justify-between gap-1">
+              <Banknote className="h-5 w-5 opacity-80 shrink-0" />
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
                 </span>
-                <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Cash Wallet</span>
+                <span className="text-[10px] opacity-90 font-black uppercase tracking-wider truncate">Cash Wallet</span>
               </div>
             </div>
-            <p className="text-2xl font-black mt-2">₦{(walletBalance ?? localWallet).toLocaleString()}</p>
+            <p className="text-xl sm:text-2xl font-black mt-2 truncate">₦{(walletBalance ?? localWallet).toLocaleString()}</p>
           </CardContent>
         </Card>
         {isEnabled('credit_tasks') && isEnabled('task_wallet') && (
-          <Card className="border-0 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => onNavigate('fund-credits')}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <Coins className="h-5 w-5 opacity-80" />
-                <div className="flex items-center gap-1">
-                  <span className="relative flex h-1.5 w-1.5">
+          <Card className="border-0 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white console-hero-3d console-card-3d-interactive cursor-pointer" onClick={() => onNavigate('fund-credits')}>
+            <CardContent className="p-3 sm:p-3.5">
+              <div className="flex items-center justify-between gap-1">
+                <Coins className="h-5 w-5 opacity-80 shrink-0" />
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
                   </span>
-                  <span className="text-[10px] opacity-90 font-black uppercase tracking-wider">Credit Wallet</span>
+                  <span className="text-[10px] opacity-90 font-black uppercase tracking-wider truncate">Credit Wallet</span>
                 </div>
               </div>
-              <p className="text-2xl font-black mt-2">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
+              <p className="text-xl sm:text-2xl font-black mt-2 truncate">{isAdmin ? '∞' : credits.toLocaleString()} <span className="text-xs font-bold opacity-75">cr</span></p>
             </CardContent>
           </Card>
         )}
@@ -178,17 +178,17 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       {/* Vixora AI Creator Studio Hero Card */}
       {isEnabled('vixora_ai_studio') && (
         <Card
-          className="border-0 bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white shadow-xl cursor-pointer hover:scale-[1.01] transition-all overflow-hidden relative group"
+          className="border-0 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-purple-700 text-white console-hero-3d console-card-3d-interactive cursor-pointer overflow-hidden relative group"
           onClick={() => onNavigate('vixora-creator')}
         >
           <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 translate-x-10 pointer-events-none group-hover:translate-x-6 transition-transform" />
           <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 shadow-lg text-white">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shrink-0 console-pill-3d text-white">
                 <Video className="h-6 w-6 text-amber-200" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white flex items-center gap-1">
                     <Sparkles className="h-3 w-3 text-amber-300" /> NEW AI STUDIO
                   </span>
@@ -199,7 +199,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
-              <Button size="sm" className="bg-white hover:bg-white/90 text-orange-600 font-black text-xs uppercase px-4 py-2 shadow-md rounded-xl">
+              <Button size="sm" className="bg-white hover:bg-white/90 text-orange-600 font-black text-xs uppercase px-4 py-2 console-pill-3d rounded-xl">
                 Open Studio <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
@@ -209,7 +209,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
 
       {/* Action Center Banner Advert Slot */}
       {isEnabled('action_center_banners') && isEnabled('banner_ads') && (
-        <div className="rounded-2xl overflow-hidden border border-border/60 bg-card p-1 shadow-sm">
+        <div className="rounded-2xl overflow-hidden bg-card p-1 console-card-3d">
           <AdDisplayPreview />
         </div>
       )}
@@ -218,7 +218,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
       {isEnabled('watch_and_earn') && <WatchVideoAds />}
 
       {/* Professional analytics dashboard */}
-      <Card className="border-0 shadow-md">
+      <Card className="border-0 rounded-2xl console-surface-3d">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-black flex items-center gap-2">
@@ -240,7 +240,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
             )}
           </div>
 
-          <div className="mt-3 rounded-2xl border border-border/60 bg-gradient-to-br from-orange-500/10 to-red-500/10 p-3.5">
+          <div className="mt-3 rounded-2xl console-card-3d bg-gradient-to-br from-orange-500/10 to-red-500/10 p-3.5">
             <div className="flex items-center gap-2 mb-1">
               <Trophy className="h-4 w-4 text-orange-500" />
               <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Top Performing Campaign</span>
@@ -261,7 +261,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ credits, walletBalance, i
 
       {/* Live activity feed — collapsed, gated by toggle */}
       {isEnabled('live_activity') && (
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 rounded-2xl console-surface-3d">
           <CardContent className="p-0">
             <details className="group">
               <summary className="cursor-pointer list-none p-4 flex items-center justify-between">
