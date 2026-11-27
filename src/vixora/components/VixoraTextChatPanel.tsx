@@ -7,6 +7,14 @@ import { createBannerAdIdempotent } from '@/services/bannerAdService';
 import { uploadAgentDataUrl } from '@/services/vixoraBusinessAgentService';
 import { generateBannerIdempotencyKey } from '@/lib/bannerAds';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  VIXORA_CHAT_MODELS,
+  formatLegacyDirectResponse,
+  getStoredVixoraModel,
+  getVixoraModelOption,
+  isGemmaModel,
+  setStoredVixoraModel,
+} from '@/lib/vixoraModels';
 
 export interface ChatMessage {
   id: string;
@@ -177,7 +185,7 @@ interface VixoraTextChatPanelProps {
 const DEFAULT_WELCOME_MSG: ChatMessage = {
   id: 'msg_welcome',
   sender: 'vixora',
-  text: "How far my creator! 👋 I am Vixora, your AI Creator Assistant. Everything is powered seamlessly in the cloud—no API keys or setup required! You can chat with me or give me direct commands—I can generate videos on autopilot, change narrator voices, switch tabs, manage channel preferences, or write viral scripts! What are we cooking today?",
+  text: "Welcome to Vixora AI Chat! Powered securely through our server-side Gemini & Gemma engine with no API key setup needed. Ask me to check your GGD account, manage storefront products, create GGD banner adverts, write ad copy and scripts, or answer any question directly. You can switch between free-tier models anytime from the header.",
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 };
 
@@ -185,10 +193,9 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
   isOpen,
   onClose,
   appContext,
-  apiKey,
+  apiKey: _apiKey,
   themeMode = 'dark',
   isFullTab = false,
-  onStartLiveAssistant,
   initialPrompt
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -202,6 +209,8 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
     return [DEFAULT_WELCOME_MSG];
   });
 
+  const [selectedModel, setSelectedModel] = useState<string>(() => getStoredVixoraModel());
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [inputQuery, setInputQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -212,6 +221,26 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const syncModel = (evt: any) => {
+      if (evt?.detail?.model) {
+        setSelectedModel(evt.detail.model);
+      } else {
+        setSelectedModel(getStoredVixoraModel());
+      }
+    };
+    window.addEventListener('vixora-model-changed', syncModel);
+    return () => window.removeEventListener('vixora-model-changed', syncModel);
+  }, []);
+
+  const handleModelChange = (modelId: string) => {
+    const saved = setStoredVixoraModel(modelId);
+    setSelectedModel(saved);
+    setIsModelMenuOpen(false);
+    const meta = getVixoraModelOption(saved);
+    toast.success(`Switched Vixora chat model to ${meta.label}`);
+  };
 
   useEffect(() => {
     try {
@@ -309,18 +338,13 @@ export const VixoraTextChatPanel: React.FC<VixoraTextChatPanelProps> = ({
     setIsProcessing(true);
 
     try {
-      const systemInstruction = `You are 'Vixora' (Visora AI), the highly energetic, vibrant, warm, and brilliant Nigerian AI Creator Assistant & Video Producer! Address the user warmly by name (${appContext.userFullName || 'Creator'}). Your voice and vibe are 100% highly energetic, lively, witty, supportive, creative, and enthusiastic with authentic, warm Nigerian energy (e.g., "No wahala at all!", "Oya let's cook this viral masterpiece!", "I hear you crystal clear!"). Speak dynamically with high energy. No asterisks (*).
+      const systemInstruction = `You are Vixora AI, a concise, helpful Nigerian digital marketing and business assistant on GGD Ad Network. Address the user as ${appContext.userFullName || 'Creator'}.
 
-YOUR MANDATE:
-You can CONTROL the Vixora AI Studio app directly for the user using function calls/tools!
-Whenever the user asks you to make a video, switch tabs, change voice, edit script, change caption style, generate a flyer, or learn a skill, CALL THE APPROPRIATE TOOL!
-You have full direct platform authority. All AI video generation, scripts, voiceover TTS, and stock media are handled automatically by the platform AI backend. The user NEVER needs to enter any API keys or configure credentials. Under NO circumstances should you ask the user to provide an API key, enter a key in profile, or configure credentials. You assist them with content strategy, hooks, video scene concepts, voice recommendations, and channel optimization.
+RESPONSE FORMAT:
+Give clear, direct, legacy-style plain-text responses. Keep answers structured, concise, and practical without unnecessary fluff, without markdown asterisks (* or **), and without markdown heading hashes (#).
 
-AMBIGUITY RULE:
-If the user's request is ambiguous or missing information, ask a quick, friendly clarifying question first in chat.
-
-NAVIGATION:
-If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, call the navigateToTab tool immediately!`;
+CAPABILITIES:
+You can answer questions directly, inspect account overview and active campaigns, list or add storefront products, generate GGD banner adverts, and draft marketing copy or SEO tags using your tools. All AI execution runs server-side—never ask the user to enter API keys or mention any video studio.`;
 
       // Build conversation history turns for Gemini
       const historyTurns: any[] = messages
@@ -365,19 +389,32 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
 
       if (currentController.signal.aborted) return;
 
-      const functionDeclarations = VIXORA_AGENT_TOOLS.map(t => ({
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters
-      }));
+      const ALLOWED_CHAT_TOOLS = new Set([
+        'getGgdAccountStatus',
+        'manageUserProducts',
+        'manageGgdAdsAndCampaigns',
+        'generateBannerAdvert',
+        'generateScriptInChat',
+        'generateSeoTagsAndHooks',
+        'learnUserCustomSkill',
+        'navigateToTab',
+      ]);
+
+      const functionDeclarations = isGemmaModel(selectedModel)
+        ? []
+        : VIXORA_AGENT_TOOLS.filter((t) => ALLOWED_CHAT_TOOLS.has(t.name)).map(t => ({
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters
+          }));
 
       try {
         const apiResp = await fetch('/api/vixora', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'agent',
-            model: 'gemini-4-hydrogen',
+            action: functionDeclarations.length > 0 ? 'agent' : 'assistant',
+            model: selectedModel,
             contents: historyTurns,
             systemInstruction,
             functionDeclarations,
@@ -391,7 +428,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         if (data?.missingKey || apiResp.status === 503) {
           missingKeyError = data?.error || 'Vixora AI requires GEMINI_API_KEY to be configured on the server environment.';
         } else if (apiResp.ok && data?.ok) {
-          responseText = data.text || '';
+          responseText = formatLegacyDirectResponse(data.text || '');
 
           if (Array.isArray(data.functionCalls) && data.functionCalls.length > 0) {
             for (const fc of data.functionCalls) {
@@ -455,7 +492,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       action: 'agent',
-                      model: 'gemini-4-hydrogen',
+                      model: selectedModel,
                       contents: secondPassTurns,
                       systemInstruction,
                       functionDeclarations,
@@ -466,7 +503,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                   if (secondResp.ok) {
                     const secondData = await secondResp.json().catch(() => null);
                     if (secondData?.text) {
-                      responseText = secondData.text;
+                      responseText = formatLegacyDirectResponse(secondData.text);
                     }
                   }
                 } catch {
@@ -601,140 +638,53 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
         }
       }
 
-      // 2. AI Video Creation in Chat
-      else if ((lower.includes('make video') || lower.includes('cook video') || lower.includes('create video') || lower.includes('generate video') || lower.includes('autopilot')) && !videoResultData) {
-        const cleanTopic = textToSend.replace(/^(can you |please |vixora |generate |create |make |cook )*(a |an )*(video |autopilot video )*(for |about |on )*/i, '').trim() || '5 Rules for Success';
-        const ratio = lower.includes('youtube') || lower.includes('horizontal') ? 'horizontal' : 'vertical';
-        const duration = lower.includes('60s') || lower.includes('1min') ? '60s' : lower.includes('15s') ? '15s' : '30s';
-        
-        if (appContext.createVideoForChat) {
-          try {
-            videoResultData = await appContext.createVideoForChat(cleanTopic, ratio as any, duration);
-          } catch (e) {}
-        }
-        if (!videoResultData) {
-          videoResultData = {
-            title: cleanTopic,
-            videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-background-1611-large.mp4',
-            duration: duration,
-            aspectRatio: ratio,
-            scenesCount: 4,
-            scriptSnippet: `Auto-generated viral video on ${cleanTopic}. Ready to stream or export.`
-          };
-        }
-        actionBadgeText = `⚡ Autopilot Video Generated for "${cleanTopic}"`;
-        if (!responseText) {
-          responseText = `No wahala! I have created your video on "${cleanTopic}"! You can play it right here in the chat, download it, or open it in the Sequencer studio!`;
-        }
-      }
-
-      // 3. YouTube Script Genius
-      else if ((lower.includes('script') || lower.includes('write a script')) && !scriptResultData) {
-        const topic = textToSend.replace(/.*(for|about|on)\s+/i, '').trim() || 'The Future of AI';
-        let script = '';
-        if (appContext.generateScriptForChat) {
-          try {
-            script = await appContext.generateScriptForChat(topic);
-          } catch (e) {}
-        }
-        if (!script) {
-          script = `Stop scrolling if you want to understand ${topic}. Here is the secret top creators and winners never share: First, focus on relentless consistency. Second, master high-converting hooks. Third, optimize for retention. Comment below and subscribe for part 2!`;
-        }
+      // 2. Viral Ad Copy / Short Script Drafting
+      else if ((lower.includes('script') || lower.includes('write a script') || lower.includes('ad copy')) && !scriptResultData) {
+        const topic = textToSend.replace(/.*(for|about|on)\s+/i, '').trim() || 'Business Growth on GGD';
+        const script = `Hook: Stop scrolling if you want to grow ${topic} fast.\n\nBody: Most brands waste budget guessing where customers hang out. With GGD Ad Network, verified local promoters showcase your offer directly on active WhatsApp statuses and community channels.\n\nCall to Action: Tap the link in bio or message us on WhatsApp now to get started.`;
         scriptResultData = {
           title: topic,
-          script: script,
+          script,
           wordCount: script.split(/\s+/).filter(Boolean).length
         };
-        actionBadgeText = `⚡ Viral Script Generated for "${topic}"`;
+        actionBadgeText = `⚡ Ad Script Drafted for "${topic}"`;
         if (!responseText) {
-          responseText = `I have written an engaging, high-retention video script on "${topic}"! You can copy it, generate voiceover narration, or cook it into a full video in one click!`;
+          responseText = `Here is your direct ad script draft for "${topic}". You can copy it directly below or turn it into a banner advert.`;
         }
       }
 
-      // 4. Voiceover & TTS Studio
-      else if ((lower.includes('voiceover') || lower.includes('tts') || lower.includes('voice narration')) && !voiceoverResultData) {
-        const scriptSnippet = textToSend.replace(/.*(voiceover|narration|saying)\s+/i, '').trim() || 'Welcome to Vixora AI Studio, your automated video engine!';
-        const voice = lower.includes('sarah') ? 'Sarah' : lower.includes('fenrir') ? 'Fenrir' : 'Kore';
-        let audioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-        if (appContext.generateVoiceoverForChat) {
-          try {
-            const vo = await appContext.generateVoiceoverForChat(scriptSnippet, voice);
-            if (vo.audioUrl) audioUrl = vo.audioUrl;
-          } catch (e) {}
-        }
-        voiceoverResultData = {
-          text: scriptSnippet,
-          audioUrl: audioUrl,
-          voiceName: voice,
-          duration: 15
-        };
-        actionBadgeText = `⚡ Voiceover Audio Synthesized with ${voice}`;
-        if (!responseText) {
-          responseText = `Your studio voiceover with ${voice} is ready! You can listen to the preview audio or download it directly below!`;
-        }
-      }
-
-      // 5. SEO / Viral Tags & Hooks
-      else if ((lower.includes('seo') || lower.includes('tag') || lower.includes('hook') || lower.includes('thumbnail')) && !seoResultData) {
-        const topic = textToSend.replace(/.*(for|about|on)\s+/i, '').trim() || 'Viral Video Strategy';
-        let seoRes: any = null;
-        if (appContext.generateSeoTagsForChat) {
-          try {
-            seoRes = await appContext.generateSeoTagsForChat(topic);
-          } catch (e) {}
-        }
-        if (!seoRes) {
-          const clean = topic.replace(/\s+/g, '');
-          seoRes = {
-            tags: [`#${clean}`, '#viral', '#trending', '#youtube', '#shorts', '#growth', '#strategy'],
-            hooks: [
-              `Stop scrolling if you want to master ${topic}!`,
-              `The #1 secret about ${topic} that 99% get wrong...`,
-              `Here is why your ${topic} strategy isn't working and how to fix it in 30 seconds.`
-            ],
-            thumbnails: [
-              `Dramatic high-contrast expression with bold text: "${topic.toUpperCase()}"`,
-              `Before vs after growth chart with glowing green metrics`
-            ]
-          };
-        }
+      // 3. SEO / Viral Tags & Hooks
+      else if ((lower.includes('seo') || lower.includes('tag') || lower.includes('hook') || lower.includes('headline')) && !seoResultData) {
+        const topic = textToSend.replace(/.*(for|about|on)\s+/i, '').trim() || 'Nigeria Digital Marketing';
+        const clean = topic.replace(/\s+/g, '');
         seoResultData = {
-          topic: topic,
-          tags: seoRes.tags,
-          hooks: seoRes.hooks,
-          thumbnails: seoRes.thumbnails
+          topic,
+          tags: [`#${clean}`, '#GGDAdNetwork', '#NigeriaBusiness', '#WhatsAppMarketing', '#SalesGrowth'],
+          hooks: [
+            `Stop scrolling if you want better results from ${topic}.`,
+            `3 quick ways to double customer inquiries for ${topic} this week.`,
+            `How verified local businesses promote ${topic} across Nigerian states.`
+          ],
+          thumbnails: [
+            `Bold dark banner with crisp contrast text: "${topic.toUpperCase()}"`
+          ]
         };
-        actionBadgeText = `⚡ SEO Tags & Viral Hooks Generated`;
+        actionBadgeText = `⚡ SEO Tags & Marketing Hooks Ready`;
         if (!responseText) {
-          responseText = `Generated high-ranking SEO tags, 3-second retention hooks, and thumbnail concepts for "${topic}"!`;
+          responseText = `Generated SEO tags and direct marketing hooks for "${topic}".`;
         }
       }
 
-      // Other platform navigation intents
+      // Platform fallback replies
       else if (!responseText) {
         if (lower.includes('key') || lower.includes('setting') || lower.includes('developer') || lower.includes('fish.audio') || lower.includes('fish audio')) {
-          actionBadgeText = '⚡ Backend AI Engine Active';
-          responseText = "All AI and video generation engines are fully managed by the platform backend. You don't need to configure or provide any API keys!";
-        } else if (lower.includes('channel') || lower.includes('niche') || lower.includes('preference')) {
-          appContext.setActiveTab('studio');
-          targetNavTab = 'studio';
-          actionBadgeText = '⚡ Channel & Video Distribution Preferences';
-          responseText = "Your channel preferences are synchronized with your GGD profile! You can tap Channel in the top bar to adjust targets.";
-        } else if (lower.includes('coach') || lower.includes('sister')) {
-          appContext.setActiveTab('coach');
-          targetNavTab = 'coach';
-          actionBadgeText = '⚡ Navigated to Sister Vixora Coach';
-          responseText = "God bless you! Switched to Sister Vixora Content Master & Divine Purpose Coach.";
-        } else if (lower.includes('tools') || lower.includes('library')) {
-          appContext.setActiveTab('tools');
-          targetNavTab = 'tools';
-          actionBadgeText = '⚡ Navigated to Tools Library';
-          responseText = "Opening our unified Vixora AI Tools Library!";
+          actionBadgeText = '⚡ Server-Side AI Active';
+          responseText = `All Vixora AI calls run securely on the server using the ${getVixoraModelOption(selectedModel).label} model. You can switch between Gemini 3.8 Flash, 3.6 Flash, 3.5 Flash Lite, 3.1 Flash Lite, and Gemma 4 31B IT right from the chat header.`;
         } else if (missingKeyError) {
           actionBadgeText = '⚠️ Server Setup Required (GEMINI_API_KEY)';
           responseText = missingKeyError;
         } else {
-          responseText = "No wahala my creator! Tell me what video topic, GGD banner advert, script, or voiceover you would like to generate, or choose from our Quick Plugins below!";
+          responseText = "Ready to assist! Ask me anything directly, check your GGD account stats, list or add storefront products, generate a 300x250 banner advert, or switch models in the header.";
         }
       }
 
@@ -847,14 +797,14 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight truncate">Vixora AI Assistant</h3>
-                <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
-                  VIXORA AI
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight truncate">Vixora AI Chat</h3>
+                <span className="hidden xs:inline-block px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                  SERVER AI
                 </span>
               </div>
-              <p className="text-[9px] sm:text-[9.5px] font-bold uppercase text-ggd-orange tracking-wider sm:tracking-widest flex items-center gap-1.5 mt-0.5 truncate">
+              <p className="text-[9px] sm:text-[10px] font-bold text-ggd-orange tracking-wide flex items-center gap-1.5 mt-0.5 truncate">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                <span className="truncate">Active Workspace Command Agent</span>
+                <span className="truncate">{getVixoraModelOption(selectedModel).label}</span>
               </p>
             </div>
           </div>
@@ -862,35 +812,62 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {isProcessing && (
               <button 
+                type="button"
                 onClick={interruptAi}
                 title="Interrupt / Stop AI Response"
-                className="px-2.5 py-1.5 rounded-xl border border-red-500/40 bg-red-500/20 text-red-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 animate-pulse console-pill-3d"
+                className="px-2.5 py-1.5 rounded-xl border border-red-500/40 bg-red-500/20 text-red-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 animate-pulse console-pill-3d whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <i className="fa-solid fa-hand text-xs"></i>
                 <span className="hidden sm:inline">Stop</span>
               </button>
             )}
 
+            {/* MODEL SELECTOR */}
+            <div className="relative flex items-center shrink-0">
+              <select
+                aria-label="Select AI Model"
+                value={selectedModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                className={`h-8 sm:h-9 max-w-[132px] sm:max-w-[180px] pl-2.5 pr-6 rounded-xl border text-[10.5px] sm:text-xs font-bold outline-none cursor-pointer truncate console-pill-3d ${
+                  themeMode === 'light'
+                    ? 'bg-orange-50 border-orange-200 text-orange-800 hover:bg-orange-100'
+                    : 'bg-slate-900 border-orange-500/35 text-orange-200 hover:border-orange-400'
+                }`}
+              >
+                {VIXORA_CHAT_MODELS.map((m) => (
+                  <option
+                    key={m.id}
+                    value={m.id}
+                    className={themeMode === 'light' ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}
+                  >
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button 
-              onClick={() => {
-                appContext.setActiveTab('studio');
-                if (!isFullTab) onClose();
-              }}
-              title="Studio Workspace"
-              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase flex items-center gap-1.5 transition-all console-pill-3d ${
-                themeMode === 'light' 
-                  ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
-                  : 'bg-orange-500/15 border-orange-500/30 text-orange-300 hover:bg-orange-500/25'
+              type="button"
+              onClick={() => setIsModelMenuOpen((prev) => !prev)}
+              title="Model Settings & Info"
+              aria-label="Model Settings"
+              className={`h-8 sm:h-9 px-2.5 rounded-xl border text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all console-pill-3d whitespace-nowrap shrink-0 cursor-pointer ${
+                isModelMenuOpen
+                  ? 'bg-ggd-orange border-ggd-orange text-white'
+                  : themeMode === 'light'
+                  ? 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
               }`}
             >
-              <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
-              <span className="hidden sm:inline">Studio</span>
+              <i className="fa-solid fa-sliders text-xs"></i>
+              <span className="hidden md:inline">Models</span>
             </button>
 
             <button 
+              type="button"
               onClick={handleClearHistory} 
               title="Clear Chat History"
-              className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all console-pill-3d ${
+              className={`h-8 sm:h-9 px-2.5 rounded-xl border text-[10px] font-bold uppercase flex items-center gap-1.5 transition-all console-pill-3d whitespace-nowrap shrink-0 cursor-pointer ${
                 themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
               }`}
             >
@@ -899,9 +876,10 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             </button>
             {!isFullTab && (
               <button 
+                type="button"
                 onClick={onClose} 
                 aria-label="Close Vixora chat"
-                className={`w-9 h-9 rounded-xl flex items-center justify-center border text-xs transition-all console-pill-3d ${
+                className={`w-9 h-9 rounded-xl flex items-center justify-center border text-xs transition-all console-pill-3d shrink-0 cursor-pointer ${
                   themeMode === 'light' ? 'bg-slate-100 border-slate-200 text-slate-800 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                 }`}
               >
@@ -911,6 +889,55 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
           </div>
         </div>
 
+        {/* COLLAPSIBLE MODEL SETTINGS DRAWER */}
+        {isModelMenuOpen && (
+          <div className={`px-3 py-3 border-b shrink-0 space-y-2 ${
+            themeMode === 'light' ? 'bg-orange-50/60 border-slate-200 text-slate-900' : 'bg-slate-950/95 border-white/10 text-white'
+          }`}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black uppercase tracking-wider text-ggd-orange">
+                Select Server-Side Free-Tier Model
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsModelMenuOpen(false)}
+                className="text-[11px] font-bold text-slate-400 hover:text-white cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {VIXORA_CHAT_MODELS.map((m) => {
+                const active = selectedModel === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleModelChange(m.id)}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      active
+                        ? 'border-ggd-orange bg-orange-500/15 shadow-sm'
+                        : themeMode === 'light'
+                        ? 'border-slate-200 bg-white hover:bg-slate-50'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-xs font-bold truncate">{m.label}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        active ? 'bg-ggd-orange text-white' : 'bg-white/10 text-slate-400'
+                      }`}>
+                        {m.badge}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{m.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* CHATGPT-STYLE ACTIVE PLUGINS STATUS BAR */}
         <div className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b flex items-center justify-between text-[9px] font-bold min-w-0 max-w-full overflow-hidden shrink-0 ${
           themeMode === 'light' ? 'bg-orange-50/70 border-slate-200 text-slate-700' : 'bg-slate-950/80 border-white/5 text-slate-300'
@@ -918,7 +945,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0 w-full">
             <span className="font-black text-ggd-orange uppercase tracking-wider flex items-center gap-1 shrink-0">
               <i className="fa-solid fa-puzzle-piece text-[10px]"></i>
-              <span>Active Plugins:</span>
+              <span>Active Tools:</span>
             </span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
               📊 GGD Account
@@ -929,17 +956,11 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 shrink-0">
               ⚡ GGD Banners
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-400 shrink-0">
-              🎬 Video Studio
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 shrink-0">
-              📜 Script Genius
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shrink-0">
-              🎙️ Studio TTS
+            <span className="px-2 py-0.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-300 shrink-0">
+              📜 Ad Copy &amp; Scripts
             </span>
             <span className="px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-300 shrink-0">
-              👁️ Vision & Docs
+              👁️ Vision &amp; Docs
             </span>
           </div>
         </div>
@@ -949,19 +970,18 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
           themeMode === 'light' ? 'bg-slate-100/80 border-slate-200' : 'bg-slate-950/40 border-white/5'
         }`}>
           {[
-            { label: '📊 What is happening in my account?', cmd: 'What is happening in my GGD account right now?' },
-            { label: '🛍️ Show My Products', cmd: 'Show all my products in my GGD Storefront' },
-            { label: '⚡ 300x250 GGD Banner Ad', cmd: 'Generate a high-converting 300x250 banner advert for GGD Ad Network' },
-            { label: '🎬 Cook Autopilot Video', cmd: 'Generate a 30s vertical video on 5 rules of wealth' },
-            { label: '📜 Viral Shorts Script', cmd: 'Write a viral 30-second YouTube Shorts script about the future of AI' },
-            { label: '🎙️ Voiceover with Kore', cmd: 'Synthesize studio voiceover with Kore saying: Welcome to GGD Network!' },
-            { label: '📈 YouTube SEO Tags', cmd: 'Generate high-ranking SEO tags and viral hooks for crypto trading' },
-            { label: '🎨 Promotional Flyer', cmd: 'Generate a promotional flyer banner for my channel launch' }
+            { label: '📊 Account Stats', cmd: 'What is happening in my GGD account right now?' },
+            { label: '🛍️ My Products', cmd: 'Show all my products in my GGD Storefront' },
+            { label: '⚡ 300x250 Banner Ad', cmd: 'Generate a high-converting 300x250 banner advert for GGD Ad Network' },
+            { label: '📜 Ad Script Copy', cmd: 'Write a direct high-converting ad script for my business on WhatsApp' },
+            { label: '📈 SEO & Hooks', cmd: 'Generate SEO tags and marketing hooks for Nigerian e-commerce' },
+            { label: '🎨 Promo Flyer', cmd: 'Generate a promotional flyer banner for my business launch' }
           ].map((chip, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => handleSendMessage(chip.cmd)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all console-pill-3d shrink-0 ${
+              className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-all console-pill-3d shrink-0 cursor-pointer ${
                 themeMode === 'light'
                   ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                   : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
@@ -1204,27 +1224,17 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="pt-1">
                       <a 
                         href={msg.videoResult.videoUrl} 
                         download={`Vixora_${msg.videoResult.title.replace(/\s+/g, '_')}.mp4`}
                         target="_blank"
                         rel="noreferrer"
-                        className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
+                        className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
                       >
                         <i className="fa-solid fa-download"></i>
                         <span>Download MP4</span>
                       </a>
-                      <button 
-                        onClick={() => {
-                          appContext.setActiveTab('videos');
-                          if (!isFullTab) onClose();
-                        }}
-                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all text-center"
-                      >
-                        <i className="fa-solid fa-scissors"></i>
-                        <span>Open in Sequencer</span>
-                      </button>
                     </div>
                   </div>
                 )}
@@ -1394,27 +1404,23 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button 
+                        type="button"
                         onClick={() => {
                           navigator.clipboard?.writeText(msg.scriptResult?.script || '');
                           toast.success('Script copied to clipboard!');
                         }}
-                        className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
+                        className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center cursor-pointer"
                       >
                         <i className="fa-solid fa-copy"></i>
                         <span>Copy Script</span>
                       </button>
                       <button 
-                        onClick={() => {
-                          appContext.setGeneratedScript?.(msg.scriptResult?.script || '');
-                          appContext.setVideoScriptInput?.(msg.scriptResult?.script || '');
-                          appContext.setScriptTopic?.(msg.scriptResult?.title || '');
-                          appContext.setActiveTab('autopilot');
-                          if (!isFullTab) onClose();
-                        }}
-                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all text-center"
+                        type="button"
+                        onClick={() => handleSendMessage(`Create a 300x250 banner advert for ${msg.scriptResult?.title || 'my campaign'}`)}
+                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all text-center cursor-pointer"
                       >
-                        <i className="fa-solid fa-wand-magic-sparkles"></i>
-                        <span>Cook into Video</span>
+                        <i className="fa-solid fa-rectangle-ad"></i>
+                        <span>Make Banner Ad</span>
                       </button>
                     </div>
                   </div>
@@ -1426,7 +1432,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                     <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
                       <span className="text-cyan-400 flex items-center gap-1.5">
                         <i className="fa-solid fa-waveform-lines"></i>
-                        <span>Studio Voiceover Audio</span>
+                        <span>Voiceover Audio</span>
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-black">
                         Voice: {msg.voiceoverResult.voiceName}
@@ -1446,16 +1452,6 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                         <i className="fa-solid fa-download"></i>
                         <span>Download Audio</span>
                       </a>
-                      <button 
-                        onClick={() => {
-                          appContext.setActiveTab('voiceover');
-                          if (!isFullTab) onClose();
-                        }}
-                        className="flex-1 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition-all text-center"
-                      >
-                        <i className="fa-solid fa-sliders"></i>
-                        <span>Voice Studio</span>
-                      </button>
                     </div>
                   </div>
                 )}
@@ -1663,9 +1659,10 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsAddMenuOpen(false);
-                    handleSendMessage('Write a viral 30-second YouTube Shorts script about the future of AI');
+                    handleSendMessage('Write a direct high-converting ad script for my business on WhatsApp');
                   }}
                   className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 active:scale-95 transition-all ${
                     themeMode === 'light' ? 'bg-purple-50 hover:bg-purple-100 border-purple-200' : 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/20'
@@ -1675,33 +1672,35 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                     <i className="fa-solid fa-scroll"></i>
                   </div>
                   <div>
-                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Script Genius</p>
-                    <p className="text-[8px] text-slate-400">Retention Script</p>
+                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Ad Script</p>
+                    <p className="text-[8px] text-slate-400">WhatsApp &amp; Ads</p>
                   </div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsAddMenuOpen(false);
-                    handleSendMessage('Synthesize studio voiceover with Kore saying: Welcome to GGD Network!');
+                    handleSendMessage('Show all my products in my GGD Storefront');
                   }}
                   className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 active:scale-95 transition-all ${
                     themeMode === 'light' ? 'bg-cyan-50 hover:bg-cyan-100 border-cyan-200' : 'bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/20'
                   }`}
                 >
                   <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs">
-                    <i className="fa-solid fa-waveform-lines"></i>
+                    <i className="fa-solid fa-store"></i>
                   </div>
                   <div>
-                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Studio Voiceover</p>
-                    <p className="text-[8px] text-slate-400">TTS Audio Narration</p>
+                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Store Products</p>
+                    <p className="text-[8px] text-slate-400">Inspect Catalog</p>
                   </div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsAddMenuOpen(false);
-                    handleSendMessage('Generate high-ranking SEO tags and viral hooks for crypto trading');
+                    handleSendMessage('Generate SEO tags and marketing hooks for Nigerian e-commerce');
                   }}
                   className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 active:scale-95 transition-all ${
                     themeMode === 'light' ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200' : 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20'
@@ -1711,15 +1710,16 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                     <i className="fa-solid fa-bolt-lightning"></i>
                   </div>
                   <div>
-                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>SEO & Tags</p>
-                    <p className="text-[8px] text-slate-400">Viral Tags & Hooks</p>
+                    <p className={`text-[10px] font-black ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>SEO &amp; Hooks</p>
+                    <p className="text-[8px] text-slate-400">Tags &amp; Headlines</p>
                   </div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsAddMenuOpen(false);
-                    handleSendMessage('Generate a promotional flyer banner for my channel launch');
+                    handleSendMessage('Generate a promotional flyer banner for my business launch');
                   }}
                   className={`p-2.5 rounded-2xl border text-left flex items-center gap-2 active:scale-95 transition-all ${
                     themeMode === 'light' ? 'bg-pink-50 hover:bg-pink-100 border-pink-200' : 'bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20'
@@ -1734,32 +1734,6 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                   </div>
                 </button>
               </div>
-            </div>
-
-            {/* DIRECT TOOLS LIBRARY LINK */}
-            <div className="pt-1">
-              <button
-                onClick={() => {
-                  setIsAddMenuOpen(false);
-                  appContext.setActiveTab('tools');
-                }}
-                className={`w-full p-3 rounded-2xl border flex items-center justify-between text-left transition-all active:scale-95 group shadow-lg ${
-                  themeMode === 'light'
-                    ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
-                    : 'bg-gradient-to-r from-emerald-500/15 to-teal-500/15 hover:from-emerald-500/25 hover:to-teal-500/25 border-emerald-500/30'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xs shrink-0 shadow-md">
-                    <i className="fa-solid fa-shapes"></i>
-                  </div>
-                  <div>
-                    <p className={`text-[11px] font-black group-hover:text-emerald-500 transition-colors ${themeMode === 'light' ? 'text-slate-900' : 'text-white'}`}>Tools Library</p>
-                    <p className="text-[8.5px] text-slate-400">Open full suite of 12 AI creation tools</p>
-                  </div>
-                </div>
-                <i className="fa-solid fa-arrow-right text-xs text-emerald-500 group-hover:translate-x-1 transition-transform"></i>
-              </button>
             </div>
           </div>
         )}
@@ -1797,7 +1771,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
               onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
               title="Add Image, File, or Tool"
               aria-label="Add image, file, or tool"
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center border text-base transition-all shrink-0 console-pill-3d ${
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center border text-base transition-all shrink-0 console-pill-3d cursor-pointer ${
                 isAddMenuOpen
                   ? 'bg-ggd-orange border-ggd-orange text-white rotate-45'
                   : themeMode === 'light'
@@ -1808,31 +1782,12 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
               <i className="fa-solid fa-plus"></i>
             </button>
 
-            {/* LIVE VOICE SESSION BUTTON */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!isFullTab) onClose();
-                if (onStartLiveAssistant) {
-                  onStartLiveAssistant();
-                } else {
-                  appContext.setActiveTab('studio');
-                }
-              }}
-              title="Start Live Voice Assistant Call"
-              aria-label="Start Live Voice Assistant Call"
-              className="h-11 px-2.5 sm:px-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black uppercase text-[10px] tracking-wider flex items-center gap-1.5 console-pill-3d shrink-0 border border-amber-300/40 cursor-pointer"
-            >
-              <i className="fa-solid fa-microphone-lines text-xs animate-pulse"></i>
-              <span className="hidden sm:inline">Live Call</span>
-            </button>
-
             {/* INPUT FIELD */}
             <input 
               type="text" 
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
-              placeholder={isProcessing ? "Type to interrupt & ask something new..." : "Ask Vixora anything or type a command..."}
+              placeholder={isProcessing ? "Type to interrupt & ask something new..." : `Ask Vixora (${getVixoraModelOption(selectedModel).shortLabel}) anything...`}
               className={`min-w-0 flex-1 h-11 px-3 sm:px-4 rounded-2xl border text-sm sm:text-xs font-medium outline-none transition-all ${
                 themeMode === 'light'
                   ? 'bg-slate-100 border-slate-300 text-slate-900 focus:bg-white focus:border-ggd-orange'
@@ -1847,7 +1802,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
                 onClick={interruptAi}
                 title="Interrupt / Stop AI response"
                 aria-label="Interrupt AI response"
-                className="h-11 px-3.5 sm:px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg active:scale-90 animate-pulse shrink-0 cursor-pointer border border-red-400/40"
+                className="h-11 px-3.5 sm:px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg active:scale-90 animate-pulse shrink-0 whitespace-nowrap cursor-pointer border border-red-400/40"
               >
                 <i className="fa-solid fa-hand text-sm"></i>
                 <span className="hidden sm:inline text-[10px]">Stop</span>
@@ -1864,7 +1819,7 @@ If user asks to open studio, autopilot, scripts, voiceover, tools, or any page, 
             )}
           </form>
           <p className="text-[8.5px] text-slate-500 font-semibold text-center mt-1.5 hidden sm:block">
-            Vixora controls video production, voices, & scripts using AI function calling.
+            Powered server-side by {getVixoraModelOption(selectedModel).label} via /api/vixora.
           </p>
         </div>
       </div>

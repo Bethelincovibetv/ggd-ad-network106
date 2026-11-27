@@ -1,4 +1,19 @@
 import { GoogleGenAI, Modality } from '@google/genai';
+import {
+  DEFAULT_VIXORA_MODEL,
+  LEGACY_TEXT_RESPONSE_DIRECTIVE,
+  VIXORA_CHAT_MODELS,
+  formatLegacyDirectResponse,
+  isGemmaModel,
+  normalizeSelectedVixoraModel,
+} from './vixoraModels';
+
+export {
+  DEFAULT_VIXORA_MODEL,
+  VIXORA_CHAT_MODELS,
+  formatLegacyDirectResponse,
+  isGemmaModel,
+} from './vixoraModels';
 
 export const MISSING_GEMINI_API_KEY_MESSAGE =
   'GEMINI_API_KEY is not configured. Add GEMINI_API_KEY in Vercel Project Settings -> Environment Variables (or your environment Secrets) and redeploy or restart the server.';
@@ -78,20 +93,7 @@ export function normalizeVixoraModel(
     return 'gemini-3.8-flash-lite-tts';
   }
 
-  const raw = (requested || '').trim();
-  if (!raw) return 'gemini-4-hydrogen';
-
-  const lower = raw.toLowerCase();
-  // Map prohibited/deprecated models to valid models
-  if (
-    lower.startsWith('gemini-1.5') ||
-    lower.startsWith('gemini-2.0') ||
-    lower === 'gemini-pro'
-  ) {
-    return 'gemini-4-hydrogen';
-  }
-
-  return raw;
+  return normalizeSelectedVixoraModel(requested);
 }
 
 export function buildCandidateModels(
@@ -104,7 +106,68 @@ export function buildCandidateModels(
       new Set([primary, 'gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview'])
     );
   }
-  return Array.from(new Set(['gemini-4-hydrogen', primary, 'gemini-2.5-flash']));
+  return Array.from(new Set([primary, DEFAULT_VIXORA_MODEL, 'gemini-3.5-flash-lite']));
+}
+
+export function prepareModelGeneratePayload(params: {
+  model: string;
+  contents: any;
+  systemInstruction?: string;
+  temperature?: number;
+  responseMimeType?: string;
+  functionDeclarations?: any[];
+}): { contents: any; config?: Record<string, any> } {
+  const {
+    model,
+    contents,
+    systemInstruction = '',
+    temperature,
+    responseMimeType,
+    functionDeclarations,
+  } = params;
+
+  const trimmedSys = systemInstruction.trim();
+  const directiveSys = trimmedSys
+    ? `${trimmedSys}\n\n${LEGACY_TEXT_RESPONSE_DIRECTIVE}`
+    : LEGACY_TEXT_RESPONSE_DIRECTIVE;
+
+  if (isGemmaModel(model)) {
+    const config: Record<string, any> = {};
+    if (typeof temperature === 'number') {
+      config.temperature = temperature;
+    }
+
+    let effectiveContents = contents;
+    if (typeof contents === 'string') {
+      effectiveContents = `${directiveSys}\n\nUser Request:\n${contents}`;
+    } else if (Array.isArray(contents)) {
+      effectiveContents = [
+        { role: 'user', parts: [{ text: `Instructions:\n${directiveSys}` }] },
+        { role: 'model', parts: [{ text: 'Understood. I will reply clearly and directly.' }] },
+        ...contents,
+      ];
+    }
+
+    return {
+      contents: effectiveContents,
+      config: Object.keys(config).length > 0 ? config : undefined,
+    };
+  }
+
+  const config: Record<string, any> = {
+    systemInstruction: directiveSys,
+  };
+  if (typeof temperature === 'number') {
+    config.temperature = temperature;
+  }
+  if (typeof responseMimeType === 'string' && responseMimeType.trim()) {
+    config.responseMimeType = responseMimeType.trim();
+  }
+  if (Array.isArray(functionDeclarations) && functionDeclarations.length > 0) {
+    config.tools = [{ functionDeclarations }];
+  }
+
+  return { contents, config };
 }
 
 export function inferVixoraAction(url?: string, body?: any): VixoraApiAction {
@@ -187,6 +250,8 @@ export async function handleVixoraApiRequest(
       body: {
         ok: true,
         service: 'Vixora AI Serverless Gateway',
+        defaultModel: DEFAULT_VIXORA_MODEL,
+        availableModels: VIXORA_CHAT_MODELS.map((m) => m.id),
         configured: candidateKeys.length > 0,
         missingKey: candidateKeys.length === 0,
         cloudSqlUsed: false,
@@ -369,19 +434,20 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
     systemInstruction = `${systemInstruction}\n\n[PLATFORM CONSTRAINTS]: The following features are strictly DISABLED and must NEVER be mentioned, promoted, suggested, or referenced: ${input.disabledFeatures.join(', ')}.`;
   }
 
-  const config: Record<string, any> = {};
-  if (systemInstruction.trim()) config.systemInstruction = systemInstruction.trim();
-  if (typeof body.temperature === 'number') {
-    config.temperature = body.temperature;
-  } else if (action === 'agent') {
-    config.temperature = 0.4;
-  }
-  if (typeof body.responseMimeType === 'string' && body.responseMimeType.trim()) {
-    config.responseMimeType = body.responseMimeType.trim();
-  }
-  if (Array.isArray(body.functionDeclarations) && body.functionDeclarations.length > 0) {
-    config.tools = [{ functionDeclarations: body.functionDeclarations }];
-  }
+  const resolvedTemperature =
+    typeof body.temperature === 'number'
+      ? body.temperature
+      : action === 'agent'
+      ? 0.4
+      : undefined;
+  const resolvedResponseMimeType =
+    typeof body.responseMimeType === 'string' && body.responseMimeType.trim()
+      ? body.responseMimeType.trim()
+      : undefined;
+  const resolvedFunctionDeclarations =
+    Array.isArray(body.functionDeclarations) && body.functionDeclarations.length > 0
+      ? body.functionDeclarations
+      : undefined;
 
   const models = buildCandidateModels(body.model, 'text');
   let lastErrorMessage = 'Gemini API request failed.';
@@ -395,10 +461,19 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
 
     for (const model of models) {
       try {
-        const response = await ai.models.generateContent({
+        const prepared = prepareModelGeneratePayload({
           model,
           contents,
-          config: Object.keys(config).length > 0 ? config : undefined,
+          systemInstruction,
+          temperature: resolvedTemperature,
+          responseMimeType: resolvedResponseMimeType,
+          functionDeclarations: resolvedFunctionDeclarations,
+        });
+
+        const response = await ai.models.generateContent({
+          model,
+          contents: prepared.contents,
+          config: prepared.config,
         });
 
         const functionCalls = (response.functionCalls || []).map((fc: any) => ({
@@ -412,7 +487,7 @@ Return strictly valid JSON with keys: title, niche, platform, goal, faithAlignme
             body: {
               ok: true,
               model,
-              text: response.text || '',
+              text: formatLegacyDirectResponse(response.text || ''),
               functionCalls,
               candidates: response.candidates || [],
             },

@@ -1,12 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_VIXORA_MODEL,
   MISSING_GEMINI_API_KEY_MESSAGE,
+  VIXORA_CHAT_MODELS,
   buildCandidateModels,
+  formatLegacyDirectResponse,
   handleVixoraApiRequest,
   inferVixoraAction,
   isValidGeminiKey,
   normalizeVixoraModel,
+  prepareModelGeneratePayload,
   resolveCandidateGeminiKeys,
   resolvePrimaryGeminiKey,
 } from './vixoraServerHandler.ts';
@@ -41,16 +45,63 @@ describe('vixoraServerHandler', () => {
     );
   });
 
-  it('normalizes deprecated models to valid Gemini models', () => {
-    assert.equal(normalizeVixoraModel('gemini-1.5-flash'), 'gemini-4-hydrogen');
-    assert.equal(normalizeVixoraModel('gemini-2.0-flash'), 'gemini-4-hydrogen');
-    assert.equal(normalizeVixoraModel(''), 'gemini-4-hydrogen');
-    assert.equal(normalizeVixoraModel('gemini-2.5-flash'), 'gemini-2.5-flash');
+  it('defaults to gemini-3.8-flash, preserves requested free-tier models first, and exposes all 5 models', () => {
+    assert.equal(DEFAULT_VIXORA_MODEL, 'gemini-3.8-flash');
+    assert.deepEqual(
+      VIXORA_CHAT_MODELS.map((m) => m.id),
+      [
+        'gemini-3.8-flash',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemma-4-31b-it',
+      ]
+    );
+    assert.equal(normalizeVixoraModel('gemini-1.5-flash'), 'gemini-3.8-flash');
+    assert.equal(normalizeVixoraModel('gemini-2.0-flash'), 'gemini-3.8-flash');
+    assert.equal(normalizeVixoraModel('gemini-4-hydrogen'), 'gemini-3.8-flash');
+    assert.equal(normalizeVixoraModel(''), 'gemini-3.8-flash');
+    assert.equal(normalizeVixoraModel('gemini-3.6-flash'), 'gemini-3.6-flash');
+    assert.equal(normalizeVixoraModel('gemma-4-31b-it'), 'gemma-4-31b-it');
     assert.equal(normalizeVixoraModel(undefined, 'tts'), 'gemini-3.8-flash-lite-tts');
-    assert.deepEqual(buildCandidateModels('gemini-2.5-flash'), [
-      'gemini-4-hydrogen',
-      'gemini-2.5-flash',
+    assert.deepEqual(buildCandidateModels('gemini-3.6-flash'), [
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
+      'gemini-3.5-flash-lite',
     ]);
+    assert.equal(buildCandidateModels('gemma-4-31b-it')[0], 'gemma-4-31b-it');
+  });
+
+  it('adapts gemma-4-31b-it payloads cleanly without invalid tools or systemInstruction config fields', () => {
+    const gemmaPayload = prepareModelGeneratePayload({
+      model: 'gemma-4-31b-it',
+      contents: [{ role: 'user', parts: [{ text: 'Write an ad headline' }] }],
+      systemInstruction: 'You are Vixora AI.',
+      temperature: 0.4,
+      responseMimeType: 'application/json',
+      functionDeclarations: [{ name: 'testTool' }],
+    });
+
+    assert.equal(gemmaPayload.config?.tools, undefined);
+    assert.equal(gemmaPayload.config?.systemInstruction, undefined);
+    assert.equal(gemmaPayload.config?.responseMimeType, undefined);
+    assert.equal(gemmaPayload.config?.temperature, 0.4);
+    assert.equal(Array.isArray(gemmaPayload.contents), true);
+    assert.equal(gemmaPayload.contents[0].parts[0].text.includes('You are Vixora AI.'), true);
+
+    const geminiPayload = prepareModelGeneratePayload({
+      model: 'gemini-3.8-flash',
+      contents: [{ role: 'user', parts: [{ text: 'Hi' }] }],
+      systemInstruction: 'You are Vixora AI.',
+      functionDeclarations: [{ name: 'testTool' }],
+    });
+    assert.equal(typeof geminiPayload.config?.systemInstruction, 'string');
+    assert.equal(Array.isArray(geminiPayload.config?.tools), true);
+  });
+
+  it('cleans noisy markdown asterisks into clear legacy-style direct text', () => {
+    const cleaned = formatLegacyDirectResponse('### Campaign Plan\n**Headline:** Boost *Sales* Now!\n\n\nNext line');
+    assert.equal(cleaned, 'Campaign Plan\nHeadline: Boost Sales Now!\n\nNext line');
   });
 
   it('infers action cleanly from body.action or endpoint path', () => {
@@ -80,7 +131,7 @@ describe('vixoraServerHandler', () => {
     assert.equal(res.body.error, MISSING_GEMINI_API_KEY_MESSAGE);
   });
 
-  it('returns non-secret health status on GET /api/vixora without exposing keys', async () => {
+  it('returns non-secret health status on GET /api/vixora with default model and without exposing keys', async () => {
     const missingHealth = await handleVixoraApiRequest({
       method: 'GET',
       url: '/api/vixora',
@@ -90,6 +141,8 @@ describe('vixoraServerHandler', () => {
     assert.equal(missingHealth.body.configured, false);
     assert.equal(missingHealth.body.missingKey, true);
     assert.equal(missingHealth.body.cloudSqlUsed, false);
+    assert.equal(missingHealth.body.defaultModel, 'gemini-3.8-flash');
+    assert.equal(Array.isArray(missingHealth.body.availableModels), true);
 
     const secret = 'AIzaSySecretKeyNeverLeak1234567890';
     const configuredHealth = await handleVixoraApiRequest({
